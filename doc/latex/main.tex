@@ -1,0 +1,234 @@
+%% ===================================================================================
+%% Template para Trabalho de Conclusão de Curso (TCC) utilizando abntex2
+%% Versão: 2.2 (Corrigida)
+%% Baseado no modelo original abntex2 do grupo abnTeX2 e derivados.
+%% Este template foi projetado para ser um ponto de partida limpo, moderno e 
+%% fácil de usar para trabalhos de graduação, seguindo as normas da ABNT.
+%% ===================================================================================
+
+% A classe 'undergrad_thesis' é baseada na 'abntex2', configurada para as normas da ABNT.
+\documentclass[
+	% -- Opções da classe Memoir --
+	12pt,      % Tamanho da fonte
+	openright, % Capítulos começam em páginas ímpares (insere página em branco se necessário)
+	oneside,   % Para impressão em um lado. Use 'twoside' para frente e verso.
+	a4paper,   % Tamanho do papel
+	% -- Opções da classe abntex2 --
+	% Descomente para colocar os títulos de capítulos, seções, etc., em maiúsculas
+	% chapter=TITLE,
+	% section=TITLE,
+	% subsection=TITLE,
+	% -- Opções do pacote Babel --
+	english,   % Idioma adicional para hifenização
+	brazil     % O último idioma é o principal do documento
+]{undergrad_thesis}
+
+%% ===================================================================================
+%% IMPORTAÇÃO DE PACOTES
+%% ===================================================================================
+
+% -----------------------------------------------------------------------------------
+% -- Pacotes Fundamentais
+% -----------------------------------------------------------------------------------
+\usepackage[T1]{fontenc}      % Usa fontes T1 de 8-bits
+\usepackage[utf8]{inputenc}   % Codificação UTF-8 para acentos e caracteres especiais
+\usepackage{lmodern}          % Usa a família de fontes Latin Modern para melhor renderização do PDF
+\usepackage{indentfirst}      % Indenta o primeiro parágrafo de cada seção
+\usepackage{cmap}             % Torna o PDF pesquisável e copiável
+
+% -----------------------------------------------------------------------------------
+% -- Gráficos e Cores
+% -----------------------------------------------------------------------------------
+\usepackage{graphicx}         % Para inclusão de imagens
+\usepackage{subcaption}       % Para criar subfiguras dentro de um ambiente figure
+
+% -----------------------------------------------------------------------------------
+% -- Tabelas e Listagens de Código
+% -----------------------------------------------------------------------------------
+\usepackage{booktabs}         % Para tabelas com qualidade profissional
+\usepackage{listings}         % Para listagens de código básicas
+\usepackage{minted}           % Para listagens de código avançadas com realce de sintaxe (requer Pygments do Python)
+\usepackage[table]{xcolor}    % Para adicionar cor a linhas/células de tabelas
+\usepackage{multirow}         % Para mesclar linhas em tabelas
+
+% -----------------------------------------------------------------------------------
+% -- Matemática
+% -----------------------------------------------------------------------------------
+\usepackage{amsmath, amsfonts, amssymb} % Para composição matemática avançada
+
+% -----------------------------------------------------------------------------------
+% -- Formatação de Código
+% -----------------------------------------------------------------------------------
+\usepackage{inconsolata} % Fonte monoespaçada de boa legibilidade
+\lstset{
+    numbers=left,                   % Numeração de linhas à esquerda
+    numberstyle=\tiny,              % Estilo dos números de linha
+    numbersep=8pt,                  % Espaço entre os números e o código
+    frame=single,                   % Borda ao redor do código
+    framesep=6pt,                   % Espaço entre a borda e o código
+    xleftmargin=2em,                % Margem esquerda para acomodar os números
+    xrightmargin=1em,               % Margem direita
+    breaklines=true,                % Quebra de linhas longas
+    postbreak=\mbox{$\hookrightarrow$\space}, % Símbolo para indicar quebra de linha
+    basicstyle=\linespread{1.05}\ttfamily\footnotesize, % Estilo base do texto
+    keywordstyle=,                  % Estilo das palavras-chave (pode ser customizado)
+    commentstyle=,                  % Estilo dos comentários (pode ser customizado)
+    stringstyle=,                   % Estilo das strings (pode ser customizado)
+    showstringspaces=false,         % Não exibe espaços em strings de forma especial
+    tabsize=2,                      % Tamanho da tabulação
+    captionpos=b,                   % Posição da legenda (bottom)
+    rulecolor=,                     % Cor da borda (pode ser customizado)
+}
+
+% -----------------------------------------------------------------------------------
+% -- Citações e Bibliografia
+% -----------------------------------------------------------------------------------
+\usepackage[num]{abntex2cite}  % Estilo de citação ABNT (numérico)
+% Para o estilo autor-data, use: \usepackage[alf]{abntex2cite}
+
+%% ===================================================================================
+%% COMANDOS E CONFIGURAÇÕES PERSONALIZADAS
+%% ===================================================================================
+
+% -----------------------------------------------------------------------------------
+% -- Informações do Documento (para capa, folha de rosto e metadados do PDF)
+% -----------------------------------------------------------------------------------
+% [A FAZER: Preencha com as informações do seu trabalho]
+\titulo{Título do Trabalho de Conclusão de Curso}
+\autor{Seu Nome Completo}
+\local{Cidade, Estado}
+\data{\the\year}
+\orientador{Prof. Dr. Nome do Orientador}
+% \coorientador{Prof. Dr. Nome do Coorientador} % Descomente se houver coorientador
+\instituicao{%
+  Nome da Universidade
+  \par
+  Curso de Graduação em Nome do Curso}
+\tipotrabalho{Trabalho de Conclusão de Curso} % Ou Monografia, Relatório, etc.
+\preambulo{Trabalho de Conclusão de Curso apresentado como requisito parcial para a obtenção do grau de Bacharel em Nome do Curso pela Universidade Nome da Universidade.}
+\logo{imgs/university-logo.jpg} % [A FAZER: Adicione o logo da sua universidade na pasta 'imgs']
+
+% -----------------------------------------------------------------------------------
+% -- Configuração de Hiperlinks e Metadados do PDF
+% -----------------------------------------------------------------------------------
+\definecolor{hyperlinkblue}{RGB}{41, 5, 195} % Cor personalizada para os links
+
+\makeatletter
+\hypersetup{
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfcreator={LaTeX com abnTeX2},
+    pdfkeywords={palavra-chave1}{palavra-chave2}{palavra-chave3},
+    colorlinks=true,
+    linkcolor=hyperlinkblue,
+    citecolor=hyperlinkblue,
+    filecolor=magenta,
+    urlcolor=hyperlinkblue,
+    bookmarksdepth=4,
+    bookmarkstype=toc
+}
+\makeatother
+
+% -----------------------------------------------------------------------------------
+% -- Espaçamento e Layout
+% -----------------------------------------------------------------------------------
+\setlength{\parindent}{1.5cm} % Indentação do parágrafo
+\setlength{\parskip}{0.2cm}   % Espaçamento vertical entre parágrafos
+
+% -----------------------------------------------------------------------------------
+% -- Índice Remissivo
+% -----------------------------------------------------------------------------------
+\makeindex % Gera o arquivo do índice remissivo
+
+%% ===================================================================================
+%% INÍCIO DO DOCUMENTO
+%% ===================================================================================
+\begin{document}
+
+% Usa os padrões de hifenização e espaçamento do português do Brasil
+\frenchspacing
+
+% ----------------------------------------------------------
+% -- ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+\pretextual
+
+% --- Capa e Folha de Rosto ---
+\imprimircapalogo % Use \imprimircapa se não quiser o logo
+\imprimirfolhaderosto
+
+% --- Outros elementos pré-textuais (folha de aprovação, dedicatória, etc.) ---
+% [A FAZER: Edite o arquivo 'pretextual_elements.tex' com suas informações]
+\include{pretextual_elements}
+
+% --- Lista de Figuras ---
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+% --- Lista de Tabelas ---
+% [A FAZER: Descomente as linhas abaixo se seu trabalho tiver tabelas]
+% \pdfbookmark[0]{\listtablename}{lot}
+% \listoftables*
+% \cleardoublepage
+
+% --- Lista de Siglas e Abreviaturas ---
+% [A FAZER: Adicione suas siglas em 'acronyms.tex' e descomente a linha abaixo]
+\include{acronyms}
+
+% --- Lista de Símbolos (Opcional) ---
+% [A FAZER: Descomente se você tiver uma lista de símbolos]
+% \begin{simbolos}
+%    \item[$ \alpha $] -- Descrição do símbolo alfa.
+%    \item[$ \beta $] -- Descrição do símbolo beta.
+% \end{simbolos}
+% \cleardoublepage
+
+% --- Sumário ---
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ----------------------------------------------------------
+% -- ELEMENTOS TEXTUAIS (CAPÍTULOS)
+% ----------------------------------------------------------
+\textual
+
+% [A FAZER: Escreva seus capítulos nestes arquivos .tex separados]
+% Esta abordagem modular é altamente recomendada para gerenciar documentos longos.
+\include{chapters/01_introduction}
+\include{chapters/02_methodology}
+\include{chapters/03_methodology}
+\include{chapters/04_development}
+\include{chapters/05_results}
+\include{chapters/06_conclusion}
+
+% ----------------------------------------------------------
+% -- ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+\bookmarksetup{startatroot} % Reseta a hierarquia dos bookmarks para os elementos pós-textuais
+
+% --- Referências ---
+% O estilo 'abnt-num' cria citações numéricas. Para autor-data, use 'abnt-alf'.
+\bibliographystyle{abnt-num}
+% O arquivo .bib contendo suas referências
+% [A FAZER: Adicione suas referências ao arquivo 'references.bib']
+\bibliography{references}
+
+% --- Apêndices (Opcional) ---
+% [A FAZER: Descomente se você tiver apêndices]
+% \appendix
+% \include{posttextual/appendix_a}
+
+% --- Anexos (Opcional) ---
+% [A FAZER: Descomente se você tiver anexos]
+% \anexos
+% \include{posttextual/attachment_a}
+
+% --- Índice Remissivo (Opcional) ---
+% [A FAZER: Descomente para imprimir o índice remissivo]
+% \printindex
+
+\end{document}

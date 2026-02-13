@@ -1,0 +1,56 @@
+\chapter{Desenvolvimento}\label{cap:desenvolvimento}
+
+Neste capítulo, detalha-se o processo de construção técnica do sistema Vitrine. A implementação foi guiada pela busca de uma solução que aliasse a robustez de frameworks modernos à simplicidade de manutenção exigida pelo público-alvo de educadores e pesquisadores.
+
+\section{Desenvolvimento da Solução Proposta}
+O desenvolvimento do Vitrine foi pautado na criação de um CMS modular. Seguindo a metodologia incremental, o sistema foi construído sobre o ecossistema \textit{fullstack} do framework Next.js, utilizando o paradigma de \textit{App Router} para otimizar a renderização e o roteamento.
+
+\subsection{Arquitetura do Sistema}
+A arquitetura do sistema foi projetada para ser desacoplada e portátil, fundamentada no padrão de renderização híbrida. O sistema divide-se em três camadas principais:
+
+\begin{itemize}
+    \item \textbf{Camada de Apresentação (Front-end):} Desenvolvida com React e Tailwind CSS, focada em entregar uma interface responsiva e componentes modulares que consomem variáveis CSS dinâmicas para a personalização visual.
+    \item \textbf{Camada de Aplicação (Back-end):} Composta por \textit{Server Components} e \textit{Server Actions} do Next.js, eliminando a necessidade de uma API externa separada e simplificando a lógica de negócio e autenticação via Auth.js.
+    \item \textbf{Camada de Persistência:} Utiliza o banco de dados SQLite gerenciado pelo Prisma ORM. Esta camada é responsável por armazenar tanto o conteúdo em Markdown quanto as configurações de identidade visual do sistema.
+\end{itemize}
+
+\subsection{Modelagem de Dados}
+A persistência de dados foi modelada para garantir a portabilidade no SQLite. O Diagrama de Entidade-Relacionamento (Figura \ref{fig:er}) destaca a tabela \textit{contents} e sua natureza recursiva, permitindo representar estruturas de dados em árvore de profundidade arbitrária. Para a recuperação eficiente desses dados, implementou-se uma lógica de ordenação baseada no atributo \texttt{order}, garantindo que elementos no mesmo nível da hierarquia mantenham a sequência definida pelo administrador.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/entity-relationship-diagram.png}
+    \caption{Diagrama de Entidade-Relacionamento com foco na auto-relação.}
+    \label{fig:er}
+\end{figure}
+
+\subsection{Prototipagem de Alta Fidelidade}
+Antes da codificação final, foram desenvolvidos protótipos de alta fidelidade para validar a experiência do usuário (UX) e a interface (UI). Estes protótipos serviram como guia para a implementação dos componentes React e para a definição das variáveis de estilo dinâmicas.
+
+A Figura \ref{fig:proto_admin} apresenta a interface de gerenciamento, onde é possível observar a disposição da barra lateral hierárquica e o editor de Markdown. A Figura \ref{fig:proto_style} ilustra o módulo de personalização, evidenciando como os seletores de cores interagem com a pré-visualização do sistema.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/university-logo.jpg}
+    \caption{Protótipo de alta fidelidade do painel administrativo e editor.}
+    \label{fig:proto_admin}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/university-logo.jpg}
+    \caption{Protótipo da interface de personalização de cores e branding.}
+    \label{fig:proto_style}
+\end{figure}
+
+\subsection{Principais Funcionalidades Implementadas}
+As funcionalidades implementadas visam reduzir a carga cognitiva do usuário final, automatizando processos complexos de desenvolvimento web.
+
+\subsubsection{Personalização de UI com Variáveis Dinâmicas}
+O sistema lê os valores hexadecimais salvos na tabela de configurações e os injeta como variáveis de ambiente CSS (\textit{CSS Variables}) no componente raiz da aplicação. Para manter a performance, utiliza-se o mecanismo de \textit{Incremental Static Regeneration} (ISR), que revalida o cache da página no momento em que as configurações são salvas.
+
+\subsubsection{Editor de Markdown e Renderização Científica}
+O sistema integra um editor de texto otimizado que persiste dados em Markdown. A renderização no front-end suporta realce de sintaxe para múltiplas linguagens de programação e a compilação de expressões matemáticas escritas em \textit{LaTeX}.
+
+\subsubsection{Sistema de Gestão de Conteúdo (Admin Panel)}
+O painel administrativo permite a manipulação da estrutura de arquivos do blog de forma visual. O administrador pode alternar entre tipos de conteúdo (\textit{Document} ou \textit{Collection}), reordenar itens e gerenciar o \textit{deploy} de novos materiais de forma intuitiva.

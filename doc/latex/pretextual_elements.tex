@@ -1,0 +1,115 @@
+%% ===================================================================================
+%% Elementos Pré-Textuais (pretextual_elements.tex)
+%% Versão: 2.2 (Corrigida)
+%%
+%% Este arquivo contém:
+%% - Folha de Aprovação
+%% - Dedicatória
+%% - Agradecimentos
+%% - Epígrafe
+%% - Resumo em Português
+%% - Resumo em Língua Estrangeira (ex: Inglês)
+%%
+%% Preencha, descomente ou remova as seções conforme sua necessidade.
+%% ===================================================================================
+
+
+% -----------------------------------------------------------------------------------
+% -- FOLHA DE APROVAÇÃO
+% -----------------------------------------------------------------------------------
+% NOTA: Este é um elemento obrigatório (ABNT NBR 14724:2011).
+% Você pode usar esta versão em texto para rascunhos. Após a defesa, é uma
+% prática comum escanear a página assinada e substituir todo o conteúdo do
+% ambiente 'folhadeaprovacao' por: \includegraphics[width=\textwidth]{caminho/para/pagina_assinada.pdf}
+% -----------------------------------------------------------------------------------
+\begin{folhadeaprovacao}
+  \begin{center}
+    {\ABNTEXchapterfont\large\imprimirautor}
+
+    \vspace*{\fill}
+    {\ABNTEXchapterfont\bfseries\Large\imprimirtitulo}
+    \vspace*{\fill}
+
+    \hspace{.45\textwidth}
+    \begin{minipage}{.5\textwidth}
+      \SingleSpacing
+      \imprimirpreambulo
+    \end{minipage}%
+    \vspace*{\fill}
+  \end{center}
+
+  % [A FAZER: Ajuste a data de aprovação. \today usa a data da compilação.]
+  Trabalho aprovado. \imprimirlocal, \today:
+  \vspace*{2cm}
+
+  % [A FAZER: Preencha com os nomes dos membros da sua banca examinadora.]
+  \assinatura{\textbf{\imprimirorientador} \\ Orientador(a)}
+  \assinatura{\textbf{Nome Completo Membro da Banca 1} \\ Instituição}
+  \assinatura{\textbf{Nome Completo Membro da Banca 2} \\ Instituição}
+  % \assinatura{\textbf{Nome Completo do Membro da Banca 3} \\ Instituição} % Descomente se necessário
+
+\end{folhadeaprovacao}
+
+
+% -----------------------------------------------------------------------------------
+% -- DEDICATÓRIA (Opcional)
+% -----------------------------------------------------------------------------------
+% [A FAZER: Escreva sua dedicatória aqui ou comente/remova todo o ambiente.]
+\begin{dedicatoria}
+	\vspace*{\fill} % Centraliza o texto verticalmente
+	\flushright    % Alinha o texto à direita
+	\textit{DEDICATÓRIA: Agradeço aos ..., pelo apoio e incentivo incondicional...}
+\end{dedicatoria}
+
+
+% -----------------------------------------------------------------------------------
+% -- AGRADECIMENTOS (Opcional)
+% -----------------------------------------------------------------------------------
+% [A FAZER: Escreva seus agradecimentos aqui ou comente/remova todo o ambiente.]
+\begin{agradecimentos}
+Agradeço a todos que contribuíram para a realização deste trabalho. Em especial, ao meu orientador, Prof. Dr. [Nome do Orientador], pelo suporte e orientação ao longo de todo o processo.
+
+\end{agradecimentos}
+
+
+% -----------------------------------------------------------------------------------
+% -- EPÍGRAFE (Opcional)
+% -----------------------------------------------------------------------------------
+% [A FAZER: Adicione uma epígrafe aqui ou comente/remova todo o ambiente.]
+\begin{epigrafe}
+	\vspace*{\fill}
+	\begin{flushright}
+		\textit{``A educação é a arma mais poderosa que você pode usar para mudar o mundo."} \\
+		\textendash{} Nelson Mandela
+	\end{flushright}
+\end{epigrafe}
+
+
+% -----------------------------------------------------------------------------------
+% -- RESUMO EM PORTUGUÊS (Obrigatório)
+% -----------------------------------------------------------------------------------
+\begin{resumo}
+	% [A FAZER: Escreva o resumo do seu trabalho em português aqui.]
+	O resumo deve apresentar de forma concisa o tema do trabalho, o problema de pesquisa, os objetivos, a metodologia utilizada e os principais resultados ou conclusões alcançadas. Ele é uma parte crucial do trabalho, pois fornece uma visão geral que permite ao leitor compreender rapidamente o escopo e a contribuição da sua pesquisa. O resumo deve ser escrito em um único parágrafo, contendo entre 150 e 500 palavras, conforme a ABNT.
+
+	\vspace{\onelineskip} % Adiciona uma linha em branco antes das palavras-chave
+	\noindent % Impede a indentação da linha das palavras-chave
+	\textbf{Palavras-chave}: Engenharia de Software; Metodologia Ágil; Qualidade de Software.
+\end{resumo}
+
+
+% -----------------------------------------------------------------------------------
+% -- RESUMO EM LÍNGUA ESTRANGEIRA (Obrigatório)
+% -----------------------------------------------------------------------------------
+\begin{resumo}[Abstract] % O título do resumo no idioma desejado
+	\begin{otherlanguage*}{english} % Define o idioma para este ambiente
+
+		% [A FAZER: Escreva o resumo do seu trabalho em inglês aqui.]
+		The abstract should concisely present the theme of the work, the research problem, objectives, the methodology used, and the main results or conclusions reached. It is a crucial part of the work, as it provides an overview that allows the reader to quickly understand the scope and contribution of your research. The abstract should be written in a single paragraph, containing between 150 and 500 words, according to ABNT standards.
+
+		\vspace{\onelineskip}
+		\noindent
+		\textbf{Keywords}: Software Engineering; Agile Methodology; Software Quality.
+
+	\end{otherlanguage*}
+\end{resumo}

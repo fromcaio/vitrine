@@ -1,0 +1,44 @@
+\chapter{Introdução}\label{cap:intro}
+
+\section{Contextualização}
+A disseminação de conhecimento acadêmico encontrou na web seu principal canal de expansão. No entanto, para docentes e pesquisadores — especialmente de áreas não tecnológicas —, a criação de um espaço próprio para publicação de artigos e materiais didáticos ainda esbarra em um dilema: a dependência de plataformas proprietárias e rígidas ou a complexidade de gerenciar infraestruturas de sistemas de gerenciamento de conteúdo (\textit{Content Management Systems} - CMS) tradicionais.
+
+Muitos educadores recorrem a redes sociais ou plataformas de terceiros para compartilhar seus estudos, o que acarreta na perda de controle sobre a identidade visual, na dificuldade de formatação de elementos técnicos — como fórmulas matemáticas e blocos de código — e na fragilidade quanto à perenidade do conteúdo. Nesse cenário, surge o interesse em desenvolver uma ferramenta que una a autonomia de um domínio próprio com a simplicidade de um serviço pronto para uso, reduzindo as barreiras tecnológicas.
+
+\section{Motivação}
+O projeto \textbf{Vitrine} nasce da convicção de que cada educador deve ter a capacidade de possuir sua própria "vitrine" de conhecimento, de forma independente e personalizada. A motivação principal reside em transformar o processo de implantação (\textit{deployment}) em um ato acessível, permitindo que a barreira técnica não seja um impedimento para a presença digital qualificada do docente. 
+
+Ao oferecer uma solução \textit{open source}, modular e versátil, o projeto busca devolver ao autor o controle total sobre sua produção intelectual e a estética de sua apresentação. Aprender e compartilhar conhecimento são experiências transformadoras e, conforme destacado por \cite{KeRainerJr2019}, sistemas de informação eficazes devem servir como facilitadores desse processo, e não como obstáculos.
+
+\section{Objetivos}
+
+\subsection{Objetivo Geral}
+Desenvolver o \textbf{Vitrine}, uma plataforma CMS \textit{open source}, modular e de fácil implantação, baseada no framework Next.js, voltada para a criação de blogs e portfólios acadêmicos por professores e pesquisadores.
+
+\subsection{Objetivos Específicos}
+\begin{itemize}
+    \item Viabilizar a publicação independente por meio de um processo de \textit{clonagem} e \textit{deployment} simplificado;
+    \item Implementar um editor de texto baseado em \textit{markdown} que suporte necessidades da escrita científica, como realce de sintaxe e fórmulas em \textit{LaTeX};
+    \item Prover um sistema de personalização visual dinâmica que permita a alteração da paleta de cores via interface administrativa, sem necessidade de novos ciclos de compilação (\textit{build});
+    \item Adotar uma arquitetura de dados portátil utilizando o ORM Prisma e o banco de dados SQLite;
+    \item Integrar um sistema de autenticação simplificado através do Auth.js para garantir a segurança no gerenciamento de conteúdos.
+\end{itemize}
+
+\section{Justificativa}
+A proposta deste trabalho se justifica pela busca do equilíbrio entre modernidade tecnológica e portabilidade. O uso do \textbf{Next.js} permite uma renderização híbrida de alto desempenho, essencial para a indexação em motores de busca (SEO) e para a experiência do usuário. A escolha do \textbf{SQLite} como banco de dados é estratégica: por ser um sistema baseado em arquivo, ele simplifica drasticamente a infraestrutura necessária, reduzindo custos e complexidade de manutenção para o usuário final.
+
+Ao contrário de ambientes virtuais de aprendizagem amplamente utilizados, como o \textbf{Moodle} — cuja proposta central é gerenciar cursos, avaliações e atividades acadêmicas institucionais —, o \textbf{Vitrine} foi concebido especificamente como uma plataforma de publicação autônoma. Embora o Moodle cumpra seu papel em contextos formais, adaptá-lo para fluxos editoriais leves e personalizados exige modificações complexas e adesão a requisitos técnicos institucionais rígidos.
+
+Adicionalmente, a plataforma foca na democratização do acesso à publicação digital. Embora o \textbf{Vitrine} seja projetado para ser intuitivo para usuários sem conhecimento técnico em desenvolvimento web, como professores de áreas de humanidades ou biológicas, ele também se apresenta como uma solução prática para \textbf{desenvolvedores e professores de tecnologia}. Para este público, a ferramenta oferece uma base sólida, moderna e extensível que elimina o trabalho repetitivo de configurar uma estrutura de blog do zero, permitindo que foquem exclusivamente na produção de conteúdo ou na implementação de novos módulos customizados.
+
+A inovação técnica reside na implementação de uma interface que manipula variáveis CSS em tempo de execução, persistindo-as no banco de dados e refletindo-as instantaneamente através de \textit{Incremental Static Regeneration} (ISR). Esta abordagem une a velocidade de um site estático com a flexibilidade de um sistema dinâmico, garantindo a longevidade e a portabilidade dos materiais produzidos.
+
+\section{Organização da Monografia}
+Além deste capítulo, os demais estão organizados da seguinte forma:
+
+\begin{itemize}
+    \item Capítulo \ref{cap:refTeorico}: Contém o referencial teórico e as tecnologias utilizadas, como React, Next.js e o paradigma Jamstack;
+    \item Capítulo \ref{cap:Metodologia}: Apresenta a metodologia de desenvolvimento e o levantamento de requisitos;
+    \item Capítulo \ref{cap:devSistema}: Relata as etapas da construção do sistema Vitrine, decisões de arquitetura e testes realizados;
+    \item Capítulo \ref{cap:conclusao}: Apresenta as conclusões, limitações do trabalho e propostas de funcionalidades futuras.
+\end{itemize}

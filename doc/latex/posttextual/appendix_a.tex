@@ -1,0 +1,66 @@
+%% ===================================================================================
+%% Apêndices e Anexos (appendix_a.tex)
+%% Versão: 2.2 (Corrigida)
+%%
+%% Este arquivo contém os elementos pós-textuais do seu trabalho. Ele separa
+%% claramente Apêndices (trabalho do próprio autor) de Anexos (material de terceiros).
+%%
+%% Para usar este arquivo:
+%% 1. Adicione seu conteúdo sob as seções apropriadas abaixo.
+%% 2. No arquivo main.tex, descomente os blocos \appendix ou \anexos e use
+%%    \include{posttextual/appendix_a} para adicionar este conteúdo ao seu documento.
+%% ===================================================================================
+
+% -----------------------------------------------------------------------------------
+% -- APÊNDICES ----------------------------------------------------------------------
+% Um Apêndice contém material suplementar CRIADO PELO AUTOR.
+% Exemplos: código-fonte, dados de pesquisa, provas matemáticas detalhadas.
+% -----------------------------------------------------------------------------------
+% \appendix % Este comando inicia a seção de apêndices, numerando os capítulos com letras (A, B, C...).
+
+% [A FAZER: Adicione seus apêndices abaixo. Cada apêndice deve ser um novo \chapter.]
+% Se você não tiver apêndices, pode deletar esta seção.
+
+\chapter{Código Fonte do Módulo de Autenticação}
+\label{ap:codigo_fonte}
+
+Este apêndice contém o código-fonte completo para o módulo de autenticação discutido no Capítulo 4. O código é fornecido para referência e completude.
+
+Você pode adicionar blocos de código com realce de sintaxe usando o ambiente `minted`.
+\begin{minted}[linenos, frame=lines]{python}
+# auth_module.py
+
+def validar_usuario(username, password):
+    """
+    Valida as credenciais do usuário contra o banco de dados.
+    Esta é uma função de exemplo.
+    """
+    if not username or not password:
+        return False
+    # Em uma aplicação real, você consultaria um banco de dados aqui.
+    print(f"Validando usuário: {username}")
+    return True
+\end{minted}
+
+
+% -----------------------------------------------------------------------------------
+% -- ANEXOS -------------------------------------------------------------------------
+% Um Anexo contém material de apoio DE OUTRAS FONTES.
+% Exemplos: mapas, leis, manuais técnicos de um fabricante.
+% -----------------------------------------------------------------------------------
+% \anexos % Este comando inicia a seção de anexos, continuando a numeração com letras.
+
+% [A FAZER: Adicione seus anexos abaixo. Cada anexo deve ser um novo \chapter.]
+% Se você não tiver anexos, pode deletar esta seção.
+
+\chapter{Manual Técnico do Sensor Y}
+\label{anx:manual}
+
+Este anexo fornece o manual técnico oficial do fabricante para o sensor de temperatura utilizado no experimento (Capítulo 3). O documento especifica sua faixa de operação e precisão.
+
+Você pode incluir um documento externo (como um PDF ou imagem) como uma figura.
+\begin{figure}[H] % A opção [H] do pacote 'float' posiciona a figura exatamente aqui.
+    \centering
+    % \includegraphics[width=0.8\textwidth]{caminho/para/imagem_manual.png}
+    \fbox{Espaço reservado para uma imagem ou documento escaneado.}
+    \caption{Especificações técnicas do Sensor Y.}

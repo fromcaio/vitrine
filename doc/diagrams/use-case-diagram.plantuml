@@ -1,0 +1,61 @@
+@startuml VitrineUseCasesRefined
+left to right direction
+
+skinparam packageBorderColor transparent
+skinparam packageBackgroundColor transparent
+
+' Atores à esquerda
+actor "Leitor" as Leitor
+actor "Administrador" as Admin
+
+rectangle {
+    rectangle "Navegação e Leitura" {
+        usecase "Explorar Sidebar Hierárquica" as UC_Nav
+        usecase "Visualizar Página Única" as UC_Single
+        usecase "Ler Conteúdo (Markdown)" as UC_Read
+        
+        UC_Nav ..> UC_Read : <<include>>
+        UC_Single ..> UC_Read : <<include>>
+    }
+    rectangle "Gestão de Estrutura" {
+        usecase "Gerenciar Conteúdo" as UC_Manage
+        usecase "Criar Documento" as UC_CreateDoc
+        usecase "Criar Coleção/Pasta" as UC_CreateColl
+        usecase "Aninhar Conteúdos (Path/Order)" as UC_Nest
+        usecase "Autenticar-se" as UC_Login
+        
+        UC_Manage <.. UC_CreateDoc : <<extend>>
+        UC_Manage <.. UC_CreateColl : <<extend>>
+        UC_Manage ..> UC_Nest : <<include>>
+        UC_Manage ..> UC_Login : <<include>>
+    }
+}
+    rectangle "Configurações e Performance" {
+        usecase "Personalizar UI" as UC_UI
+        usecase "Definir Identidade (Nome/Branding)" as UC_Brand
+        usecase "Configurar Paleta de Cores" as UC_Colors
+        usecase "Invalidar Cache (ISR)" as UC_ISR
+        
+        UC_UI <.. UC_Brand : <<extend>>
+        UC_UI <.. UC_Colors : <<extend>>
+        UC_UI ..> UC_Login : <<include>>
+        UC_UI ..> UC_ISR : <<include>>
+
+        actor "Sistema" as Sistema
+    }
+
+' Ator à direita
+
+' Ligações da Esquerda
+Leitor --> UC_Nav
+Leitor --> UC_Single
+
+Admin --> UC_Login
+Admin --> UC_Manage
+Admin --> UC_UI
+
+UC_ISR <-left- Sistema
+
+' Ligação da Direita
+
+@enduml

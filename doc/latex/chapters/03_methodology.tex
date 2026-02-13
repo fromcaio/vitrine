@@ -1,0 +1,91 @@
+\chapter{Metodologia}\label{cap:Metodologia}
+
+Neste capítulo, detalha-se a metodologia de pesquisa e o processo de engenharia de software empregados para o desenvolvimento do sistema Vitrine. A abordagem adotada visa garantir o rigor científico necessário para um trabalho acadêmico de Ciência da Computação, aliando a fundamentação teórica à aplicação prática de tecnologias modernas.
+
+\section{Classificação da Pesquisa}
+
+Quanto à sua \textbf{natureza}, esta pesquisa é classificada como \textbf{aplicada}, uma vez que objetiva a criação de um artefato tecnológico — um sistema de gerenciamento de conteúdo (CMS) — destinado a resolver o problema prático da publicação acadêmica independente.
+
+Quanto aos \textbf{objetivos}, o trabalho possui caráter \textbf{descritivo} e \textbf{exploratório}. É exploratório na fase de investigação de novas tecnologias, como o framework Next.js e o paradigma Jamstack, e descritivo ao detalhar as etapas de modelagem, arquitetura e os requisitos funcionais que compõem a solução proposta.
+
+\section{Procedimentos Técnicos}
+
+Para a condução do estudo, foram adotados os seguintes procedimentos:
+
+\subsection{Revisão Bibliográfica}
+Realizou-se uma pesquisa sistemática em bases de dados como Google Scholar e documentações técnicas oficiais. O foco recaiu sobre arquiteturas de software para a web, sistemas de bancos de dados portáteis (SQLite) e padrões de design para interfaces de usuário (UI), fornecendo o embasamento necessário para as tomadas de decisão arquiteturais do projeto.
+
+\subsection{Desenvolvimento Experimental e Incremental}
+O método principal baseia-se no desenvolvimento de um protótipo funcional através de um processo \textbf{iterativo e incremental}. Diferente de modelos rígidos, esta abordagem permite que as funcionalidades sejam levantadas, modeladas e implementadas em ciclos, garantindo que a complexidade da estrutura hierárquica e da personalização dinâmica de cores seja validada de ponta a ponta a cada incremento.
+
+\section{Etapas do Desenvolvimento}
+
+O processo de construção do Vitrine foi estruturado em quatro macroetapas, integrando a análise acadêmica com as práticas de mercado:
+
+\begin{enumerate}
+    \item \textbf{Levantamento de Requisitos:} Identificação das necessidades dos usuários (professores e desenvolvedores), resultando na definição de Requisitos Funcionais (RF) e Não-Funcionais (RNF).
+    \item \textbf{Modelagem de Sistemas:} Elaboração de diagramas utilizando a linguagem UML e DBML para visualização da lógica do sistema:
+    \begin{itemize}
+        \item \textbf{Diagrama de Casos de Uso:} Para mapear as interações entre os atores (Leitor, Administrador e Sistema) e as funcionalidades principais.
+        \item \textbf{Modelagem de Dados (ER):} Definição da estrutura do banco de dados SQLite, com foco na auto-relação para suportar a hierarquia de conteúdos.
+    \end{itemize}
+    \item \textbf{Prototipagem e Design de Interface:} Criação de protótipos de baixa e alta fidelidade para validar a usabilidade do editor de Markdown e do painel de configuração de cores antes da implementação final.
+    \item \textbf{Desenvolvimento Incremental (Sprints):} Implementação do código-fonte utilizando Next.js e Prisma ORM. Cada funcionalidade é desenvolvida de "ponta a ponta", abrangendo desde a criação da tabela no banco de dados até a renderização no front-end e configuração de cache (ISR).
+\end{enumerate}
+
+
+
+\section{Cronograma de Desenvolvimento}
+
+O cronograma abaixo detalha a distribuição das atividades ao longo do período de graduação, enfatizando o caráter incremental da implementação.
+
+\begin{table}[h!]
+\centering
+\caption{Cronograma de Execução do Projeto Vitrine}
+\label{tab:cronograma}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{3.5cm} p{5.5cm} p{2.5cm} p{2.5cm}@{}}
+\toprule
+\textbf{Etapa} & \textbf{Atividade Específica} & \textbf{Início} & \textbf{Término} \\
+\midrule
+\multirow{2}{*}{Concepção}
+& Levantamento de Requisitos e Escopo & Mês 1 & Mês 1 \\
+& Revisão Bibliográfica e Tecnológica & Mês 1 & Mês 2 \\
+\midrule
+\multirow{3}{*}{Modelagem}
+& Diagramas de Casos de Uso e ER & Mês 2 & Mês 2 \\
+& Prototipagem da Interface (UI/UX) & Mês 2 & Mês 3 \\
+& Definição da Arquitetura e Stack & Mês 3 & Mês 3 \\
+\midrule
+\multirow{3}{*}{Desenvolvimento}
+& Setup do Ambiente e Auth.js & Mês 3 & Mês 4 \\
+& Módulo de Conteúdo e Markdown & Mês 4 & Mês 6 \\
+& Módulo de Personalização e ISR & Mês 6 & Mês 7 \\
+\midrule
+\multirow{2}{*}{Finalização}
+& Escrita da Monografia e Testes & Mês 4 & Mês 8 \\
+& Preparação da Defesa & Mês 8 & Mês 8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Requisitos do Sistema}
+A especificação dos requisitos foi a base para o desenvolvimento incremental, dividindo-se em necessidades funcionais e restrições técnicas.
+
+\subsection{Requisitos Funcionais (RF)}
+\begin{itemize}
+    \item \textbf{RF01 - Autenticação:} Acesso restrito via Auth.js.
+    \item \textbf{RF02 - Estrutura Hierárquica:} Suporte a documentos e coleções aninhadas.
+    \item \textbf{RF03 - Ordenação:} Atributo de ordem relativa entre elementos irmãos.
+    \item \textbf{RF04 - Personalização:} Interface para alteração de branding e cores (CSS Variables).
+\end{itemize}
+
+\subsection{Diagrama de Casos de Uso}
+O diagrama de casos de uso (Figura \ref{fig:uc}) ilustra as interações entre o Administrador, o Leitor e as automações de sistema (ISR).
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{imgs/use-case-diagram.png}
+    \caption{Diagrama de Casos de Uso do sistema Vitrine.}
+    \label{fig:uc}
+\end{figure}
