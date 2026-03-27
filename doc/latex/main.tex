@@ -94,19 +94,19 @@
 % -- Informações do Documento (para capa, folha de rosto e metadados do PDF)
 % -----------------------------------------------------------------------------------
 % [A FAZER: Preencha com as informações do seu trabalho]
-\titulo{Título do Trabalho de Conclusão de Curso}
-\autor{Seu Nome Completo}
-\local{Cidade, Estado}
+\titulo{Relatório de Iniciação Científica: Vitrine um Sistema de Publicação de Conteúdo Científico}
+\autor{Caio Augusto Silva dos Reis}
+\local{São João Del Rei, Minas Gerais}
 \data{\the\year}
-\orientador{Prof. Dr. Nome do Orientador}
+\orientador{Prof. Dr. Matheus Carvalho Viana}
 % \coorientador{Prof. Dr. Nome do Coorientador} % Descomente se houver coorientador
 \instituicao{%
-  Nome da Universidade
+  Universidade Federal de São João Del Rei\\
   \par
-  Curso de Graduação em Nome do Curso}
-\tipotrabalho{Trabalho de Conclusão de Curso} % Ou Monografia, Relatório, etc.
-\preambulo{Trabalho de Conclusão de Curso apresentado como requisito parcial para a obtenção do grau de Bacharel em Nome do Curso pela Universidade Nome da Universidade.}
-\logo{imgs/university-logo.jpg} % [A FAZER: Adicione o logo da sua universidade na pasta 'imgs']
+  Curso de Graduação em Ciência da Computação}
+\tipotrabalho{Relatório de Iniciação Científica}
+\preambulo{Relatório Final de Iniciação Científica apresentado ao Departamento de Ciência da Computação da Universidade Federal de São João Del Rei, referente às atividades de pesquisa desenvolvidas de setembro de 2025 a fevereiro de 2026. O trabalho descreve a concepção e implementação do sistema Vitrine, sob orientação do Prof. Dr. Matheus Carvalho Viana.}
+\logo{imgs/university-logo.png} % [A FAZER: Adicione o logo da sua universidade na pasta 'imgs']
 
 % -----------------------------------------------------------------------------------
 % -- Configuração de Hiperlinks e Metadados do PDF
@@ -163,9 +163,9 @@
 \include{pretextual_elements}
 
 % --- Lista de Figuras ---
-\pdfbookmark[0]{\listfigurename}{lof}
-\listoffigures*
-\cleardoublepage
+% \pdfbookmark[0]{\listfigurename}{lof}
+% \listoffigures*
+% \cleardoublepage
 
 % --- Lista de Tabelas ---
 % [A FAZER: Descomente as linhas abaixo se seu trabalho tiver tabelas]
@@ -175,7 +175,7 @@
 
 % --- Lista de Siglas e Abreviaturas ---
 % [A FAZER: Adicione suas siglas em 'acronyms.tex' e descomente a linha abaixo]
-\include{acronyms}
+% \include{acronyms}
 
 % --- Lista de Símbolos (Opcional) ---
 % [A FAZER: Descomente se você tiver uma lista de símbolos]
@@ -198,10 +198,10 @@
 % [A FAZER: Escreva seus capítulos nestes arquivos .tex separados]
 % Esta abordagem modular é altamente recomendada para gerenciar documentos longos.
 \include{chapters/01_introduction}
-\include{chapters/02_methodology}
+\include{chapters/02_related_work}
 \include{chapters/03_methodology}
 \include{chapters/04_development}
-\include{chapters/05_results}
+% \include{chapters/05_results}
 \include{chapters/06_conclusion}
 
 % ----------------------------------------------------------

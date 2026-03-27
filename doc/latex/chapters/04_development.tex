@@ -1,56 +1,51 @@
-\chapter{Desenvolvimento}\label{cap:desenvolvimento}
+\chapter{Desenvolvimento do Sistema}\label{cap:devSistema}
 
-Neste capítulo, detalha-se o processo de construção técnica do sistema Vitrine. A implementação foi guiada pela busca de uma solução que aliasse a robustez de frameworks modernos à simplicidade de manutenção exigida pelo público-alvo de educadores e pesquisadores.
+Neste capítulo, detalham-se as etapas de construção do sistema Vitrine, abrangendo desde a concepção visual por meio de protótipos até a implementação técnica da arquitetura baseada em Next.js e SQLite.
 
-\section{Desenvolvimento da Solução Proposta}
-O desenvolvimento do Vitrine foi pautado na criação de um CMS modular. Seguindo a metodologia incremental, o sistema foi construído sobre o ecossistema \textit{fullstack} do framework Next.js, utilizando o paradigma de \textit{App Router} para otimizar a renderização e o roteamento.
+\section{Arquitetura Técnica}
 
-\subsection{Arquitetura do Sistema}
-A arquitetura do sistema foi projetada para ser desacoplada e portátil, fundamentada no padrão de renderização híbrida. O sistema divide-se em três camadas principais:
-
+A arquitetura do Vitrine foi planejada sob o paradigma Jamstack, visando desacoplar a gestão de dados da camada de apresentação \cite{nextjs_docs}. 
 \begin{itemize}
-    \item \textbf{Camada de Apresentação (Front-end):} Desenvolvida com React e Tailwind CSS, focada em entregar uma interface responsiva e componentes modulares que consomem variáveis CSS dinâmicas para a personalização visual.
-    \item \textbf{Camada de Aplicação (Back-end):} Composta por \textit{Server Components} e \textit{Server Actions} do Next.js, eliminando a necessidade de uma API externa separada e simplificando a lógica de negócio e autenticação via Auth.js.
-    \item \textbf{Camada de Persistência:} Utiliza o banco de dados SQLite gerenciado pelo Prisma ORM. Esta camada é responsável por armazenar tanto o conteúdo em Markdown quanto as configurações de identidade visual do sistema.
+    \item \textbf{Front-end}: Desenvolvido com o framework \textbf{Next.js}, utilizando renderização híbrida para otimizar o SEO e a experiência do usuário \cite{nextjs_docs}.
+    \item \textbf{Persistência}: Utilização do \textbf{Prisma ORM} em conjunto com o \textbf{SQLite}. A escolha do SQLite como banco de dados baseado em arquivo é estratégica para garantir a portabilidade e reduzir a complexidade de manutenção para o usuário final \cite{prisma_docs}.
+    \item \textbf{Autenticação}: Implementada via \textbf{Auth.js}, garantindo um sistema de login simplificado e seguro para o gerenciamento de conteúdos.
 \end{itemize}
 
-\subsection{Modelagem de Dados}
-A persistência de dados foi modelada para garantir a portabilidade no SQLite. O Diagrama de Entidade-Relacionamento (Figura \ref{fig:er}) destaca a tabela \textit{contents} e sua natureza recursiva, permitindo representar estruturas de dados em árvore de profundidade arbitrária. Para a recuperação eficiente desses dados, implementou-se uma lógica de ordenação baseada no atributo \texttt{order}, garantindo que elementos no mesmo nível da hierarquia mantenham a sequência definida pelo administrador.
+\section{Prototipagem de Baixa Fidelidade}
+
+Antes da codificação, foram elaborados protótipos de baixa fidelidade para validar a disposição dos elementos e a jornada do usuário no painel administrativo \cite{Sommerville2011}. Esta etapa foi crucial para simplificar o editor de Markdown e a interface de personalização visual.
+
+\subsection{Interface do Editor e Painel Administrativo}
+
+O foco do design foi reduzir a carga cognitiva do docente. A Figura \ref{fig:proto_editor} apresenta o esboço do editor de texto, onde o suporte a fórmulas \textit{LaTeX} e blocos de código foi priorizado na interface \cite{Sommerville2011}.
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{imgs/entity-relationship-diagram.png}
-    \caption{Diagrama de Entidade-Relacionamento com foco na auto-relação.}
-    \label{fig:er}
+    \includegraphics[width=0.7\textwidth]{imgs/university-logo.png}
+    \caption{Protótipo de baixa fidelidade do editor de Markdown.}
+    \label{fig:proto_editor}
 \end{figure}
 
-\subsection{Prototipagem de Alta Fidelidade}
-Antes da codificação final, foram desenvolvidos protótipos de alta fidelidade para validar a experiência do usuário (UX) e a interface (UI). Estes protótipos serviram como guia para a implementação dos componentes React e para a definição das variáveis de estilo dinâmicas.
+\subsection{Personalização Visual Dinâmica}
 
-A Figura \ref{fig:proto_admin} apresenta a interface de gerenciamento, onde é possível observar a disposição da barra lateral hierárquica e o editor de Markdown. A Figura \ref{fig:proto_style} ilustra o módulo de personalização, evidenciando como os seletores de cores interagem com a pré-visualização do sistema.
+A interface de configuração de cores (Figura \ref{fig:proto_cores}) foi desenhada para permitir que o usuário altere o \textit{branding} do site sem interagir com arquivos de estilo \cite{Sommerville2011}.
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[width=0.8\textwidth]{imgs/university-logo.jpg}
-    \caption{Protótipo de alta fidelidade do painel administrativo e editor.}
-    \label{fig:proto_admin}
+    \includegraphics[width=0.7\textwidth]{imgs/university-logo.png}
+    \caption{Esboço da interface de personalização de cores.}
+    \label{fig:proto_cores}
 \end{figure}
 
-\begin{figure}[h!]
-    \centering
-    \includegraphics[width=0.8\textwidth]{imgs/university-logo.jpg}
-    \caption{Protótipo da interface de personalização de cores e branding.}
-    \label{fig:proto_style}
-\end{figure}
+\section{Implementação das Funcionalidades Centrais}
 
-\subsection{Principais Funcionalidades Implementadas}
-As funcionalidades implementadas visam reduzir a carga cognitiva do usuário final, automatizando processos complexos de desenvolvimento web.
+A construção seguiu um modelo incremental, onde cada funcionalidade foi desenvolvida de forma completa, integrando banco de dados e interface \cite{Sommerville2011}.
 
-\subsubsection{Personalização de UI com Variáveis Dinâmicas}
-O sistema lê os valores hexadecimais salvos na tabela de configurações e os injeta como variáveis de ambiente CSS (\textit{CSS Variables}) no componente raiz da aplicação. Para manter a performance, utiliza-se o mecanismo de \textit{Incremental Static Regeneration} (ISR), que revalida o cache da página no momento em que as configurações são salvas.
+\subsection{Editor de Escrita Científica}
+O editor foi implementado para suportar as necessidades específicas da academia, incluindo o realce de sintaxe e a renderização de fórmulas matemáticas complexas. O sistema utiliza um motor de Markdown que converte o conteúdo em HTML de alto desempenho no momento da build ou via \textit{Incremental Static Regeneration} (ISR) \cite{nextjs_docs}.
 
-\subsubsection{Editor de Markdown e Renderização Científica}
-O sistema integra um editor de texto otimizado que persiste dados em Markdown. A renderização no front-end suporta realce de sintaxe para múltiplas linguagens de programação e a compilação de expressões matemáticas escritas em \textit{LaTeX}.
+\subsection{Sistema de Cores e ISR}
+Uma das inovações técnicas do projeto é a manipulação de variáveis CSS em tempo de execução \cite{nextjs_docs}. As preferências de cores são persistidas no banco de dados SQLite e aplicadas globalmente. Para evitar a perda de performance, utilizou-se a ISR, que reflete as alterações estéticas instantaneamente sem a necessidade de uma nova compilação total do projeto (\textit{build}) \cite{nextjs_docs}.
 
-\subsubsection{Sistema de Gestão de Conteúdo (Admin Panel)}
-O painel administrativo permite a manipulação da estrutura de arquivos do blog de forma visual. O administrador pode alternar entre tipos de conteúdo (\textit{Document} ou \textit{Collection}), reordenar itens e gerenciar o \textit{deploy} de novos materiais de forma intuitiva.
+\subsection{Hierarquia e Portabilidade de Dados}
+A estrutura de dados foi modelada para suportar documentos e coleções aninhadas através de uma auto-relação na tabela de conteúdos do Prisma \cite{prisma_docs}. Isso garante que o usuário tenha total controle sobre a organização do seu conhecimento, mantendo a posse integral do arquivo de banco de dados para futuras migrações \cite{prisma_docs}.

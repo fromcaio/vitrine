@@ -1,0 +1,47 @@
+// schema.prisma
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  image         String?
+  contents      Content[]
+}
+
+model Content {
+  id        String   @id @default(cuid())
+  title     String
+  slug      String   @unique
+  body      String?  // Markdown content
+  type      String   // "DOCUMENT" | "COLLECTION"
+  order     Int      @default(0)
+  
+  // Self-relation
+  parentId  String?
+  parent    Content?  @relation("ContentToContent", fields: [parentId], references: [id])
+  children  Content[] @relation("ContentToContent")
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Configuration {
+  id             String   @id @default("singleton")
+  siteName       String   @default("Vitrine")
+  siteDescription String?
+  primaryColor   String   @default("#3b82f6")
+  secondaryColor String   @default("#1e293b")
+  accentColor    String   @default("#f59e0b")
+  updatedAt      DateTime @updatedAt
+}

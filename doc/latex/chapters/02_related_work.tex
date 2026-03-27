@@ -1,0 +1,31 @@
+\chapter{Fundamentação Teórica e Trabalhos Relacionados}\label{cap:refTeorico}
+
+\section{Referencial Tecnológico}
+
+O desenvolvimento do sistema Vitrine fundamenta-se em tecnologias modernas de desenvolvimento web que priorizam o desempenho e a simplicidade de manutenção. 
+
+\subsection{Next.js e o Paradigma Jamstack}
+A plataforma utiliza o framework \textbf{Next.js}, que permite uma renderização híbrida de alto desempenho \cite{nextjs_docs}. Esta escolha é essencial para garantir a indexação em motores de busca (SEO) e uma experiência de usuário fluida. O projeto alinha-se ao paradigma \textit{Jamstack}, focando na dissociação entre a camada de apresentação e os dados, o que favorece a segurança e a escalabilidade \cite{ref7}.
+
+\subsection{Persistência de Dados com SQLite e Prisma}
+Para garantir a portabilidade, o Vitrine utiliza o \textbf{SQLite} como sistema de gerenciamento de banco de dados \cite{prisma_docs}. Por ser um sistema baseado em arquivo, o SQLite simplifica drasticamente a infraestrutura necessária, eliminando a necessidade de servidores de banco de dados complexos e reduzindo custos para o usuário final. A interação com os dados é mediada pelo \textbf{Prisma ORM}, que provê uma camada de abstração segura e eficiente para a manipulação das tabelas \cite{prisma_docs}.
+
+\subsection{Segurança e Autenticação}
+A segurança no gerenciamento de conteúdos é garantida pela integração com o \textbf{Auth.js}. Esta ferramenta permite um sistema de autenticação simplificado, protegendo o painel administrativo contra acessos não autorizados.
+
+\section{Análise de Trabalhos Relacionados}
+
+A disseminação de conhecimento acadêmico na web esbarra frequentemente na dependência de plataformas proprietárias ou na complexidade de sistemas de gerenciamento de conteúdo (\textit{Content Management Systems} - CMS) tradicionais \cite{ref6}.
+
+\subsection{Limitações de Plataformas Existentes}
+Muitos pesquisadores recorrem a redes sociais ou plataformas de terceiros para compartilhar sua produção \cite{ref7}. No entanto, essas soluções apresentam fragilidades críticas:
+\begin{itemize}
+    \item \textbf{Perda de Controle}: Dificuldade em manter a integridade da identidade visual e a formatação de elementos técnicos em virtude de regras de plataformas de terceiros, que impõem limites de caracteres e submetem a produção acadêmica à competição visual com conteúdos de naturezas diversas;
+    \item \textbf{Barreiras Técnicas}: CMSs tradicionais exigem conhecimentos avançados de infraestrutura para instalação e manutenção \cite{ref6};
+    \item \textbf{Formatação Técnica}: Falta de suporte nativo para elementos essenciais na escrita científica, como fórmulas em \textit{LaTeX} e blocos de código técnico.
+\end{itemize}
+
+\subsection{O Diferencial do Vitrine}
+Diferente de soluções rígidas, o Vitrine busca o equilíbrio entre autonomia e simplicidade, posicionando-se como um ponto de destino especializado para a produção docente. A plataforma permite gerenciar a estética visual (variáveis CSS) em tempo de execução com persistência em banco de dados, refletindo alterações instantaneamente via \textit{Incremental Static Regeneration} (ISR) \cite{nextjs_docs}.
+
+Esta abordagem garante a integridade de elementos complexos, como fórmulas em \textit{LaTeX} e blocos de código técnico, assegurando que o material mantenha sua precisão pedagógica. Ao contrário de ecossistemas fechados que dificultam a exportação de dados, a arquitetura do Vitrine foca na soberania do autor: a posse integral das informações permite que o pesquisador utilize a ferramenta como sua base central de conhecimento \cite{prisma_docs}.

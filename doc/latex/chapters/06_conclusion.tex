@@ -1,37 +1,32 @@
 \chapter{Conclusão}\label{cap:conclusao}
 
-Este capítulo finaliza o trabalho apresentando as considerações finais sobre a pesquisa realizada, as principais contribuições, as limitações identificadas e as sugestões para trabalhos futuros. O objetivo é consolidar o conhecimento gerado e indicar novos caminhos de investigação a partir dos resultados obtidos.
+Este relatório detalhou o ciclo de desenvolvimento do sistema \textbf{Vitrine}, uma plataforma CMS \textit{open source} voltada para a democratização da publicação acadêmica independente. Ao longo do período de iniciação científica, entre setembro de 2025 e fevereiro de 2026, foi possível converter o desafio da dependência de plataformas proprietárias em uma solução funcional que prioriza a soberania do autor sobre sua produção intelectual.
 
-\section{Considerações Finais e Contribuições}
+\section{Resultados Alcançados}
 
-O presente trabalho teve como objetivo [retome o objetivo geral de forma sucinta]. Para alcançá-lo, foi realizada uma extensa revisão da literatura sobre [tópico 1] e [tópico 2], seguida pelo desenvolvimento de [descreva o artefato ou resultado principal].
-
-Os resultados, apresentados no Capítulo \ref{cap:devSistema}, demonstraram que [resuma a principal conclusão do trabalho]. Isso confirma a hipótese inicial de que [mencione a hipótese, se houver] e atende aos objetivos específicos propostos.
-
-As principais contribuições deste trabalho podem ser resumidas em:
-\begin{itemize}
-    \item \textbf{Contribuição Teórica:} O aprofundamento no estudo de [conceito teórico], relacionando-o com [outro conceito].
-    \item \textbf{Contribuição Prática:} O desenvolvimento de um [protótipo/modelo/framework] que soluciona o problema de [descreva o problema] de forma eficaz, conforme validado pelos testes realizados.
-    \item \textbf{Contribuição Acadêmica:} A disponibilização de um novo conjunto de dados (ou uma nova abordagem) que pode servir de base para futuras pesquisas na área.
-\end{itemize}
-
-\section{Limitações do Trabalho}\label{sec:limitacoes}
-
-Apesar de os objetivos terem sido alcançados, é importante reconhecer as limitações inerentes a esta pesquisa. Toda investigação possui um escopo delimitado, e a consciência de suas fronteiras é um sinal de maturidade científica.
-
-Uma das principais limitações foi [descreva uma limitação, por exemplo, o tamanho da amostra utilizada nos testes]. O grupo de validação foi composto por [número] participantes, o que, embora suficiente para uma avaliação inicial, pode não representar a totalidade do público-alvo.
-
-Outra limitação refere-se ao [descreva outra limitação, por exemplo, o escopo das funcionalidades implementadas]. O protótipo desenvolvido contempla as funcionalidades essenciais, mas funcionalidades adicionais, como [exemplo de funcionalidade], não foram implementadas devido a restrições de tempo.
-
-\section{Trabalhos Futuros}
-
-Com base nos resultados e nas limitações identificadas, diversas oportunidades para a continuidade e aprofundamento desta pesquisa podem ser sugeridas. As propostas de trabalhos futuros incluem:
+Os objetivos propostos foram integralmente atingidos através de uma abordagem de desenvolvimento incremental \cite{Sommerville2011}. O sistema consolidou o equilíbrio entre modernidade tecnológica e portabilidade ao utilizar o framework \textbf{Next.js} e o banco de dados \textbf{SQLite} \cite{nextjs_docs, prisma_docs}. Entre as principais conquistas técnicas, destacam-se:
 
 \begin{itemize}
-    \item \textbf{Expandir a Validação:} Realizar uma nova rodada de testes com um grupo maior e mais diversificado de usuários para obter resultados estatisticamente mais robustos.
-    \item \textbf{Implementar Novas Funcionalidades:} Desenvolver as funcionalidades que não foram incluídas no escopo deste trabalho, como [exemplo de funcionalidade 1] e [exemplo de funcionalidade 2], para tornar a solução mais completa.
-    \item \textbf{Explorar Outras Tecnologias:} Investigar a aplicação de [outra tecnologia, ex: aprendizado de máquina] para aprimorar o [aspecto do sistema], visando [objetivo, ex: automatizar a tomada de decisão].
-    \item \textbf{Aplicar a Outros Contextos:} Adaptar e avaliar a solução proposta em diferentes domínios ou contextos de aplicação para verificar sua generalização.
+    \item A implementação de um editor \textit{markdown} capaz de renderizar com precisão elementos essenciais da escrita científica, como fórmulas em \textit{LaTeX} e blocos de código com realce de sintaxe;
+    \item O desenvolvimento de uma interface de personalização visual dinâmica, permitindo que o usuário gerencie a estética do site via variáveis CSS persistidas em banco de dados, com reflexão instantânea através de \textit{Incremental Static Regeneration} (ISR) \cite{nextjs_docs};
+    \item A garantia da perenidade do conteúdo digital, uma vez que a arquitetura baseada em arquivos portáteis assegura que o pesquisador detenha a posse integral de seus dados \cite{prisma_docs}.
 \end{itemize}
 
-Essas sugestões demonstram o potencial de continuidade da pesquisa e abrem novas frentes de investigação para a comunidade acadêmica.
+\section{Limitações e Desafios}
+
+Apesar dos avanços, o projeto encontrou fronteiras delimitadas pelo prazo de execução. A modelagem da interface restringiu-se a protótipos de baixa fidelidade, focando na funcionalidade e usabilidade em detrimento de um refinamento visual mais exaustivo \cite{Sommerville2011}. Além disso, o sistema de autenticação via \textit{Auth.js}, embora seguro e funcional para o gerenciamento básico, ainda pode ser expandido para suportar múltiplos níveis de permissão em cenários colaborativos.
+
+\section{Considerações Finais e Trabalhos Futuros}
+
+A experiência de desenvolver o Vitrine reafirmou a premissa de que sistemas de informação devem atuar como facilitadores da disseminação de conhecimento, e não como obstáculos técnicos \cite{KeRainerJr2019}. O projeto entrega uma base sólida e moderna que elimina o trabalho repetitivo de configuração estrutural, permitindo que o foco permaneça na produção de conteúdo qualificado.
+
+Como propostas para a continuidade e expansão do projeto, pretende-se:
+\begin{itemize}
+    \item Produzir documentação técnica detalhada e tutoriais em vídeo demonstrando o processo de clonagem do repositório e \textit{deployment} na plataforma Vercel;
+    \item Lançar o site oficial do projeto, denominado \textbf{Vitrine}, que servirá como repositório central para os tutoriais, documentação e instâncias de demonstração;
+    \item Explorar a integração com repositórios de dados abertos para a citação automática de publicações;
+    \item Expandir a biblioteca de componentes visuais, permitindo maior customização da interface;
+    \item Implementar a renderização nativa de gráficos para funções de uma variável (gráficos 2D).
+\end{itemize}
+
+O Vitrine encerra este ciclo de iniciação científica não apenas como uma ferramenta técnica, mas como um manifesto em prol da autonomia digital e da democratização do saber científico na rede.

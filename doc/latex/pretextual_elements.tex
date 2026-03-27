@@ -22,94 +22,93 @@
 % prática comum escanear a página assinada e substituir todo o conteúdo do
 % ambiente 'folhadeaprovacao' por: \includegraphics[width=\textwidth]{caminho/para/pagina_assinada.pdf}
 % -----------------------------------------------------------------------------------
-\begin{folhadeaprovacao}
-  \begin{center}
-    {\ABNTEXchapterfont\large\imprimirautor}
+% \begin{folhadeaprovacao}
+%   \begin{center}
+%     {\ABNTEXchapterfont\large\imprimirautor}
 
-    \vspace*{\fill}
-    {\ABNTEXchapterfont\bfseries\Large\imprimirtitulo}
-    \vspace*{\fill}
+%     \vspace*{\fill}
+%     {\ABNTEXchapterfont\bfseries\Large\imprimirtitulo}
+%     \vspace*{\fill}
 
-    \hspace{.45\textwidth}
-    \begin{minipage}{.5\textwidth}
-      \SingleSpacing
-      \imprimirpreambulo
-    \end{minipage}%
-    \vspace*{\fill}
-  \end{center}
+%     \hspace{.45\textwidth}
+%     \begin{minipage}{.5\textwidth}
+%       \SingleSpacing
+%       \imprimirpreambulo
+%     \end{minipage}%
+%     \vspace*{\fill}
+%   \end{center}
 
-  % [A FAZER: Ajuste a data de aprovação. \today usa a data da compilação.]
-  Trabalho aprovado. \imprimirlocal, \today:
-  \vspace*{2cm}
+%   % [A FAZER: Ajuste a data de aprovação. \today usa a data da compilação.]
+%   Trabalho aprovado. \imprimirlocal, \today:
+%   \vspace*{2cm}
 
-  % [A FAZER: Preencha com os nomes dos membros da sua banca examinadora.]
-  \assinatura{\textbf{\imprimirorientador} \\ Orientador(a)}
-  \assinatura{\textbf{Nome Completo Membro da Banca 1} \\ Instituição}
-  \assinatura{\textbf{Nome Completo Membro da Banca 2} \\ Instituição}
-  % \assinatura{\textbf{Nome Completo do Membro da Banca 3} \\ Instituição} % Descomente se necessário
+%   % [A FAZER: Preencha com os nomes dos membros da sua banca examinadora.]
+%   \assinatura{\textbf{\imprimirorientador} \\ Orientador(a)}
+%   \assinatura{\textbf{Nome Completo Membro da Banca 1} \\ Instituição}
+%   \assinatura{\textbf{Nome Completo Membro da Banca 2} \\ Instituição}
+%   % \assinatura{\textbf{Nome Completo do Membro da Banca 3} \\ Instituição} % Descomente se necessário
 
-\end{folhadeaprovacao}
+% \end{folhadeaprovacao}
 
 
 % -----------------------------------------------------------------------------------
 % -- DEDICATÓRIA (Opcional)
 % -----------------------------------------------------------------------------------
 % [A FAZER: Escreva sua dedicatória aqui ou comente/remova todo o ambiente.]
-\begin{dedicatoria}
-	\vspace*{\fill} % Centraliza o texto verticalmente
-	\flushright    % Alinha o texto à direita
-	\textit{DEDICATÓRIA: Agradeço aos ..., pelo apoio e incentivo incondicional...}
-\end{dedicatoria}
+% \begin{dedicatoria}
+% 	\vspace*{\fill} % Centraliza o texto verticalmente
+% 	\flushright    % Alinha o texto à direita
+% 	\textit{DEDICATÓRIA: Agradeço aos ..., pelo apoio e incentivo incondicional...}
+% \end{dedicatoria}
 
 
 % -----------------------------------------------------------------------------------
 % -- AGRADECIMENTOS (Opcional)
 % -----------------------------------------------------------------------------------
 % [A FAZER: Escreva seus agradecimentos aqui ou comente/remova todo o ambiente.]
-\begin{agradecimentos}
-Agradeço a todos que contribuíram para a realização deste trabalho. Em especial, ao meu orientador, Prof. Dr. [Nome do Orientador], pelo suporte e orientação ao longo de todo o processo.
+% \begin{agradecimentos}
+% Agradeço a todos que contribuíram para a realização deste trabalho. Em especial, ao meu orientador, Prof. Dr. [Nome do Orientador], pelo suporte e orientação ao longo de todo o processo.
 
-\end{agradecimentos}
+% \end{agradecimentos}
 
 
 % -----------------------------------------------------------------------------------
 % -- EPÍGRAFE (Opcional)
 % -----------------------------------------------------------------------------------
 % [A FAZER: Adicione uma epígrafe aqui ou comente/remova todo o ambiente.]
-\begin{epigrafe}
-	\vspace*{\fill}
-	\begin{flushright}
-		\textit{``A educação é a arma mais poderosa que você pode usar para mudar o mundo."} \\
-		\textendash{} Nelson Mandela
-	\end{flushright}
-\end{epigrafe}
+% \begin{epigrafe}
+% 	\vspace*{\fill}
+% 	\begin{flushright}
+% 		\textit{``A educação é a arma mais poderosa que você pode usar para mudar o mundo."} \\
+% 		\textendash{} Nelson Mandela
+% 	\end{flushright}
+% \end{epigrafe}
 
 
 % -----------------------------------------------------------------------------------
 % -- RESUMO EM PORTUGUÊS (Obrigatório)
 % -----------------------------------------------------------------------------------
 \begin{resumo}
-	% [A FAZER: Escreva o resumo do seu trabalho em português aqui.]
-	O resumo deve apresentar de forma concisa o tema do trabalho, o problema de pesquisa, os objetivos, a metodologia utilizada e os principais resultados ou conclusões alcançadas. Ele é uma parte crucial do trabalho, pois fornece uma visão geral que permite ao leitor compreender rapidamente o escopo e a contribuição da sua pesquisa. O resumo deve ser escrito em um único parágrafo, contendo entre 150 e 500 palavras, conforme a ABNT.
+    Este relatório apresenta o desenvolvimento do Vitrine, uma plataforma de gerenciamento de conteúdo (CMS) open source projetada para democratizar a publicação independente. O problema central reside na barreira tecnológica enfrentada por docentes e pesquisadores que, ao buscarem autonomia digital, esbarram na complexidade de infraestruturas tradicionais ou na rigidez de plataformas proprietárias. A pesquisa, de natureza aplicada e caráter exploratório-descritivo, utilizou uma metodologia de desenvolvimento experimental e incremental para a construção de um artefato tecnológico moderno. O sistema foi construido sobre o framework Next.js, integrando o ORM Prisma com banco de dados SQLite para garantir a portabilidade dos dados e simplicidade no deployment. Os resultados alcançados incluem a implementação de um editor Markdown com suporte a fórmulas em LaTeX e um sistema de personalização visual dinâmica via variáveis CSS, refletidas instantaneamente através de Incremental Static Regeneration (ISR). A solução equilibra o alto desempenho de sites estáticos com a flexibilidade de sistemas dinâmicos, oferecendo uma ferramenta extensível que elimina o trabalho repetitivo de configuração para produtores de conteúdo acadêmico.
 
-	\vspace{\onelineskip} % Adiciona uma linha em branco antes das palavras-chave
-	\noindent % Impede a indentação da linha das palavras-chave
-	\textbf{Palavras-chave}: Engenharia de Software; Metodologia Ágil; Qualidade de Software.
+    \vspace{\onelineskip}
+    \noindent
+    \textbf{Palavras-chave}: CMS Acadêmico; Next.js; Open Source; Markdown; Iniciação Científica.
 \end{resumo}
 
 
 % -----------------------------------------------------------------------------------
 % -- RESUMO EM LÍNGUA ESTRANGEIRA (Obrigatório)
 % -----------------------------------------------------------------------------------
-\begin{resumo}[Abstract] % O título do resumo no idioma desejado
-	\begin{otherlanguage*}{english} % Define o idioma para este ambiente
+% \begin{resumo}[Abstract] % O título do resumo no idioma desejado
+% 	\begin{otherlanguage*}{english} % Define o idioma para este ambiente
 
-		% [A FAZER: Escreva o resumo do seu trabalho em inglês aqui.]
-		The abstract should concisely present the theme of the work, the research problem, objectives, the methodology used, and the main results or conclusions reached. It is a crucial part of the work, as it provides an overview that allows the reader to quickly understand the scope and contribution of your research. The abstract should be written in a single paragraph, containing between 150 and 500 words, according to ABNT standards.
+% 		% [A FAZER: Escreva o resumo do seu trabalho em inglês aqui.]
+% 		The abstract should concisely present the theme of the work, the research problem, objectives, the methodology used, and the main results or conclusions reached. It is a crucial part of the work, as it provides an overview that allows the reader to quickly understand the scope and contribution of your research. The abstract should be written in a single paragraph, containing between 150 and 500 words, according to ABNT standards.
 
-		\vspace{\onelineskip}
-		\noindent
-		\textbf{Keywords}: Software Engineering; Agile Methodology; Software Quality.
+% 		\vspace{\onelineskip}
+% 		\noindent
+% 		\textbf{Keywords}: Software Engineering; Agile Methodology; Software Quality.
 
-	\end{otherlanguage*}
-\end{resumo}
+% 	\end{otherlanguage*}
+% \end{resumo}
