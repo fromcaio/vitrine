@@ -1,0 +1,53 @@
+@startuml seq-publicacao-conteudo
+' ===========================================================================
+' Vitrine - Sequência: edição e publicação de um documento
+' Figura: fig:seq-publicacao-conteudo (doc/tex/capitulos/cap5_arquitetura.tex)
+' Regra de revalidação: só o corpo mudou => revalida a página; estrutura mudou
+' (título, slug, pai, ordem) => revalida o layout raiz (árvore na sidebar).
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam sequenceMessageAlign left
+autonumber
+
+actor "Administrador" as Admin
+participant "Editor\n(Client Component)" as Ed
+participant "Route Handler\nPATCH /api/contents/:id" as Api
+participant "better-auth" as Auth
+participant "validators.js" as Val
+participant "db.js" as DB
+database "SQLite" as Sql
+participant "revalidate.js" as Rev
+participant "Cache ISR" as Cache
+
+Admin -> Ed : Edita o Markdown\n(pré-visualização em tempo real)
+Ed -> Ed : "Salvar Localmente"\n(rascunho no navegador)
+Admin -> Ed : "Enviar Nova Versão"
+Ed -> Api : PATCH { title?, slug?, body?, parentId?, order? }
+Api -> Auth : getSession(headers)
+alt sem sessão válida
+  Auth --> Api : null
+  Api --> Ed : 401
+else sessão válida
+  Auth --> Api : sessão
+  Api -> Val : valida entrada
+  alt entrada inválida
+    Val --> Api : erros
+    Api --> Ed : 422 { error }
+  else entrada válida
+    Api -> DB : updateContent(id, dados)
+    DB -> Sql : UPDATE
+    Sql --> DB : ok
+    DB --> Api : conteúdo atualizado
+    Api -> Rev : revalidateContent(antes, depois)
+    alt estrutura alterada
+      Rev -> Cache : revalidatePath("/", "layout")
+    else apenas corpo alterado
+      Rev -> Cache : revalidatePath(caminho do documento)
+    end
+    Api --> Ed : 200 { conteúdo }
+  end
+end
+Ed --> Admin : confirmação (toast)
+@enduml

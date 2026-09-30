@@ -1,0 +1,30 @@
+@startuml arq-camadas
+' ===========================================================================
+' Vitrine - Arquitetura em camadas e sentido permitido das dependências
+' Figura: fig:arq-camadas (doc/tex/capitulos/cap5_arquitetura.tex)
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam rectangle {
+  BorderColor #475569
+}
+
+rectangle "Apresentação (UI)\nsrc/components, src/app/**/page.js, globals.css\nReact, Tailwind CSS, react-markdown" as L1 #BBF7D0
+rectangle "Aplicação (Core)\nsrc/app/api, src/proxy.js, src/lib/auth.js,\nvalidators.js, revalidate.js\nRoute Handlers, better-auth, Zod" as L2 #BFDBFE
+rectangle "Dados (Dados)\nsrc/lib/db.js, content-tree.js, prisma/\nPrisma ORM 7" as L3 #FED7AA
+rectangle "Infraestrutura\nSQLite (arquivo .db), sistema de arquivos,\ncache ISR (.next/), variáveis de ambiente" as L4 #E5E7EB
+
+L1 --> L2 : fetch JSON (cliente)\nou import direto (servidor)
+L1 --> L3 : leitura via Server Components\n(funções de db.js)
+L2 --> L3 : funções de db.js
+L3 --> L4
+
+note right of L1
+  Proibido: importar db.js ou @prisma/client
+  em Client Components.
+end note
+note right of L3
+  Único ponto de acesso ao PrismaClient.
+end note
+@enduml

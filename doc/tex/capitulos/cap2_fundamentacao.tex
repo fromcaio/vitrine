@@ -1,0 +1,201 @@
+%% ===================================================================================
+%% Capítulo 2 -- Fundamentação Teórica e Trabalhos Relacionados
+%% Fontes: Relatório de IC (Cap. 2), documentação oficial das tecnologias adotadas
+%% (conferida nas cópias locais em node_modules e nos sítios citados em references.bib).
+%% Dono: Arquiteto/Redator.
+%% ===================================================================================
+\chapter{Fundamentação Teórica e Trabalhos Relacionados}\label{cap:fundamentacao}
+
+Este capítulo reúne os conceitos necessários para compreender as decisões do projeto. Inicia pelo problema da publicação científica na web (Seção~\ref{sec:fund-publicacao}), situa os sistemas de gerenciamento de conteúdo (Seção~\ref{sec:fund-cms}) e as estratégias de renderização (Seção~\ref{sec:fund-renderizacao}), detalha as tecnologias adotadas (Seção~\ref{sec:fund-tecnologias}), apresenta os fundamentos de engenharia de requisitos e modelagem (Seção~\ref{sec:fund-modelagem}) e de \en{Documentation-Driven Development} (Seção~\ref{sec:fund-ddd}) e encerra com a análise de trabalhos relacionados (Seção~\ref{sec:trabalhos-relacionados}).
+
+\section{Publicação Científica e Didática na Web}\label{sec:fund-publicacao}
+
+\subsection{A Web como Canal de Disseminação}
+
+A engenharia web consolidou-se como a aplicação de princípios de engenharia ao desenvolvimento, à implantação e à manutenção de sistemas baseados na web \cite{ginige2001web}. Ao longo do tempo, o que começou como um conjunto de documentos interligados evoluiu para aplicações completas, e a web tornou-se o meio natural de circulação de artigos, materiais didáticos e dados de pesquisa. Essa evolução, porém, nem sempre foi acompanhada de práticas de engenharia: a facilidade de combinar tecnologias heterogêneas --- o fenômeno que \citeonline{mikkonen2010mashware} descrevem como \en{mashware} --- produz sistemas que funcionam, mas cuja manutenção e cujo entendimento dependem de conhecimento tácito. Esse diagnóstico reforça, para o Vitrine, a necessidade de especificação explícita e de rastreabilidade entre requisitos, projeto e código (Capítulo~\ref{cap:metodologia}).
+
+\subsection{Autonomia Digital de Docentes e Pesquisadores}
+
+Para o autor acadêmico, publicar na web envolve três necessidades: \textbf{controle} (sobre o conteúdo, a identidade visual e o endereço), \textbf{perenidade} (o material continua acessível independentemente de mudanças de serviço) e \textbf{adequação técnica} (capacidade de expressar a sua área de conhecimento). As alternativas disponíveis atendem a essas necessidades de forma desigual. Plataformas de terceiros oferecem facilidade, mas impõem limites de formatação e de identidade; CMS tradicionais oferecem liberdade, mas exigem competências de infraestrutura que muitos docentes não têm nem desejam adquirir \cite{mikkonen2010mashware,reis2026ic}.
+
+\subsection{Elementos da Escrita Científica}
+
+A escrita científica e didática usa recursos que raramente são prioridade em sistemas genéricos de publicação: fórmulas matemáticas (inline e em bloco), trechos de código com realce de sintaxe, tabelas, figuras numeradas e referências. No ecossistema acadêmico, a notação \LaTeX{} é amplamente adotada para fórmulas; por isso, um sistema voltado a docentes e pesquisadores deve aceitá-la diretamente no texto, sem exigir imagens ou ferramentas externas. Esse requisito orienta a escolha de Markdown com suporte a matemática (Seção~\ref{sec:fund-markdown}).
+
+\section{Sistemas de Gerenciamento de Conteúdo}\label{sec:fund-cms}
+
+\subsection{Conceito e Componentes}
+
+Um sistema de gerenciamento de conteúdo (CMS) é um \en{software} que permite criar, organizar, editar e publicar conteúdo digital separando o conteúdo de sua apresentação, em geral por meio de uma interface de edição acessível a pessoas sem formação em programação. Os componentes típicos são: um repositório de conteúdo (banco de dados ou arquivos); uma interface de edição; um mecanismo de apresentação, que transforma o conteúdo em páginas; mecanismos de administração, como usuários, permissões e configurações; e uma política de publicação.
+
+\subsection{Taxonomia}\label{sec:fund-taxonomia}
+
+Na prática, as soluções disponíveis agrupam-se em quatro categorias (Tabela~\ref{tab:taxonomia-cms}). A classificação é didática: produtos reais podem combinar características de mais de uma categoria.
+
+\begin{table}[htb]
+\caption{Categorias de soluções para publicação de conteúdo}\label{tab:taxonomia-cms}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.1cm}YL{4.6cm}@{}}
+\toprule
+\textbf{Categoria} & \textbf{Características} & \textbf{Exemplos usuais}\\
+\midrule
+Plataformas hospedadas & Hospedagem e banco de dados gerenciados por terceiros; edição pela web; pouca liberdade de identidade visual e de formatação técnica & Redes de publicação e blogs hospedados\\
+\addlinespace
+CMS tradicionais (acoplados) & Edição, regras e apresentação no mesmo \en{software}; exigem servidor, linguagem de \en{script} e banco relacional; grande ecossistema de temas e \en{plugins} & WordPress, Drupal, Joomla\\
+\addlinespace
+CMS desacoplados (\en{headless}) & O CMS expõe o conteúdo por API; a apresentação é construída à parte, em qualquer tecnologia & Strapi, Contentful, Sanity\\
+\addlinespace
+Geradores de sites estáticos e documentação como código & Conteúdo em arquivos versionados no Git; um processo de \en{build} gera HTML estático; normalmente sem interface web de edição & Jekyll, Hugo, MkDocs, Docusaurus\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\subsection{Posicionamento do Vitrine}
+
+O Vitrine reúne características de duas categorias. Do ponto de vista da implantação, é um CMS acoplado --- uma única aplicação com interface de edição, regras e apresentação, sem serviços externos --- o que simplifica a instalação. Do ponto de vista da entrega, aproxima-se dos geradores estáticos: as páginas públicas são pré-renderizadas e servidas de cache, e regeneradas de forma incremental quando o conteúdo muda (Seção~\ref{sec:fund-isr}). O resultado pretendido é o equilíbrio entre autonomia e simplicidade que motivou o projeto.
+
+\section{Arquiteturas e Estratégias de Renderização}\label{sec:fund-renderizacao}
+
+\subsection{CSR, SSR, SSG e ISR}\label{sec:fund-isr}
+
+A forma como o HTML de uma página é produzido determina desempenho, custo e facilidade de indexação. Em aplicações de página única (\en{Single Page Applications}), o navegador recebe um documento quase vazio e monta a interface com JavaScript, estratégia chamada \en{Client-Side Rendering} (CSR) \cite{jadhav2015single}. Em \en{Server-Side Rendering} (SSR), o servidor gera o HTML a cada requisição. Em \en{Static Site Generation} (SSG), o HTML é gerado uma vez, no \en{build}. A \en{Incremental Static Regeneration} (ISR) combina as duas últimas: as páginas são servidas como estáticas e regeneradas depois de um intervalo ou sob demanda, sem reconstruir o site inteiro \cite{nextjsdocs}. A Tabela~\ref{tab:renderizacao} compara as estratégias.
+
+\begin{table}[htb]
+\caption{Estratégias de renderização e adequação ao Vitrine}\label{tab:renderizacao}
+\small
+\begin{tabularx}{\linewidth}{@{}L{1.6cm}L{3.3cm}L{3.0cm}YL{2.4cm}@{}}
+\toprule
+\textbf{Sigla} & \textbf{Onde o HTML é gerado} & \textbf{Frescor do conteúdo} & \textbf{Observações} & \textbf{Uso no Vitrine}\\
+\midrule
+CSR & No navegador & Sempre atual & Primeira exibição mais lenta; indexação dependente de execução de JS & Somente em componentes interativos\\
+\addlinespace
+SSR & No servidor, a cada requisição & Sempre atual & Custo de CPU por requisição; latência maior & Painel administrativo\\
+\addlinespace
+SSG & No \en{build} & Atualizado só em novo \en{build} & Máximo desempenho; conteúdo novo exige reconstruir & Não isoladamente\\
+\addlinespace
+ISR & No \en{build} e regenerado depois & Por tempo ou sob demanda & Desempenho de estático com atualização incremental & Páginas públicas\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, com base em \citeonline{nextjsdocs}.}
+\end{table}
+
+\subsection{Jamstack}
+
+O termo Jamstack (JavaScript, APIs e \en{Markup}) designa uma abordagem em que páginas são pré-renderizadas e servidas por rede de distribuição, enquanto funcionalidades dinâmicas são obtidas por APIs \cite{biilmann2019jamstack}. O relatório de IC alinhou o Vitrine a esse paradigma pela dissociação entre camada de apresentação e dados, com ganhos de segurança e escalabilidade \cite{reis2026ic}. No monólito, a camada de dados reside no mesmo processo, de modo que o Vitrine adota da Jamstack a \textbf{pré-renderização} e a \textbf{invalidação seletiva}, mas não a separação física entre os serviços.
+
+\subsection{Monólito Modular versus Microsserviços}\label{sec:fund-monolito}
+
+Um monólito é uma unidade de implantação única. Um monólito \emph{modular} mantém fronteiras internas claras --- por domínio, com dependências controladas --- de modo que a estrutura possa evoluir sem que cada módulo precise ser um serviço independente. Microsserviços trazem autonomia de equipes e escalabilidade seletiva, mas impõem custos de operação, consistência distribuída e observabilidade \cite{newman2019monolith}. O argumento conhecido como \en{MonolithFirst} recomenda começar por um monólito bem estruturado e extrair serviços apenas quando as fronteiras forem bem compreendidas e houver necessidade real \cite{fowler2015monolithfirst}. Para um sistema de um único \en{tenant}, de tráfego moderado e implantação pelo próprio docente, o monólito modular é a escolha que minimiza a complexidade acidental (decisão \adr{ADR-001}).
+
+\subsection{Estilo REST}
+
+O estilo arquitetural REST organiza a comunicação em torno de recursos identificados por URLs, manipulados por um conjunto uniforme de operações (os métodos HTTP), com mensagens autodescritivas e interação sem estado entre requisições \cite{fielding2000rest}. As rotas JSON do Vitrine (Seção~\ref{sec:arq-api}) seguem um REST pragmático: recursos \cod{/api/contents} e \cod{/api/configuration}, verbos HTTP com semântica usual, códigos de status e formato de erro padronizados. O estado de autenticação trafega em \en{cookie} de sessão, o que é um compromisso consciente em relação ao ideal de ausência total de estado.
+
+\section{Tecnologias do Vitrine}\label{sec:fund-tecnologias}
+
+\subsection{React e Componentização}
+
+React é uma biblioteca para construção de interfaces a partir de componentes: funções que recebem dados (\en{props}) e descrevem a interface correspondente, com estado local e ciclo de vida expressos por \en{hooks} \cite{reactdocs,fedosejev2015react}. A versão 19 consolidou os \emph{Server Components}, componentes executados apenas no servidor, que podem acessar dados diretamente e não enviam o seu código ao navegador. O projeto também habilita o React Compiler, que aplica memoização automática em tempo de compilação.
+
+\subsection{Next.js}\label{sec:fund-nextjs}
+
+Next.js é o \en{framework} sobre React que fornece roteamento, renderização híbrida e otimizações de produção \cite{nextjsdocs,konshin2018next}. Os elementos relevantes para o Vitrine são:
+
+\begin{itemize}
+  \item \textbf{App Router:} o roteamento é definido pela estrutura de diretórios em \cod{src/app}; arquivos \cod{page.js}, \cod{layout.js} e \cod{route.js} declaram páginas, \en{layouts} compartilhados e \en{endpoints} HTTP (\en{Route Handlers});
+  \item \textbf{Server e Client Components:} por padrão os componentes do App Router são de servidor; a diretiva \texttt{'use client'} marca os que dependem de estado ou eventos do navegador;
+  \item \textbf{Proxy:} a partir da versão 16, o antigo \en{Middleware} passou a se chamar \en{Proxy} (arquivo \cod{proxy.js}); serve para redirecionamentos e verificações otimistas, mas a documentação oficial adverte que não deve ser a única barreira de autorização;
+  \item \textbf{ISR e revalidação:} o segmento de rota pode declarar \texttt{export const revalidate = N} (regeneração por tempo) e usar \arq{generateStaticParams} para pré-renderizar parâmetros dinâmicos; as funções \arq{revalidatePath} e \texttt{revalidateTag}, chamadas em Route Handlers ou Server Functions, invalidam o cache sob demanda.
+\end{itemize}
+
+A documentação da versão instalada registra ressalvas importantes para este projeto: a ISR só é suportada no \en{runtime} Node.js e não em exportação estática; com múltiplas instâncias, o cache padrão em sistema de arquivos é por instância, de modo que a invalidação só atinge a instância que recebe a chamada; e o cabeçalho \arq{x-nextjs-cache} informa se a resposta foi \texttt{HIT}, \texttt{STALE}, \texttt{MISS} ou \texttt{REVALIDATED} \cite{nextjsdocs}. Essas propriedades fundamentam a estratégia de cache (Seção~\ref{sec:arq-isr}) e os testes de ISR (Capítulo~\ref{cap:testes}).
+
+\subsection{Persistência: SQLite e Prisma ORM}\label{sec:fund-sqlite}
+
+O SQLite é um mecanismo de banco de dados SQL embutido, sem servidor e sem configuração, que armazena o banco inteiro em um único arquivo e oferece transações com propriedades ACID \cite{sqliteabout}. Sua documentação indica que ele é adequado à maioria dos sites de tráfego baixo a moderado \cite{sqlitewhentouse}, perfil do Vitrine. As limitações relevantes são: a escrita é serializada --- há um escritor por vez --- e a durabilidade depende de um sistema de arquivos persistente. O modo \en{Write-Ahead Logging} (WAL) permite que leitores e escritor atuem simultaneamente, o que é conveniente para um site majoritariamente de leitura \cite{sqlitewal}.
+
+O Prisma ORM descreve o modelo de dados em um arquivo declarativo (\cod{schema.prisma}), gera um cliente tipado e gerencia migrações \cite{prismadocs}. Na versão 7, instalada no projeto, a configuração da CLI passa a residir em um arquivo \cod{prisma.config.ts}, o gerador recomendado é o \arq{prisma-client} e o acesso ao banco exige um \emph{\en{driver adapter}} (por exemplo, \arq{better-sqlite3} ou \texttt{libSQL} para SQLite). Um detalhe a considerar: o Prisma aceita campos do tipo \en{enum}, mas o SQLite não impõe os valores no nível do banco, o que justifica validar o tipo de conteúdo na aplicação (regra \texttt{RN02}, Seção~\ref{sec:regras-negocio}).
+
+\subsection{Autenticação e Sessões}\label{sec:fund-auth}
+
+\emph{Autenticação} é o processo de verificar quem é o usuário; \emph{autorização} é decidir o que ele pode fazer. Em aplicações web com senha, as boas práticas recomendadas pelo OWASP incluem armazenar apenas um \en{hash} da senha, gerado por função adaptativa e com sal, limitar tentativas de acesso e transportar identificadores de sessão em \en{cookies} com os atributos \texttt{HttpOnly}, \texttt{Secure} e \texttt{SameSite} \cite{owaspcheatsheets,owaspasvs}. Sessões persistidas no servidor --- e não apenas \en{tokens} autossuficientes --- permitem revogação imediata.
+
+O better-auth é uma biblioteca de autenticação para aplicações JavaScript/TypeScript, independente de \en{framework}, que fornece autenticação por e-mail e senha, gerenciamento de sessões e um sistema de \emph{plugins} \cite{betterauthdocs}. Na versão instalada (1.7.6), o pacote expõe adaptador para Prisma (\cod{better-auth/adapters/prisma}), integração com Next.js (\cod{better-auth/next-js}, com o tratador de rotas e o \en{plugin} de \en{cookies}), cliente React (\cod{better-auth/react}), utilitário de leitura do \en{cookie} de sessão (\cod{better-auth/cookies}) e \en{plugins} como \texttt{admin}, \texttt{username} e \arq{two-factor}, que sinalizam caminhos de evolução para papéis e autenticação reforçada. O esquema de dados que ele requer --- tabelas \texttt{user}, \texttt{session}, \texttt{account} e \texttt{verification} --- é o que compõe a primeira metade do modelo de dados do Vitrine (Seção~\ref{sec:arq-dados}).
+
+\subsection{Markdown, Matemática e o Ecossistema unified}\label{sec:fund-markdown}
+
+Markdown é uma linguagem de marcação leve, legível em texto puro; a sua sintaxe básica é especificada pelo CommonMark \cite{commonmark}, e o GitHub Flavored Markdown (GFM) acrescenta tabelas, listas de tarefas, texto tachado e links automáticos \cite{gfmspec}. O ecossistema \texttt{unified} processa conteúdo como árvores sintáticas: \emph{remark} trata Markdown e \emph{rehype} trata HTML \cite{unifiedjs}. O \arq{react-markdown} usa esse ecossistema para converter Markdown em elementos React, sem empregar \arq{dangerouslySetInnerHTML} e sem interpretar HTML bruto por padrão --- uma propriedade importante de segurança \cite{reactmarkdown}.
+
+O suporte a matemática é obtido pela combinação de \arq{remark-math}, que reconhece as delimitações \texttt{\$...\$} (inline) e \texttt{\$\$...\$\$} (bloco), e \arq{rehype-katex}, que renderiza as expressões com o KaTeX \cite{katex}. O KaTeX exige a folha de estilos correspondente. Com essa cadeia, o autor escreve fórmulas em \LaTeX{} diretamente no texto, cumprindo o objetivo OE2.
+
+\subsection{Tailwind CSS e Variáveis CSS}\label{sec:fund-css}
+
+O Tailwind CSS é um \en{framework} de utilitários; a versão 4 adota configuração orientada a CSS (\texttt{@import "tailwindcss"} e o bloco \texttt{@theme}) \cite{tailwinddocs}. As propriedades personalizadas de CSS (\emph{custom properties}) permitem definir valores reutilizáveis que participam da cascata e da herança e podem ser alterados em tempo de execução \cite{mdncssvars}. A combinação dos dois é o mecanismo de personalização do Vitrine: os tokens de cor do tema referenciam variáveis CSS, e um atributo \texttt{style} no elemento raiz define os valores vindos do banco, sem novo \en{build} (Seção~\ref{sec:arq-tema}).
+
+\section{Engenharia de Requisitos e Modelagem}\label{sec:fund-modelagem}
+
+\subsection{Requisitos}
+
+Requisitos funcionais descrevem o que o sistema deve fazer; requisitos não funcionais descrevem restrições e qualidades sob as quais ele deve operar \cite{sommerville2011,pressman2021}. A norma ISO/IEC/IEEE 29148 estabelece processos e atributos de boa especificação --- identificação única, verificabilidade, consistência e rastreabilidade \cite{iso29148}. As qualidades do produto são classificadas pelo modelo da ISO/IEC 25010 em adequação funcional, eficiência de desempenho, compatibilidade, usabilidade, confiabilidade, segurança, manutenibilidade e portabilidade \cite{iso25010}; os requisitos não funcionais do Vitrine (Seção~\ref{sec:rnf}) usam essa taxonomia.
+
+\subsection{UML, Modelo Entidade-Relacionamento e Diagramas como Código}
+
+Os diagramas de casos de uso da UML descrevem as interações entre atores e sistema, com as relações \texttt{include} (obrigatória) e \texttt{extend} (opcional) \cite{umlspec}. O modelo entidade-relacionamento descreve dados e associações. Ambos são mantidos neste projeto como texto: PlantUML para diagramas UML e de arquitetura \cite{plantumldocs} e DBML para o modelo de dados \cite{dbmldocs}. Essa escolha permite versionar, comparar e revisar diagramas como se fossem código. A arquitetura é descrita pelas visões do modelo C4 --- contexto, contêineres e componentes \cite{c4model} --- complementadas por vistas de processo e de implantação no espírito do modelo 4+1 \cite{kruchten1995}. As decisões relevantes são registradas como \en{Architecture Decision Records} (ADR), documentos curtos que capturam contexto, decisão e consequências \cite{nygard2011adr}.
+
+\section{Documentation-Driven Development}\label{sec:fund-ddd}
+
+\subsection{Conceito}
+
+Neste trabalho, \emph{Documentation-Driven Development} (DDD) designa o processo em que a documentação é escrita \emph{antes} do código, passa a ser o contrato que o descreve e é atualizada em sincronia com ele; o código é verificado contra a documentação, e não o contrário. Não se deve confundir a sigla com \emph{Domain-Driven Design}, também abreviado como DDD, que trata da modelagem de domínios de negócio \cite{evans2003ddd} e cujos conceitos não são empregados aqui.
+
+Essa prática tem antecedentes. \citeonline{parnas1986rational} argumentam que, mesmo que o projeto real nunca siga um processo racional ideal, produzir a documentação como se ele tivesse sido seguido traz benefícios à compreensão e à manutenção. O \en{Readme-Driven Development} propõe escrever primeiro o documento que explica o que o \en{software} fará \cite{rdd}. A abordagem \en{docs as code} trata a documentação com as mesmas ferramentas do código --- texto puro, controle de versão, revisão e automação \cite{writethedocs,gentle2017docs}.
+
+\subsection{Desenvolvimento Conduzido por Agentes Especializados}
+
+Quando parte do desenvolvimento é delegada a agentes de inteligência artificial, surgem riscos específicos: cada agente enxerga apenas uma parte do sistema, pode assumir premissas incorretas e produz alterações em volume que dificulta a revisão humana. O DDD mitiga esses riscos de três maneiras: (i) a especificação compartilhada reduz a necessidade de premissas; (ii) a separação de domínios e o \emph{escritor único} da documentação evitam conflitos; e (iii) um agente integrador (Arquiteto) confronta cada entrega com a especificação antes de aceitá-la. O Capítulo~\ref{cap:metodologia} detalha o processo adotado; o fluxo de ramificações segue práticas consagradas de controle de versão \cite{chacon2014progit} e a convenção de mensagens \en{Conventional Commits} \cite{conventionalcommits}.
+
+\section{Trabalhos Relacionados}\label{sec:trabalhos-relacionados}
+
+\subsection{Critérios de Comparação}
+
+A comparação é feita por categoria de solução, segundo critérios derivados dos objetivos do Vitrine: (C1) possibilidade de hospedagem própria; (C2) necessidade de administrar um servidor de banco de dados; (C3) edição de conteúdo por interface web; (C4) suporte nativo a fórmulas \LaTeX{} e a código com realce; e (C5) personalização visual sem programação.
+
+\subsection{Limitações das Plataformas Existentes}
+
+Redes sociais e plataformas de terceiros impõem três classes de limitação, que o relatório de IC \cite{reis2026ic} já identificava: a \textbf{perda de controle}, pela dificuldade de manter a identidade visual e a formatação técnica sob regras e limites de caracteres da plataforma, que ainda submetem a produção acadêmica à competição visual com conteúdos de outras naturezas; as \textbf{barreiras técnicas}, já que os CMS tradicionais exigem conhecimentos de infraestrutura para instalação e manutenção; e a \textbf{formatação técnica}, pela falta de suporte nativo a elementos essenciais, como fórmulas em \LaTeX{} e blocos de código.
+
+Os geradores de sites estáticos e as ferramentas de documentação como código resolvem bem a formatação técnica --- tipicamente por extensões de matemática e de realce de sintaxe --- e a perenidade, já que o conteúdo são arquivos. O custo é o fluxo de trabalho: editar arquivos localmente, executar um \en{build} e publicar, o que pressupõe familiaridade com linha de comando e Git. Os CMS \en{headless} entregam um painel de edição, mas transferem ao autor a tarefa de construir e manter a camada de apresentação.
+
+\subsection{Síntese e Posicionamento}
+
+A Tabela~\ref{tab:trabalhos-relacionados} sintetiza a comparação. Os valores são qualitativos e descrevem tendências das categorias, não produtos específicos.
+
+\begin{table}[htb]
+\caption{Comparação qualitativa entre categorias de solução e o Vitrine}\label{tab:trabalhos-relacionados}
+\scriptsize
+\begin{tabularx}{\linewidth}{@{}L{2.9cm}YYYYY@{}}
+\toprule
+\textbf{Categoria} & \textbf{C1 Hospedagem própria} & \textbf{C2 Sem servidor de BD} & \textbf{C3 Edição pela web} & \textbf{C4 Fórmulas e código nativos} & \textbf{C5 Personalização sem código}\\
+\midrule
+Plataformas hospedadas & Não & Sim & Sim & Variável, em geral limitado & Limitada\\
+\addlinespace
+CMS tradicionais & Sim & Não & Sim & Via \en{plugins} ou temas & Sim, com curva de aprendizado\\
+\addlinespace
+CMS \en{headless} & Sim ou serviço & Varia & Sim (painel) & Depende do \en{front-end} & Exige construir o \en{front-end}\\
+\addlinespace
+Geradores estáticos e docs como código & Sim (estático) & Sim & Não, por padrão & Sim, por extensões & Via temas e CSS\\
+\addlinespace
+\textbf{Vitrine} & \textbf{Sim} & \textbf{Sim (SQLite)} & \textbf{Sim} & \textbf{Sim (nativo)} & \textbf{Sim (painel)}\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores. Síntese qualitativa a validar com a documentação oficial de cada categoria.}
+\end{table}
+
+\vitrinependencia{Arquiteto}{Validar a Tabela~\ref{tab:trabalhos-relacionados} contra a documentação oficial de produtos representativos de cada categoria (por exemplo, WordPress, Ghost, Strapi, Hugo, MkDocs e Docusaurus), registrando a data de consulta, e citar cada fonte em references.bib.}
+
+O diferencial do Vitrine não está em uma funcionalidade isolada, mas na combinação: hospedagem própria sem servidor de banco de dados, edição pela web, matemática e código como parte nativa do texto, personalização visual sem programação e entrega com desempenho de página estática. Em contraste com ecossistemas fechados que dificultam a exportação de dados, a arquitetura privilegia a soberania do autor: o conteúdo reside em um arquivo de banco e em texto Markdown, o que permite ao pesquisador usar a ferramenta como a base central do seu conhecimento \cite{reis2026ic}.
+
+\section{Síntese do Capítulo}
+
+O capítulo situou o Vitrine entre as categorias de solução para publicação de conteúdo e justificou, com base na literatura e na documentação das tecnologias, as escolhas de monólito modular, renderização incremental, SQLite com Prisma, better-auth, Markdown com \texttt{unified} e KaTeX, e personalização por variáveis CSS. Apresentou também os fundamentos de especificação e de \en{Documentation-Driven Development} que sustentam o processo descrito a seguir.

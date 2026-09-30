@@ -1,0 +1,87 @@
+@startuml arq-componentes
+' ===========================================================================
+' Vitrine - Arquitetura: componentes do monólito e regras de dependência
+' Figura: fig:arq-componentes (doc/tex/capitulos/cap5_arquitetura.tex)
+' Cores indicam o agente responsável: azul = Core, verde = UI, laranja = Dados.
+' Estrutura-alvo de diretórios; o estado atual do código pode estar parcial.
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam componentStyle rectangle
+skinparam package {
+  BorderColor #94A3B8
+}
+
+package "src/app (rotas - App Router)" as App {
+  component "layout.js\n(RootLayout, tema CSS)" as Layout #BFDBFE
+  component "page.js\n(início)" as Home #BFDBFE
+  component "[...slug]/page.js\n(leitura, ISR)" as Read #BFDBFE
+  component "login/page.js" as Login #BFDBFE
+  component "admin/**\n(painel, dinâmico)" as Admin #BFDBFE
+  component "api/auth/[...all]/route.js" as ApiAuth #BFDBFE
+  component "api/contents/**/route.js" as ApiContents #BFDBFE
+  component "api/configuration/route.js" as ApiConfig #BFDBFE
+}
+
+component "src/proxy.js\n(verificação otimista)" as Proxy #BFDBFE
+
+package "src/components (apresentação)" as Comp {
+  component "layout/\nNavbar, Sidebar, Footer" as CLayout #BBF7D0
+  component "markdown/\nMarkdownRenderer" as CMd #BBF7D0
+  component "editor/\nEditor, Toolbar, Preview" as CEditor #BBF7D0
+  component "admin/\nContentTree, ContentForm,\nThemeForm" as CAdmin #BBF7D0
+  component "ui/\nButton, Dialog, Toast..." as CUi #BBF7D0
+}
+
+package "src/lib (serviços)" as Lib {
+  component "auth.js\nauth-client.js" as LAuth #BFDBFE
+  component "validators.js\n(schemas de entrada)" as LVal #BFDBFE
+  component "revalidate.js\n(revalidatePath)" as LRev #BFDBFE
+  component "theme.js\n(variáveis CSS, contraste)" as LTheme #BBF7D0
+  component "content-tree.js\n(árvore, caminhos)" as LTree #FED7AA
+  component "db.js\n(Prisma Client + consultas)" as LDb #FED7AA
+}
+
+database "prisma/schema.prisma\n+ migrations" as Schema #FED7AA
+database "SQLite (.db)" as Sqlite
+
+Read --> CLayout
+Read --> CMd
+Layout --> CLayout
+Layout --> LTheme
+Admin --> CAdmin
+Admin --> CEditor
+CAdmin --> CUi
+CEditor --> CMd
+
+Home --> LDb
+Read --> LDb
+Layout --> LDb
+Read --> LTree
+Admin --> LAuth
+
+ApiContents --> LAuth
+ApiContents --> LVal
+ApiContents --> LDb
+ApiContents --> LRev
+ApiConfig --> LAuth
+ApiConfig --> LVal
+ApiConfig --> LDb
+ApiConfig --> LRev
+ApiAuth --> LAuth
+Proxy ..> LAuth : getSessionCookie
+
+LAuth --> LDb : adapter Prisma
+LDb --> Schema
+LDb --> Sqlite
+
+note bottom of CUi
+  Regra: src/components NÃO importa src/lib/db.js nem @prisma/client.
+  Dados chegam por props (Server Components em src/app) ou via fetch às rotas /api.
+end note
+note bottom of LDb
+  Regra: somente db.js instancia o PrismaClient. Rotas /api não
+  escrevem consultas Prisma inline: chamam funções de db.js.
+end note
+@enduml

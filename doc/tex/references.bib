@@ -1,0 +1,572 @@
+% ===================================================================================
+% references.bib -- Referências do projeto Vitrine
+% ===================================================================================
+% REGRAS (ver ARQUITETO.md):
+%  1. Somente o Arquiteto/Redator edita este arquivo.
+%  2. Só entram fontes reais e verificadas. Nunca inventar autor, ano ou URL.
+%  3. Para documentos online use `url` + `urlaccessdate` (formato: 30 set. 2026) --
+%     a data deve ser a do dia em que a URL foi de fato conferida.
+%  4. Toda entrada deve ser citada em algum capítulo (\cite{chave}); entradas não
+%     citadas não aparecem nas Referências.
+%  Os itens marcados "IC" foram herdados do Relatório de Iniciação Científica.
+% ===================================================================================
+
+% ---------------------------------------------------------------------------------
+% Origem do projeto
+% ---------------------------------------------------------------------------------
+@techreport{reis2026ic,
+  author      = {Reis, Caio Augusto Silva dos},
+  title       = {Relatório de Iniciação Científica: Vitrine um Sistema de Publicação de Conteúdo Científico},
+  institution = {Universidade Federal de São João del-Rei},
+  address     = {São João del-Rei},
+  year        = {2026},
+  type        = {Relatório Final de Iniciação Científica},
+  note        = {Orientador: Prof. Dr. Matheus Carvalho Viana. Período: setembro de 2025 a fevereiro de 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Engenharia de software, web e sistemas de informação
+% ---------------------------------------------------------------------------------
+% (herdada do Relatório de IC)
+@article{ginige2001web,
+  author  = {Ginige, Athula and Murugesan, San},
+  title   = {Web engineering: an introduction},
+  journal = {IEEE MultiMedia},
+  volume  = {8},
+  number  = {1},
+  pages   = {14--18},
+  year    = {2001}
+}
+
+% (herdada do Relatório de IC)
+@inproceedings{mikkonen2010mashware,
+  author    = {Mikkonen, Tommi and Taivalsaari, Antero},
+  title     = {The mashware challenge: bridging the gap between web development and software engineering},
+  booktitle = {Proceedings of the FSE/SDP Workshop on Future of Software Engineering Research},
+  pages     = {245--250},
+  year      = {2010}
+}
+
+% (herdada do Relatório de IC)
+@book{rainer2019intro,
+  author    = {Rainer, R. Kelly and Prince, Brad},
+  title     = {Introduction to Information Systems},
+  edition   = {8},
+  publisher = {Wiley},
+  address   = {New York},
+  year      = {2019}
+}
+
+% (herdada do Relatório de IC)
+@book{sommerville2011,
+  author    = {Sommerville, Ian},
+  title     = {Engenharia de Software},
+  edition   = {9},
+  publisher = {Pearson Prentice Hall},
+  address   = {São Paulo},
+  year      = {2011}
+}
+
+@book{pressman2021,
+  author    = {Pressman, Roger S. and Maxim, Bruce R.},
+  title     = {Engenharia de Software: uma abordagem profissional},
+  edition   = {9},
+  publisher = {AMGH},
+  address   = {Porto Alegre},
+  year      = {2021}
+}
+
+@book{swebok2014,
+  editor    = {Bourque, Pierre and Fairley, Richard E.},
+  title     = {Guide to the Software Engineering Body of Knowledge (SWEBOK Guide), Version 3.0},
+  publisher = {IEEE Computer Society},
+  year      = {2014}
+}
+
+@techreport{iso25010,
+  author      = {{ISO/IEC}},
+  title       = {ISO/IEC 25010:2011 -- Systems and software engineering -- Systems and software Quality Requirements and Evaluation (SQuaRE) -- System and software quality models},
+  institution = {International Organization for Standardization},
+  address     = {Geneva},
+  year        = {2011}
+}
+
+@techreport{iso29148,
+  author      = {{ISO/IEC/IEEE}},
+  title       = {ISO/IEC/IEEE 29148:2018 -- Systems and software engineering -- Life cycle processes -- Requirements engineering},
+  institution = {International Organization for Standardization},
+  address     = {Geneva},
+  year        = {2018}
+}
+
+@misc{agilemanifesto,
+  author       = {Beck, Kent and others},
+  title        = {Manifesto for Agile Software Development},
+  year         = {2001},
+  url          = {https://agilemanifesto.org},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Arquitetura de software, monólitos e web
+% ---------------------------------------------------------------------------------
+@phdthesis{fielding2000rest,
+  author  = {Fielding, Roy Thomas},
+  title   = {Architectural Styles and the Design of Network-based Software Architectures},
+  school  = {University of California, Irvine},
+  address = {Irvine},
+  year    = {2000}
+}
+
+@book{fowler2002poeaa,
+  author    = {Fowler, Martin},
+  title     = {Patterns of Enterprise Application Architecture},
+  publisher = {Addison-Wesley},
+  address   = {Boston},
+  year      = {2002}
+}
+
+@article{kruchten1995,
+  author  = {Kruchten, Philippe B.},
+  title   = {The 4+1 view model of architecture},
+  journal = {IEEE Software},
+  volume  = {12},
+  number  = {6},
+  pages   = {42--50},
+  year    = {1995}
+}
+
+@book{martin2017clean,
+  author    = {Martin, Robert C.},
+  title     = {Clean Architecture: A Craftsman's Guide to Software Structure and Design},
+  publisher = {Prentice Hall},
+  address   = {Boston},
+  year      = {2017}
+}
+
+@book{evans2003ddd,
+  author    = {Evans, Eric},
+  title     = {Domain-Driven Design: Tackling Complexity in the Heart of Software},
+  publisher = {Addison-Wesley},
+  address   = {Boston},
+  year      = {2003}
+}
+
+@book{newman2019monolith,
+  author    = {Newman, Sam},
+  title     = {Monolith to Microservices: Evolutionary Patterns to Transform Your Monolith},
+  publisher = {O'Reilly Media},
+  address   = {Sebastopol},
+  year      = {2019}
+}
+
+@misc{fowler2015monolithfirst,
+  author        = {Fowler, Martin},
+  title         = {MonolithFirst},
+  year          = {2015},
+  howpublished  = {martinfowler.com},
+  url           = {https://martinfowler.com/bliki/MonolithFirst.html},
+  urlaccessdate = {30 set. 2026}
+}
+
+@book{biilmann2019jamstack,
+  author    = {Biilmann, Mathias and Hawksworth, Phil},
+  title     = {Modern Web Development on the JAMstack},
+  publisher = {O'Reilly Media},
+  address   = {Sebastopol},
+  year      = {2019}
+}
+
+@misc{c4model,
+  author        = {Brown, Simon},
+  title         = {The C4 model for visualising software architecture},
+  url           = {https://c4model.com},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{nygard2011adr,
+  author        = {Nygard, Michael},
+  title         = {Documenting Architecture Decisions},
+  year          = {2011},
+  howpublished  = {Cognitect Blog},
+  url           = {https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{umlspec,
+  author        = {{Object Management Group}},
+  title         = {Unified Modeling Language (UML), Version 2.5.1},
+  year          = {2017},
+  url           = {https://www.omg.org/spec/UML/2.5.1},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{twelvefactor,
+  author        = {Wiggins, Adam},
+  title         = {The Twelve-Factor App},
+  url           = {https://12factor.net/pt_br/},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% JavaScript, React, Next.js e ecossistema
+% ---------------------------------------------------------------------------------
+@book{fedosejev2015react,
+  author    = {Fedosejev, Artemij},
+  title     = {React.js Essentials},
+  publisher = {Packt Publishing},
+  address   = {Birmingham},
+  year      = {2015}
+}
+
+@book{konshin2018next,
+  author    = {Konshin, Kirill},
+  title     = {Next.js Quick Start Guide: Server-side rendering done right},
+  publisher = {Packt Publishing},
+  address   = {Birmingham},
+  year      = {2018}
+}
+
+@article{jadhav2015single,
+  author  = {Jadhav, Madhuri A. and Sawant, Balkrishna R. and Deshmukh, Anushree},
+  title   = {Single page application using AngularJS},
+  journal = {International Journal of Computer Science and Information Technologies},
+  volume  = {6},
+  number  = {3},
+  pages   = {2876--2879},
+  year    = {2015}
+}
+
+@inproceedings{bierman2014typescript,
+  author    = {Bierman, Gavin and Abadi, Mart{\'\i}n and Torgersen, Mads},
+  title     = {Understanding TypeScript},
+  booktitle = {ECOOP 2014 -- Object-Oriented Programming: 28th European Conference},
+  pages     = {257--281},
+  publisher = {Springer},
+  year      = {2014}
+}
+
+@article{andreasen2017survey,
+  author  = {Andreasen, Esben and Gong, Liang and M{\o}ller, Anders and Pradel, Michael and Selakovic, Marija and Sen, Koushik and Staicu, Cristian-Alexandru},
+  title   = {A survey of dynamic analysis and test generation for JavaScript},
+  journal = {ACM Computing Surveys},
+  volume  = {50},
+  number  = {5},
+  pages   = {1--36},
+  year    = {2017}
+}
+
+% (herdada do Relatório de IC)
+@misc{nextjsdocs,
+  author        = {{Vercel}},
+  title         = {Next.js Documentation},
+  year          = {2026},
+  url           = {https://nextjs.org/docs},
+  urlaccessdate = {30 set. 2026}
+}
+
+% (herdada do Relatório de IC)
+@misc{prismadocs,
+  author        = {{Prisma Data, Inc.}},
+  title         = {Prisma Documentation},
+  year          = {2026},
+  url           = {https://www.prisma.io/docs},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{betterauthdocs,
+  author        = {{Better Auth}},
+  title         = {Better Auth Documentation},
+  year          = {2026},
+  url           = {https://www.better-auth.com/docs},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{reactdocs,
+  author        = {{Meta Platforms, Inc.}},
+  title         = {React Documentation},
+  year          = {2026},
+  url           = {https://react.dev},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{tailwinddocs,
+  author        = {{Tailwind Labs}},
+  title         = {Tailwind CSS Documentation},
+  year          = {2026},
+  url           = {https://tailwindcss.com/docs},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{mdncssvars,
+  author        = {{MDN Web Docs}},
+  title         = {Using CSS custom properties (variables)},
+  url           = {https://developer.mozilla.org/en-US/docs/Web/CSS/Using_CSS_custom_properties},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{zoddocs,
+  author        = {{Zod}},
+  title         = {Zod: TypeScript-first schema validation with static type inference},
+  url           = {https://zod.dev},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Markdown, matemática e processamento de conteúdo
+% ---------------------------------------------------------------------------------
+@misc{commonmark,
+  author        = {{CommonMark}},
+  title         = {CommonMark Spec},
+  url           = {https://spec.commonmark.org/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{gfmspec,
+  author        = {{GitHub, Inc.}},
+  title         = {GitHub Flavored Markdown Spec},
+  url           = {https://github.github.com/gfm/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{katex,
+  author        = {{KaTeX}},
+  title         = {KaTeX: the fastest math typesetting library for the web},
+  url           = {https://katex.org},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{unifiedjs,
+  author        = {{unified collective}},
+  title         = {unified: the ecosystem for processing content with syntax trees},
+  url           = {https://unifiedjs.com},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{reactmarkdown,
+  author        = {{remarkjs}},
+  title         = {react-markdown: Markdown component for React},
+  url           = {https://github.com/remarkjs/react-markdown},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Dados: SQLite, modelagem e diagramas
+% ---------------------------------------------------------------------------------
+@misc{sqliteabout,
+  author        = {{SQLite}},
+  title         = {About SQLite},
+  url           = {https://www.sqlite.org/about.html},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{sqlitewhentouse,
+  author        = {{SQLite}},
+  title         = {Appropriate Uses For SQLite},
+  url           = {https://www.sqlite.org/whentouse.html},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{sqlitewal,
+  author        = {{SQLite}},
+  title         = {Write-Ahead Logging},
+  url           = {https://www.sqlite.org/wal.html},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{dbmldocs,
+  author        = {{Holistics}},
+  title         = {DBML -- Database Markup Language},
+  url           = {https://dbml.dbdiagram.io/docs/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{plantumldocs,
+  author        = {{PlantUML}},
+  title         = {PlantUML: open-source tool that uses simple textual descriptions to draw diagrams},
+  url           = {https://plantuml.com},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Segurança, acessibilidade, desempenho e testes
+% ---------------------------------------------------------------------------------
+@misc{owasptop10,
+  author        = {{OWASP Foundation}},
+  title         = {OWASP Top 10:2021},
+  year          = {2021},
+  url           = {https://owasp.org/Top10/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{owaspasvs,
+  author        = {{OWASP Foundation}},
+  title         = {OWASP Application Security Verification Standard (ASVS)},
+  url           = {https://owasp.org/www-project-application-security-verification-standard/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{owaspcheatsheets,
+  author        = {{OWASP Foundation}},
+  title         = {OWASP Cheat Sheet Series},
+  url           = {https://cheatsheetseries.owasp.org/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{wcag21,
+  author        = {{W3C}},
+  title         = {Web Content Accessibility Guidelines (WCAG) 2.1},
+  year          = {2018},
+  url           = {https://www.w3.org/TR/WCAG21/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{lighthouse,
+  author        = {{Google Chrome Developers}},
+  title         = {Lighthouse overview},
+  url           = {https://developer.chrome.com/docs/lighthouse/overview},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{webvitals,
+  author        = {{Google}},
+  title         = {Web Vitals},
+  url           = {https://web.dev/articles/vitals},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{playwright,
+  author        = {{Microsoft}},
+  title         = {Playwright: fast and reliable end-to-end testing for modern web apps},
+  url           = {https://playwright.dev},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{vitest,
+  author        = {{Vitest}},
+  title         = {Vitest: next generation testing framework},
+  url           = {https://vitest.dev},
+  urlaccessdate = {30 set. 2026}
+}
+
+@incollection{brooke1996sus,
+  author    = {Brooke, John},
+  title     = {SUS: a ``quick and dirty'' usability scale},
+  booktitle = {Usability Evaluation in Industry},
+  editor    = {Jordan, Patrick W. and Thomas, B. and Weerdmeester, Bruce A. and McClelland, Ian L.},
+  publisher = {Taylor \& Francis},
+  address   = {London},
+  pages     = {189--194},
+  year      = {1996}
+}
+
+@book{nielsen1993usability,
+  author    = {Nielsen, Jakob},
+  title     = {Usability Engineering},
+  publisher = {Academic Press},
+  address   = {Boston},
+  year      = {1993}
+}
+
+% ---------------------------------------------------------------------------------
+% Metodologia de pesquisa e de desenvolvimento
+% ---------------------------------------------------------------------------------
+@book{gil2017,
+  author    = {Gil, Antonio Carlos},
+  title     = {Como elaborar projetos de pesquisa},
+  edition   = {6},
+  publisher = {Atlas},
+  address   = {São Paulo},
+  year      = {2017}
+}
+
+@book{marconi2017,
+  author    = {Marconi, Marina de Andrade and Lakatos, Eva Maria},
+  title     = {Fundamentos de metodologia científica},
+  edition   = {8},
+  publisher = {Atlas},
+  address   = {São Paulo},
+  year      = {2017}
+}
+
+@article{parnas1986rational,
+  author  = {Parnas, David L. and Clements, Paul C.},
+  title   = {A rational design process: how and why to fake it},
+  journal = {IEEE Transactions on Software Engineering},
+  volume  = {SE-12},
+  number  = {2},
+  pages   = {251--257},
+  year    = {1986}
+}
+
+@book{gentle2017docs,
+  author    = {Gentle, Anne},
+  title     = {Docs Like Code: Collaborate and Automate to Improve Technical Documentation},
+  publisher = {Lulu Press},
+  year      = {2017}
+}
+
+@misc{writethedocs,
+  author        = {{Write the Docs}},
+  title         = {Docs as Code},
+  url           = {https://www.writethedocs.org/guide/docs-as-code/},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{rdd,
+  author        = {Preston-Werner, Tom},
+  title         = {Readme Driven Development},
+  year          = {2010},
+  url           = {https://tom.preston-werner.com/2010/08/23/readme-driven-development.html},
+  urlaccessdate = {30 set. 2026}
+}
+
+@book{chacon2014progit,
+  author    = {Chacon, Scott and Straub, Ben},
+  title     = {Pro Git},
+  edition   = {2},
+  publisher = {Apress},
+  address   = {Berkeley},
+  year      = {2014}
+}
+
+@misc{gitworktree,
+  author        = {{Git}},
+  title         = {git-worktree: manage multiple working trees},
+  url           = {https://git-scm.com/docs/git-worktree},
+  urlaccessdate = {30 set. 2026}
+}
+
+@misc{conventionalcommits,
+  author        = {{Conventional Commits}},
+  title         = {Conventional Commits 1.0.0},
+  url           = {https://www.conventionalcommits.org/pt-br/v1.0.0/},
+  urlaccessdate = {30 set. 2026}
+}
+
+% ---------------------------------------------------------------------------------
+% Normas ABNT
+% ---------------------------------------------------------------------------------
+@techreport{nbr14724,
+  author      = {{Associação Brasileira de Normas Técnicas}},
+  title       = {NBR 14724: Informação e documentação -- Trabalhos acadêmicos -- Apresentação},
+  address     = {Rio de Janeiro},
+  institution = {ABNT},
+  year        = {2011}
+}
+
+@techreport{nbr6023,
+  author      = {{Associação Brasileira de Normas Técnicas}},
+  title       = {NBR 6023: Informação e documentação -- Referências -- Elaboração},
+  address     = {Rio de Janeiro},
+  institution = {ABNT},
+  year        = {2018}
+}
+
+@techreport{nbr10520,
+  author      = {{Associação Brasileira de Normas Técnicas}},
+  title       = {NBR 10520: Informação e documentação -- Citações em documentos -- Apresentação},
+  address     = {Rio de Janeiro},
+  institution = {ABNT},
+  year        = {2002}
+}

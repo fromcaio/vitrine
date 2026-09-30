@@ -1,0 +1,91 @@
+%% ===================================================================================
+%% Elementos Pré-Textuais (pretextual_elements.tex)
+%% ===================================================================================
+%% Contém: folha de aprovação, dedicatória, agradecimentos, epígrafe, resumo e abstract.
+%% Campos entre colchetes são de preenchimento pessoal do autor (não são tarefa de agente).
+%% O resumo e o abstract são RASCUNHOS e devem ser reescritos pelo Arquiteto/Redator
+%% quando os resultados (Cap. 7 e 8) estiverem consolidados.
+%% ===================================================================================
+
+% -----------------------------------------------------------------------------------
+% FOLHA DE APROVAÇÃO (obrigatória -- ABNT NBR 14724)
+% Após a defesa, substitua o conteúdo do ambiente pela página assinada digitalizada:
+%   \includegraphics[width=\textwidth]{imgs/folha_aprovacao_assinada.pdf}
+% -----------------------------------------------------------------------------------
+\begin{folhadeaprovacao}
+  \begin{center}
+    {\ABNTEXchapterfont\large\imprimirautor}
+
+    \vspace*{\fill}
+    {\ABNTEXchapterfont\bfseries\Large\imprimirtitulo}
+    \vspace*{\fill}
+
+    \hspace{.45\textwidth}
+    \begin{minipage}{.5\textwidth}
+      \SingleSpacing
+      \imprimirpreambulo
+    \end{minipage}%
+    \vspace*{\fill}
+  \end{center}
+
+  Trabalho aprovado. \imprimirlocal, \underline{\hspace{1cm}} de \underline{\hspace{3cm}} de \underline{\hspace{1.5cm}}:
+  \vspace*{2cm}
+
+  \assinatura{\textbf{\imprimirorientador} \\ Orientador(a)}
+  \assinatura{\textbf{[Nome completo do membro da banca 1]} \\ {[Instituição]}}
+  \assinatura{\textbf{[Nome completo do membro da banca 2]} \\ {[Instituição]}}
+
+\end{folhadeaprovacao}
+
+% -----------------------------------------------------------------------------------
+% DEDICATÓRIA (opcional)
+% -----------------------------------------------------------------------------------
+\begin{dedicatoria}
+	\vspace*{\fill}
+	\flushright
+	\textit{[Dedicatória -- a critério do autor.]}
+\end{dedicatoria}
+
+% -----------------------------------------------------------------------------------
+% AGRADECIMENTOS (opcional)
+% -----------------------------------------------------------------------------------
+\begin{agradecimentos}
+[Agradecimentos -- a critério do autor. Sugere-se mencionar o orientador,
+Prof.\ Dr.\ Matheus Carvalho Viana, pelo acompanhamento da Iniciação Científica que
+originou este trabalho, a Universidade Federal de São João del-Rei e os colegas e
+familiares que apoiaram o desenvolvimento.]
+\end{agradecimentos}
+
+% -----------------------------------------------------------------------------------
+% EPÍGRAFE (opcional)
+% -----------------------------------------------------------------------------------
+\begin{epigrafe}
+	\vspace*{\fill}
+	\begin{flushright}
+		\textit{[Epígrafe -- a critério do autor.]}
+	\end{flushright}
+\end{epigrafe}
+
+% -----------------------------------------------------------------------------------
+% RESUMO EM PORTUGUÊS (obrigatório) -- RASCUNHO
+% -----------------------------------------------------------------------------------
+\begin{resumo}
+Este trabalho apresenta o Vitrine, uma plataforma de gerenciamento de conteúdo (CMS) de código aberto voltada à publicação científica e didática independente por docentes e pesquisadores. O problema que motiva o projeto é a barreira tecnológica enfrentada por autores que, ao buscarem autonomia digital, esbarram na complexidade da infraestrutura dos CMSs tradicionais ou na rigidez e na perda de controle impostas por plataformas proprietárias, que ainda oferecem suporte limitado a elementos da escrita científica, como fórmulas matemáticas e blocos de código. A pesquisa, de natureza aplicada e caráter exploratório-descritivo, adota o desenvolvimento experimental e incremental de um artefato tecnológico. O sistema é construído como um monólito modular sobre o \textit{framework} Next.js, com persistência em SQLite por meio do ORM Prisma, autenticação com a biblioteca better-auth, edição e renderização de conteúdo em Markdown com fórmulas em \LaTeX{} (KaTeX) e personalização visual em tempo de execução, por variáveis CSS persistidas em banco de dados e propagadas por \textit{Incremental Static Regeneration} (ISR). Como contribuição metodológica, o desenvolvimento segue a abordagem \textit{Documentation-Driven Development}, em que esta documentação, escrita em \LaTeX{} e acompanhada de diagramas versionados como código, constitui a fonte da verdade que orienta agentes especializados (dados, servidor e interface) sob a governança de um arquiteto integrador. O documento registra o levantamento de requisitos, o modelo de dados, a arquitetura, as decisões de projeto e as estratégias de implementação e de verificação do sistema. [Os resultados e as conclusões serão consolidados ao final da implementação.]
+
+\vspace{\onelineskip}
+\noindent
+\textbf{Palavras-chave}: CMS acadêmico; Next.js; SQLite; Markdown; \textit{Documentation-Driven Development}; código aberto.
+\end{resumo}
+
+% -----------------------------------------------------------------------------------
+% RESUMO EM LÍNGUA ESTRANGEIRA (obrigatório) -- RASCUNHO
+% -----------------------------------------------------------------------------------
+\begin{resumo}[Abstract]
+\begin{otherlanguage*}{english}
+This work presents Vitrine, an open-source content management system (CMS) aimed at independent scientific and educational publishing by lecturers and researchers. The project is motivated by the technological barrier faced by authors who, when seeking digital autonomy, run into the infrastructure complexity of traditional CMSs or into the rigidity and loss of control imposed by proprietary platforms, which still offer limited support for elements of scientific writing such as mathematical formulas and code blocks. The research is applied and exploratory-descriptive in nature and adopts experimental, incremental development of a technological artifact. The system is built as a modular monolith on the Next.js framework, with SQLite persistence through the Prisma ORM, authentication with the better-auth library, Markdown content editing and rendering with \LaTeX{} formulas (KaTeX), and runtime visual customization through CSS variables persisted in the database and propagated by Incremental Static Regeneration (ISR). As a methodological contribution, development follows the Documentation-Driven Development approach, in which this documentation, written in \LaTeX{} and accompanied by diagrams versioned as code, is the source of truth guiding specialized agents (data, server and interface) under the governance of an integrating architect. The document records requirements elicitation, the data model, the architecture, design decisions, and the implementation and verification strategies of the system. [Results and conclusions will be consolidated at the end of the implementation.]
+
+\vspace{\onelineskip}
+\noindent
+\textbf{Keywords}: academic CMS; Next.js; SQLite; Markdown; Documentation-Driven Development; open source.
+\end{otherlanguage*}
+\end{resumo}

@@ -1,0 +1,111 @@
+%% ===================================================================================
+%% Apêndice D -- Guia de Implantação e Operação
+%% ESBOÇO normativo escrito antes do código. Os agentes Core e Dados devem validar cada
+%% passo numa instalação limpa (CT29) e pedir ao Arquiteto, pelo mural, as correções.
+%% ===================================================================================
+\chapter{Guia de Implantação e Operação}\label{ap:implantacao}
+
+Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). Os comandos foram redigidos a partir da especificação e da documentação das ferramentas; devem ser validados em uma instalação limpa (caso de teste CT29) e corrigidos conforme a implementação real.
+
+\vitrinependencia{Core}{Validar este guia em uma instalação limpa, corrigindo comandos e nomes de variáveis, e confirmar com o Arquiteto pelo mural o texto final (caso CT29).}
+
+\section{Pré-requisitos}
+
+\begin{itemize}
+  \item Servidor Linux, máquina virtual ou contêiner com \textbf{Node.js 20.9 ou superior} e \texttt{npm};
+  \item \textbf{disco persistente} para o arquivo do banco (um volume dedicado, em contêineres);
+  \item \textbf{HTTPS} em produção, tipicamente por um \en{proxy} reverso com TLS;
+  \item acesso ao repositório Git do projeto.
+\end{itemize}
+
+\section{Variáveis de Ambiente}
+
+\begin{table}[htb]
+\caption{Variáveis de ambiente (nomes; nunca versionar valores)}\label{tab:env}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.1cm}L{2.2cm}Y@{}}
+\toprule
+\textbf{Variável} & \textbf{Obrigatória} & \textbf{Descrição}\\
+\midrule
+\arq{DATABASE_URL} & Sim & Localização do arquivo SQLite, no formato \texttt{file:CAMINHO}. Em produção, usar caminho absoluto em volume persistente (por exemplo, \arq{file:/data/vitrine.db})\\
+\addlinespace
+\arq{BETTER_AUTH_SECRET} & Sim (nome a confirmar) & Segredo usado pelo better-auth para assinar/criptografar dados de sessão; longo e aleatório\\
+\addlinespace
+\arq{BETTER_AUTH_URL} & Sim (nome a confirmar) & URL pública base do site (por exemplo, \arq{https://meusite.exemplo})\\
+\addlinespace
+\arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção\\
+\addlinespace
+\arq{PORT} & Não & Porta do servidor Next.js; o padrão é 3000\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores. Os nomes das variáveis do better-auth devem ser confirmados pelo agente Core na documentação da versão instalada.}
+\end{table}
+
+\section{Instalação}
+
+\begin{lstlisting}[language=VSh, caption={Esboço: instalação em servidor}, label={lst:instalacao}]
+# 1. Obter o código e instalar as dependências
+git clone <url-do-repositorio> vitrine && cd vitrine
+npm ci
+
+# 2. Configurar o ambiente (.env nunca é versionado)
+cp .env.example .env
+# editar .env: DATABASE_URL, segredo e URL do better-auth
+
+# 3. Aplicar as migrações e criar os dados iniciais
+npx prisma migrate deploy
+npx prisma db seed        # configuração padrão + primeiro administrador (RF22, RF23)
+
+# 4. Compilar e iniciar
+npm run build
+npm run start             # http://localhost:3000
+\end{lstlisting}
+
+Em produção, o processo deve ser supervisionado por um gerenciador (por exemplo, \texttt{systemd} ou um gerenciador de processos Node.js) ou executado em contêiner com reinício automático. Deve haver \textbf{uma única instância} (Seção~\ref{sec:arq-isr}).
+
+\section{Proxy Reverso e HTTPS}
+
+Um \en{proxy} reverso com TLS recebe as conexões públicas e as encaminha à porta interna do Node.js. Exemplo mínimo com o servidor Caddy, que obtém e renova certificados automaticamente:
+
+\begin{lstlisting}[caption={Esboço: Caddyfile para o Vitrine}, label={lst:caddy}]
+meusite.exemplo {
+    reverse_proxy 127.0.0.1:3000
+}
+\end{lstlisting}
+
+\section{Cópia de Segurança e Restauração}\label{sec:backup}
+
+O banco é um único arquivo; porém, com o modo WAL, a cópia de arquivos com o sistema em execução pode ser inconsistente. A forma recomendada é gerar uma cópia consistente com o próprio SQLite, por exemplo:
+
+\begin{lstlisting}[language=VSh, caption={Esboço: cópia de segurança consistente do SQLite}, label={lst:backup}]
+# Requer a CLI sqlite3 (SQLite 3.27 ou superior para VACUUM INTO)
+sqlite3 /data/vitrine.db "VACUUM INTO '/backup/vitrine-$(date +%F).db'"
+\end{lstlisting}
+
+Para restaurar: parar o servidor, substituir o arquivo do banco pela cópia e iniciar novamente. A rotina deve ser agendada (por exemplo, diariamente) e as cópias guardadas fora do servidor (RNF10).
+
+\section{Atualização}
+
+Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reinstalar dependências (\texttt{npm ci}), aplicar migrações (\texttt{npx prisma migrate deploy}), recompilar (\texttt{npm run build}) e reiniciar o serviço. A recompilação gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação.
+
+\section{Solução de Problemas}
+
+\begin{longtable}{@{}L{4.2cm}L{4.5cm}L{5.3cm}@{}}
+\caption{Problemas comuns de implantação}\label{tab:problemas}\\
+\toprule
+\textbf{Sintoma} & \textbf{Causa provável} & \textbf{Ação}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Sintoma} & \textbf{Causa provável} & \textbf{Ação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Erro de banco não encontrado & Caminho relativo em \arq{DATABASE_URL} resolvido de forma diferente pela CLI e pelo servidor & Usar caminho absoluto em produção\\[1pt]
+Login não persiste & URL base incorreta ou \en{cookie} \texttt{Secure} sem HTTPS & Conferir a URL do better-auth e o TLS do \en{proxy}\\[1pt]
+Alteração não aparece no site público & Mais de uma instância (cache por instância) ou falha na revalidação & Manter uma única instância; verificar o cabeçalho \arq{x-nextjs-cache}\\[1pt]
+Falha de escrita no banco & Permissão de escrita ausente na pasta do arquivo & Ajustar o dono e as permissões do volume\\[1pt]
+Dados perdidos após reinício em plataforma \en{serverless} & Sistema de arquivos efêmero & Usar servidor com disco persistente ou banco remoto (D-04)\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores.}

@@ -1,0 +1,36 @@
+%% ===================================================================================
+%% Apêndice C -- Fontes dos Diagramas
+%% O catálogo completo e as instruções de renderização estão em doc/diagrams/README.md.
+%% Aqui entram apenas dois fontes representativos, incluídos diretamente do repositório.
+%% ===================================================================================
+\chapter{Fontes dos Diagramas}\label{ap:diagramas}
+
+Os diagramas deste documento são mantidos como código: PlantUML para diagramas UML e de arquitetura, e DBML para o modelo de dados. Os fontes vivem em \arq{doc/diagrams/src/} e são a fonte da verdade visual; as imagens renderizadas ficam em \arq{doc/tex/figuras/diagramas/}. O catálogo completo --- um arquivo por figura, com o nome do arquivo igual ao identificador da figura --- e as instruções de renderização estão em \arq{doc/diagrams/README.md}. A Tabela~\ref{tab:catalogo-diagramas} resume o catálogo.
+
+\begin{table}[htb]
+\caption{Catálogo dos diagramas-fonte}\label{tab:catalogo-diagramas}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.6cm}L{2.6cm}Y@{}}
+\toprule
+\textbf{Arquivo em \arq{doc/diagrams/src/}} & \textbf{Formato} & \textbf{Figura}\\
+\midrule
+\arq{uc-visao-geral.puml} & PlantUML & Casos de uso (Figura~\ref{fig:uc-visao-geral})\\
+\arq{er-vitrine.dbml} & DBML & Entidade-relacionamento (Figura~\ref{fig:er-vitrine})\\
+\arq{classes-dominio.puml} & PlantUML & Modelo de domínio (Figura~\ref{fig:classes-dominio})\\
+\arq{arq-contexto.puml}, \arq{arq-conteineres.puml} & PlantUML & Contexto e contêineres (Figuras~\ref{fig:arq-contexto} e~\ref{fig:arq-conteineres})\\
+\arq{arq-componentes.puml}, \arq{arq-camadas.puml} & PlantUML & Componentes e camadas (Figuras~\ref{fig:arq-componentes} e~\ref{fig:arq-camadas})\\
+\arq{seq-autenticacao.puml} & PlantUML & Autenticação (Figura~\ref{fig:seq-autenticacao})\\
+\arq{seq-leitura-isr.puml} & PlantUML & Leitura com ISR (Figura~\ref{fig:seq-leitura-isr})\\
+\arq{seq-publicacao-conteudo.puml} & PlantUML & Publicação (Figura~\ref{fig:seq-publicacao-conteudo})\\
+\arq{seq-personalizacao-tema.puml} & PlantUML & Personalização (Figura~\ref{fig:seq-personalizacao-tema})\\
+\arq{seq-reordenacao-arvore.puml} & PlantUML & Reordenação (Figura~\ref{fig:seq-reordenacao-arvore})\\
+\arq{nav-mapa-do-site.puml} & PlantUML & Mapa de rotas (Figura~\ref{fig:nav-mapa-do-site})\\
+\arq{impl-implantacao.puml} & PlantUML & Implantação (Figura~\ref{fig:impl-implantacao})\\
+\arq{fluxo-ddd-agentes.puml}, \arq{fluxo-git-mural.puml} & PlantUML & Processo (Figuras~\ref{fig:fluxo-ddd-agentes} e~\ref{fig:fluxo-git-mural})\\
+\arq{gantt-cronograma-ic.puml} & PlantUML & Cronograma da IC (Figura~\ref{fig:gantt-cronograma-ic})\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+O conteúdo integral de cada fonte pode ser lido no repositório; para evitar duplicação e divergência, este apêndice não o reproduz. A regra é: \textbf{o arquivo em \arq{doc/diagrams/src/} prevalece}, e a figura do Capítulo correspondente deve ser sempre uma renderização do fonte vigente.

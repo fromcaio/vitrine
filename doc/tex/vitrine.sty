@@ -1,0 +1,423 @@
+%% ===================================================================================
+%% vitrine.sty -- Macros do projeto Vitrine para Documentation-Driven Development (DDD)
+%% ===================================================================================
+%%
+%% Este pacote concentra tudo o que e especifico do projeto e nao pertence ao template
+%% de TCC (undergrad_thesis.cls). Ele oferece:
+%%
+%%   1. \vitrinefigura   -- figura com PLACEHOLDER automatico. Se o arquivo de imagem
+%%                          existir em figuras/<tipo>/<arquivo>.{pdf,png,jpg,jpeg}, a
+%%                          imagem e incluida; se nao existir, e desenhada uma caixa
+%%                          "FIGURA PENDENTE" que diz exatamente qual arquivo criar,
+%%                          quem e o agente responsavel e o que deve aparecer nele.
+%%   2. \vitrinependencia -- nota de pendencia de redacao enderecada a um agente.
+%%   3. \statusmodulo    -- selo de status (planejado / andamento / implementado).
+%%   4. \req, \reqtarget, \decisao, \decisaotarget, \adr, \adrtarget
+%%                        -- identificadores com hiperlink (requisitos, decisoes, ADRs).
+%%   5. \vitrineimprimirpendencias -- tabela (Apendice) com todas as figuras e
+%%                          pendencias de texto, gerada a partir do .aux.
+%%   6. Definicoes de linguagens do pacote listings (JavaScript, Prisma, DBML,
+%%      PlantUML, Shell, JSON, CSS) e estilo de codigo do projeto.
+%%
+%% Opcoes:  rascunho (padrao)  -- mostra placeholders e pendencias, apenas avisa.
+%%          final              -- oculta pendencias e transforma figura ausente em ERRO.
+%%
+%% Uso dos placeholders (ver README.md desta pasta e DESENVOLVEDORES.md na raiz):
+%%
+%%   \vitrinefigura[tipo=tela, arquivo=tela-login, agente=UI, largura=0.7,
+%%                  descricao={O que deve ser capturado},
+%%                  ref={Referencia visual opcional}]
+%%                 {Legenda da figura}{fig:tela-login}
+%% ===================================================================================
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{vitrine}[2026/09/30 v1.0 Macros do projeto Vitrine (DDD)]
+
+% -----------------------------------------------------------------------------------
+% Opcoes
+% -----------------------------------------------------------------------------------
+\newif\ifvitrine@final
+\DeclareOption{final}{\vitrine@finaltrue}
+\DeclareOption{rascunho}{\vitrine@finalfalse}
+\ExecuteOptions{rascunho}
+\ProcessOptions\relax
+% Modo final tambem pode ser forcado SEM editar o main.tex, por um arquivo-sinalizador
+% (independe de aspas e barras do shell): crie doc/tex/vitrine-final.flag e compile,
+% ou simplesmente rode `make final`, que cria e remove o arquivo.
+\IfFileExists{vitrine-final.flag}{\vitrine@finaltrue}{}
+\ifdefined\vitrinefinal \vitrine@finaltrue \fi
+
+% -----------------------------------------------------------------------------------
+% Dependencias (todas ja vem com MiKTeX/TeX Live completos)
+% -----------------------------------------------------------------------------------
+\RequirePackage{xcolor}
+\RequirePackage{tikz}
+\RequirePackage{pgfkeys}
+\RequirePackage{etoolbox}
+\RequirePackage{array}
+\RequirePackage{tabularx}
+\RequirePackage{longtable}
+\RequirePackage{booktabs}
+\RequirePackage{enumitem}
+\RequirePackage{makecell}
+\RequirePackage{listings}
+
+% -----------------------------------------------------------------------------------
+% Paleta do documento (usada so em avisos, selos e codigo; o texto continua P&B)
+% -----------------------------------------------------------------------------------
+\definecolor{vitrineaviso}{HTML}{B45309}
+\definecolor{vitrinebordaf}{HTML}{D97706}
+\definecolor{vitrinefundo}{HTML}{FFFBEB}
+\definecolor{vitrinecinza}{HTML}{E5E7EB}
+\definecolor{vitrineverdebg}{HTML}{DCFCE7}
+\definecolor{vitrineamarelobg}{HTML}{FEF3C7}
+\definecolor{vitrinecodigobg}{HTML}{F8FAFC}
+\definecolor{vitrinekw}{HTML}{1D4ED8}
+\definecolor{vitrinekwb}{HTML}{7C3AED}
+\definecolor{vitrinecomment}{HTML}{6B7280}
+\definecolor{vitrinestr}{HTML}{B91C1C}
+
+% -----------------------------------------------------------------------------------
+% Tabelas longas em corpo menor (a ABNT admite tabelas em fonte reduzida)
+% -----------------------------------------------------------------------------------
+\AtBeginEnvironment{longtable}{\footnotesize}
+
+% -----------------------------------------------------------------------------------
+% Tipos de coluna auxiliares para tabelas
+% -----------------------------------------------------------------------------------
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+% -----------------------------------------------------------------------------------
+% Agentes do projeto (ver DESENVOLVEDORES.md e ARQUITETO.md)
+% -----------------------------------------------------------------------------------
+\newcommand{\agente}[1]{\textsc{#1}}
+
+% -----------------------------------------------------------------------------------
+% Texto: estrangeirismos e codigo em linha
+%   \en{merge}      -> italico (termos estrangeiros, conforme a norma culta)
+%   \cod{src/lib/db.js} -> caminho/trecho de codigo com quebra de linha automatica.
+%   Nao usar \cod dentro de legendas (\caption), titulos de secao ou argumentos de outras
+%   macros; nesses casos use \texttt{} com caracteres especiais escapados.
+% -----------------------------------------------------------------------------------
+\newcommand{\en}[1]{\textit{#1}}
+
+% \arq{caminho/com_underscore.ext}: texto monoespacado que aceita "_" sem escape e pode
+% quebrar linha depois de "/", "." e "-". Vale para caminhos, nomes de arquivo e
+% identificadores curtos. NAO use para trechos com espacos, "#", "%" ou "\".
+% (\cod e um apelido de \arq.)
+\ExplSyntaxOn
+\str_new:N \l__vitrine_arq_str
+\NewDocumentCommand{\arq}{m}
+  {
+    \texttt
+      {
+        \str_set:Nn \l__vitrine_arq_str {#1}
+        \str_map_inline:Nn \l__vitrine_arq_str
+          {
+            ##1
+            \str_if_eq:nnT {##1} {/} { \allowbreak }
+            \str_if_eq:nnT {##1} {.} { \allowbreak }
+            \str_if_eq:nnT {##1} {-} { \allowbreak }
+            \str_if_eq:nnT {##1} {_} { \allowbreak }
+          }
+      }
+  }
+\ExplSyntaxOff
+\newcommand{\cod}[1]{\arq{#1}}
+
+% Linha de tabela de requisitos: ID, titulo, descricao, prioridade, origem, agente
+\newcommand{\reqrow}[6]{\reqtarget{#1} & \textbf{#2}. #3 & #4 & #5 & \agente{#6}\\[3pt]}
+
+% -----------------------------------------------------------------------------------
+% Identificadores com hiperlink: requisitos, decisoes em aberto e ADRs
+%   Definicao (na tabela):  \reqtarget{RF01}      Referencia (no texto): \req{RF01}
+% -----------------------------------------------------------------------------------
+\newcommand{\vitrine@idlink}[2]{\hyperlink{#1:#2}{\textbf{#2}}}
+% (a ancora dentro do \textbf mantem o ID alinhado ao topo em celulas de tabela)
+\newcommand{\vitrine@idtarget}[2]{\textbf{\hypertarget{#1:#2}{#2}}}
+\newcommand{\req}[1]{\vitrine@idlink{req}{#1}}
+\newcommand{\reqtarget}[1]{\vitrine@idtarget{req}{#1}}
+\newcommand{\decisao}[1]{\vitrine@idlink{dec}{#1}}
+\newcommand{\decisaotarget}[1]{\vitrine@idtarget{dec}{#1}}
+\newcommand{\adr}[1]{\vitrine@idlink{adr}{#1}}
+\newcommand{\adrtarget}[1]{\vitrine@idtarget{adr}{#1}}
+
+% -----------------------------------------------------------------------------------
+% Registro de Decisao Arquitetural (ADR) em formato padronizado
+%   \adrentry{ADR-001}{Titulo}{Status}{Contexto}{Decisao}{Consequencias}{Alternativas}
+% -----------------------------------------------------------------------------------
+\newcommand{\adrentry}[7]{%
+  \section{#1 --- #2}%
+  \hypertarget{adr:#1}{}%
+  \noindent\textbf{Status:} #3\par\smallskip
+  \noindent\textbf{Contexto.} #4\par\smallskip
+  \noindent\textbf{Decis\~ao.} #5\par\smallskip
+  \noindent\textbf{Consequ\^encias.} #6\par\smallskip
+  \noindent\textbf{Alternativas consideradas.} #7\par\medskip}
+
+% -----------------------------------------------------------------------------------
+% Selo de status de um modulo/secao (o Arquiteto atualiza apos cada merge)
+% -----------------------------------------------------------------------------------
+\newcommand{\vitrine@status@planejado}{%
+  \colorbox{vitrinecinza}{\sffamily\scriptsize\bfseries\ PLANEJADO\ }}
+\newcommand{\vitrine@status@andamento}{%
+  \colorbox{vitrineamarelobg}{\sffamily\scriptsize\bfseries\ EM ANDAMENTO\ }}
+\newcommand{\vitrine@status@implementado}{%
+  \colorbox{vitrineverdebg}{\sffamily\scriptsize\bfseries\ IMPLEMENTADO\ }}
+\newcommand{\statusmodulo}[1]{\csname vitrine@status@#1\endcsname}
+
+% -----------------------------------------------------------------------------------
+% Registro de pendencias no .aux (gera a tabela do Apendice "Mapa de pendencias")
+%   Campos sempre ASCII/seguros para nao quebrar a compilacao.
+% -----------------------------------------------------------------------------------
+\newcommand{\vitrine@pendlist}{}
+\newcommand{\vitrine@addpend}[4]{%
+  \g@addto@macro\vitrine@pendlist{\vitrine@pendrow{#1}{#2}{#3}{#4}}}
+\newcommand{\vitrine@pendrow}[4]{%
+  \ifstrequal{#1}{F}%
+    {Figura~\ref{#3} & #2 & \arq{#4} & \pageref{#3}\\}%
+    {\ifstrequal{#1}{C}%
+      {C\'odigo & #2 & \arq{#4} & #3\\}%
+      {Texto \S~#3 & #2 & Redigir ou validar (ver aviso na p\'agina) & #4\\}}}
+\newcounter{vitrinependfig}
+
+\newcommand{\vitrineimprimirpendencias}{%
+  \begingroup
+  \footnotesize
+  \begin{longtable}{@{}L{3.1cm}L{2cm}L{7.2cm}r@{}}
+    \toprule
+    \textbf{Item} & \textbf{Agente} & \textbf{Arquivo esperado / a\c{c}\~ao} & \textbf{P\'ag.}\\
+    \midrule
+    \endhead
+    \bottomrule
+    \endfoot
+    \vitrine@pendlist
+  \end{longtable}
+  \endgroup}
+
+\AtEndDocument{%
+  \PackageInfo{vitrine}{Figuras pendentes nesta compilacao: \arabic{vitrinependfig}}}
+
+% -----------------------------------------------------------------------------------
+% Pendencia de redacao enderecada a um agente
+%   \vitrinependencia{Dados}{Descrever a estrategia de migrations.}
+% -----------------------------------------------------------------------------------
+\newcommand{\vitrinependencia}[2]{%
+  \ifvitrine@final\else
+    \par\addvspace{4pt}%
+    \noindent\fcolorbox{vitrinebordaf}{vitrinefundo}{%
+      \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{%
+        \SingleSpacing\sffamily\footnotesize
+        \textbf{\color{vitrineaviso}PEND\^ENCIA}\ [#1]\ #2}}\par\addvspace{4pt}%
+    \protected@write\@auxout{}{\string\vitrine@addpend{T}{#1}{\thesection}{\thepage}}%
+  \fi}
+
+% -----------------------------------------------------------------------------------
+% Figura com placeholder automatico
+% -----------------------------------------------------------------------------------
+\pgfkeys{
+  /vitrine/fig/.cd,
+  tipo/.store in=\vitrine@figtipo,
+  arquivo/.store in=\vitrine@figarquivo,
+  largura/.store in=\vitrine@figlargura,
+  altura/.store in=\vitrine@figaltura,
+  agente/.store in=\vitrine@figagente,
+  fonte/.store in=\vitrine@figfonte,
+  origem/.store in=\vitrine@figorigem,
+  descricao/.store in=\vitrine@figdescricao,
+  ref/.store in=\vitrine@figref,
+}
+
+\newcommand{\vitrine@figdefaults}{%
+  \def\vitrine@figtipo{diagrama}%
+  \def\vitrine@figarquivo{sem-nome}%
+  \def\vitrine@figlargura{0.9}%
+  \def\vitrine@figaltura{2.2cm}%
+  \def\vitrine@figagente{Arquiteto}%
+  \def\vitrine@figfonte{Elaborado pelos autores.}%
+  \def\vitrine@figorigem{}%
+  \def\vitrine@figdescricao{}%
+  \def\vitrine@figref{}%
+}
+
+% Pasta de cada tipo de figura (relativa a pasta do main.tex)
+\newcommand{\vitrine@setfigdir}{%
+  \ifdefstring{\vitrine@figtipo}{tela}{\def\vitrine@figdir{figuras/telas}}{%
+  \ifdefstring{\vitrine@figtipo}{diagrama}{\def\vitrine@figdir{figuras/diagramas}}{%
+  \ifdefstring{\vitrine@figtipo}{teste}{\def\vitrine@figdir{figuras/testes}}{%
+  \ifdefstring{\vitrine@figtipo}{ic}{\def\vitrine@figdir{figuras/ic}}{%
+  \def\vitrine@figdir{figuras/outros}}}}}}
+
+% Procura figuras/<tipo>/<arquivo>.{pdf,png,jpg,jpeg}; deixa \vitrine@figfile = \relax se nao achar
+\newcommand{\vitrine@findfig}{%
+  \let\vitrine@figfile\relax
+  \@for\vitrine@ext:={pdf,png,jpg,jpeg}\do{%
+    \ifx\vitrine@figfile\relax
+      \IfFileExists{\vitrine@figdir/\vitrine@figarquivo.\vitrine@ext}{%
+        \edef\vitrine@figfile{\vitrine@figdir/\vitrine@figarquivo.\vitrine@ext}}{}%
+    \fi}}
+
+% Caixa de placeholder (compacta: altura definida pelo conteudo)
+\newcommand{\vitrine@placeholderbox}{%
+  \begin{tikzpicture}
+    \node[draw=vitrinebordaf, dash pattern=on 4pt off 3pt, line width=0.9pt,
+          fill=vitrinefundo, rounded corners=3pt, inner sep=5pt,
+          text width=\dimexpr\vitrine@figlargura\linewidth-10pt\relax,
+          minimum height=\vitrine@figaltura, align=center, text=black,
+          font=\sffamily\footnotesize] {%
+      {\bfseries\color{vitrineaviso}FIGURA PENDENTE}\ (\vitrine@figtipo)
+       \ --- \textbf{Agente:} \vitrine@figagente\par
+      \textbf{Salvar em:}
+        {\ttfamily\expandafter\detokenize\expandafter{\vitrine@figpath}.png}\par
+      \ifx\vitrine@figorigem\@empty\else
+        \textbf{Fonte do diagrama:}
+          {\ttfamily\expandafter\detokenize\expandafter{\vitrine@figorigem}}\par
+      \fi
+      \ifx\vitrine@figdescricao\@empty\else
+        \textbf{O que deve aparecer:}\ \vitrine@figdescricao\par
+      \fi
+      \ifx\vitrine@figref\@empty\else
+        \textbf{Refer\^encia visual:}\ \vitrine@figref\par
+      \fi
+    };
+  \end{tikzpicture}}
+
+% \vitrinefigura[chaves]{Legenda}{rotulo}
+\newcommand{\vitrinefigura}[3][]{%
+  \vitrine@figdefaults
+  \pgfkeys{/vitrine/fig/.cd,#1}%
+  \vitrine@setfigdir
+  \edef\vitrine@figpath{\vitrine@figdir/\vitrine@figarquivo}%
+  \vitrine@findfig
+  \begin{figure}[!htbp]
+    \caption{#2}\label{#3}
+    \centering
+    \ifx\vitrine@figfile\relax
+      \ifvitrine@final
+        \PackageError{vitrine}{Figura ausente em modo final: \vitrine@figpath}%
+          {Adicione a imagem ou compile em modo rascunho.}%
+      \fi
+      \PackageWarningNoLine{vitrine}{Figura pendente [\vitrine@figagente]: \vitrine@figpath\space(#3)}%
+      \stepcounter{vitrinependfig}%
+      \vitrine@placeholderbox
+      \protected@write\@auxout{}{\string\vitrine@addpend{F}{\vitrine@figagente}{#3}{\vitrine@figpath.png}}%
+    \else
+      \includegraphics[width=\vitrine@figlargura\linewidth,height=0.72\textheight,keepaspectratio]{\vitrine@figfile}%
+    \fi
+    \par\vspace{2pt}
+    \fonte{\vitrine@figfonte}
+  \end{figure}}
+
+% -----------------------------------------------------------------------------------
+% Trecho de codigo do repositorio, com placeholder automatico
+%   \vitrinecodigo[opcoes do listings]{agente}{caminho/a/partir/da/raiz}{linguagem}{legenda}
+%   Se o arquivo existir (../../<caminho>, pois o LaTeX roda em doc/tex), ele e incluido
+%   com \lstinputlisting; use `linerange={10-40}` (ou firstline/lastline) para citar so
+%   o trecho relevante. Se nao existir, aparece o aviso "CODIGO PENDENTE" e o item entra
+%   no Apendice "Mapa de pendencias". Nao use \ref para estes blocos sem `label={...}`.
+%   Linguagens: VJS, VPrisma, VDBML, VPUML, VSh, VJSON, VCSS, SQL.
+% -----------------------------------------------------------------------------------
+\newcommand{\vitrinecodigo}[5][]{%
+  \IfFileExists{../../#3}{%
+    \lstinputlisting[language=#4,caption={#5},#1]{../../#3}}{%
+    \vitrine@codigopend{#2}{#3}{#5}}}
+
+\newcommand{\vitrine@codigopend}[3]{%
+  \ifvitrine@final
+    \PackageError{vitrine}{Codigo ausente em modo final: #2}%
+      {Crie o arquivo ou compile em modo rascunho.}%
+  \fi
+  \PackageWarningNoLine{vitrine}{Codigo pendente [#1]: #2}%
+  \par\addvspace{6pt}\noindent
+  \fcolorbox{vitrinebordaf}{vitrinefundo}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}{%
+      \SingleSpacing\sffamily\footnotesize
+      \textbf{\color{vitrineaviso}C\'ODIGO PENDENTE}\ [#1] --- #3.\par
+      \smallskip
+      Arquivo de origem: \arq{#2}\ (inclu\'ido automaticamente quando existir).}}%
+  \par\addvspace{6pt}%
+  \protected@write\@auxout{}{\string\vitrine@addpend{C}{#1}{\thepage}{#2}}}
+
+% -----------------------------------------------------------------------------------
+% Listagens de codigo (pacote listings; sem dependencia de Python/shell-escape)
+% -----------------------------------------------------------------------------------
+\renewcommand{\lstlistingname}{C\'odigo}
+\renewcommand{\lstlistlistingname}{Lista de c\'odigos}
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  numbers=left, numberstyle=\tiny\color{vitrinecomment}, numbersep=8pt,
+  frame=single, framesep=5pt, rulecolor=\color{vitrinecinza},
+  backgroundcolor=\color{vitrinecodigobg},
+  xleftmargin=2em, xrightmargin=1em,
+  breaklines=true, breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{vitrinecomment}{$\hookrightarrow$}\space},
+  showstringspaces=false, tabsize=2, captionpos=t, columns=fullflexible,
+  keywordstyle=\color{vitrinekw}\bfseries,
+  keywordstyle=[2]\color{vitrinekwb}\bfseries,
+  keywordstyle=[3]\color{vitrinekw},
+  commentstyle=\color{vitrinecomment},
+  stringstyle=\color{vitrinestr},
+  inputencoding=utf8, extendedchars=true,
+  literate=
+    {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+    {à}{{\`a}}1 {À}{{\`A}}1 {ã}{{\~a}}1 {õ}{{\~o}}1 {Ã}{{\~A}}1 {Õ}{{\~O}}1
+    {â}{{\^a}}1 {ê}{{\^e}}1 {ô}{{\^o}}1 {Â}{{\^A}}1 {Ê}{{\^E}}1 {Ô}{{\^O}}1
+    {ç}{{\c c}}1 {Ç}{{\c C}}1 {ü}{{\"u}}1
+    {–}{{--}}1 {—}{{---}}1 {→}{{$\rightarrow$}}1 {…}{{\ldots}}1
+    {“}{{``}}1 {”}{{''}}1 {’}{{'}}1 {º}{{\textordmasculine}}1 {ª}{{\textordfeminine}}1,
+}
+
+\lstdefinelanguage{VJS}{
+  morekeywords={break,case,catch,class,const,continue,default,delete,do,else,export,extends,
+    finally,for,function,if,import,in,instanceof,let,new,return,switch,this,throw,try,typeof,
+    var,void,while,async,await,from,of,static,yield},
+  morekeywords=[2]{true,false,null,undefined},
+  sensitive=true,
+  morecomment=[l]{//}, morecomment=[s]{/*}{*/},
+  morestring=[b]', morestring=[b]", morestring=[b]`,
+}
+\lstdefinelanguage{VPrisma}{
+  morekeywords={generator,datasource,model,enum,type,view},
+  morekeywords=[2]{String,Int,BigInt,Float,Decimal,Boolean,DateTime,Json,Bytes},
+  otherkeywords={@id,@default,@unique,@relation,@map,@updatedAt,@@map,@@index,@@unique},
+  keywordstyle=[3]\color{vitrinekw},
+  sensitive=true,
+  morecomment=[l]{//}, morestring=[b]",
+}
+\lstdefinelanguage{VDBML}{
+  morekeywords={Table,Ref,Enum,Project,Note,TableGroup,Indexes},
+  morekeywords=[2]{varchar,text,integer,int,timestamp,boolean,datetime},
+  morekeywords=[3]{primary,key,unique,null,default,note,delete,cascade},
+  sensitive=false,
+  morecomment=[l]{//}, morestring=[b]', morestring=[b]`,
+}
+\lstdefinelanguage{VPUML}{
+  morekeywords={actor,usecase,rectangle,package,component,node,database,cloud,interface,class,
+    participant,activate,deactivate,alt,else,end,opt,loop,note,title,skinparam,start,stop,if,
+    then,endif,while,endwhile,fork,partition,legend,left,right,of,as,autonumber,return,box,
+    entity,queue,artifact,folder,frame,state,together,hide,show,footer,header,direction},
+  otherkeywords={@startuml,@enduml,@startmindmap,@endmindmap,@startgantt,@endgantt},
+  sensitive=true,
+  morecomment=[l]{'}, morestring=[b]",
+}
+\lstdefinelanguage{VSh}{
+  morekeywords={if,then,else,fi,for,do,done,while,case,esac,function,export,cd,echo,git,npm,
+    npx,node,make,latexmk,java,pdflatex,bibtex,grep,mkdir,cp,mv,rm},
+  sensitive=true,
+  morecomment=[l]{\#}, morestring=[b]', morestring=[b]",
+}
+\lstdefinelanguage{VJSON}{
+  morekeywords=[2]{true,false,null},
+  sensitive=true, morestring=[b]",
+}
+\lstdefinelanguage{VCSS}{
+  morekeywords={@import,@theme,@media,inline},
+  sensitive=true,
+  morecomment=[s]{/*}{*/}, morestring=[b]", morestring=[b]',
+}
+
+\endinput

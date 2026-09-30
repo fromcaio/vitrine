@@ -1,0 +1,73 @@
+%% ===================================================================================
+%% Apêndice E -- Registros de Decisão Arquitetural (ADR)
+%% Formato: Nygard (2011). Uma decisão aceita só muda por uma NOVA ADR que a substitui
+%% (status "Substituída por ADR-0xx"); nunca se apaga uma ADR. Questões ainda abertas
+%% ficam no Apêndice F. Dono: Arquiteto/Redator.
+%% ===================================================================================
+\chapter{Registros de Decisão Arquitetural}\label{ap:adr}
+\begingroup\small
+
+Este apêndice reúne as decisões arquiteturais aceitas, no formato de \en{Architecture Decision Records} \cite{nygard2011adr}: contexto, decisão, consequências e alternativas. Uma decisão só é alterada por uma nova ADR que a substitua; as questões ainda não decididas estão no Apêndice~\ref{ap:decisoes}.
+
+\adrentry{ADR-001}{Monólito modular com Next.js (App Router)}{Aceita.}
+{O Vitrine é um sistema de um único \en{tenant}, com tráfego moderado, implantado pelo próprio docente; a equipe é pequena e há agentes de desenvolvimento em paralelo. O requisito de implantação simples (\req{RNF01}) e o baixo custo operacional são prioritários.}
+{Adotar uma única aplicação Next.js (App Router), organizada internamente em módulos por domínio --- Dados, Core e UI --- com dependências unidirecionais (Figuras~\ref{fig:arq-componentes} e~\ref{fig:arq-camadas}).}
+{Positivas: implantação e depuração simples, transações locais, uma única unidade de versionamento. Negativas: escalabilidade horizontal limitada (cache ISR por instância, SQLite em arquivo); a interface e a API são implantadas juntas.}
+{\en{Front-end} separado com API independente; microsserviços; CMS \en{headless} de terceiros. Descartadas pelo custo de operação e de coordenação desproporcional ao escopo \cite{newman2019monolith,fowler2015monolithfirst}.}
+
+\adrentry{ADR-002}{SQLite como banco de dados embutido}{Aceita.}
+{O objetivo OE4 pede uma arquitetura de dados portátil, sem servidor de banco de dados, com baixo custo para o usuário final. O perfil de uso é de leitura predominante, com poucas escritas realizadas por um administrador.}
+{Usar o SQLite, com o banco em um único arquivo em volume persistente e, preferencialmente, em modo WAL.}
+{Positivas: sem servidor a administrar, cópia de segurança simples, custo zero. Negativas: escrita serializada; necessidade de disco persistente (incompatível com sistemas de arquivos efêmeros, risco R01); ausência de acesso remoto nativo; valores de enumeração não impostos pelo banco \cite{sqliteabout,sqlitewal}.}
+{PostgreSQL ou MySQL (exigem servidor); libSQL/Turso (banco remoto compatível com SQLite, mantido como via para plataformas \emph{serverless}, decisão \decisao{D-04}).}
+
+\adrentry{ADR-003}{Prisma ORM 7 como camada de acesso a dados}{Aceita.}
+{É necessário um modelo de dados declarativo, versionável e com migrações, e um cliente consistente para o SQLite. O projeto usa o Prisma 7, cujas práticas diferem das versões anteriores (configuração em arquivo próprio, novo gerador, \en{driver adapter}).}
+{Adotar o Prisma ORM 7. Somente \arq{src/lib/db.js} instancia o cliente; o restante do código usa as funções exportadas por ele.}
+{Positivas: esquema único como fonte do modelo, migrações e cliente tipado. Negativas: a adequação à versão 7 gera trabalho inicial (\decisao{D-09}); o Prisma acrescenta uma camada de abstração entre a aplicação e o SQL.}
+{Drizzle ORM; SQL direto com um \en{driver} de SQLite (mais controle, menos produtividade); uso apenas do \en{query builder} interno do better-auth.}
+
+\adrentry{ADR-004}{better-auth para autenticação, em substituição ao Auth.js}{Aceita.}
+{O relatório de IC previu o Auth.js \cite{reis2026ic}. Na consolidação do monólito, o repositório adotou o better-auth: a dependência está declarada, o esquema de dados contém as tabelas \texttt{user}, \texttt{session}, \texttt{account} e \texttt{verification} no formato do better-auth, e o pacote instalado oferece adaptador para Prisma e integração com Next.js.}
+{Adotar o better-auth 1.7.x com adaptador do Prisma, autenticação por e-mail e senha, sessões persistidas em banco e cadastro público desabilitado após o \en{bootstrap}.}
+{Positivas: esquema alinhado ao que já existe; integração com Next.js; \en{plugins} para evolução (papéis, autenticação de dois fatores). Negativas: biblioteca mais recente, exigindo acompanhar mudanças de API; todas as menções ao Auth.js do relatório de IC passam a ser históricas.}
+{Auth.js (prevista na IC); implementação própria, descartada pelo risco de segurança. \textbf{Motivação original a confirmar com o autor}: esta ADR registra o estado do repositório e justificativas técnicas verificáveis; a motivação da troca deve ser completada pelo autor.}
+
+\adrentry{ADR-005}{ISR com revalidação sob demanda}{Aceita.}
+{As páginas públicas precisam de desempenho de página estática (\req{RNF02}) sem exigir novo \en{build} a cada alteração de conteúdo ou de tema (OE3).}
+{Pré-renderizar as páginas públicas com \arq{generateStaticParams}; definir \texttt{revalidate} alto como rede de segurança; invalidar sob demanda com \arq{revalidatePath} nas mutações (regra RN10); não habilitar Cache Components.}
+{Positivas: desempenho e atualização imediata na próxima visita. Negativas: suporta apenas o \en{runtime} Node.js; o cache é por instância (exige instância única); a invalidação do \en{layout} raiz regenera todas as páginas \cite{nextjsdocs}.}
+{SSR a cada requisição; SSG puro com novo \en{build}; \texttt{revalidateTag} com granularidade por etiqueta (reavaliar se o volume de conteúdo crescer); Cache Components.}
+
+\adrentry{ADR-006}{Markdown com \texttt{unified}, KaTeX e sem HTML bruto}{Aceita.}
+{O objetivo OE2 exige escrita científica: fórmulas \LaTeX{}, código com realce e tabelas. A segurança exige que o conteúdo do administrador nunca execute \en{scripts} no navegador do leitor.}
+{Renderizar com \arq{react-markdown}, \arq{remark-math} e \arq{rehype-katex}, acrescentando GFM e realce de sintaxe; proibir HTML bruto.}
+{Positivas: texto legível e portátil; segurança por padrão; matemática nativa. Negativas: sem HTML arbitrário; dependência de \en{plugins} do ecossistema \texttt{unified} \cite{unifiedjs,reactmarkdown,katex}.}
+{MDX (permite código executável, risco de segurança); editor visual que gera HTML; renderização apenas no cliente.}
+
+\adrentry{ADR-007}{Tematização por variáveis CSS e Tailwind CSS 4}{Aceita.}
+{A personalização visual deve refletir-se sem novo \en{build} (OE3).}
+{Mapear tokens do Tailwind para variáveis CSS (\texttt{@theme inline}) e definir os valores no atributo \texttt{style} do elemento raiz, a partir da configuração do banco; validar cores como \texttt{\#RRGGBB}.}
+{Positivas: mudança de tema sem recompilar CSS; baixa complexidade. Negativas: exige disciplina para usar sempre os tokens; convivência com o modo escuro é uma questão em aberto (\decisao{D-17}) \cite{tailwinddocs,mdncssvars}.}
+{CSS-in-JS em tempo de execução; gerar CSS no \en{build} (exigiria recompilar); temas fixos predefinidos.}
+
+\adrentry{ADR-008}{JavaScript com JSDoc, sem TypeScript}{Aceita.}
+{O projeto foi iniciado em JavaScript (presença de \arq{jsconfig.json}) e precisa minimizar a fricção entre agentes.}
+{Manter JavaScript (módulos ES), documentando as funções públicas de \arq{src/lib} com JSDoc. Reavaliar TypeScript em versões futuras.}
+{Positivas: menor fricção e configuração. Negativas: menos garantias estáticas; erros de tipo aparecem em testes ou em execução, o que aumenta a importância dos testes de unidade e de integração \cite{bierman2014typescript,andreasen2017survey}.}
+{TypeScript desde já.}
+
+\adrentry{ADR-009}{Documentation-Driven Development com \LaTeX{} e diagramas como código}{Aceita.}
+{O desenvolvimento por agentes em paralelo exige um contrato único e versionado; o trabalho é um TCC e a documentação também é o produto acadêmico.}
+{Manter a documentação oficial em \arq{doc/tex} (\LaTeX{}, base abntex2) e os diagramas em \arq{doc/diagrams/src} (PlantUML e DBML), com um único redator (Arquiteto), figuras com \en{placeholder} automático e mapa de pendências.}
+{Positivas: documentação revisável como código e pronta para a entrega; coerência entre agentes. Negativas: custo de redação e de manutenção pelo Arquiteto; dependência de ferramentas de composição e de renderização \cite{parnas1986rational,writethedocs}.}
+{Documentação em \en{wiki} ou Markdown solto; documentos de texto proprietários; documentar só ao final.}
+
+\adrentry{ADR-010}{Fluxo Git por domínios com mural na \texttt{main}}{Aceita.}
+{Vários agentes trabalham simultaneamente e precisam de um canal de coordenação e de um ponto único de integração. O repositório não possui, atualmente, um remoto configurado.}
+{Desenvolver apenas em ramificações por domínio; proibir código na \texttt{main}; usar \arq{MURAL_DE_AGENTES.md}, editado somente na \texttt{main}, como canal de pedidos de integração e de comunicação; o Arquiteto revisa, integra ou veta.}
+{Positivas: rastreabilidade no histórico do Git; conflitos de comunicação evitados; integração controlada. Negativas: o Arquiteto é ponto único de revisão; trocar de ramificação exige árvore de trabalho limpa \cite{chacon2014progit,conventionalcommits}.}
+{Pedidos de integração em plataforma Git hospedada (sem remoto hoje); trabalho direto na \texttt{main}.}
+
+\endgroup
+

@@ -1,0 +1,44 @@
+%% ===================================================================================
+%% Apêndice F -- Decisões em Aberto
+%% Registro vivo das perguntas que ainda não têm resposta. Quando uma decisão for tomada,
+%% o Arquiteto cria a ADR correspondente (Apêndice E) e marca aqui "Decidida -> ADR-0xx".
+%% Identificadores D-xx são referenciados com \decisao{D-xx} nos demais capítulos.
+%% "Responsável" é quem deve propor a resposta no mural; o Arquiteto decide.
+%% ===================================================================================
+\chapter{Decisões em Aberto}\label{ap:decisoes}
+
+Este apêndice registra as decisões de projeto ainda não tomadas, com as opções conhecidas, a recomendação inicial do Arquiteto e o responsável pela proposta. Decisões que dependem do autor ou do orientador (marcadas ``Autor'') não podem ser tomadas pelos agentes. Quando uma decisão é tomada, ela passa a constar como ADR no Apêndice~\ref{ap:adr}.
+
+\begin{longtable}{@{}L{1.1cm}L{6.3cm}L{4.5cm}L{1.9cm}@{}}
+\caption{Registro de decisões em aberto}\label{tab:decisoes}\\
+\toprule
+\textbf{ID} & \textbf{Questão e opções} & \textbf{Recomendação inicial} & \textbf{Responsável}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Questão e opções} & \textbf{Recomendação inicial} & \textbf{Responsável}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\decisaotarget{D-01} & \textbf{Nome oficial.} Os comentários de \arq{doc/ref/er.dbml} e de \arq{prisma/schema.prisma} usam ``Vitreo CMS''; o repositório, a governança e o relatório de IC usam ``Vitrine''. & Adotar ``Vitrine'' e corrigir os comentários na próxima alteração do esquema. & Autor\\[1pt]
+\decisaotarget{D-02} & \textbf{Licença de código aberto.} Opções: MIT, Apache-2.0, GPL-3.0, AGPL-3.0, entre outras. & Preferir licença permissiva para facilitar a adoção; decidir ouvindo orientador e a política da instituição. & Autor\\[1pt]
+\decisaotarget{D-03} & \textbf{Política de cadastro e \en{bootstrap} do administrador.} Opções: \en{script} de \en{seed} com credenciais informadas na instalação; comando de linha de comando interativo; página de ``primeiro acesso'' ativa enquanto não há usuários. & Comando ou \en{script} explícito na instalação e cadastro público desabilitado; evitar página aberta de primeiro acesso (risco de sequestro da instalação). & Core\\[1pt]
+\decisaotarget{D-04} & \textbf{Alvo de implantação e \en{driver} de banco.} Servidor ou contêiner com SQLite em volume persistente; plataforma \emph{serverless} (por exemplo, Vercel) com banco remoto compatível (libSQL/Turso). & Documentar o primeiro como suportado e o segundo como experimental, dependente do \en{driver adapter}. & Arquiteto e Autor\\[1pt]
+\decisaotarget{D-05} & \textbf{Unicidade de \en{slug} e \en{slugs} reservados.} Índice único composto (\texttt{parentId}, \texttt{slug}) mais índice parcial para a raiz; ou apenas validação na aplicação. & Ambos: validação na aplicação e índice no banco; reservar \texttt{admin}, \texttt{api}, \texttt{login} e \arq{_next}. & Dados\\[1pt]
+\decisaotarget{D-06} & \textbf{Resolução de caminhos.} Calculada em memória a partir da árvore; ou caminho materializado em cada nó. & Calculada (Código~\ref{lst:algoritmo-arvore}); reavaliar se o volume crescer. & Dados\\[1pt]
+\decisaotarget{D-07} & \textbf{Realce de sintaxe.} Opções: \arq{rehype-highlight}, \arq{rehype-prism}, Shiki (por exemplo, via \arq{rehype-pretty-code}). & Preferir solução que realce no servidor, sem JavaScript adicional no cliente; avaliar temas e tamanho. & UI\\[1pt]
+\decisaotarget{D-08} & \textbf{Markdown estendido.} Adicionar \arq{remark-gfm} (pacote ainda não instalado) para tabelas, tachado e listas de tarefas. & Sim (\req{RF11}). & UI\\[1pt]
+\decisaotarget{D-09} & \textbf{Conformidade com o Prisma 7.} Seis divergências listadas na Tabela~\ref{tab:prisma7} (arquivo de configuração, gerador, URL do banco, \en{driver adapter}, classificação de \arq{@prisma/client}, caminho de \arq{DATABASE_URL}). & Resolver na primeira ramificação de Dados, antes da primeira migração. & Dados\\[1pt]
+\decisaotarget{D-10} & \textbf{Logotipo e \en{favicon}.} URL externa; arquivo em \arq{public/}; envio (\en{upload}) com armazenamento local ou em objeto. & Nesta versão, URL externa ou arquivo em \arq{public/}, sem \en{upload}. & Core e UI\\[1pt]
+\decisaotarget{D-11} & \textbf{Validação de entrada.} Zod (presente como dependência transitiva do better-auth) ou validação manual. & Zod como dependência direta. & Core\\[1pt]
+\decisaotarget{D-12} & \textbf{Ferramentas de teste.} Vitest, Playwright e Testing Library; ou Jest. & Vitest e Playwright (Tabela~\ref{tab:tipos-teste}). & Arquiteto\\[1pt]
+\decisaotarget{D-13} & \textbf{Papéis e permissões.} Administrador único; ou papéis com o \en{plugin} \texttt{admin} do better-auth. & Administrador único nesta versão; manter o esquema compatível com evolução futura. & Core\\[1pt]
+\decisaotarget{D-14} & \textbf{Estratégia de ordenação.} Inteiros contíguos com reindexação em transação; inteiros espaçados; chaves fracionárias. & Inteiros contíguos com reindexação (árvore pequena). & Dados\\[1pt]
+\decisaotarget{D-15} & \textbf{Estados de publicação e versionamento.} Publicação imediata; campo de estado (rascunho e publicado); tabela de versões. & Publicação imediata e rascunho apenas local (\req{RF15}); versionamento fora do escopo. & Arquiteto e Autor\\[1pt]
+\decisaotarget{D-16} & \textbf{Página inicial e coleções.} Página inicial com lista das coleções raiz; redirecionamento ao primeiro documento. & Início com a lista de coleções e documentos da raiz; coleção redireciona ao primeiro documento (RN14). & UI e Core\\[1pt]
+\decisaotarget{D-17} & \textbf{Modo escuro \emph{versus} paleta personalizada.} O \en{scaffold} define cores para \texttt{prefers-color-scheme: dark}. & Sem modo escuro automático nesta versão: respeitar somente a paleta escolhida. & UI\\[1pt]
+\decisaotarget{D-18} & \textbf{Dados do TCC.} Título definitivo, orientador, coorientador, banca e datas. & Confirmar com o orientador. & Autor\\[1pt]
+\decisaotarget{D-19} & \textbf{Links do rodapé.} O esquema não prevê onde guardá-los. Opções: campo JSON de links; campo de texto em Markdown para o rodapé; arquivo estático. & Campo de texto Markdown para o rodapé, em \texttt{Configuration}, sem nova tabela. & Dados e UI\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores.}

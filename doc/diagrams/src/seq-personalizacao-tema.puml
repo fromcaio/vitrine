@@ -1,0 +1,43 @@
+@startuml seq-personalizacao-tema
+' ===========================================================================
+' Vitrine - Sequência: personalização visual (identidade e paleta de cores)
+' Figura: fig:seq-personalizacao-tema (doc/tex/capitulos/cap5_arquitetura.tex)
+' Mecanismo: cores persistidas em "configurations" viram variáveis CSS no <html>;
+' utilitários Tailwind leem var(--...), logo não há novo build.
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam sequenceMessageAlign left
+autonumber
+
+actor "Administrador" as Admin
+participant "ThemeForm\n(Client Component)" as Form
+participant "Route Handler\nPUT /api/configuration" as Api
+participant "validators.js\ntheme.js" as Val
+participant "db.js" as DB
+database "SQLite" as Sql
+participant "Cache ISR" as Cache
+actor "Leitor" as Leitor
+participant "RootLayout\n(Server Component)" as Layout
+
+Admin -> Form : Escolhe cores / nome / logotipo
+Form -> Form : pré-visualização local\n(altera variáveis CSS no cliente)
+Admin -> Form : Salvar
+Form -> Api : PUT { siteName, primaryColor, ... }
+Api -> Api : exige sessão (better-auth)
+Api -> Val : valida formato hexadecimal\ne calcula contraste (WCAG)
+Val --> Api : ok (+ avisos de contraste)
+Api -> DB : updateConfiguration(dados)
+DB -> Sql : UPDATE configurations
+Api -> Cache : revalidatePath("/", "layout")
+Api --> Form : 200 { configuração, avisos }
+Form --> Admin : confirmação e avisos de contraste
+
+== Próxima visita de um leitor ==
+
+Leitor -> Layout : GET qualquer página
+Layout -> DB : getConfiguration()
+DB -> Sql : SELECT
+Layout --> Leitor : HTML com variáveis CSS no elemento raiz\n(--vitrine-primary etc.), nome, logotipo\ne favicon atualizados
+@enduml

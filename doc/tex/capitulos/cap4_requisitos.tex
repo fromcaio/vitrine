@@ -1,0 +1,362 @@
+%% ===================================================================================
+%% Capítulo 4 -- Levantamento e Análise de Requisitos
+%% FONTE DA VERDADE dos requisitos, das regras de negócio e dos casos de uso.
+%% Origem: Relatório de IC (RF01 a RF04, diagrama de casos de uso, protótipos) + derivação
+%% feita na consolidação do monólito (RF05 em diante, RNF e RN).
+%% Dono: Arquiteto/Redator. Desenvolvedores: citem os identificadores (RF, RNF, RN, UC)
+%% nos commits e nos pedidos do mural; peçam mudanças pelo mural.
+%% ===================================================================================
+\chapter{Levantamento e Análise de Requisitos}\label{cap:requisitos}
+
+Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restrições. Os requisitos RF01 a RF04 foram definidos no relatório de IC \cite{reis2026ic}; os demais requisitos funcionais, os requisitos não funcionais e as regras de negócio foram derivados dos casos de uso, dos protótipos e dos objetivos (Seção~\ref{sec:objetivos-especificos}) durante a consolidação do monólito, e estão marcados com a sua origem. A especificação segue as recomendações de identificação única, verificabilidade e rastreabilidade da ISO/IEC/IEEE 29148 \cite{iso29148}.
+
+\section{Visão Geral do Produto}\label{sec:visao-produto}
+
+\textbf{Propósito.} Permitir que docentes e pesquisadores publiquem e organizem conteúdo científico e didático --- artigos, notas de aula, tutoriais --- em um site próprio, com identidade visual personalizada, edição em Markdown com fórmulas \LaTeX{} e entrega com desempenho de página estática.
+
+\textbf{Perspectiva.} O Vitrine é uma aplicação web autônoma, implantada como um único processo Node.js acompanhado de um arquivo de banco de dados SQLite. Não depende de serviços externos obrigatórios (Figura~\ref{fig:arq-contexto}, Capítulo~\ref{cap:arquitetura}).
+
+\textbf{Ambiente operacional.} Navegadores modernos no cliente; servidor com Node.js 20.9 ou superior, disco persistente e, em produção, HTTPS.
+
+\textbf{Restrições.} (i) A pilha tecnológica é Next.js, Prisma, SQLite e better-auth; (ii) a interface é em português do Brasil; (iii) o código é aberto, com licença a definir (\decisao{D-02}); (iv) o prazo é o do TCC, o que exige priorização (\emph{risco} R10, Tabela~\ref{tab:riscos}).
+
+\textbf{Premissas e dependências.} Assume-se a disponibilidade de um servidor com armazenamento persistente (\decisao{D-04}); a estabilidade das interfaces de programação das versões fixadas (Tabela~\ref{tab:stack}); e a existência de um único administrador na versão inicial (\decisao{D-13}).
+
+\section{Atores e Partes Interessadas}\label{sec:atores}
+
+\begin{table}[htb]
+\caption{Atores do sistema e partes interessadas}\label{tab:atores}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.8cm}L{2.4cm}Y@{}}
+\toprule
+\textbf{Ator ou parte} & \textbf{Tipo} & \textbf{Descrição e interesse}\\
+\midrule
+Leitor & Ator primário & Visitante --- estudante, colega, pesquisador --- que navega e lê o conteúdo publicado; quer encontrar e ler rápido, em qualquer dispositivo. Não se autentica.\\
+\addlinespace
+Administrador & Ator primário & Docente-autor que cria, organiza e publica conteúdo e define a identidade visual do site. Tem conhecimentos básicos de informática e não deseja administrar infraestrutura.\\
+\addlinespace
+Sistema & Ator secundário & Automação interna que dispara a invalidação do cache ISR após mutações (caso de uso UC12).\\
+\addlinespace
+Implantador & Parte interessada & Quem instala e opera o sistema --- em geral o próprio docente com apoio técnico ou um desenvolvedor. Interessa-se por simplicidade de instalação, configuração e \en{backup}.\\
+\addlinespace
+Orientador e banca & Parte interessada & Avaliam a qualidade técnica e científica do trabalho e a aderência aos objetivos.\\
+\addlinespace
+Agentes de desenvolvimento & Parte interessada & Dados, Core e UI; consomem esta especificação como contrato de implementação.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, com base em \citeonline{reis2026ic}.}
+\end{table}
+
+\section{Casos de Uso}\label{sec:casos-uso}
+
+\subsection{Diagrama de Casos de Uso}
+
+A Figura~\ref{fig:uc-visao-geral} apresenta o diagrama de casos de uso do Vitrine. Ele parte do diagrama do relatório de IC (Figura~\ref{fig:ic-uc}), com uma alteração: \emph{Gerenciar Conteúdo} passa a incluir \emph{Invalidar Cache (ISR)}, porque toda mutação de conteúdo --- e não apenas a personalização --- deve refletir-se nas páginas públicas (\req{RF17}).
+
+\vitrinefigura[tipo=diagrama, arquivo=uc-visao-geral, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/uc-visao-geral.puml},
+  descricao={Diagrama de casos de uso com os atores Leitor, Administrador e Sistema, os pacotes Navegação e Leitura, Gestão de Estrutura e Configurações e Performance, e as relações include e extend.}]
+  {Diagrama de casos de uso do Vitrine}{fig:uc-visao-geral}
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig1-casos-de-uso, largura=0.4,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 1.}]
+  {Diagrama de casos de uso original, do relatório de IC}{fig:ic-uc}
+
+\subsection{Catálogo de Casos de Uso}
+
+\begin{longtable}{@{}L{1.2cm}L{4.4cm}L{2.5cm}L{5.0cm}@{}}
+\caption{Catálogo de casos de uso}\label{tab:catalogo-uc}\\
+\toprule
+\textbf{ID} & \textbf{Caso de uso} & \textbf{Ator} & \textbf{Descrição resumida}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Caso de uso} & \textbf{Ator} & \textbf{Descrição resumida}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+UC01 & Explorar \en{sidebar} hierárquica & Leitor & Navegar pela árvore de coleções e documentos e pelas coleções raiz na barra superior.\\
+UC02 & Visualizar página única & Leitor & Abrir um documento por sua URL amigável.\\
+UC03 & Ler conteúdo (Markdown) & Leitor & Ler o documento renderizado, com fórmulas, tabelas e código. Incluído por UC01 e UC02.\\
+UC04 & Gerenciar conteúdo & Administrador & Criar, editar, mover, ordenar e excluir conteúdos no painel. Inclui UC07, UC08 e UC12.\\
+UC05 & Criar documento & Administrador & Criar conteúdo do tipo DOCUMENT. Estende UC04.\\
+UC06 & Criar coleção/pasta & Administrador & Criar conteúdo do tipo COLLECTION. Estende UC04.\\
+UC07 & Aninhar e ordenar conteúdos & Administrador & Definir pai e ordem de um conteúdo. Incluído por UC04.\\
+UC08 & Autenticar-se & Administrador & Entrar e sair da área administrativa. Incluído por UC04 e UC09.\\
+UC09 & Personalizar UI & Administrador & Alterar a aparência do site. Inclui UC08 e UC12.\\
+UC10 & Definir identidade (nome e \en{branding}) & Administrador & Definir nome, descrição, logotipo e \en{favicon}. Estende UC09.\\
+UC11 & Configurar paleta de cores & Administrador & Escolher as cores do tema. Estende UC09.\\
+UC12 & Invalidar cache (ISR) & Sistema & Invalidar as páginas afetadas após uma mutação.\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir da Figura~\ref{fig:uc-visao-geral}.}
+
+\subsection{Especificações Detalhadas}\label{sec:uc-detalhados}
+
+Os casos de uso com maior impacto sobre a arquitetura são especificados a seguir. Os demais seguem os mesmos padrões e são detalhados conforme a necessidade de cada módulo.
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC08 --- Autenticar-se}\label{tab:uc08}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador\\
+\textbf{Pré-condição} & Existe ao menos um usuário cadastrado (bootstrap, \req{RF22}).\\
+\textbf{Gatilho} & Acesso a uma rota protegida sem sessão válida, ou acesso direto a \arq{/login}.\\
+\textbf{Fluxo principal} & (1) O sistema exibe o formulário de e-mail e senha. (2) O administrador informa as credenciais. (3) O sistema verifica as credenciais e cria uma sessão persistida no banco. (4) O sistema grava o \en{cookie} de sessão (\en{HttpOnly}) e redireciona ao destino original ou a \arq{/admin}.\\
+\textbf{Fluxos alternativos} & A1: credenciais inválidas --- mensagem genérica, que não revela qual campo falhou; limitação de tentativas (\req{RNF03}). A2: sessão expirada --- retorno ao formulário preservando o destino. A3: encerrar sessão (\req{RF20}) --- a sessão é invalidada e o \en{cookie} removido.\\
+\textbf{Pós-condição} & Sessão válida associada ao usuário; operações de escrita autorizadas (\req{RF21}).\\
+\textbf{Requisitos e regras} & \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}; RN01, RN12.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC05 --- Criar documento}\label{tab:uc05}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida. O documento será criado na raiz ou dentro de uma coleção existente.\\
+\textbf{Fluxo principal} & (1) O administrador aciona ``Nova publicação'' (na raiz ou na coleção desejada). (2) Informa o título; o \en{slug} é sugerido a partir do título e pode ser editado; escolhe a coleção pai. (3) Escreve o texto em Markdown, acompanhando a pré-visualização. (4) Aciona ``Enviar nova versão''. (5) O sistema valida os dados (RN02, RN03, RN06), persiste o conteúdo com o usuário como autor e (6) dispara a invalidação do cache (UC12). (7) O painel confirma a publicação.\\
+\textbf{Fluxos alternativos} & A1: \en{slug} já existente entre os irmãos --- o sistema responde com conflito e sugere um \en{slug} alternativo. A2: o pai escolhido não é uma coleção --- erro de validação. A3: o administrador opta por ``Salvar localmente'' e retoma depois (\req{RF15}).\\
+\textbf{Pós-condição} & Documento persistido; a \en{sidebar} e a página refletem a mudança a partir da próxima requisição.\\
+\textbf{Requisitos e regras} & \req{RF05}, \req{RF08}, \req{RF09}, \req{RF15}, \req{RF16}, \req{RF17}; RN01 a RN06, RN10, RN11, RN13.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC07 --- Aninhar e ordenar conteúdos}\label{tab:uc07}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida; existem conteúdos a reorganizar.\\
+\textbf{Fluxo principal} & (1) O administrador visualiza a árvore de conteúdos no painel. (2) Arrasta um item para outra posição ou outro pai, ou usa as ações ``subir'' e ``descer''. (3) A interface atualiza a árvore de forma otimista e envia o lote de alterações. (4) O sistema valida o lote (pai do tipo coleção, ausência de ciclos, \en{slugs} únicos no destino) e o persiste em uma transação. (5) O sistema invalida o \en{layout} raiz (UC12) e devolve a árvore atualizada.\\
+\textbf{Fluxos alternativos} & A1: movimento inválido --- o sistema rejeita o lote inteiro, a interface desfaz a atualização otimista e exibe o motivo.\\
+\textbf{Pós-condição} & Nova estrutura e nova ordem persistidas; a \en{sidebar} pública reflete a mudança.\\
+\textbf{Requisitos e regras} & \req{RF02}, \req{RF03}, \req{RF17}; RN02, RN03, RN05, RN06.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC11 --- Configurar paleta de cores}\label{tab:uc11}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida.\\
+\textbf{Fluxo principal} & (1) O administrador abre Configurações. (2) Escolhe as cores primária, secundária e de destaque por seletor ou por código hexadecimal. (3) Pré-visualiza o resultado no próprio painel, com variáveis CSS locais. (4) Salva. (5) O sistema valida o formato e calcula o contraste, devolvendo avisos se for o caso. (6) Persiste a configuração e invalida o \en{layout} raiz. (7) Os leitores veem a nova paleta na próxima requisição, sem novo \en{build}.\\
+\textbf{Fluxos alternativos} & A1: valor fora do formato \texttt{\#RRGGBB} --- erro de validação no campo. A2: contraste abaixo de 4,5:1 entre texto e fundo --- aviso, sem bloquear o salvamento (RN09).\\
+\textbf{Pós-condição} & Configuração persistida; páginas regeneradas com as novas variáveis CSS.\\
+\textbf{Requisitos e regras} & \req{RF04}, \req{RF17}, \req{RF19}; RN08, RN09, RN10.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\section{Requisitos Funcionais}\label{sec:rf}
+
+A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} indica se o requisito foi herdado do relatório de IC (``IC'') ou derivado neste trabalho a partir de casos de uso (UC), protótipos, objetivos (OE), regras (RN) ou decisões (D). A prioridade segue a escala \emph{Essencial}, \emph{Importante} e \emph{Desejável}. A coluna \emph{Agente} indica o responsável principal pela implementação; requisitos que atravessam domínios são coordenados pelo mural.
+
+\begin{longtable}{@{}L{1.3cm}L{7.2cm}L{1.6cm}L{2.2cm}L{1.8cm}@{}}
+\caption{Requisitos funcionais}\label{tab:rf}\\
+\toprule
+\textbf{ID} & \textbf{Requisito} & \textbf{Prior.} & \textbf{Origem} & \textbf{Agente}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requisito} & \textbf{Prior.} & \textbf{Origem} & \textbf{Agente}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\reqrow{RF01}{Autenticação}{O acesso à área administrativa exige e-mail e senha, com sessão persistida em banco (better-auth).}{Essencial}{IC (RF01); UC08}{Core}
+\reqrow{RF02}{Estrutura hierárquica}{Os conteúdos formam uma árvore de coleções e documentos aninhados, por auto-relacionamento (pai e filhos).}{Essencial}{IC (RF02); UC04, UC07}{Dados}
+\reqrow{RF03}{Ordenação}{Cada conteúdo possui uma ordem relativa entre irmãos, editável pelo administrador.}{Essencial}{IC (RF03); UC07}{Dados}
+\reqrow{RF04}{Personalização}{Interface para alterar identidade visual e cores por variáveis CSS. Requisito agregador, detalhado em RF18 e RF19.}{Essencial}{IC (RF04); UC09}{UI}
+\reqrow{RF05}{Criar documento}{Criar conteúdo do tipo DOCUMENT com título, \en{slug}, pai e corpo em Markdown.}{Essencial}{UC05}{Core}
+\reqrow{RF06}{Criar coleção}{Criar conteúdo do tipo COLLECTION (pasta) para agrupar documentos e subcoleções.}{Essencial}{UC06}{Core}
+\reqrow{RF07}{Editar e excluir}{Atualizar título, \en{slug}, corpo, pai e ordem; excluir com confirmação e remoção em cascata dos descendentes.}{Essencial}{UC04; RN07}{Core}
+\reqrow{RF08}{Editor Markdown}{Editor com barra de ferramentas e pré-visualização em tempo real (painel dividido).}{Essencial}{IC (OE2); Fig. 6}{UI}
+\reqrow{RF09}{Fórmulas matemáticas}{Renderizar fórmulas \LaTeX{} em linha e em bloco no conteúdo e na pré-visualização (KaTeX).}{Essencial}{IC (OE2); UC03}{UI}
+\reqrow{RF10}{Realce de sintaxe}{Realçar blocos de código por linguagem, no conteúdo e na pré-visualização.}{Importante}{IC (OE2); UC03}{UI}
+\reqrow{RF11}{Markdown estendido}{Suportar tabelas, listas de tarefas, texto tachado e links automáticos (GFM).}{Importante}{IC (Fig. 3); UC03}{UI}
+\reqrow{RF12}{\en{Sidebar} hierárquica}{Exibir a árvore da coleção corrente, com o item ativo destacado, níveis recolhíveis e navegação por teclado.}{Essencial}{UC01; Fig. 3}{UI}
+\reqrow{RF13}{Barra superior}{Exibir logotipo, nome do site e as coleções raiz como abas ou links de navegação.}{Essencial}{UC01; Fig. 3}{UI}
+\reqrow{RF14}{Página de documento}{Exibir o documento em URL derivada da cadeia de \en{slugs}; responder 404 a caminhos inexistentes.}{Essencial}{UC02; RN04}{Core}
+\reqrow{RF15}{Rascunho local}{Guardar rascunho no navegador (``Salvar localmente'') sem publicá-lo.}{Desejável}{IC (Fig. 6)}{UI}
+\reqrow{RF16}{Publicar versão}{Enviar ao servidor a versão editada (``Enviar nova versão''), substituindo o conteúdo publicado.}{Essencial}{IC (Fig. 6); UC05}{Core}
+\reqrow{RF17}{Invalidação de cache}{Revalidar as páginas afetadas após qualquer mutação de conteúdo ou de configuração.}{Essencial}{IC (UC12); RN10}{Core}
+\reqrow{RF18}{Identidade do site}{Configurar nome, descrição, logotipo e \en{favicon}.}{Essencial}{UC10; Fig. 5}{Core}
+\reqrow{RF19}{Paleta de cores}{Configurar as cores primária, secundária e de destaque, aplicadas por variáveis CSS sem novo \en{build}.}{Essencial}{IC (OE3); UC11}{UI}
+\reqrow{RF20}{Encerrar sessão}{Permitir \en{logout}, invalidando a sessão no servidor.}{Essencial}{UC08}{Core}
+\reqrow{RF21}{Autorização de escrita}{Bloquear, no servidor, toda operação de escrita sem sessão válida.}{Essencial}{UC08; RN01}{Core}
+\reqrow{RF22}{Bootstrap do administrador}{Criar o primeiro administrador na instalação e desabilitar o cadastro público.}{Essencial}{D-03}{Core}
+\reqrow{RF23}{Configuração inicial}{Inserir a configuração padrão (registro único) na instalação.}{Essencial}{RN08}{Dados}
+\reqrow{RF24}{Rodapé configurável}{Exibir rodapé com links (por exemplo, redes sociais) e texto de direitos; o armazenamento dos links depende de D-19.}{Desejável}{IC (Fig. 3 a 5)}{UI}
+\reqrow{RF25}{Metadados de SEO}{Gerar título, descrição e metadados por página; expor \arq{robots.txt} e mapa do site.}{Importante}{IC (OE1); RNF07}{Core}
+\end{longtable}
+\fonte{Elaborado pelos autores. RF01 a RF04: \citeonline{reis2026ic}.}
+
+\section{Requisitos Não Funcionais}\label{sec:rnf}
+
+Os requisitos não funcionais (Tabela~\ref{tab:rnf}) estão associados às características de qualidade da ISO/IEC 25010 \cite{iso25010}. As metas numéricas são propostas de trabalho, a serem confirmadas pelo orientador e verificadas no Capítulo~\ref{cap:testes}.
+
+\begin{longtable}{@{}L{1.4cm}L{7.6cm}L{2.7cm}L{1.9cm}@{}}
+\caption{Requisitos não funcionais}\label{tab:rnf}\\
+\toprule
+\textbf{ID} & \textbf{Requisito} & \textbf{Característica (ISO 25010)} & \textbf{Prior.}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requisito} & \textbf{Característica (ISO 25010)} & \textbf{Prior.}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\reqtarget{RNF01} & \textbf{Portabilidade e implantação simples.} Implantável a partir do repositório com poucos comandos (instalar, configurar variáveis de ambiente, migrar, compilar e iniciar), com um único arquivo de banco e nenhum serviço externo obrigatório. & Portabilidade & Essencial\\[1pt]
+\reqtarget{RNF02} & \textbf{Desempenho de leitura.} Páginas públicas servidas do cache ISR. Meta: LCP $\leq$ 2,5 s (percentil 75) e pontuação de desempenho $\geq$ 90 no Lighthouse, em perfil móvel simulado. & Eficiência de desempenho & Importante\\[1pt]
+\reqtarget{RNF03} & \textbf{Segurança.} Senhas somente como \en{hash}; \en{cookies} de sessão \texttt{HttpOnly}, \texttt{SameSite} e \texttt{Secure} em produção; validação de toda entrada no servidor; proibição de HTML bruto no conteúdo; limitação de tentativas de login; segredos apenas em variáveis de ambiente; cabeçalhos de segurança HTTP; alinhamento ao OWASP Top 10 \cite{owasptop10}. & Segurança & Essencial\\[1pt]
+\reqtarget{RNF04} & \textbf{Usabilidade.} Interface em português do Brasil; fluxo de criar e publicar um documento concluível por usuário sem formação técnica e sem consultar documentação. Meta: pontuação SUS $\geq$ 68. & Usabilidade & Importante\\[1pt]
+\reqtarget{RNF05} & \textbf{Acessibilidade.} Conformidade com o WCAG 2.1 nível AA \cite{wcag21} nas páginas públicas e no painel: contraste mínimo de 4,5:1, navegação por teclado, foco visível, rótulos e textos alternativos. & Usabilidade & Importante\\[1pt]
+\reqtarget{RNF06} & \textbf{Responsividade.} Layout adaptável de 320 px a telas largas; \en{sidebar} recolhível em telas pequenas. & Usabilidade; Compatibilidade & Importante\\[1pt]
+\reqtarget{RNF07} & \textbf{SEO.} HTML pré-renderizado com título, descrição e metadados por página; URLs estáveis e legíveis. & Adequação funcional & Importante\\[1pt]
+\reqtarget{RNF08} & \textbf{Manutenibilidade e modularidade.} Fronteiras entre Dados, Core e UI respeitadas; acesso ao banco somente por \arq{src/lib/db.js}; \en{lint} sem erros; documentação sincronizada com o código. & Manutenibilidade & Essencial\\[1pt]
+\reqtarget{RNF09} & \textbf{Extensibilidade.} Novos \en{plugins} \texttt{remark}/\texttt{rehype}, tipos de conteúdo e campos de configuração adicionáveis sem alterar a estrutura central. & Manutenibilidade & Desejável\\[1pt]
+\reqtarget{RNF10} & \textbf{Integridade e confiabilidade.} Operações compostas (mover, ordenar) em transação; rotina documentada de \en{backup} e restauração; falha na revalidação não pode causar perda de dados. & Confiabilidade & Importante\\[1pt]
+\reqtarget{RNF11} & \textbf{Compatibilidade de navegadores.} Duas últimas versões estáveis de Chrome, Firefox, Safari e Edge. & Compatibilidade & Importante\\[1pt]
+\reqtarget{RNF12} & \textbf{Internacionalização.} Nesta versão apenas pt-BR; textos de interface centralizados para viabilizar tradução futura. & Adequação funcional & Desejável\\[1pt]
+\reqtarget{RNF13} & \textbf{Licenciamento.} Código publicado sob licença de código aberto (D-02), com dependências de licenças compatíveis. & Restrição & Essencial\\[1pt]
+\reqtarget{RNF14} & \textbf{Observabilidade mínima.} Erros de servidor registrados em \en{log} com contexto suficiente ao diagnóstico, sem expor dados sensíveis ao usuário. & Manutenibilidade & Desejável\\[1pt]
+\reqtarget{RNF15} & \textbf{Privacidade.} Não coletar dados pessoais de leitores além dos registros de acesso do servidor; sem rastreadores de terceiros por padrão; dados do administrador limitados a nome e e-mail. & Segurança & Importante\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores, com base em \citeonline{iso25010}.}
+
+\section{Regras de Negócio}\label{sec:regras-negocio}
+
+As regras de negócio (RN) constituem invariantes do domínio; devem ser garantidas no servidor, independentemente da interface.
+
+\begin{longtable}{@{}L{1.3cm}L{9.6cm}L{2.8cm}@{}}
+\caption{Regras de negócio}\label{tab:rn}\\
+\toprule
+\textbf{ID} & \textbf{Regra} & \textbf{Relacionados}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Regra} & \textbf{Relacionados}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\reqtarget{RN01} & Somente usuários autenticados podem criar, alterar, mover ou excluir conteúdo e alterar a configuração. & RF21; UC08\\[1pt]
+\reqtarget{RN02} & Todo conteúdo tem tipo DOCUMENT ou COLLECTION. Apenas COLLECTION pode ter filhos; DOCUMENT é folha. O tipo é validado na aplicação, pois o SQLite não impõe valores de enumeração. & RF02, RF05, RF06\\[1pt]
+\reqtarget{RN03} & O \en{slug} contém apenas letras minúsculas, dígitos e hífens (\texttt{\^{}[a-z0-9]+(-[a-z0-9]+)*\$}), com 1 a 80 caracteres; é único entre irmãos; e os \en{slugs} \texttt{admin}, \texttt{api}, \texttt{login} e \arq{_next} são reservados no nível raiz (D-05). & RF05, RF14\\[1pt]
+\reqtarget{RN04} & A URL pública de um conteúdo é a concatenação dos \en{slugs} da raiz até o nó, separados por barras. & RF14\\[1pt]
+\reqtarget{RN05} & A ordem é um inteiro não negativo; entre irmãos, a listagem ordena por ordem crescente e, em empate, por data de criação. & RF03\\[1pt]
+\reqtarget{RN06} & Mover um conteúdo não pode criar ciclo: o destino não pode ser o próprio nó nem um de seus descendentes. & RF02, RF03\\[1pt]
+\reqtarget{RN07} & Excluir um conteúdo exclui todos os seus descendentes e exige confirmação explícita no painel. & RF07\\[1pt]
+\reqtarget{RN08} & Existe exatamente um registro de configuração; se ausente, é criado com os valores padrão (nome ``Vitrine'', cores \texttt{\#3b82f6}, \texttt{\#1e293b} e \texttt{\#f59e0b}). & RF18, RF19, RF23\\[1pt]
+\reqtarget{RN09} & Cores são aceitas no formato \texttt{\#RRGGBB}; o sistema avisa, sem bloquear, quando o contraste entre texto e fundo é inferior a 4,5:1. & RF19; RNF05\\[1pt]
+\reqtarget{RN10} & Toda mutação de conteúdo ou de configuração dispara a revalidação das páginas afetadas: somente a página, se apenas o corpo mudou; o \en{layout} raiz, se título, \en{slug}, pai, ordem ou configuração mudaram. & RF17\\[1pt]
+\reqtarget{RN11} & O corpo em Markdown nunca é interpretado como HTML bruto. & RNF03\\[1pt]
+\reqtarget{RN12} & Sessões têm prazo de expiração; uma sessão expirada equivale a nenhuma sessão. & RF01\\[1pt]
+\reqtarget{RN13} & O autor de um conteúdo é o usuário autenticado que o criou. & RF05\\[1pt]
+\reqtarget{RN14} & A abertura da URL de uma COLLECTION redireciona ao primeiro documento descendente, na ordem da árvore; se não houver, exibe um estado vazio (D-16). & RF14\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores.}
+
+\vitrinependencia{Dados}{A regra RN02 (apenas COLLECTION tem filhos) e a unicidade de slug entre irmãos (RN03) ainda não estão garantidas pelo esquema atual; decidir entre restrição no banco e validação na aplicação (decisões D-05 e D-14) e registrar no mural.}
+
+\section{Matriz de Rastreabilidade}\label{sec:matriz-rastreabilidade}
+
+A Tabela~\ref{tab:matriz-rastreabilidade} relaciona cada requisito funcional ao caso de uso e aos módulos de implementação (definidos na Seção~\ref{sec:modulos}). A relação com os casos de teste está no Capítulo~\ref{cap:testes}.
+
+\begin{longtable}{@{}L{1.4cm}L{2.5cm}L{3.8cm}L{3.0cm}@{}}
+\caption{Rastreabilidade entre requisitos funcionais, casos de uso e módulos}\label{tab:matriz-rastreabilidade}\\
+\toprule
+\textbf{RF} & \textbf{Caso(s) de uso} & \textbf{Módulo(s)} & \textbf{Agente(s)}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{RF} & \textbf{Caso(s) de uso} & \textbf{Módulo(s)} & \textbf{Agente(s)}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+RF01 & UC08 & M03 & Core\\
+RF02 & UC04, UC07 & M01, M02 & Dados\\
+RF03 & UC07 & M01, M02, M10 & Dados, UI\\
+RF04 & UC09 & M11 & UI, Core\\
+RF05 & UC05 & M04, M09 & Core, UI\\
+RF06 & UC06 & M04, M10 & Core, UI\\
+RF07 & UC04 & M04, M10 & Core, UI\\
+RF08 & UC04 & M09 & UI\\
+RF09 & UC03 & M08 & UI\\
+RF10 & UC03 & M08 & UI\\
+RF11 & UC03 & M08 & UI\\
+RF12 & UC01 & M07 & UI\\
+RF13 & UC01 & M07 & UI\\
+RF14 & UC02 & M02, M07 & Core, Dados\\
+RF15 & UC05 & M09 & UI\\
+RF16 & UC05 & M04, M09 & Core, UI\\
+RF17 & UC12 & M06 & Core\\
+RF18 & UC10 & M05, M11 & Core, UI\\
+RF19 & UC11 & M05, M11 & UI, Core\\
+RF20 & UC08 & M03 & Core\\
+RF21 & UC08 & M03, M04, M05 & Core\\
+RF22 & UC08 & M01, M03, M13 & Core, Dados\\
+RF23 & UC09 & M01 & Dados\\
+RF24 & UC01 & M07, M11 & UI\\
+RF25 & UC02 & M12 & Core\\
+\end{longtable}
+\fonte{Elaborado pelos autores.}
+
+\section{Prototipagem de Baixa Fidelidade}\label{sec:prototipagem}
+
+A prototipagem de baixa fidelidade permitiu validar a jornada do usuário e a disposição dos elementos antes da codificação final \cite{reis2026ic}. As quatro interfaces do relatório de IC, reproduzidas a seguir, são a referência visual para a implementação da interface (agente UI) e originaram requisitos funcionais.
+
+\subsection{Visualização do Sistema com Conteúdo}
+
+A Figura~\ref{fig:ic-instancia} mostra uma instância do sistema em operação, preenchida com conteúdos de programação. Ela evidencia a barra superior com as coleções raiz (RF13), a \en{sidebar} hierárquica com níveis recolhíveis (RF12), a renderização de títulos, listas, tabelas e texto tachado (RF11) e o rodapé com ícones de redes sociais (RF24).
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig3-instancia-fromcaio, largura=0.7,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 3.}]
+  {Instância do sistema populada com cursos de programação (protótipo da IC)}{fig:ic-instancia}
+
+\subsection{Gestão e Organização de Conteúdos}
+
+O sistema permite uma estrutura hierárquica em que coleções e arquivos são aninhados. A Figura~\ref{fig:ic-gestao} apresenta a interface administrativa de organização, em que o usuário gerencia a árvore e define a precedência de exibição de cada item, com ações de criar, editar e excluir por nó (RF03, RF06 e RF07).
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig4-gestao-conteudo, largura=0.6,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 4.}]
+  {Interface de organização de documentos e coleções aninhadas (protótipo da IC)}{fig:ic-gestao}
+
+\subsection{Customização Dinâmica}
+
+A tela de customização (Figura~\ref{fig:ic-personalizacao}) permite ao administrador alterar a identidade visual, incluindo o logotipo e as cores. No protótipo, as cores foram rotuladas por função na barra de navegação (``principal \en{background}'' e ``principal \en{hover}''); o modelo de dados adota três cores semânticas --- primária, secundária e de destaque --- e o mapeamento entre ambos é definido na Seção~\ref{sec:arq-tema}.
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig5-personalizacao, largura=0.55,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 5.}]
+  {Interface de personalização de cores e identidade visual (protótipo da IC)}{fig:ic-personalizacao}
+
+\subsection{Editor de Escrita Científica}
+
+A interface do editor (Figura~\ref{fig:ic-editor}) foi priorizada para suportar a escrita acadêmica: Markdown integrado a fórmulas \LaTeX{} e blocos de código com realce, com barra de ferramentas, painel dividido com pré-visualização e dois comandos de publicação --- ``Salvar localmente'' e ``Enviar nova versão'' (RF08, RF15 e RF16).
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig6-editor, largura=0.65,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 6.}]
+  {Interface do editor de texto com suporte a elementos técnicos (protótipo da IC)}{fig:ic-editor}
+
+\subsection{Lacunas Identificadas nos Protótipos}
+
+A análise dos protótipos em confronto com o modelo de dados revelou duas lacunas, registradas como decisões em aberto: (i) o rodapé apresenta links de redes sociais, mas o esquema não prevê onde armazená-los (\decisao{D-19}); e (ii) o botão ``Enviar nova versão'' sugere histórico de versões, que o modelo de dados não contempla, sendo interpretado aqui como publicação que substitui o conteúdo vigente (\decisao{D-15}).
+
+\section{Síntese do Capítulo}
+
+Foram especificados doze casos de uso, vinte e cinco requisitos funcionais, quinze requisitos não funcionais e quatorze regras de negócio, com rastreabilidade para módulos e agentes. Os requisitos herdados da IC foram preservados e refinados; os derivados foram marcados. Este capítulo é o contrato de comportamento: o Capítulo~\ref{cap:arquitetura} define \emph{como} o sistema atende a ele.

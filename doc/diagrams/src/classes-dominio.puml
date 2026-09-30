@@ -1,0 +1,100 @@
+@startuml classes-dominio
+' ===========================================================================
+' Vitrine - Modelo de domínio (diagrama de classes)
+' Figura: fig:classes-dominio (doc/tex/capitulos/cap5_arquitetura.tex)
+' Espelha prisma/schema.prisma. Atualizar junto com er-vitrine.dbml.
+' ===========================================================================
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam ArrowColor #475569
+skinparam class {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+hide empty methods
+
+enum ContentType <<valor lógico>> {
+  DOCUMENT
+  COLLECTION
+}
+
+class User {
+  id : String <<cuid>>
+  name : String
+  email : String <<único>>
+  emailVerified : Boolean
+  image : String [0..1]
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+class Session {
+  id : String <<cuid>>
+  token : String <<único>>
+  expiresAt : DateTime
+  ipAddress : String [0..1]
+  userAgent : String [0..1]
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+class Account {
+  id : String <<cuid>>
+  accountId : String
+  providerId : String
+  password : String [0..1]
+  accessToken : String [0..1]
+  refreshToken : String [0..1]
+  idToken : String [0..1]
+  scope : String [0..1]
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+class Verification {
+  id : String <<cuid>>
+  identifier : String
+  value : String
+  expiresAt : DateTime
+}
+
+class Content {
+  id : String <<cuid>>
+  title : String
+  slug : String
+  body : String [0..1]
+  type : ContentType
+  order : Int = 0
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+class Configuration <<registro único>> {
+  id : String <<cuid>>
+  siteName : String = "Vitrine"
+  siteDescription : String [0..1]
+  primaryColor : String = "#3b82f6"
+  secondaryColor : String = "#1e293b"
+  accentColor : String = "#f59e0b"
+  logoUrl : String [0..1]
+  faviconUrl : String [0..1]
+  updatedAt : DateTime
+}
+
+User "1" *-- "0..*" Session : possui
+User "1" *-- "0..*" Account : possui
+User "1" *-- "0..*" Content : autor de
+Content "0..1" *-- "0..*" Content : pai de
+Content ..> ContentType : type
+
+note bottom of Content
+  Regras: apenas COLLECTION pode ter filhos;
+  exclusão de um nó remove seus descendentes (cascata);
+  slug único entre irmãos (ver decisão D-05).
+end note
+note right of Verification
+  Usada pelo better-auth (verificação de e-mail
+  e redefinição de senha). Sem relação direta
+  com User no schema.
+end note
+@enduml

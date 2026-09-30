@@ -1,0 +1,13 @@
+%% ===================================================================================
+%% Apêndice G -- Mapa de Pendências (GERADO AUTOMATICAMENTE)
+%% A tabela é montada a partir do .aux: cada \vitrinefigura sem imagem, cada \vitrinecodigo
+%% sem arquivo e cada \vitrinependencia aparecem aqui. Exige DUAS compilações (latexmk faz).
+%% Nada neste arquivo deve ser editado à mão, exceto o texto introdutório.
+%% ===================================================================================
+\chapter{Mapa de Pendências da Documentação}\label{ap:pendencias}
+
+Este apêndice é gerado automaticamente a cada compilação em modo rascunho. Lista (i) as \textbf{figuras} cuja imagem ainda não existe em \arq{doc/tex/figuras/}, com o caminho exato onde o arquivo deve ser salvo; (ii) os \textbf{trechos de código} do repositório ainda inexistentes; e (iii) as \textbf{pendências de texto} endereçadas a um agente. Quando o arquivo de imagem ou de código é adicionado, o item desaparece na compilação seguinte; quando a pendência de texto é resolvida, o Arquiteto remove o aviso do capítulo.
+
+\textbf{Como localizar as pendências de um agente:} no terminal, dentro de \arq{doc/tex}, execute \texttt{make pendentes AGENTE=UI} (ou \texttt{Core}, \texttt{Dados}, \texttt{Arquiteto}). Na versão final, a opção \texttt{final} do pacote \texttt{vitrine} oculta os avisos e transforma figuras e códigos ausentes em erro de compilação.
+
+\vitrineimprimirpendencias

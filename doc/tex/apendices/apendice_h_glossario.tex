@@ -1,0 +1,37 @@
+%% ===================================================================================
+%% Apêndice H -- Glossário
+%% Termos do projeto e da metodologia. Ordem alfabética. Dono: Arquiteto/Redator.
+%% ===================================================================================
+\chapter{Glossário}\label{ap:glossario}
+
+\begin{description}[style=nextline, leftmargin=0.6cm, itemsep=4pt]
+  \item[Administrador] Ator humano que se autentica para gerenciar o conteúdo e a identidade visual do site. Na versão atual, é o único perfil autenticado.
+  \item[Agente] Participante especializado do desenvolvimento (Arquiteto, Dados, Core ou UI), em geral uma ferramenta de inteligência artificial operada sob supervisão humana.
+  \item[App Router] Sistema de roteamento do Next.js baseado na estrutura do diretório \arq{src/app}.
+  \item[Arquiteto] Agente que governa a documentação, revisa pedidos de integração e executa os \en{merges} na \texttt{main}; também chamado Redator Técnico e \en{Merge Master}.
+  \item[ADR] \en{Architecture Decision Record}: registro curto de uma decisão arquitetural com contexto, decisão e consequências.
+  \item[better-auth] Biblioteca de autenticação usada pelo Vitrine para login por e-mail e senha e gestão de sessões.
+  \item[Coleção] Conteúdo do tipo \texttt{COLLECTION}, que funciona como pasta e pode ter documentos e outras coleções como filhos.
+  \item[Conteúdo] Nó da árvore do site: documento ou coleção.
+  \item[Core] Agente responsável pela lógica de servidor: API, autenticação, roteamento e revalidação.
+  \item[Dados] Agente responsável pelo esquema, pelas migrações e pelo acesso ao banco.
+  \item[DBML] \en{Database Markup Language}, usada para descrever o modelo de dados como texto.
+  \item[Documento] Conteúdo do tipo \texttt{DOCUMENT}: uma página com corpo em Markdown; não tem filhos.
+  \item[Documentation-Driven Development] Processo em que a documentação é escrita antes do código e é a fonte da verdade que o código deve atender.
+  \item[Fonte da verdade] Artefato que prevalece em caso de conflito sobre determinada informação (Tabela~\ref{tab:fontes-verdade}).
+  \item[ISR] \en{Incremental Static Regeneration}: estratégia do Next.js que serve páginas estáticas e as regenera de forma incremental.
+  \item[KaTeX] Biblioteca de composição de fórmulas matemáticas para a web.
+  \item[Merge] Integração de uma ramificação na \texttt{main}.
+  \item[Monólito modular] Aplicação implantada como uma unidade, com módulos internos bem delimitados.
+  \item[Mural] Arquivo \arq{MURAL_DE_AGENTES.md}, canal de comunicação e de pedidos de integração, editado somente na \texttt{main}.
+  \item[Placeholder] Marcador de figura ou de código ausente, que indica o arquivo a ser criado e é substituído automaticamente quando o arquivo existe.
+  \item[Proxy] Arquivo do Next.js 16 (antigo \en{Middleware}) que executa lógica antes da conclusão de uma requisição.
+  \item[Revalidação] Invalidação de páginas em cache para que sejam regeneradas na próxima requisição.
+  \item[Route Handler] Arquivo \arq{route.js} do App Router que implementa um \en{endpoint} HTTP.
+  \item[Server Component] Componente React executado apenas no servidor.
+  \item[Slug] Trecho legível da URL que identifica um conteúdo entre seus irmãos.
+  \item[SQLite] Banco de dados SQL embutido, em arquivo único.
+  \item[Tema] Conjunto de identidade (nome, logotipo) e cores do site, aplicado por variáveis CSS.
+  \item[UI] Agente responsável pela interface: componentes, estilos e editor.
+  \item[WAL] \en{Write-Ahead Logging}: modo do SQLite que permite leituras simultâneas a uma escrita.
+\end{description}

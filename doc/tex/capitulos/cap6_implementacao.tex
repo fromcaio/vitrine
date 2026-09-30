@@ -1,0 +1,257 @@
+%% ===================================================================================
+%% Capítulo 6 -- Implementação
+%% Este capítulo nasce como PLANO de implementação por módulo e é reescrito, módulo a
+%% módulo, como RELATO de implementação à medida que os merges ocorrem.
+%% Ciclo de vida de cada seção (responsável: Arquiteto):
+%%   1. \statusmodulo{planejado}   -> a seção descreve tarefas e critérios de aceite;
+%%   2. \statusmodulo{andamento}   -> existe ramificação em revisão no mural;
+%%   3. \statusmodulo{implementado}-> após o merge: trocar as tarefas por relato real,
+%%                                    incluir trechos (\vitrinecodigo) e capturas (\vitrinefigura).
+%% Figuras: salvar os PNG em doc/tex/figuras/telas/<arquivo>.png -- aparecem sozinhas.
+%% ===================================================================================
+\chapter{Implementação}\label{cap:implementacao}
+
+Este capítulo acompanha a construção do Vitrine módulo a módulo. Cada módulo tem um selo de status, um agente responsável, os requisitos que atende, as tarefas, os critérios de aceite e as evidências esperadas (capturas de tela e trechos de código). Os blocos tracejados amarelos indicam evidências ainda não produzidas; eles são substituídos automaticamente quando o arquivo correspondente é adicionado ao repositório (Apêndice~\ref{ap:pendencias}).
+
+\section{Estado dos Módulos}\label{sec:modulos}
+
+\begin{longtable}{@{}L{0.9cm}L{3.2cm}L{1.6cm}L{2.2cm}L{2.9cm}L{2.9cm}@{}}
+\caption{Módulos, responsáveis, requisitos e estado}\label{tab:modulos}\\
+\toprule
+\textbf{ID} & \textbf{Módulo} & \textbf{Agente(s)} & \textbf{RF} & \textbf{Ramificação sugerida} & \textbf{Status}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Módulo} & \textbf{Agente(s)} & \textbf{RF} & \textbf{Ramificação sugerida} & \textbf{Status}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+M01 & Modelo de dados e migrações & Dados & RF02, RF03, RF22, RF23 & \arq{feat/dados-schema-inicial} & \statusmodulo{andamento}\\[1pt]
+M02 & Acesso a dados e árvore & Dados & RF02, RF03, RF14 & \arq{feat/dados-db-e-arvore} & \statusmodulo{planejado}\\[1pt]
+M03 & Autenticação e sessão & Core & RF01, RF20 a RF22 & \arq{feat/core-auth} & \statusmodulo{planejado}\\[1pt]
+M04 & API de conteúdo & Core & RF05 a RF07, RF16 & \arq{feat/core-api-conteudo} & \statusmodulo{planejado}\\[1pt]
+M05 & API de configuração & Core & RF18, RF19, RF21 & \arq{feat/core-api-configuracao} & \statusmodulo{planejado}\\[1pt]
+M06 & Revalidação de cache (ISR) & Core & RF17 & \arq{feat/core-revalidacao} & \statusmodulo{planejado}\\[1pt]
+M07 & Leitura pública e navegação & UI, Core & RF12 a RF14, RF24 & \arq{feat/ui-leitura-publica} & \statusmodulo{planejado}\\[1pt]
+M08 & Renderização de Markdown & UI & RF09 a RF11 & \arq{feat/ui-markdown} & \statusmodulo{planejado}\\[1pt]
+M09 & Editor de conteúdo & UI & RF08, RF15, RF16 & \arq{feat/ui-editor} & \statusmodulo{planejado}\\[1pt]
+M10 & Painel de gestão da árvore & UI, Core & RF03, RF06, RF07 & \arq{feat/ui-painel-arvore} & \statusmodulo{planejado}\\[1pt]
+M11 & Personalização visual & UI, Core, Dados & RF04, RF18, RF19 & \arq{feat/ui-personalizacao} & \statusmodulo{planejado}\\[1pt]
+M12 & SEO e metadados & Core & RF25 & \arq{feat/core-seo} & \statusmodulo{planejado}\\[1pt]
+M13 & Implantação e operação & Core, Dados & RF22; RNF01 & \arq{feat/core-implantacao} & \statusmodulo{planejado}\\[1pt]
+M14 & Testes automatizados & Todos & RNF08 & \arq{feat/<dominio>-testes} & \statusmodulo{planejado}\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores. O estado de M01 é ``em andamento'' porque o esquema inicial já existe em \arq{prisma/schema.prisma}; faltam migrações, \en{seed} e conformidade com o Prisma 7.}
+
+A ordem recomendada de execução respeita as dependências: M01 e M02 (dados) habilitam M03 a M06 (servidor), que habilitam M07 e M08 (leitura), seguidos de M09 a M11 (edição e personalização); M12 a M14 acompanham o restante.
+
+\section{Ambiente de Desenvolvimento}\label{sec:impl-ambiente}
+
+O Código~\ref{lst:comandos-dev} resume os comandos previstos. É um \emph{esboço}: a sequência exata depende da resolução de \decisao{D-09} (configuração do Prisma 7) e deve ser validada e, se necessário, corrigida pelos agentes Dados e Core, registrando a versão final no Apêndice~\ref{ap:implantacao}.
+
+\begin{lstlisting}[language=VSh, caption={Esboço: comandos do ciclo de desenvolvimento}, label={lst:comandos-dev}]
+# 1. Instalar dependências
+npm install
+
+# 2. Variáveis de ambiente (.env nunca é versionado; .env.example lista os nomes)
+cp .env.example .env
+
+# 3. Banco de dados (Dados) -- conferir as skills do Prisma em .claude/skills/
+npx prisma generate
+npx prisma migrate dev        # desenvolvimento
+npx prisma db seed            # configuração padrão e primeiro administrador
+
+# 4. Executar e verificar
+npm run dev                   # http://localhost:3000
+npm run lint
+npm run build && npm run start   # verifica produção e o comportamento do ISR
+\end{lstlisting}
+
+O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da versão instalada; os agentes devem consultá-la antes de escrever código de roteamento, cache ou autenticação, pois a versão traz mudanças em relação ao conhecimento anterior (por exemplo, a renomeação de \en{Middleware} para \en{Proxy}).
+
+\section{M01 e M02 --- Dados}\label{sec:impl-dados}
+
+\noindent\statusmodulo{andamento}\quad Agente: \agente{Dados}. Requisitos: \req{RF02}, \req{RF03}, \req{RF14}, \req{RF22}, \req{RF23}.
+
+\textbf{Situação.} O esquema inicial (Apêndice~\ref{ap:schema}) contém os seis modelos. Faltam migrações versionadas, \en{seed}, o módulo \arq{src/lib/db.js} e a adequação às práticas do Prisma 7. A Tabela~\ref{tab:prisma7} lista as divergências encontradas na configuração atual em relação às instruções do Prisma 7 incluídas nas \en{skills} do repositório (\arq{.claude/skills/prisma-orm-setup} e \arq{.claude/skills/prisma-upgrade-v7}).
+
+\begin{table}[htb]
+\caption{Conformidade da configuração do Prisma com a versão 7}\label{tab:prisma7}
+\small
+\begin{tabularx}{\linewidth}{@{}L{0.7cm}L{3.2cm}L{3.9cm}Y@{}}
+\toprule
+\textbf{\#} & \textbf{Item} & \textbf{Situação atual} & \textbf{Esperado / ação}\\
+\midrule
+1 & Arquivo de configuração & \arq{prisma7.config.ts} & Nome padrão \arq{prisma.config.ts}, ou uso explícito de \arq{--config}\\
+2 & Gerador & \arq{prisma-client-js} (legado) & \arq{prisma-client} com \texttt{output}; alinhar com \arq{/src/generated/prisma} do \arq{.gitignore}\\
+3 & URL do banco & \texttt{url = env("DATABASE\_URL")} no \texttt{datasource} & Mover a URL para o arquivo de configuração e manter só o \texttt{provider} no esquema\\
+4 & \en{Driver adapter} & Ausente; \texttt{sqlite3} declarado & Instalar adapter do Prisma para SQLite (\arq{better-sqlite3} ou libSQL); remover \texttt{sqlite3}\\
+5 & \arq{@prisma/client} & Em \arq{devDependencies} & Necessário em produção: mover para \texttt{dependencies}\\
+6 & \arq{DATABASE_URL} relativa & Não verificada & Caminhos relativos podem resolver diferente na CLI e no \emph{runtime}; usar caminho explícito em produção\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir do repositório e das \en{skills} do Prisma 7.}
+\end{table}
+
+\textbf{Tarefas.}
+\begin{itemize}
+  \item Resolver os itens da Tabela~\ref{tab:prisma7} e registrar a decisão final em \decisao{D-09};
+  \item tratar as observações da Tabela~\ref{tab:obs-schema} (unicidade de \en{slug}, índices, cascata do autor, registro único de configuração);
+  \item gerar a primeira migração; escrever o \en{seed} (configuração padrão e administrador inicial, RF22 e RF23);
+  \item implementar \arq{src/lib/db.js} (instância única do cliente, funções de leitura da árvore, do documento por caminho e da configuração, e de escrita transacional);
+  \item implementar \arq{src/lib/content-tree.js} conforme o Código~\ref{lst:algoritmo-arvore}.
+\end{itemize}
+
+\textbf{Critérios de aceite.} A migração aplica-se em um banco vazio; o \en{seed} é idempotente; a consulta da árvore retorna a estrutura ordenada sem carregar o corpo; a resolução de caminho devolve o nó correto ou nulo; nenhum arquivo fora de \arq{db.js} instancia o cliente.
+
+\vitrinecodigo[linerange={1-60}]{Dados}{src/lib/db.js}{VJS}{Acesso a dados: instância única do cliente e consultas principais}
+
+\vitrinecodigo{Dados}{src/lib/content-tree.js}{VJS}{Montagem da árvore e resolução de caminhos}
+
+\vitrinefigura[tipo=teste, arquivo=teste-migracoes, agente=Dados, largura=0.85,
+  descricao={Saída de terminal da aplicação da migração em banco vazio e da execução do seed (comandos e mensagens de sucesso).}]
+  {Aplicação da migração e execução do \en{seed}}{fig:teste-migracoes}
+
+\vitrinependencia{Dados}{Substituir esta seção por relato: decisões tomadas em D-05, D-06, D-09 e D-14, índices criados, estratégia de ordenação e exemplos de consulta.}
+
+\section{M03 --- Autenticação e Sessão}\label{sec:impl-auth}
+
+\noindent\statusmodulo{planejado}\quad Agente: \agente{Core}. Requisitos: \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}. Regras: RN01, RN12.
+
+\textbf{Tarefas.} Configurar o better-auth com o adaptador do Prisma (Código~\ref{lst:auth-esboco}); expor o Route Handler; criar o cliente React; implementar \arq{src/proxy.js} (verificação otimista); criar a página \arq{/login} e o \en{logout}; validar a sessão nos layouts e nas rotas do painel; implementar o \en{bootstrap} do primeiro administrador com cadastro público desabilitado (\decisao{D-03}); habilitar a limitação de tentativas de login.
+
+\textbf{Critérios de aceite.} Credenciais válidas redirecionam ao destino original; inválidas retornam mensagem genérica; \arq{/admin} sem \en{cookie} redireciona a \arq{/login}; qualquer rota de escrita sem sessão retorna 401 (mesmo com o Proxy desativado); \en{logout} invalida a sessão no banco; o \en{cookie} tem os atributos \texttt{HttpOnly} e \texttt{SameSite}, e \texttt{Secure} em produção.
+
+\vitrinecodigo{Core}{src/lib/auth.js}{VJS}{Configuração do servidor de autenticação (better-auth)}
+
+\vitrinecodigo{Core}{src/proxy.js}{VJS}{Proxy: verificação otimista de sessão}
+
+\vitrinefigura[tipo=tela, arquivo=tela-login, agente=UI, largura=0.6,
+  descricao={Tela de login: formulário de e-mail e senha, botão de entrar; estado de erro com mensagem genérica.},
+  ref={Fig. 5 do relatório de IC (estilo visual do painel).}]
+  {Tela de autenticação do painel administrativo}{fig:tela-login}
+
+\vitrinependencia{Core}{Descrever a configuração final (opções de sessão, limitação de tentativas, variáveis de ambiente efetivas), o procedimento de bootstrap escolhido e eventuais diferenças entre a API do better-auth 1.7.6 e o esboço do Código~\ref{lst:auth-esboco}.}
+
+\section{M04, M05 e M06 --- API, Configuração e Revalidação}\label{sec:impl-api}
+
+\noindent\statusmodulo{planejado}\quad Agente: \agente{Core}. Requisitos: \req{RF05} a \req{RF07}, \req{RF16} a \req{RF19}, \req{RF21}.
+
+\textbf{Tarefas.} Implementar as rotas da Tabela~\ref{tab:api} com validação de entrada (\decisao{D-11}), verificação de sessão em cada handler, formato de erro padronizado (Código~\ref{lst:erro-json}) e chamada às funções de \arq{db.js}; implementar \arq{src/lib/revalidate.js} com as regras da Tabela~\ref{tab:revalidacao}; proteger \arq{/api/configuration} e a atualização de tema.
+
+\textbf{Critérios de aceite.} Cada rota responde com os códigos de status previstos; conflitos de \en{slug} retornam 409 com \arq{SLUG_CONFLICT}; ciclos retornam \arq{CYCLE_DETECTED}; uma alteração só de corpo revalida apenas a página e uma alteração estrutural revalida o \en{layout} raiz; nenhuma rota escreve sem sessão.
+
+\vitrinecodigo{Core}{src/app/api/contents/route.js}{VJS}{Route Handler de coleção de conteúdos (GET e POST)}
+
+\vitrinecodigo{Core}{src/lib/revalidate.js}{VJS}{Regras de revalidação sob demanda (RN10)}
+
+\vitrinependencia{Core}{Relatar o contrato efetivamente implementado, divergências em relação à Tabela~\ref{tab:api} (que exigem aprovação prévia) e o resultado da verificação de revalidação com o cabeçalho x-nextjs-cache.}
+
+\section{M07 e M08 --- Leitura Pública e Renderização}\label{sec:impl-leitura}
+
+\noindent\statusmodulo{planejado}\quad Agentes: \agente{UI} e \agente{Core}. Requisitos: \req{RF09} a \req{RF14}, \req{RF24}.
+
+\textbf{Tarefas.} Configurar o \en{layout} raiz (idioma \arq{pt-BR}, fontes, variáveis de tema, importação da folha de estilos do KaTeX); implementar barra superior, \en{sidebar} e rodapé; implementar a página de documento em \arq{src/app/[...slug]/page.js} com \arq{generateStaticParams}, \texttt{revalidate} e \texttt{await params}; tratar coleção (RN14) e 404; implementar o \arq{MarkdownRenderer} com a cadeia da Seção~\ref{sec:arq-markdown}.
+
+\textbf{Critérios de aceite.} Uma página pública é servida de cache após a primeira requisição (\texttt{HIT}); a \en{sidebar} destaca o item ativo e é navegável por teclado; fórmulas, tabelas e código renderizam corretamente; HTML bruto no Markdown é exibido como texto, não interpretado; a página tem pontuação de acessibilidade e de desempenho conforme \req{RNF02} e \req{RNF05}.
+
+\vitrinecodigo{UI}{src/components/markdown/MarkdownRenderer.js}{VJS}{Componente de renderização de Markdown com matemática e código}
+
+\vitrinecodigo{UI}{src/components/layout/Sidebar.js}{VJS}{Componente da \en{sidebar} hierárquica}
+
+\vitrinefigura[tipo=tela, arquivo=tela-leitura-documento, agente=UI, largura=0.9,
+  descricao={Página de documento completa: barra superior com coleções raiz, sidebar com três níveis (coleção, subcoleção, documentos) e item ativo destacado, conteúdo renderizado e rodapé. A página inicial (D-16) pode ser registrada em captura adicional opcional, tela-home.},
+  ref={Fig. 3 do relatório de IC (instância FromCaio).}]
+  {Página de leitura de um documento}{fig:tela-leitura-documento}
+
+\vitrinefigura[tipo=tela, arquivo=tela-leitura-matematica, agente=UI, largura=0.85,
+  descricao={Trecho de documento com fórmula em linha e em bloco renderizadas pelo KaTeX (por exemplo, uma integral e um somatório), ao lado do texto LaTeX-fonte.}]
+  {Fórmulas \LaTeX{} renderizadas no conteúdo}{fig:tela-matematica}
+
+\vitrinefigura[tipo=tela, arquivo=tela-leitura-codigo, agente=UI, largura=0.85,
+  descricao={Trecho de documento com bloco de código realçado (JavaScript e Python) e uma tabela GFM.}]
+  {Blocos de código com realce e tabelas}{fig:tela-codigo}
+
+\vitrinefigura[tipo=tela, arquivo=tela-responsiva-mobile, agente=UI, largura=0.45,
+  descricao={Duas capturas lado a lado em largura de 375 px: página de leitura com sidebar recolhida e com sidebar aberta.}]
+  {Layout responsivo em tela pequena}{fig:tela-mobile}
+
+\vitrinependencia{UI}{Descrever a composição final do layout, o tratamento de coleções e da página inicial (D-16), a biblioteca de realce escolhida (D-07), a adoção do remark-gfm (D-08) e as decisões de acessibilidade.}
+
+\section{M09 --- Editor de Conteúdo}\label{sec:impl-editor}
+
+\noindent\statusmodulo{planejado}\quad Agente: \agente{UI}. Requisitos: \req{RF08}, \req{RF09}, \req{RF15}, \req{RF16}.
+
+\textbf{Tarefas.} Implementar o editor em painel dividido --- edição e pré-visualização com o mesmo \arq{MarkdownRenderer} da página pública --- com barra de ferramentas (negrito, itálico, tachado, títulos, links, imagens, código, citação, listas, tabela e fórmula); rascunho local por conteúdo (``Salvar localmente''), com restauração ao reabrir; e envio da versão (``Enviar nova versão'') à API.
+
+\textbf{Critérios de aceite.} A pré-visualização é idêntica à renderização pública; o rascunho sobrevive ao recarregamento da página; o envio exibe confirmação e trata erros da API (401, 409, 422); os botões da barra de ferramentas têm rótulos acessíveis.
+
+\vitrinecodigo{UI}{src/components/editor/Editor.js}{VJS}{Componente do editor com pré-visualização}
+
+\vitrinefigura[tipo=tela, arquivo=tela-editor-markdown, agente=UI, largura=0.9,
+  descricao={Editor em painel dividido: Markdown com fórmulas à esquerda, pré-visualização à direita, barra de ferramentas e botões Salvar localmente e Enviar nova versão.},
+  ref={Fig. 6 do relatório de IC.}]
+  {Editor de Markdown com pré-visualização}{fig:tela-editor}
+
+\vitrinependencia{UI}{Relatar a implementação do editor, o formato do rascunho local e o tratamento de conflitos entre rascunho e versão publicada.}
+
+\section{M10 --- Painel de Gestão da Árvore}\label{sec:impl-painel}
+
+\noindent\statusmodulo{planejado}\quad Agentes: \agente{UI} e \agente{Core}. Requisitos: \req{RF03}, \req{RF06}, \req{RF07}.
+
+\textbf{Tarefas.} Implementar a visão geral do painel, a árvore de conteúdos com ações por nó (criar documento ou coleção, editar, mover, reordenar, excluir com confirmação) e os formulários de criação e edição de metadados, integrados às rotas da Tabela~\ref{tab:api}.
+
+\textbf{Critérios de aceite.} Criação, edição e exclusão refletem-se na \en{sidebar} pública; movimentos inválidos (ciclo, pai que não é coleção) são rejeitados com mensagem clara; a exclusão de coleção com descendentes exige confirmação que informe a quantidade de itens afetados.
+
+\vitrinefigura[tipo=tela, arquivo=tela-admin-arvore-conteudo, agente=UI, largura=0.9,
+  descricao={Painel com a árvore de conteúdos: itens com ações de criar, editar, mover e excluir; botão de nova publicação.},
+  ref={Fig. 4 do relatório de IC.}]
+  {Painel de gestão da árvore de conteúdos}{fig:tela-arvore}
+
+\vitrinefigura[tipo=tela, arquivo=tela-admin-novo-conteudo, agente=UI, largura=0.8,
+  descricao={Formulário de criação de conteúdo: título, slug sugerido, tipo (documento ou coleção) e seleção da coleção pai.}]
+  {Formulário de criação de conteúdo}{fig:tela-novo}
+
+\vitrinependencia{UI}{Relatar a implementação do painel, a solução de arrastar e soltar (ou ações de subir e descer) e os estados de erro.}
+
+\section{M11 --- Personalização Visual}\label{sec:impl-personalizacao}
+
+\noindent\statusmodulo{planejado}\quad Agentes: \agente{UI}, \agente{Core} e \agente{Dados}. Requisitos: \req{RF04}, \req{RF18}, \req{RF19}, \req{RF24}.
+
+\textbf{Tarefas.} Implementar o formulário de identidade (nome, descrição, logotipo, \en{favicon}) e de paleta (três cores), com pré-visualização local e aviso de contraste; a rota \texttt{PUT /api/configuration}; a leitura da configuração no \en{layout} raiz; os tokens do Código~\ref{lst:tema-css}; e a decisão sobre armazenamento de logotipo/\en{favicon} (\decisao{D-10}) e dos links do rodapé (\decisao{D-19}).
+
+\textbf{Critérios de aceite.} Alterar uma cor no painel muda a aparência de todas as páginas na próxima requisição, sem novo \en{build}; valores inválidos são recusados; o aviso de contraste aparece para combinações abaixo de 4,5:1; nome e logotipo aparecem na barra superior e nos metadados.
+
+\vitrinecodigo{UI}{src/lib/theme.js}{VJS}{Geração das variáveis CSS e cálculo de contraste}
+
+\vitrinefigura[tipo=tela, arquivo=tela-admin-configuracoes, agente=UI, largura=0.85,
+  descricao={Tela de configurações: identidade (nome, descrição, logotipo, favicon) e paleta (seletores de cor e campos hexadecimais) com pré-visualização e aviso de contraste.},
+  ref={Fig. 5 do relatório de IC.}]
+  {Configuração da identidade e da paleta de cores}{fig:tela-configuracoes}
+
+\vitrinefigura[tipo=tela, arquivo=tela-tema-antes-depois, agente=UI, largura=0.95,
+  descricao={Duas capturas lado a lado da mesma página antes e depois de alterar a paleta, comprovando o efeito sem novo build.}]
+  {Efeito da personalização sobre uma mesma página}{fig:tela-antes-depois}
+
+\vitrinependencia{UI}{Relatar a implementação da personalização, o mapeamento final das cores (Seção~\ref{sec:arq-tema}) e o tratamento do modo escuro (D-17).}
+
+\section{M12, M13 e M14 --- SEO, Implantação e Testes}\label{sec:impl-demais}
+
+\noindent\statusmodulo{planejado}\quad
+
+\textbf{M12 --- SEO e metadados (\agente{Core}).} Gerar \texttt{title} e \texttt{description} por página a partir do conteúdo e da configuração, \arq{robots.txt} e mapa do site (\req{RF25}). Critério de aceite: metadados presentes no HTML pré-renderizado de cada documento.
+
+\textbf{M13 --- Implantação e operação (\agente{Core} e \agente{Dados}).} Criar o \arq{.env.example} (e a exceção correspondente no \arq{.gitignore}, pois o padrão \arq{.env*} o ignora); documentar o roteiro de instalação, atualização e \en{backup}; definir os cabeçalhos de segurança em \arq{next.config.mjs}. Critério de aceite: uma instalação limpa, seguindo apenas o Apêndice~\ref{ap:implantacao}, produz um sistema funcional.
+
+\textbf{M14 --- Testes automatizados (todos).} Definir as ferramentas (\decisao{D-12}) e implementar os casos de teste do Capítulo~\ref{cap:testes} no domínio de cada agente.
+
+\vitrinecodigo{Core}{.env.example}{VSh}{Variáveis de ambiente necessárias (sem valores)}
+
+\section{Dificuldades e Lições Aprendidas}\label{sec:impl-licoes}
+
+\vitrinependencia{Arquiteto}{Ao final da implementação, consolidar aqui as dificuldades técnicas encontradas, as decisões que mudaram em relação ao projeto do Capítulo 5 (com a referência à ADR correspondente), as lições do processo de DDD com agentes e os desvios entre o planejado e o realizado.}
+
+\section{Síntese do Capítulo}
+
+O capítulo organiza a implementação em catorze módulos com responsáveis, critérios de aceite e evidências, e registra o estado inicial: esquema de dados presente, demais módulos planejados. À medida que as integrações ocorrem, cada seção é reescrita como relato e as evidências substituem os marcadores.

@@ -1,0 +1,163 @@
+%% ===================================================================================
+%% VITRINE -- Documentação oficial do projeto (Trabalho de Conclusão de Curso)
+%% ===================================================================================
+%% Este arquivo é a RAIZ do documento. Ele é a "Fonte da Verdade" textual do projeto:
+%% a especificação (requisitos, arquitetura, modelo de dados, API) vive aqui e nos
+%% diagramas de doc/diagrams/src/. Quem edita: o agente Arquiteto / Redator Técnico.
+%% Fluxo completo: ver CLAUDE.md, ARQUITETO.md e DESENVOLVEDORES.md na raiz do repo.
+%%
+%% Base: template abntex2 (undergrad_thesis.cls). Compilação:  latexmk -pdf main.tex
+%%   (ou `make pdf` dentro de doc/tex). NÃO é necessário -shell-escape.
+%% ===================================================================================
+
+\documentclass[
+	12pt,        % Tamanho da fonte
+	openright,   % Capítulos começam em páginas ímpares
+	oneside,     % Impressão em um lado (use 'twoside' para frente e verso)
+	a4paper,     % Tamanho do papel
+	english,     % Idioma adicional para hifenização
+	brazil       % Idioma principal do documento (deve ser o último)
+]{undergrad_thesis}
+
+%% ===================================================================================
+%% PACOTES
+%% ===================================================================================
+\usepackage[T1]{fontenc}      % Fontes T1 de 8 bits
+\usepackage[utf8]{inputenc}   % UTF-8 (acentos e caracteres especiais)
+\usepackage{lmodern}          % Latin Modern
+\usepackage{indentfirst}      % Indenta o primeiro parágrafo de cada seção
+\usepackage{cmap}             % PDF pesquisável/copiável
+
+\usepackage{graphicx}         % Inclusão de imagens
+\usepackage{booktabs}         % Tabelas profissionais
+\usepackage{listings}         % Listagens de código (estilo e linguagens em vitrine.sty)
+\usepackage[table]{xcolor}    % Cores, inclusive em tabelas
+\usepackage{multirow}         % Células mescladas
+\usepackage{amsmath, amsfonts, amssymb}
+\usepackage{inconsolata}      % Fonte monoespaçada
+
+\usepackage[num]{abntex2cite} % Citações ABNT numéricas (para autor-data: [alf])
+
+% Macros do projeto: figuras com placeholder, pendências por agente, selos de status.
+% Troque [rascunho] por [final] na versão de entrega: pendências somem e figura ausente vira erro.
+\usepackage[rascunho]{vitrine}
+
+%% ===================================================================================
+%% INFORMAÇÕES DO DOCUMENTO (capa, folha de rosto e metadados do PDF)
+%% ===================================================================================
+% Título, orientador e banca: dados herdados do Relatório de IC; confirmar para o TCC.
+\titulo{Vitrine: Um Sistema de Publicação de Conteúdo Científico}
+\autor{Caio Augusto Silva dos Reis}
+\local{São João del-Rei, Minas Gerais}
+\data{2026}
+\orientador{Prof. Dr. Matheus Carvalho Viana}
+\instituicao{%
+  Universidade Federal de São João del-Rei
+  \par
+  Curso de Graduação em Ciência da Computação}
+\tipotrabalho{Trabalho de Conclusão de Curso}
+\preambulo{Trabalho de Conclusão de Curso apresentado ao Curso de Graduação em Ciência da Computação da Universidade Federal de São João del-Rei como requisito parcial para a obtenção do grau de Bacharel em Ciência da Computação.}
+\logo{imgs/university-logo.jpg.png}
+
+% -----------------------------------------------------------------------------------
+% Hiperlinks e metadados do PDF
+% -----------------------------------------------------------------------------------
+\definecolor{hyperlinkblue}{RGB}{41, 5, 195}
+
+\makeatletter
+\hypersetup{
+    pdftitle={\@title},
+    pdfauthor={\@author},
+    pdfsubject={\imprimirpreambulo},
+    pdfcreator={LaTeX com abnTeX2},
+    pdfkeywords={CMS acadêmico; Next.js; SQLite; Markdown; Documentation-Driven Development},
+    colorlinks=true,
+    linkcolor=hyperlinkblue,
+    citecolor=hyperlinkblue,
+    filecolor=magenta,
+    urlcolor=hyperlinkblue,
+    bookmarksdepth=4,
+    bookmarkstype=toc
+}
+\makeatother
+
+% -----------------------------------------------------------------------------------
+% Espaçamento e profundidade de numeração/sumário
+% -----------------------------------------------------------------------------------
+\setlength{\parindent}{1.5cm}
+\setlength{\parskip}{0.2cm}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+\makeindex
+
+%% ===================================================================================
+%% INÍCIO DO DOCUMENTO
+%% ===================================================================================
+\begin{document}
+
+\frenchspacing
+
+% ----------------------------------------------------------
+% ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+\pretextual
+
+\imprimircapalogo
+\imprimirfolhaderosto
+
+% Folha de aprovação, dedicatória, agradecimentos, epígrafe, resumo e abstract
+\include{pretextual_elements}
+
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+\include{acronyms}
+
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ----------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% Dica: para compilar só um capítulo, use \includeonly{capitulos/cap5_arquitetura} aqui.
+% ----------------------------------------------------------
+\textual
+
+\include{capitulos/cap1_introducao}
+\include{capitulos/cap2_fundamentacao}
+\include{capitulos/cap3_metodologia}
+\include{capitulos/cap4_requisitos}
+\include{capitulos/cap5_arquitetura}
+\include{capitulos/cap6_implementacao}
+\include{capitulos/cap7_testes}
+\include{capitulos/cap8_resultados}
+\include{capitulos/cap9_consideracoes_finais}
+
+% ----------------------------------------------------------
+% ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+\bookmarksetup{startatroot}
+
+\bibliographystyle{abntex2-num}
+\bibliography{references}
+
+\begin{apendicesenv}
+\partapendices
+\include{apendices/apendice_a_dicionario_dados}
+\include{apendices/apendice_b_schema_prisma}
+\include{apendices/apendice_c_fontes_diagramas}
+\include{apendices/apendice_d_implantacao}
+\include{apendices/apendice_e_adr}
+\include{apendices/apendice_f_decisoes_abertas}
+\include{apendices/apendice_g_pendencias}
+\include{apendices/apendice_h_glossario}
+\end{apendicesenv}
+
+\end{document}

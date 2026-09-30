@@ -1,0 +1,40 @@
+@startuml fluxo-git-mural
+' ===========================================================================
+' Vitrine - Fluxo Git e uso do mural (solicitação de merge)
+' Figura: fig:fluxo-git-mural (doc/tex/capitulos/cap3_metodologia.tex)
+' Regra de ouro: MURAL_DE_AGENTES.md só é editado na branch main.
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam sequenceMessageAlign left
+autonumber
+
+actor "Desenvolvedor\n(Dados/Core/UI)" as Dev
+participant "branch feat/<dominio>-<tema>" as Feat
+participant "branch main" as Main
+participant "MURAL_DE_AGENTES.md" as Mural
+actor "Arquiteto\n(Merge Master)" as Arq
+
+Dev -> Main : git switch main && git pull (se houver remoto)
+Dev -> Feat : git switch -c feat/<dominio>-<tema>
+loop até concluir a tarefa
+  Dev -> Feat : commits (nunca na main)
+end
+Dev -> Feat : commit final (árvore limpa)
+Dev -> Main : git switch main
+Dev -> Mural : adiciona solicitação "@Arquiteto: ... Solicito merge. Ass: <domínio>"
+Dev -> Main : commit apenas do mural
+Dev -> Feat : git switch feat/<dominio>-<tema>
+
+Arq -> Mural : lê pendências na main
+Arq -> Feat : git diff main...feat/<dominio>-<tema>
+alt conforme à documentação
+  Arq -> Main : git merge (sem fast-forward)
+  Arq -> Main : atualiza .tex/diagramas e commita
+  Arq -> Mural : remove a solicitação resolvida
+else violação ou divergência
+  Arq -> Mural : responde com o que deve ser corrigido (veto)
+  Dev -> Mural : lê a resposta e corrige na branch
+end
+@enduml

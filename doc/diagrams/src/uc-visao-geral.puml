@@ -1,0 +1,66 @@
+@startuml uc-visao-geral
+' ===========================================================================
+' Vitrine - Diagrama de casos de uso (visão geral)
+' Figura: fig:uc-visao-geral  (doc/tex/capitulos/cap4_requisitos.tex)
+' Base:   doc/ref/use-case-diagram.plantuml (Relatório de IC) -- mantido intacto.
+' Alteração em relação ao relatório de IC:
+'   - "Gerenciar Conteúdo" passa a incluir "Invalidar Cache (ISR)": toda
+'     mutação de conteúdo dispara a revalidação das páginas afetadas.
+' Renderizar: ver doc/diagrams/README.md (usar -charset UTF-8).
+' ===========================================================================
+left to right direction
+skinparam shadowing false
+skinparam packageBorderColor transparent
+skinparam packageBackgroundColor transparent
+skinparam ArrowColor #475569
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+
+actor "Leitor" as Leitor
+actor "Administrador" as Admin
+actor "Sistema" as Sistema
+
+rectangle "Vitrine" {
+  rectangle "Navegação e Leitura" {
+    usecase "Explorar Sidebar Hierárquica" as UC_Nav
+    usecase "Visualizar Página Única" as UC_Single
+    usecase "Ler Conteúdo (Markdown)" as UC_Read
+  }
+  rectangle "Gestão de Estrutura" {
+    usecase "Gerenciar Conteúdo" as UC_Manage
+    usecase "Criar Documento" as UC_CreateDoc
+    usecase "Criar Coleção/Pasta" as UC_CreateColl
+    usecase "Aninhar Conteúdos (Path/Order)" as UC_Nest
+    usecase "Autenticar-se" as UC_Login
+  }
+  rectangle "Configurações e Performance" {
+    usecase "Personalizar UI" as UC_UI
+    usecase "Definir Identidade (Nome/Branding)" as UC_Brand
+    usecase "Configurar Paleta de Cores" as UC_Colors
+    usecase "Invalidar Cache (ISR)" as UC_ISR
+  }
+}
+
+UC_Nav ..> UC_Read : <<include>>
+UC_Single ..> UC_Read : <<include>>
+
+UC_Manage <.. UC_CreateDoc : <<extend>>
+UC_Manage <.. UC_CreateColl : <<extend>>
+UC_Manage ..> UC_Nest : <<include>>
+UC_Manage ..> UC_Login : <<include>>
+UC_Manage ..> UC_ISR : <<include>>
+
+UC_UI <.. UC_Brand : <<extend>>
+UC_UI <.. UC_Colors : <<extend>>
+UC_UI ..> UC_Login : <<include>>
+UC_UI ..> UC_ISR : <<include>>
+
+Leitor --> UC_Nav
+Leitor --> UC_Single
+Admin --> UC_Login
+Admin --> UC_Manage
+Admin --> UC_UI
+Sistema --> UC_ISR
+@enduml

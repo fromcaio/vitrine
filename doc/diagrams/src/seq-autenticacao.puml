@@ -1,0 +1,44 @@
+@startuml seq-autenticacao
+' ===========================================================================
+' Vitrine - Sequência: autenticação do administrador (better-auth)
+' Figura: fig:seq-autenticacao (doc/tex/capitulos/cap5_arquitetura.tex)
+' Rotas /api/auth/... são as rotas padrão do better-auth (conferir na versão instalada).
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam sequenceMessageAlign left
+autonumber
+
+actor "Administrador" as Admin
+participant "Navegador" as Nav
+participant "Proxy\n(src/proxy.js)" as Proxy
+participant "Route Handler\n/api/auth/[...all]" as Route
+participant "better-auth" as BA
+participant "Prisma Client\n(db.js)" as DB
+database "SQLite" as Sql
+
+Admin -> Nav : Acessa /admin
+Nav -> Proxy : GET /admin
+Proxy -> Proxy : cookie de sessão presente?
+Proxy --> Nav : 307 para /login?next=/admin\n(sem cookie)
+
+Admin -> Nav : Informa e-mail e senha
+Nav -> Route : POST /api/auth/sign-in/email
+Route -> BA : repassa a requisição
+BA -> DB : busca user e account (hash da senha)
+DB -> Sql : SELECT
+Sql --> DB : registros
+BA -> BA : verifica hash da senha
+
+alt credenciais válidas
+  BA -> DB : cria session (token, expiresAt)
+  DB -> Sql : INSERT
+  BA --> Nav : 200 + Set-Cookie de sessão\n(HttpOnly, SameSite, Secure em produção)
+  Nav -> Proxy : GET /admin (com cookie)
+  Proxy --> Nav : segue para a página
+  Nav -> Nav : Server Component valida a sessão\n(auth.api.getSession)
+else credenciais inválidas
+  BA --> Nav : 401 (mensagem genérica)
+end
+@enduml

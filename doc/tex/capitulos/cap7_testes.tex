@@ -1,0 +1,144 @@
+%% ===================================================================================
+%% Capítulo 7 -- Verificação, Validação e Testes
+%% Define a estratégia, os critérios e os casos de teste (CT) rastreados aos requisitos.
+%% Os RESULTADOS de execução entram no Capítulo 8. Dono: Arquiteto/Redator; cada agente
+%% implementa e executa os casos do seu domínio e entrega as evidências em
+%% doc/tex/figuras/testes/ (ver DESENVOLVEDORES.md).
+%% ===================================================================================
+\chapter{Verificação, Validação e Testes}\label{cap:testes}
+
+A \emph{verificação} responde se o sistema foi construído corretamente, isto é, conforme a especificação dos Capítulos~\ref{cap:requisitos} e~\ref{cap:arquitetura}; a \emph{validação} responde se foi construído o sistema correto, isto é, se atende às necessidades do usuário \cite{sommerville2011,pressman2021}. Este capítulo define como ambas serão realizadas e quais evidências serão coletadas.
+
+\section{Objetivos e Escopo}\label{sec:testes-objetivos}
+
+Os objetivos da verificação e validação são: (i) demonstrar que cada requisito essencial e importante é atendido (\req{RF01} a \req{RF25}); (ii) comprovar as regras de negócio invariantes (RN01 a RN14) no servidor; (iii) medir as qualidades declaradas como metas (\req{RNF02}, \req{RNF04}, \req{RNF05}); e (iv) verificar o comportamento do cache ISR em modo de produção. Ficam fora do escopo testes de carga em grande escala, pois o perfil de uso esperado é de um único administrador e tráfego de leitura moderado.
+
+\section{Estratégia de Testes}\label{sec:testes-estrategia}
+
+A estratégia segue a proporção clássica entre tipos de teste: muitos testes de unidade, menos testes de integração e poucos testes de ponta a ponta (\emph{E2E}).
+
+\begin{table}[htb]
+\caption{Tipos de teste, alvo e ferramentas candidatas}\label{tab:tipos-teste}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.6cm}YL{4.2cm}@{}}
+\toprule
+\textbf{Tipo} & \textbf{Alvo} & \textbf{Ferramentas candidatas (D-12)}\\
+\midrule
+Unidade & Funções puras: montagem da árvore, resolução de caminho, validadores, cálculo de contraste, \en{slug} & Vitest \cite{vitest}\\
+\addlinespace
+Integração & Funções de \arq{db.js} contra um SQLite temporário; Route Handlers com sessão simulada & Vitest com banco de teste\\
+\addlinespace
+Ponta a ponta & Fluxos completos no navegador sobre o build de produção (login, publicação, leitura, personalização) & Playwright \cite{playwright}\\
+\addlinespace
+Não funcionais & Desempenho, acessibilidade, segurança e ISR & Lighthouse \cite{lighthouse}, verificação de cabeçalhos, \texttt{npm audit}\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\textbf{Ambiente de teste.} Cada suíte de integração usa um arquivo SQLite temporário, criado a partir das migrações, com \en{seed} controlado. Os testes de ISR e de desempenho usam \texttt{next build} seguido de \texttt{next start}, porque o comportamento de cache em \texttt{next dev} não representa a produção \cite{nextjsdocs}. Nenhum teste usa o banco de desenvolvimento nem segredos reais.
+
+\textbf{Responsabilidades.} Cada agente implementa os testes do seu domínio (Tabela~\ref{tab:casos-teste}); o Arquiteto verifica a cobertura dos requisitos e consolida os resultados no Capítulo~\ref{cap:resultados}.
+
+\section{Casos de Teste}\label{sec:casos-teste}
+
+A Tabela~\ref{tab:casos-teste} relaciona cada caso de teste aos requisitos e regras que ele verifica. Um caso é considerado \emph{aprovado} quando o resultado observado coincide com o esperado; um requisito essencial só é considerado atendido quando todos os seus casos de teste aprovam.
+
+\begin{longtable}{@{}L{1.1cm}L{7.0cm}L{2.2cm}L{1.6cm}L{1.6cm}@{}}
+\caption{Casos de teste e rastreabilidade}\label{tab:casos-teste}\\
+\toprule
+\textbf{ID} & \textbf{Caso de teste (ação e resultado esperado)} & \textbf{Verifica} & \textbf{Tipo} & \textbf{Agente}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Caso de teste (ação e resultado esperado)} & \textbf{Verifica} & \textbf{Tipo} & \textbf{Agente}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+CT01 & Login com credenciais válidas redireciona ao painel e cria a sessão & RF01 & E2E & Core\\[2pt]
+CT02 & Login inválido retorna mensagem genérica, sem indicar o campo incorreto & RF01; RNF03 & API & Core\\[2pt]
+CT03 & Acesso a \arq{/admin} sem sessão redireciona a \arq{/login} & RF01; RF21 & E2E & Core\\[2pt]
+CT04 & Qualquer rota de escrita sem sessão retorna 401 & RF21; RN01 & API & Core\\[2pt]
+CT05 & Encerrar sessão invalida a sessão no banco e remove o \en{cookie} & RF20 & API & Core\\[2pt]
+CT06 & O cadastro público está desabilitado após o \en{bootstrap} & RF22 & API & Core\\[2pt]
+CT07 & Criar documento válido retorna 201 e o item aparece na árvore & RF05; RF02 & API & Core\\[2pt]
+CT08 & \en{Slug} duplicado entre irmãos retorna 409 (\arq{SLUG_CONFLICT}) & RN03 & API & Core\\[2pt]
+CT09 & Pai que não é coleção retorna 422 (\arq{INVALID_PARENT}) & RN02 & API & Core\\[2pt]
+CT10 & Mover um nó para dentro de um descendente é rejeitado (\arq{CYCLE_DETECTED}) & RN06 & API & Core\\[2pt]
+CT11 & Reordenar irmãos persiste a nova ordem e a listagem a respeita & RF03; RN05 & Integração & Dados\\[2pt]
+CT12 & Excluir uma coleção remove todos os descendentes & RF07; RN07 & Integração & Dados\\[2pt]
+CT13 & Resolver caminho existente retorna o nó; inexistente retorna nulo (404) & RF14; RN04 & Unidade & Dados\\[2pt]
+CT14 & Abrir uma coleção redireciona ao primeiro documento descendente & RN14 & E2E & UI\\[2pt]
+CT15 & Fórmulas em linha e em bloco são renderizadas pelo KaTeX & RF09 & Unidade & UI\\[2pt]
+CT16 & HTML bruto no Markdown é exibido como texto e não é executado & RN11; RNF03 & Unidade & UI\\[2pt]
+CT17 & Tabelas, tachado e listas de tarefas (GFM) são renderizados & RF11 & Unidade & UI\\[2pt]
+CT18 & Blocos de código recebem realce conforme a linguagem & RF10 & E2E & UI\\[2pt]
+CT19 & A pré-visualização do editor é idêntica à página pública & RF08 & E2E & UI\\[2pt]
+CT20 & O rascunho local sobrevive ao recarregamento da página & RF15 & E2E & UI\\[2pt]
+CT21 & Publicar nova versão atualiza a página pública (revalidação da página) & RF16; RF17; RN10 & E2E & Core\\[2pt]
+CT22 & Mudança estrutural (título, \en{slug}, pai, ordem) revalida o \en{layout} raiz & RF17; RN10 & E2E & Core\\[2pt]
+CT23 & Alterar cores reflete-se nas páginas sem novo \en{build} & RF19 & E2E & UI\\[2pt]
+CT24 & Cor fora do formato é recusada; contraste insuficiente gera aviso & RN09 & API/Unid. & Core, UI\\[2pt]
+CT25 & Metadados de SEO presentes no HTML pré-renderizado & RF25; RNF07 & E2E & Core\\[2pt]
+CT26 & A \en{sidebar} é navegável por teclado e destaca o item ativo & RF12; RNF05 & E2E & UI\\[2pt]
+CT27 & O layout permanece utilizável em largura de 320 px & RNF06 & E2E & UI\\[2pt]
+CT28 & A migração aplica-se em banco vazio e o \en{seed} é idempotente & RF23 & Integração & Dados\\[2pt]
+CT29 & Uma instalação limpa, seguindo o Apêndice~\ref{ap:implantacao}, produz sistema funcional & RNF01 & Manual & Core\\[2pt]
+CT30 & O \en{backup} do banco pode ser restaurado com os dados íntegros & RNF10 & Manual & Dados\\[2pt]
+\end{longtable}
+\fonte{Elaborado pelos autores.}
+
+\section{Testes Não Funcionais}\label{sec:testes-nf}
+
+\subsection{Desempenho e ISR}
+
+O desempenho será medido com o Lighthouse \cite{lighthouse} sobre o \en{build} de produção, em perfil móvel simulado e em desktop, registrando as métricas centrais de experiência \cite{webvitals}, em especial o \en{Largest Contentful Paint} (LCP). A meta é LCP $\leq$ 2,5 s no percentil 75 e pontuação de desempenho $\geq$ 90 (\req{RNF02}). O comportamento do cache será verificado por requisições repetidas à mesma página, observando o cabeçalho \arq{x-nextjs-cache}: a primeira requisição deve resultar em \texttt{MISS} ou \texttt{HIT} conforme a pré-renderização, as seguintes em \texttt{HIT}, e a primeira após uma mutação em \texttt{MISS} ou \texttt{REVALIDATED} (casos CT21 e CT22).
+
+\vitrinefigura[tipo=teste, arquivo=teste-lighthouse-mobile, agente=UI, largura=0.85,
+  descricao={Relatório do Lighthouse em perfil móvel para uma página de documento no build de produção, com as quatro pontuações e as métricas LCP, CLS e TBT.}]
+  {Relatório do Lighthouse (perfil móvel)}{fig:teste-lh-mobile}
+
+\vitrinefigura[tipo=teste, arquivo=teste-isr-cabecalhos, agente=Core, largura=0.85,
+  descricao={Saída de terminal com requisições repetidas e o cabeçalho x-nextjs-cache (MISS, HIT, HIT, e após mutação REVALIDATED ou MISS).}]
+  {Evidência do comportamento do cache ISR}{fig:teste-isr}
+
+\subsection{Segurança}
+
+A verificação de segurança consiste em: executar os casos CT02, CT04, CT06 e CT16; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas; e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
+
+\subsection{Acessibilidade}
+
+A acessibilidade será avaliada segundo o WCAG 2.1 nível AA \cite{wcag21}, combinando verificação automatizada (contraste, rótulos, estrutura de títulos) e verificação manual (navegação apenas por teclado, foco visível, leitura por leitor de tela em um fluxo representativo).
+
+\vitrinefigura[tipo=teste, arquivo=teste-acessibilidade, agente=UI, largura=0.85,
+  descricao={Resultado da verificação automatizada de acessibilidade (por exemplo, categoria Acessibilidade do Lighthouse ou ferramenta equivalente) para as páginas pública e do painel.}]
+  {Resultado da verificação automatizada de acessibilidade}{fig:teste-a11y}
+
+\subsection{Usabilidade}
+
+A usabilidade será validada com usuários do perfil do Administrador (docentes e pesquisadores), em sessões individuais com tarefas roteirizadas e o questionário SUS \cite{brooke1996sus}. Estudos de usabilidade clássicos indicam que amostras pequenas já revelam a maior parte dos problemas de uma interface \cite{nielsen1993usability}; planeja-se um grupo de cinco a oito participantes. As tarefas previstas são:
+
+\begin{enumerate}[label=\textbf{T\arabic*.}, leftmargin=1.2cm]
+  \item entrar no painel e criar uma coleção chamada ``Cálculo'';
+  \item criar, dentro dela, um documento com um título, um parágrafo e uma fórmula;
+  \item publicar o documento e encontrá-lo na página pública;
+  \item mover o documento para outra coleção e reordená-lo;
+  \item alterar a cor primária do site e confirmar o efeito na página pública.
+\end{enumerate}
+
+A meta é pontuação SUS média igual ou superior a 68 (\req{RNF04}) e taxa de conclusão de pelo menos 80\% por tarefa.
+
+\vitrinependencia{Arquiteto}{Submeter o protocolo de avaliação com usuários ao orientador e verificar a necessidade de aprovação em comitê de ética e de termo de consentimento conforme as normas da UFSJ, antes de recrutar participantes.}
+
+\section{Critérios de Saída}\label{sec:testes-saida}
+
+A versão é considerada pronta para a entrega do TCC quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint} e \texttt{npm run build} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
+
+\vitrinefigura[tipo=teste, arquivo=teste-suite-automatizada, agente=Core, largura=0.85,
+  descricao={Saída do executor de testes (unidade, integração e E2E) mostrando o total de casos aprovados, falhos e ignorados e o tempo de execução.}]
+  {Execução da suíte de testes automatizados}{fig:teste-suite}
+
+\section{Síntese do Capítulo}
+
+O capítulo definiu a estratégia de verificação e validação, trinta casos de teste rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.

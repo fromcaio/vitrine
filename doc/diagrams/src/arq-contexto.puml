@@ -1,0 +1,30 @@
+@startuml arq-contexto
+' ===========================================================================
+' Vitrine - Arquitetura: diagrama de contexto (nível 1 do modelo C4)
+' Figura: fig:arq-contexto (doc/tex/capitulos/cap5_arquitetura.tex)
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam rectangle {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+left to right direction
+
+actor "Leitor\n(estudante, pesquisador,\nvisitante)" as Leitor
+actor "Administrador\n(docente-autor)" as Admin
+actor "Implantador\n(em geral, o próprio docente)" as Impl
+
+rectangle "Vitrine\n[Sistema de software]\nCMS monolítico para publicação\nde conteúdo científico e didático" as Vitrine #DBEAFE
+
+rectangle "Plataforma de hospedagem\n[Node.js 20.9+ em VPS, contêiner\nou servidor próprio]" as Host
+rectangle "Repositório Git\n[código-fonte aberto]" as Repo
+
+Leitor --> Vitrine : Lê documentos\n(HTTPS, navegador)
+Admin --> Vitrine : Autentica-se, gerencia conteúdo\ne identidade visual (HTTPS)
+Impl --> Repo : Clona e configura\n(.env, banco)
+Impl --> Host : Executa build e\ninicia o servidor
+Host ..> Vitrine : hospeda
+Repo ..> Host : fornece o código
+@enduml

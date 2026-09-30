@@ -1,0 +1,38 @@
+@startuml impl-implantacao
+' ===========================================================================
+' Vitrine - Diagrama de implantação (alvo recomendado: servidor com disco persistente)
+' Figura: fig:impl-implantacao (doc/tex/capitulos/cap5_arquitetura.tex, Apêndice D)
+' Observação: plataformas serverless com sistema de arquivos efêmero exigem outro
+' driver de banco (ver decisão D-04 e Apêndice D).
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam node {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+
+actor "Leitor / Administrador" as User
+cloud "Internet" as Net
+
+node "Servidor (VPS, contêiner ou máquina própria)" as Srv {
+  node "Proxy reverso\n(TLS/HTTPS: Nginx, Caddy ou equivalente)" as Rp
+  node "Processo Node.js 20.9+\nnext start" as App {
+    artifact "Build do Next.js\n(.next/)" as Build
+    artifact "Prisma Client gerado\n+ driver adapter" as Client
+  }
+  node "Volume persistente" as Vol {
+    database "vitrine.db\n(+ vitrine.db-wal, vitrine.db-shm)" as Db
+    artifact "Cópias de segurança\n(VACUUM INTO / cópia do arquivo)" as Bkp
+  }
+  artifact ".env\n(DATABASE_URL, segredos do better-auth)" as Env
+}
+
+User --> Net
+Net --> Rp : HTTPS 443
+Rp --> App : HTTP (porta interna)
+App --> Db : SQL (arquivo local)
+App ..> Env : lê variáveis de ambiente
+Db ..> Bkp : rotina periódica
+@enduml

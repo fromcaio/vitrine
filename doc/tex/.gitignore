@@ -1,0 +1,37 @@
+# ---------------------------------------------------------------------------
+# doc/tex/.gitignore
+# Ignora SOMENTE arquivos gerados pela compilação do LaTeX. Imagens (.png, .jpg,
+# .pdf de figuras) em figuras/ e imgs/ SÃO versionadas: os agentes as commitam.
+# ---------------------------------------------------------------------------
+
+# Saída da compilação
+/main.pdf
+
+# Arquivos auxiliares do LaTeX / BibTeX / latexmk
+*.aux
+*.bcf
+*.out
+*.bbl
+*.blg
+*.brf
+*.idx
+*.ind
+*.ilg
+*.lof
+*.lot
+*.lol
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.run.xml
+*.nav
+*.snm
+*.pend
+_minted-*/
+
+# Sinalizador temporario do modo final (criado/removido por `make final`)
+vitrine-final.flag
+*.synctex
+*.synctex(busy)

@@ -1,0 +1,118 @@
+// ////////////////////////////////////////////////////////
+// VITRINE - MODELO DE DADOS (DBML)
+// Figura: fig:er-vitrine (doc/tex/capitulos/cap5_arquitetura.tex, Apêndice A)
+//
+// Espelha prisma/schema.prisma (Prisma 7 + SQLite + better-auth).
+// REGRA: se o agente Dados alterar prisma/schema.prisma, o Arquiteto atualiza
+// este arquivo e o Apêndice A (dicionário de dados) ao integrar o merge.
+//
+// Base histórica: doc/ref/er.dbml (Relatório de IC: users, contents, configurations).
+// Diferenças: (1) tabelas de autenticação do better-auth (user, session, account,
+// verification) no lugar da tabela "users" genérica do Auth.js; (2) nomes de coluna
+// em camelCase, exatamente como os campos do Prisma (o relatório de IC usava snake_case).
+// Renderizar: https://dbdiagram.io (colar o conteúdo e exportar PNG) - ver README.
+// ////////////////////////////////////////////////////////
+
+Project vitrine {
+  database_type: 'SQLite'
+  Note: 'Nomes de tabela conforme @@map do Prisma; nomes de coluna conforme os campos do model.'
+}
+
+// ////////////////////////////////////////////////////////
+// AUTENTICAÇÃO E SESSÃO (gerenciadas pelo better-auth)
+// ////////////////////////////////////////////////////////
+Table user {
+  id varchar [pk, note: 'cuid()']
+  name varchar [not null]
+  email varchar [unique, not null]
+  emailVerified boolean [not null]
+  image varchar [note: 'URL da foto do perfil']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null, note: '@updatedAt']
+}
+
+Table session {
+  id varchar [pk]
+  expiresAt timestamp [not null]
+  token varchar [unique, not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+  ipAddress varchar
+  userAgent varchar
+  userId varchar [not null]
+}
+
+Table account {
+  id varchar [pk]
+  accountId varchar [not null]
+  providerId varchar [not null, note: 'identificador do provedor de login']
+  userId varchar [not null]
+  accessToken varchar
+  refreshToken varchar
+  idToken varchar
+  accessTokenExpiresAt timestamp
+  refreshTokenExpiresAt timestamp
+  scope varchar
+  password varchar [note: 'hash da senha (login com e-mail e senha)']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+Table verification {
+  id varchar [pk]
+  identifier varchar [not null]
+  value varchar [not null]
+  expiresAt timestamp [not null]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+// ////////////////////////////////////////////////////////
+// CONTEÚDO HIERÁRQUICO
+// ////////////////////////////////////////////////////////
+Table contents {
+  id varchar [pk]
+  title varchar [not null]
+  slug varchar [not null, note: 'URL amigável']
+  body text [note: 'Conteúdo em Markdown']
+  type varchar [not null, note: 'DOCUMENT | COLLECTION']
+  order integer [not null, default: 0, note: 'Ordenação entre irmãos']
+
+  // Auto-relacionamento para estrutura de árvore
+  parentId varchar [note: 'ID do conteúdo pai (null se for raiz)']
+
+  authorId varchar [not null]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+// ////////////////////////////////////////////////////////
+// CONFIGURAÇÕES DE UI E BRANDING (registro único)
+// ////////////////////////////////////////////////////////
+Table configurations {
+  id varchar [pk]
+  siteName varchar [not null, default: 'Vitrine']
+  siteDescription text
+
+  // Variáveis de identidade visual
+  primaryColor varchar [not null, default: '#3b82f6']
+  secondaryColor varchar [not null, default: '#1e293b']
+  accentColor varchar [not null, default: '#f59e0b']
+
+  // Metadados adicionais
+  logoUrl varchar
+  faviconUrl varchar
+
+  updatedAt timestamp [not null]
+}
+
+// ////////////////////////////////////////////////////////
+// RELAÇÕES (todas com exclusão em cascata, como em prisma/schema.prisma)
+// ////////////////////////////////////////////////////////
+Ref: session.userId > user.id [delete: cascade]
+Ref: account.userId > user.id [delete: cascade]
+Ref: contents.authorId > user.id [delete: cascade]
+
+// Auto-relacionamento: um conteúdo pode ter vários "filhos".
+// Permite: Tutorial (COLLECTION) > Introdução (DOCUMENT)
+Ref: contents.parentId > contents.id [delete: cascade]

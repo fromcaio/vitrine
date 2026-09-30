@@ -1,0 +1,284 @@
+%% ===================================================================================
+%% Capítulo 3 -- Metodologia
+%% Fontes: Relatório de IC (Cap. 3), CLAUDE.md, ARQUITETO.md, DESENVOLVEDORES.md.
+%% Dono: Arquiteto/Redator. Este capítulo descreve o processo; as regras operacionais
+%% vivem nos arquivos de governança na raiz do repositório e devem permanecer coerentes.
+%% ===================================================================================
+\chapter{Metodologia}\label{cap:metodologia}
+
+Este capítulo descreve como a pesquisa foi classificada e conduzida (Seções~\ref{sec:classificacao} a~\ref{sec:cronograma-ic}), como se planeja a consolidação do sistema (Seção~\ref{sec:planejamento-tcc}) e, principalmente, o processo de desenvolvimento orientado por documentação e executado por agentes especializados (Seção~\ref{sec:processo-ddd}). Encerra com o ambiente técnico (Seção~\ref{sec:ambiente}), a estratégia de verificação (Seção~\ref{sec:estrategia-vv}) e os riscos do projeto (Seção~\ref{sec:riscos}).
+
+\section{Classificação da Pesquisa}\label{sec:classificacao}
+
+Quanto à \textbf{natureza}, a pesquisa é classificada como \emph{aplicada}, pois objetiva a criação de um artefato tecnológico --- um CMS --- destinado a resolver um problema prático: a presença digital autônoma de docentes e pesquisadores \cite{gil2017,marconi2017}. Quanto aos \textbf{objetivos}, possui caráter \emph{exploratório} e \emph{descritivo}: é exploratória na investigação de tecnologias como o \en{framework} Next.js e o paradigma Jamstack, e descritiva ao detalhar as etapas de modelagem, a arquitetura e os requisitos da solução \cite{reis2026ic}.
+
+Quanto à \textbf{abordagem}, o trabalho é predominantemente qualitativo na fase de concepção e de projeto, e incorpora medições quantitativas na fase de verificação (desempenho, cobertura de requisitos e pontuação de usabilidade, Capítulo~\ref{cap:testes}).
+
+\vitrinependencia{Arquiteto}{Confirmar com o orientador a classificação quanto à abordagem (qualitativa e quantitativa) e se o enquadramento em Design Science deve ser explicitado. O relatório de IC declara apenas natureza aplicada e caráter exploratório-descritivo.}
+
+\section{Procedimentos Técnicos}\label{sec:procedimentos}
+
+Para a condução do estudo foram adotados os procedimentos a seguir.
+
+\begin{itemize}
+  \item \textbf{Revisão bibliográfica e tecnológica:} o foco recaiu sobre arquiteturas web, bancos de dados portáteis (SQLite) e padrões de interface de usuário, fornecendo o embasamento necessário às decisões arquiteturais (Capítulo~\ref{cap:fundamentacao});
+  \item \textbf{Desenvolvimento experimental e incremental:} o método baseia-se na construção de um protótipo funcional por meio de um processo iterativo e incremental \cite{sommerville2011}, o que permitiu validar de ponta a ponta as funcionalidades complexas a cada incremento;
+  \item \textbf{Documentação orientada ao desenvolvimento:} a partir da consolidação do monólito, a especificação passa a ser escrita antes da implementação e atualizada após cada integração (Seção~\ref{sec:processo-ddd}).
+\end{itemize}
+
+\section{Etapas do Desenvolvimento}\label{sec:etapas}
+
+O processo de construção do Vitrine foi estruturado em quatro macroetapas, fundamentadas nos processos clássicos de engenharia de \en{software} \cite{sommerville2011,pressman2021}:
+
+\begin{enumerate}
+  \item \textbf{Levantamento de requisitos:} identificação das necessidades dos usuários --- professores e desenvolvedores --- e definição dos requisitos funcionais (RF) e não funcionais (RNF);
+  \item \textbf{Modelagem de sistemas:} uso de UML e DBML para visualizar a lógica do sistema, incluindo diagramas de casos de uso e modelagem de dados (ER);
+  \item \textbf{Prototipagem:} criação de protótipos de baixa fidelidade para validar a usabilidade do editor de Markdown e do painel administrativo antes da implementação final;
+  \item \textbf{Desenvolvimento incremental (\en{sprints}):} implementação do código-fonte com Next.js e Prisma ORM, da persistência no SQLite até a renderização no \en{front-end} e a configuração de cache (ISR).
+\end{enumerate}
+
+\section{Cronograma Realizado da Iniciação Científica}\label{sec:cronograma-ic}
+
+A Tabela~\ref{tab:cronograma-ic} reproduz o cronograma de execução registrado no relatório de IC, de setembro de 2025 a fevereiro de 2026, que evidencia a natureza incremental da implementação. O relatório original escreve as datas no formato mês/dia (por exemplo, ``Out/10''); aqui elas aparecem no formato dia/mês.
+
+\begin{table}[htb]
+\caption{Cronograma de execução da Iniciação Científica}\label{tab:cronograma-ic}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.6cm}YL{2.4cm}L{2.4cm}@{}}
+\toprule
+\textbf{Etapa} & \textbf{Atividade específica} & \textbf{Início} & \textbf{Término}\\
+\midrule
+\multirow{2}{*}{Concepção} & Levantamento de requisitos e escopo & 25/09/2025 & 10/10/2025\\
+ & Revisão bibliográfica e tecnológica & 25/09/2025 & 10/10/2025\\
+\midrule
+\multirow{3}{*}{Modelagem} & Diagramas de casos de uso e ER & 10/10/2025 & 25/10/2025\\
+ & Protótipos de baixa fidelidade (UI/UX) & 25/10/2025 & 05/11/2025\\
+ & Definição da arquitetura e da \en{stack} & 25/10/2025 & 05/11/2025\\
+\midrule
+\multirow{3}{*}{Desenvolvimento} & \en{Setup} do ambiente e Auth.js & 05/11/2025 & 10/11/2025\\
+ & Módulo de conteúdo e Markdown & 10/11/2025 & 10/02/2026\\
+ & Módulo de personalização e ISR & 10/11/2025 & 10/02/2026\\
+\midrule
+\multirow{2}{*}{Finalização} & Escrita do relatório final e testes & 10/02/2026 & 26/02/2026\\
+ & Entrega do relatório & 10/02/2026 & 26/02/2026\\
+\bottomrule
+\end{tabularx}
+\fonte{Adaptado de \citeonline{reis2026ic}, Tabela 1.}
+\end{table}
+
+\vitrinefigura[tipo=diagrama, arquivo=gantt-cronograma-ic, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/gantt-cronograma-ic.puml},
+  descricao={Diagrama de Gantt do cronograma da IC (mesmos dados da Tabela~\ref{tab:cronograma-ic}).}]
+  {Diagrama de Gantt do cronograma da Iniciação Científica}{fig:gantt-cronograma-ic}
+
+\section{Planejamento da Consolidação do Monólito}\label{sec:planejamento-tcc}
+
+A consolidação do sistema em arquitetura monolítica documentada é organizada em fases sucessivas. Cada fase termina com a integração das ramificações correspondentes na \texttt{main}, a atualização da documentação e a revisão do estado dos módulos (Seção~\ref{sec:modulos}).
+
+\begin{table}[htb]
+\caption{Fases planejadas da consolidação}\label{tab:fases}
+\small
+\begin{tabularx}{\linewidth}{@{}L{1.1cm}L{4.2cm}YL{2.8cm}@{}}
+\toprule
+\textbf{Fase} & \textbf{Nome} & \textbf{Entregas principais} & \textbf{Agentes}\\
+\midrule
+F1 & Especificação & Documentação \LaTeX{} inicial, diagramas como código, governança e mural & \agente{Arquiteto}\\
+\addlinespace
+F2 & Fundação & Esquema, migração e \en{seed}; acesso a dados; autenticação; proteção de rotas & \agente{Dados}, \agente{Core}\\
+\addlinespace
+F3 & Conteúdo e leitura & API de conteúdo; páginas públicas com ISR; \en{sidebar} e barra superior; renderização Markdown com \LaTeX{} & \agente{Core}, \agente{UI}\\
+\addlinespace
+F4 & Edição e painel & Editor com pré-visualização; gestão da árvore (criar, mover, ordenar, excluir) & \agente{UI}, \agente{Core}\\
+\addlinespace
+F5 & Personalização & Identidade e paleta por variáveis CSS; revalidação de \en{layout} & \agente{UI}, \agente{Core}, \agente{Dados}\\
+\addlinespace
+F6 & Verificação e validação & Testes automatizados, desempenho, segurança, acessibilidade e usabilidade & Todos\\
+\addlinespace
+F7 & Redação final & Consolidação dos capítulos de implementação, resultados e conclusões & \agente{Arquiteto}\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\vitrinependencia{Arquiteto}{Definir com o orientador as datas de início e término de cada fase e a data de depósito/defesa do TCC; este planejamento ainda não tem datas.}
+
+\section{Processo de Desenvolvimento: Documentation-Driven Development com Agentes}\label{sec:processo-ddd}
+
+\subsection{Princípios}\label{sec:principios-ddd}
+
+O processo segue sete princípios, que também constam dos arquivos de governança do repositório.
+
+\begin{enumerate}[label=\textbf{PR\arabic*.}, leftmargin=1.6cm]
+  \item \textbf{A documentação é a fonte da verdade.} Em caso de divergência entre código e documentação, a divergência é tratada como defeito de um dos dois e resolvida explicitamente; nunca é ignorada.
+  \item \textbf{A especificação precede a implementação.} Nenhuma funcionalidade nova é implementada sem que exista, na documentação, o requisito, o contrato e o critério de aceite correspondentes.
+  \item \textbf{Escritor único da documentação.} Somente o agente Arquiteto edita a documentação (\arq{doc/}) e os arquivos de governança; os demais agentes propõem mudanças por meio do mural.
+  \item \textbf{Domínios com dono.} Cada diretório do código pertence a um agente; alterações fora do domínio são solicitadas ao dono.
+  \item \textbf{Código apenas em ramificações.} É vedado alterar código ou configuração diretamente na \texttt{main}; a integração ocorre por \en{merge} autorizado pelo Arquiteto.
+  \item \textbf{O mural é o único canal de coordenação e só é editado na \texttt{main}.} Isso serializa a comunicação e evita conflitos de fusão.
+  \item \textbf{Rastreabilidade por identificadores.} Requisitos, casos de uso, regras, decisões e módulos possuem identificadores estáveis, citados nos \en{commits}, nos pedidos de integração e nos testes.
+\end{enumerate}
+
+\subsection{Papéis e Domínios}\label{sec:papeis}
+
+O time é composto por quatro agentes. A Tabela~\ref{tab:papeis} resume a responsabilidade e o domínio de cada um; a distribuição de diretórios é normativa e está detalhada em \arq{DESENVOLVEDORES.md}.
+
+\begin{table}[htb]
+\caption{Papéis, domínios e diretórios}\label{tab:papeis}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.6cm}YL{5.3cm}@{}}
+\toprule
+\textbf{Agente} & \textbf{Responsabilidade} & \textbf{Diretórios e arquivos}\\
+\midrule
+\agente{Arquiteto} (Redator Técnico e \en{Merge Master}) & Governa a fonte da verdade; revisa pedidos de integração; autoriza e executa \en{merges}; atualiza a documentação; mantém o mural limpo & \arq{doc/}, \arq{CLAUDE.md}, \arq{ARQUITETO.md}, \arq{DESENVOLVEDORES.md}, \arq{MURAL_DE_AGENTES.md} (limpeza)\\
+\addlinespace
+\agente{Dados} & Modela o esquema e as rotinas de acesso a dados; migrações e \en{seed} & \arq{prisma/}, \arq{src/lib/db.js}, \arq{src/lib/content-tree.js}\\
+\addlinespace
+\agente{Core} & Lógica de servidor: API, autenticação, proteção de rotas, revalidação de cache; roteamento do App Router & \arq{src/app/api/}, \arq{src/proxy.js}, \arq{src/lib/auth*.js}, \arq{src/lib/validators.js}, \arq{src/lib/revalidate.js}, arquivos de rota (\arq{page.js}, \arq{layout.js}, \arq{route.js})\\
+\addlinespace
+\agente{UI} & Interface: componentes, estilo global, editor e pipeline Markdown & \arq{src/components/}, \arq{src/app/globals.css}, \arq{src/lib/theme.js}\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, com base em \arq{DESENVOLVEDORES.md} e \arq{ARQUITETO.md}.}
+\end{table}
+
+\subsection{Fontes da Verdade}\label{sec:fontes-verdade}
+
+A Tabela~\ref{tab:fontes-verdade} relaciona cada tipo de informação ao artefato que o define. Quem implementa deve consultar esses arquivos antes de escrever código e citar os identificadores (RF, RNF, RN, UC, ADR, D) no pedido de integração.
+
+\begin{table}[htb]
+\caption{Fontes da verdade do projeto}\label{tab:fontes-verdade}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.3cm}YL{3.5cm}@{}}
+\toprule
+\textbf{Informação} & \textbf{Artefato (caminho)} & \textbf{Responsável}\\
+\midrule
+Requisitos, regras e casos de uso & \arq{doc/tex/capitulos/cap4_requisitos.tex}; \arq{doc/diagrams/src/uc-visao-geral.puml} & \agente{Arquiteto}\\
+\addlinespace
+Arquitetura, API, rotas e cache & \arq{doc/tex/capitulos/cap5_arquitetura.tex}; diagramas \arq{arq-*} e \arq{seq-*} & \agente{Arquiteto}\\
+\addlinespace
+Modelo de dados & Implementação: \arq{prisma/schema.prisma}; documentação: \arq{doc/diagrams/src/er-vitrine.dbml} e \arq{doc/tex/apendices/apendice_a_dicionario_dados.tex} & \agente{Dados} (código); \agente{Arquiteto} (documentação)\\
+\addlinespace
+Decisões de projeto & \arq{doc/tex/apendices/apendice_e_adr.tex} e \arq{apendice_f_decisoes_abertas.tex} & \agente{Arquiteto}\\
+\addlinespace
+Estado de cada módulo & \arq{doc/tex/capitulos/cap6_implementacao.tex} e mapa de pendências (Apêndice~\ref{ap:pendencias}) & \agente{Arquiteto}\\
+\addlinespace
+Processo e regras de trabalho & \arq{CLAUDE.md}, \arq{ARQUITETO.md}, \arq{DESENVOLVEDORES.md} & \agente{Arquiteto}\\
+\addlinespace
+Comunicação e pedidos de integração & \arq{MURAL_DE_AGENTES.md} (somente na \texttt{main}) & Todos\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\subsection{Fluxo de Git e Uso do Mural}\label{sec:fluxo-git}
+
+O ciclo completo está na Figura~\ref{fig:fluxo-ddd-agentes}. Em resumo: o Arquiteto especifica e publica avisos no mural; cada desenvolvedor cria uma ramificação a partir da \texttt{main}, implementa conforme a especificação, e, ao terminar, volta à \texttt{main} apenas para registrar o pedido de integração no mural; o Arquiteto compara a ramificação com a \texttt{main}, autoriza ou veta, e após o \en{merge} atualiza a documentação e limpa o mural.
+
+\vitrinefigura[tipo=diagrama, arquivo=fluxo-ddd-agentes, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/fluxo-ddd-agentes.puml},
+  descricao={Diagrama de atividades com raias (Arquiteto, Desenvolvedor) mostrando especificação, implementação, pedido no mural, revisão, merge ou veto e atualização da documentação.}]
+  {Ciclo de \en{Documentation-Driven Development} com agentes}{fig:fluxo-ddd-agentes}
+
+O mecanismo de fusão assíncrona por ramificações e a regra de que o mural só é editado na \texttt{main} formam um protocolo simples: como cada pedido é um \en{commit} na \texttt{main}, o histórico do Git registra quem pediu o quê e quando (Figura~\ref{fig:fluxo-git-mural}).
+
+\vitrinefigura[tipo=diagrama, arquivo=fluxo-git-mural, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/fluxo-git-mural.puml},
+  descricao={Diagrama de sequência entre Desenvolvedor, ramificação de feature, main, MURAL\_DE\_AGENTES.md e Arquiteto, incluindo os caminhos de aprovação e de veto.}]
+  {Fluxo Git e solicitação de integração pelo mural}{fig:fluxo-git-mural}
+
+\subsection{Critérios de Aceite de uma Integração}\label{sec:criterios-aceite}
+
+Ao revisar um pedido, o Arquiteto verifica, no mínimo:
+
+\begin{enumerate}
+  \item a ramificação parte da \texttt{main} atualizada e altera apenas arquivos do domínio do autor (ou declara as exceções no pedido);
+  \item o comportamento implementado corresponde aos requisitos, às regras e aos contratos citados (identificadores RF, RNF, RN, UC);
+  \item alterações de esquema, de API e de dependências estão declaradas no pedido e são compatíveis com a documentação --- ou acompanham um pedido de atualização da documentação;
+  \item \texttt{npm run lint} e \texttt{npm run build} passam, e os testes aplicáveis foram executados;
+  \item nenhum segredo, arquivo gerado ou banco de dados é versionado;
+  \item há evidências visuais (capturas de tela nos caminhos previstos) quando a mudança é visível ao usuário;
+  \item a ramificação não altera o mural nem a documentação (\arq{doc/});
+  \item os critérios de segurança aplicáveis foram atendidos: validação de entrada no servidor, sessão verificada no servidor e ausência de HTML bruto no conteúdo.
+\end{enumerate}
+
+Se algum critério falha, o Arquiteto não realiza o \en{merge} e responde no mural, apontando o que deve ser corrigido.
+
+\subsection{Rastreabilidade e Identificadores}\label{sec:rastreabilidade}
+
+Todos os artefatos usam identificadores estáveis: \texttt{UC} (casos de uso), \texttt{RF} e \texttt{RNF} (requisitos), \texttt{RN} (regras de negócio), \texttt{ADR} (decisões aceitas), \texttt{D} (decisões em aberto), \texttt{M} (módulos) e \texttt{CT} (casos de teste). A Seção~\ref{sec:matriz-rastreabilidade} relaciona requisitos, casos de uso e módulos, e o Capítulo~\ref{cap:testes} relaciona requisitos e casos de teste. As referências cruzadas no documento são hiperligações: clicar em \req{RF01} leva à definição do requisito.
+
+\subsection{Convenções de Ramificações, \emph{Commits} e Idioma}
+
+As ramificações seguem o padrão \arq{tipo/dominio-tema} --- por exemplo, \arq{feat/dados-schema-inicial} ou \arq{fix/core-sessao-expirada} --- e as mensagens de \en{commit}, o padrão \en{Conventional Commits} \cite{conventionalcommits} em português, com os identificadores afetados em rodapé (por exemplo, \texttt{Refs: RF05, RN03}). Identificadores de código e nomes de arquivos são em inglês; comentários, textos de interface e documentação são em português do Brasil.
+
+\subsection{Uso de Agentes de Inteligência Artificial e Responsabilidade Autoral}\label{sec:ia-autoria}
+
+Os agentes de inteligência artificial são ferramentas de apoio sob supervisão: não possuem autoria. O autor do trabalho é responsável pela revisão do conteúdo e do código que integra o produto final, pela veracidade das referências e pelo atendimento às normas da instituição. O registro completo das interações relevantes --- pedidos, vetos e decisões --- é preservado no histórico do Git, o que permite auditar como cada parte do sistema foi produzida.
+
+\vitrinependencia{Arquiteto}{Confirmar com o orientador e com as normas da UFSJ a forma de declarar o uso de agentes de IA no TCC (seção de metodologia, declaração nos elementos pré-textuais ou ambos).}
+
+\section{Ambiente e Ferramentas}\label{sec:ambiente}
+
+A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declaradas no repositório, conferidas em \arq{package.json} e em \arq{node_modules} na data de elaboração deste capítulo.
+
+\begin{table}[htb]
+\caption{Tecnologias e versões do projeto}\label{tab:stack}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.0cm}L{3.0cm}Y@{}}
+\toprule
+\textbf{Tecnologia} & \textbf{Versão} & \textbf{Papel}\\
+\midrule
+Node.js & $\geq$ 20.9 & \en{Runtime} exigido pelo Next.js 16\\
+Next.js & 16.3.7 & \en{Framework} web (App Router, ISR, Route Handlers, Proxy)\\
+React e React DOM & 19.2.8 & Biblioteca de interface\\
+React Compiler (plugin Babel) & 1.0.0 & Memoização automática (\texttt{reactCompiler: true})\\
+Tailwind CSS & 4.3.3 (instalada; \texttt{\^{}4}) & Estilização por utilitários\\
+Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações\\
+SQLite & via \en{driver adapter} & Banco de dados em arquivo (\en{driver} a definir, D-09)\\
+\texttt{sqlite3} (Node) & 6.0.1 & Declarado como dependência de desenvolvimento; \textbf{não é} \en{driver adapter} do Prisma (ver \decisao{D-09})\\
+better-auth & 1.7.6 & Autenticação e sessões\\
+react-markdown & 10.1.0 & Renderização de Markdown em React\\
+remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\
+KaTeX & 0.16.47 & Composição de fórmulas (dependência do \arq{rehype-katex})\\
+Zod & 4.6.5 & Presente como dependência transitiva; declarar se adotado (\decisao{D-11})\\
+ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
+\LaTeX{} (MiKTeX) e \texttt{latexmk} & pdfTeX 4.19 & Composição desta documentação\\
+PlantUML e Graphviz & a instalar & Renderização dos diagramas (\arq{doc/diagrams/})\\
+Git & --- & Controle de versão e fluxo por ramificações\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir de \arq{package.json} e das instalações locais.}
+\end{table}
+
+\section{Estratégia de Verificação e Validação}\label{sec:estrategia-vv}
+
+A verificação (o sistema foi construído corretamente?) e a validação (foi construído o sistema correto?) serão realizadas em quatro frentes: (i) testes automatizados de unidade, integração e ponta a ponta sobre os casos de uso; (ii) medições de desempenho e de comportamento do cache ISR; (iii) verificações de segurança e acessibilidade orientadas pelo OWASP e pelo WCAG; e (iv) avaliação de usabilidade com usuários, com o questionário SUS. O plano detalhado, com critérios e casos de teste, está no Capítulo~\ref{cap:testes}.
+
+\section{Riscos do Projeto}\label{sec:riscos}
+
+A Tabela~\ref{tab:riscos} registra os principais riscos identificados, com probabilidade (P) e impacto (I) qualitativos --- baixo (B), médio (M) ou alto (A) --- e as mitigações adotadas.
+
+\begin{longtable}{@{}L{1.0cm}L{5.0cm}L{0.7cm}L{0.7cm}L{6.9cm}@{}}
+\caption{Registro de riscos}\label{tab:riscos}\\
+\toprule
+\textbf{ID} & \textbf{Risco} & \textbf{P} & \textbf{I} & \textbf{Mitigação}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Risco} & \textbf{P} & \textbf{I} & \textbf{Mitigação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+R01 & O sistema de arquivos efêmero de plataformas \en{serverless} impede a persistência do arquivo SQLite & A & A & Documentar alvos de implantação com disco persistente; manter a opção de \en{driver} libSQL (decisão \decisao{D-04})\\
+R02 & Divergência entre código e documentação (deriva) & M & A & Princípios PR1 e PR2; critérios de aceite; Arquiteto como revisor único\\
+R03 & Conflitos de fusão em \arq{package-lock.json} quando várias ramificações adicionam dependências & A & B & Novas dependências declaradas no pedido; o Arquiteto regenera o \en{lockfile} ao integrar\\
+R04 & Mudanças incompatíveis nas dependências (Next.js 16, Prisma 7, better-auth 1.x) em relação ao conhecimento dos agentes & M & M & Versões fixadas no \en{lockfile}; consulta obrigatória à documentação local e às \en{skills} do Prisma antes de codificar\\
+R05 & Injeção de HTML/\en{script} (XSS) por meio do Markdown & M & A & Não habilitar HTML bruto; testes de segurança; revisão de dependências de Markdown\\
+R06 & Cores escolhidas com contraste insuficiente & M & M & Aviso de contraste no painel (WCAG 2.1 AA); valores padrão acessíveis\\
+R07 & Limite de concorrência de escrita do SQLite & B & M & Modo WAL; poucas escritas; transações curtas\\
+R08 & Agentes introduzem código fora do escopo ou sem testes & M & M & Domínios com dono; critérios de aceite; veto fundamentado no mural\\
+R09 & Perda de dados por exclusão em cascata acidental & M & A & Confirmação explícita; rotina de \en{backup} documentada (Apêndice~\ref{ap:implantacao})\\
+R10 & Escopo maior do que o prazo do TCC comporta & M & A & Priorização Essencial, Importante e Desejável; fases com entregas incrementais\\
+\end{longtable}
+\fonte{Elaborado pelos autores.}

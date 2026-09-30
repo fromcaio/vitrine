@@ -1,0 +1,44 @@
+@startuml fluxo-ddd-agentes
+' ===========================================================================
+' Vitrine - Ciclo de Documentation-Driven Development com agentes
+' Figura: fig:fluxo-ddd-agentes (doc/tex/capitulos/cap3_metodologia.tex)
+' Detalhes normativos: ARQUITETO.md e DESENVOLVEDORES.md (raiz do repositório).
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam activity {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+
+|Arquiteto|
+start
+:Especifica ou atualiza a documentação\n(doc/tex/*.tex e doc/diagrams/src/*);
+:Commit da documentação na main;
+:Publica avisos e tarefas no\nMURAL_DE_AGENTES.md (na main);
+
+|Desenvolvedor|
+:Lê o mural e as seções do LaTeX\nrelacionadas à sua tarefa;
+:Cria a branch de feature a partir da main\n(feat/<dominio>-<tema>);
+repeat
+  :Implementa conforme a especificação\n(commits pequenos, Conventional Commits);
+  :Executa lint, build e testes locais;
+repeat while (Critérios de pronto atendidos?) is (não) not (sim)
+:Captura telas/evidências\n(doc/tex/figuras/telas/);
+:git switch main, registra o pedido de merge\nno mural e commita só o mural;
+
+|Arquiteto|
+:Lê o mural e compara main...feat/*\ncom a documentação;
+if (Código conforme a documentação?) then (sim)
+  :Merge na main;
+  :Atualiza .tex e diagramas\n(status, texto, figuras);
+  :Remove a solicitação resolvida do mural;
+else (não)
+  :Veta e responde no mural\ncom as correções necessárias;
+  |Desenvolvedor|
+  :Corrige na branch e\nreabre a solicitação no mural;
+  |Arquiteto|
+endif
+stop
+@enduml

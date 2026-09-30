@@ -1,0 +1,23 @@
+@startmindmap nav-mapa-do-site
+' ===========================================================================
+' Vitrine - Mapa de navegação e rotas (proposta inicial; Core e UI podem propor ajustes via mural)
+' Figura: fig:nav-mapa-do-site (doc/tex/capitulos/cap5_arquitetura.tex)
+' ===========================================================================
+* Vitrine
+** Área pública (leitura)
+*** / : página inicial
+*** /colecao/.../documento : leitura de documento
+*** não encontrado (404)
+** Acesso
+*** /login
+** Painel administrativo (autenticado)
+*** /admin : visão geral
+*** /admin/conteudo : árvore de conteúdos
+**** /admin/conteudo/novo
+**** /admin/conteudo/[id] : editor
+*** /admin/configuracoes : identidade e cores
+** API (JSON)
+*** /api/auth : better-auth
+*** /api/contents : conteúdos
+*** /api/configuration : configuração
+@endmindmap

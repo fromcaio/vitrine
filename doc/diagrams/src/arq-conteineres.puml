@@ -1,0 +1,50 @@
+@startuml arq-conteineres
+' ===========================================================================
+' Vitrine - Arquitetura: diagrama de contêineres (nível 2 do modelo C4)
+' Figura: fig:arq-conteineres (doc/tex/capitulos/cap5_arquitetura.tex)
+' Um único processo Node.js (Next.js) + um arquivo SQLite. Sem serviços externos.
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+}
+
+actor "Leitor" as Leitor
+actor "Administrador" as Admin
+
+node "Navegador" as Browser {
+  component "HTML estático +\nhidratação React\n(Client Components)" as Web
+}
+
+node "Servidor Node.js (Next.js 16, App Router)" as Server {
+  component "Páginas públicas\n(Server Components, ISR)" as Pub
+  component "Painel administrativo\n(/admin, dinâmico)" as Adm
+  component "Route Handlers\n(/api/contents, /api/configuration)" as Api
+  component "better-auth\n(/api/auth/...)" as Auth
+  component "Proxy (src/proxy.js)\nverificação otimista de sessão" as Proxy
+  component "Camada de dados\n(src/lib/db.js + Prisma Client)" as Data
+  database "Cache ISR\n(.next/)" as Isr
+}
+
+database "SQLite\n(arquivo .db)" as Db
+
+Leitor --> Web
+Admin --> Web
+Web --> Pub : GET páginas\n(HTML)
+Web --> Proxy : GET /admin
+Proxy --> Adm : sessão presente
+Web --> Api : fetch JSON\n(cookie de sessão)
+Web --> Auth : login / logout
+Pub --> Isr : lê/grava páginas
+Pub --> Data : consulta árvore\ne conteúdo
+Adm --> Data
+Api --> Auth : valida sessão
+Api --> Data : CRUD
+Api ..> Isr : revalidatePath()
+Auth --> Data : usuários, sessões
+Data --> Db : SQL (driver adapter)
+@enduml

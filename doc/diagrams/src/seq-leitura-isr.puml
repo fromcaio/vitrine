@@ -1,0 +1,45 @@
+@startuml seq-leitura-isr
+' ===========================================================================
+' Vitrine - Sequência: leitura de uma página com ISR
+' Figura: fig:seq-leitura-isr (doc/tex/capitulos/cap5_arquitetura.tex)
+' Valores do cabeçalho x-nextjs-cache (HIT, STALE, MISS, REVALIDATED): documentação
+' local do Next.js (node_modules/next/dist/docs/01-app/02-guides/incremental-static-regeneration.md).
+' ===========================================================================
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #475569
+skinparam sequenceMessageAlign left
+autonumber
+
+actor "Leitor" as Leitor
+participant "Navegador" as Nav
+participant "Next.js\n(servidor Node.js)" as Next
+database "Cache ISR\n(.next/)" as Cache
+participant "db.js\n(Prisma)" as DB
+database "SQLite" as Sql
+
+Leitor -> Nav : Abre /c/introducao/o-que-e-c
+Nav -> Next : GET /c/introducao/o-que-e-c
+Next -> Cache : procura a página em cache
+
+alt página em cache e válida (HIT)
+  Cache --> Next : HTML pré-renderizado
+  Next --> Nav : 200 HTML\n(x-nextjs-cache: HIT)
+else página expirada por tempo (STALE)
+  Cache --> Next : HTML antigo
+  Next --> Nav : 200 HTML antigo\n(x-nextjs-cache: STALE)
+  Next -> DB : regenera em segundo plano\n(árvore + documento)
+  DB -> Sql : SELECT
+  Sql --> DB : linhas
+  Next -> Cache : grava a nova versão
+else sem cache ou invalidada por revalidatePath (MISS)
+  Next -> DB : resolve o caminho por slugs\ne lê o documento
+  DB -> Sql : SELECT
+  Sql --> DB : linhas
+  Next -> Next : renderiza Server Components\n(Markdown -> HTML, KaTeX)
+  Next -> Cache : grava a página
+  Next --> Nav : 200 HTML\n(x-nextjs-cache: MISS)
+end
+
+Nav -> Nav : hidrata componentes cliente\n(Sidebar interativa)
+@enduml

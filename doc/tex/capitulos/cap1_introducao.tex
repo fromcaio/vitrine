@@ -1,0 +1,124 @@
+%% ===================================================================================
+%% Capítulo 1 -- Introdução
+%% Fonte: Relatório de IC (doc/ref), expandido para o TCC. Dono: Arquiteto/Redator.
+%% ===================================================================================
+\chapter{Introdução}\label{cap:intro}
+
+\section{Contextualização}\label{sec:contextualizacao}
+
+A disseminação do conhecimento acadêmico encontrou na web o seu principal canal de expansão \cite{ginige2001web}. Docentes e pesquisadores, especialmente os de áreas não tecnológicas, dependem cada vez mais de um espaço próprio para publicar artigos, notas de aula e materiais didáticos, com identidade reconhecível e endereço estável. Entretanto, a criação desse espaço ainda esbarra em um dilema: de um lado, a dependência de plataformas proprietárias e rígidas; de outro, a complexidade de instalar, configurar e manter sistemas de gerenciamento de conteúdo (\en{Content Management Systems}, CMS) tradicionais \cite{mikkonen2010mashware}.
+
+Muitos educadores recorrem a redes sociais ou a serviços de terceiros para compartilhar seus estudos. Essa escolha tem custos pouco visíveis no início: perda de controle sobre a identidade visual, dificuldade de formatar elementos técnicos --- como fórmulas matemáticas e blocos de código --- e fragilidade quanto à perenidade do conteúdo, que passa a depender das regras e da continuidade do serviço. Nesse cenário surge o interesse por uma ferramenta que una a autonomia de um domínio próprio à simplicidade de um serviço pronto para uso, reduzindo as barreiras tecnológicas entre o autor e a sua publicação.
+
+O Vitrine nasceu como resposta a esse problema. Trata-se de uma plataforma de gerenciamento de conteúdo de código aberto, concebida para a criação de blogs e portfólios acadêmicos, que combina um editor Markdown com suporte a fórmulas em \LaTeX{}, uma estrutura hierárquica de documentos e coleções e um sistema de personalização visual aplicado em tempo de execução. A primeira versão do sistema foi desenvolvida em um projeto de Iniciação Científica (IC) na Universidade Federal de São João del-Rei entre setembro de 2025 e fevereiro de 2026 \cite{reis2026ic}. Este trabalho consolida essa base em uma arquitetura monolítica modular sobre Next.js, SQLite e better-auth, e a acompanha de uma documentação que funciona como fonte da verdade do desenvolvimento.
+
+\section{Motivação}\label{sec:motivacao}
+
+O projeto parte da convicção de que cada educador deve poder possuir a sua própria ``vitrine'' de conhecimento, de forma independente e personalizada. A motivação central é transformar a implantação (\en{deployment}) em um ato acessível, de modo que a barreira técnica não seja um impedimento para a presença digital qualificada do docente. Ao oferecer uma solução de código aberto, modular e versátil, busca-se devolver ao autor o controle integral sobre a sua produção intelectual e sobre a estética de sua apresentação. Essa premissa dialoga com a visão de que sistemas de informação eficazes devem ser facilitadores dos processos humanos e não obstáculos a eles \cite{rainer2019intro}.
+
+Há ainda uma segunda motivação, de natureza metodológica. O desenvolvimento do Vitrine é conduzido com o apoio de agentes de inteligência artificial especializados --- um responsável pelo modelo de dados, outro pela lógica de servidor e outro pela interface --- sob a governança de um arquiteto integrador. Esse arranjo amplia a velocidade de produção, mas cria um risco conhecido: a divergência progressiva entre o que foi especificado, o que foi implementado e o que está documentado. A motivação é, portanto, também investigar como uma documentação viva, tratada como código e usada como contrato entre os agentes, pode preservar a coerência do sistema ao longo do desenvolvimento.
+
+\section{Problema de Pesquisa}\label{sec:problema}
+
+O problema que orienta este trabalho pode ser formulado por duas perguntas, uma de natureza técnica e outra de natureza metodológica:
+
+\begin{enumerate}[label=\textbf{P\arabic*.}, leftmargin=1.6cm]
+  \item Como projetar e construir uma plataforma de publicação científica de implantação simples, que preserve o controle do autor sobre o conteúdo e a identidade visual, ofereça suporte nativo à escrita científica (Markdown, fórmulas \LaTeX{} e código) e mantenha o desempenho de páginas estáticas?
+  \item Como manter a coerência entre especificação, código e documentação quando o desenvolvimento é distribuído entre agentes especializados que trabalham em ramificações (\en{branches}) independentes?
+\end{enumerate}
+
+\section{Objetivos}\label{sec:objetivos}
+
+\subsection{Objetivo Geral}
+
+Desenvolver o Vitrine, uma plataforma CMS de código aberto, modular e de fácil implantação, baseada no \en{framework} Next.js, voltada à criação de blogs e portfólios acadêmicos por professores e pesquisadores, e documentá-la de modo que a documentação seja a fonte da verdade que orienta e verifica a sua implementação.
+
+\subsection{Objetivos Específicos}\label{sec:objetivos-especificos}
+
+Os objetivos OE1 a OE5 são herdados do relatório de IC \cite{reis2026ic}; o único ajuste é a adoção da biblioteca better-auth no lugar do Auth.js inicialmente previsto (decisão \adr{ADR-004}). Os objetivos OE6 a OE8 são próprios deste trabalho.
+
+\begin{enumerate}[label=\textbf{OE\arabic*.}, leftmargin=1.6cm]
+  \item Viabilizar a publicação independente por meio de um processo de clonagem e implantação simplificado;
+  \item Implementar um editor de texto baseado em Markdown que atenda às necessidades da escrita científica, como realce de sintaxe e fórmulas em \LaTeX{};
+  \item Prover um sistema de personalização visual dinâmica que permita alterar a paleta de cores e a identidade do site por meio de interface administrativa, sem novos ciclos de compilação (\en{build});
+  \item Adotar uma arquitetura de dados portátil, com o ORM Prisma e o banco de dados SQLite;
+  \item Integrar um sistema de autenticação simplificado, por meio do better-auth, para garantir a segurança no gerenciamento de conteúdos;
+  \item Consolidar a arquitetura como um monólito modular e registrar requisitos, modelo de dados, interfaces de programação e decisões de projeto em uma especificação rastreável;
+  \item Definir e aplicar um processo de \en{Documentation-Driven Development} com agentes especializados, com rastreabilidade entre documentação, código e verificação;
+  \item Verificar e validar o sistema por meio de testes funcionais, de desempenho, de segurança e de usabilidade.
+\end{enumerate}
+
+\section{Justificativa}\label{sec:justificativa}
+
+A proposta justifica-se pela busca de equilíbrio entre modernidade tecnológica e portabilidade. O uso do Next.js permite uma renderização híbrida de alto desempenho, essencial para a indexação por motores de busca (\en{Search Engine Optimization}, SEO) \cite{nextjsdocs}. A escolha do SQLite é estratégica por se tratar de um sistema baseado em arquivo, o que simplifica a infraestrutura necessária e reduz custos para o usuário final \cite{sqliteabout,sqlitewhentouse}. A camada de acesso a dados com Prisma ORM isola o restante do sistema do dialeto SQL e oferece um modelo declarativo versionável \cite{prismadocs}.
+
+Embora o Vitrine seja intuitivo para usuários leigos, ele também atende a desenvolvedores, ao oferecer uma base sólida que elimina o trabalho repetitivo de configurar estruturas do zero. As customizações visuais são feitas por variáveis CSS em tempo de execução, com persistência em banco de dados e reflexo imediato por meio de \en{Incremental Static Regeneration} (ISR) \cite{nextjsdocs}.
+
+A relevância do trabalho pode ser resumida em quatro dimensões:
+
+\begin{itemize}
+  \item \textbf{Social:} contribui para a democratização da publicação acadêmica ao reduzir a dependência de plataformas proprietárias;
+  \item \textbf{Prática:} entrega ao docente uma ferramenta pronta para uso, com suporte a fórmulas, código e identidade visual própria;
+  \item \textbf{Tecnológica:} demonstra uma arquitetura monolítica enxuta, sem serviços externos obrigatórios, que combina desempenho estático e flexibilidade dinâmica;
+  \item \textbf{Acadêmica:} documenta e avalia um processo de desenvolvimento orientado por documentação e conduzido por agentes especializados, tema de interesse crescente na engenharia de software.
+\end{itemize}
+
+\section{Escopo e Delimitações}\label{sec:escopo}
+
+O escopo desta versão do Vitrine compreende: autenticação de um administrador; gestão hierárquica de documentos e coleções; edição e renderização de Markdown com fórmulas \LaTeX{}, tabelas e código; navegação por barra superior e \en{sidebar} hierárquica; personalização de identidade e paleta de cores; e entrega das páginas públicas por ISR com invalidação sob demanda.
+
+Ficam fora do escopo desta versão, embora documentados como possibilidades de evolução (Seção~\ref{sec:trabalhos-futuros}): múltiplos usuários com papéis e permissões distintos; comentários e interação de leitores; busca textual; histórico de versões de conteúdo; envio e gerenciamento de mídia; internacionalização; e edição colaborativa em tempo real.
+
+\vitrinependencia{Arquiteto}{Confirmar com o orientador a lista de itens fora do escopo, em especial histórico de versões e upload de mídia (decisões D-10 e D-15).}
+
+\section{Contribuições Esperadas}\label{sec:contribuicoes}
+
+Espera-se que este trabalho produza: (i) um artefato de \en{software} de código aberto, funcional e implantável com poucos comandos; (ii) uma especificação documentada e rastreável --- requisitos, regras de negócio, modelo de dados, contratos de API e registros de decisão --- reutilizável por quem quiser estender ou reimplementar o sistema; (iii) um método de trabalho, baseado em \en{Documentation-Driven Development}, que coordena agentes especializados por meio de um repositório Git e de um mural de comunicação; e (iv) um relato de verificação e validação que permita avaliar, com evidências, em que medida os objetivos foram atingidos.
+
+\section{Histórico do Projeto: da Iniciação Científica ao Monólito}\label{sec:historico}
+
+O relatório de IC \cite{reis2026ic} registra a concepção do sistema, os requisitos iniciais, os diagramas de casos de uso e de entidade-relacionamento, os protótipos de baixa fidelidade e a decisão de usar Next.js, Prisma e SQLite. Este trabalho reaproveita integralmente esse acervo e o evolui. A Tabela~\ref{tab:ic-vs-tcc} resume o que permanece e o que muda.
+
+\begin{table}[htb]
+\caption{Comparação entre o relatório de IC e este trabalho}\label{tab:ic-vs-tcc}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.9cm}YY@{}}
+\toprule
+\textbf{Aspecto} & \textbf{Relatório de IC (set/2025 a fev/2026)} & \textbf{Este trabalho}\\
+\midrule
+Objetivo & Conceber e prototipar o CMS acadêmico & Consolidar, documentar e verificar o monólito\\
+\addlinespace
+Autenticação & Auth.js (previsto) & better-auth (\adr{ADR-004})\\
+\addlinespace
+Modelo de dados & Três entidades: usuários, conteúdos e configurações & Seis modelos: quatro do better-auth (\cod{user}, \cod{session}, \cod{account}, \cod{verification}) mais conteúdos e configurações\\
+\addlinespace
+Especificação & Relatório em PDF, diagramas exportados & Documentação \LaTeX{} viva e diagramas como código (PlantUML e DBML)\\
+\addlinespace
+Processo & Incremental, individual & \en{Documentation-Driven Development} com agentes especializados e mural\\
+\addlinespace
+Interface & Protótipos de baixa fidelidade e uma instância de demonstração & Implementação completa conforme a especificação (Capítulo~\ref{cap:implementacao})\\
+\addlinespace
+Cache & ISR citado como requisito & ISR com revalidação sob demanda por rota e por \en{layout} (Seção~\ref{sec:arq-isr})\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, com base em \citeonline{reis2026ic} e no estado do repositório.}
+\end{table}
+
+Uma consequência dessa evolução é que alguns termos do relatório de IC --- por exemplo, ``Auth.js'' e a tabela ``\cod{users}'' --- foram substituídos nesta documentação. Sempre que o texto fizer referência ao relatório de IC, a origem será explicitada.
+
+\section{Organização do Trabalho}\label{sec:organizacao}
+
+Além desta introdução, o documento está organizado da seguinte forma:
+
+\begin{itemize}
+  \item \textbf{Capítulo~\ref{cap:fundamentacao}:} apresenta a fundamentação teórica --- CMS, arquiteturas e estratégias de renderização, tecnologias adotadas, engenharia de requisitos e \en{Documentation-Driven Development} --- e analisa trabalhos relacionados;
+  \item \textbf{Capítulo~\ref{cap:metodologia}:} descreve a metodologia de pesquisa, o histórico de execução da IC, o processo de desenvolvimento com agentes, o ambiente e os riscos;
+  \item \textbf{Capítulo~\ref{cap:requisitos}:} apresenta o levantamento e a análise de requisitos: atores, casos de uso, requisitos funcionais e não funcionais, regras de negócio e prototipagem;
+  \item \textbf{Capítulo~\ref{cap:arquitetura}:} detalha o projeto da arquitetura: visões, decisões, modelo de dados, autenticação, renderização e cache, contrato de API, segurança e implantação;
+  \item \textbf{Capítulo~\ref{cap:implementacao}:} descreve a implementação por módulo, com o estado de cada um;
+  \item \textbf{Capítulo~\ref{cap:testes}:} define a estratégia e o plano de verificação e validação;
+  \item \textbf{Capítulo~\ref{cap:resultados}:} apresenta e discute os resultados;
+  \item \textbf{Capítulo~\ref{cap:conclusao}:} traz as considerações finais, as limitações e os trabalhos futuros.
+\end{itemize}
+
+Os apêndices reúnem o dicionário de dados, o esquema Prisma, os fontes dos diagramas, o guia de implantação, os registros de decisão arquitetural, as decisões em aberto, o mapa de pendências da documentação e o glossário.
