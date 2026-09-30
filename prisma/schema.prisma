@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --------------------------------------------------------
+// BETTER-AUTH: TABELAS DE AUTENTICAÇÃO E SESSÃO
+// --------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  sessions      Session[]
+  accounts      Account[]
+  
+  // Relacionamento com o conteúdo do Vitrine
+  contents      Content[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+// --------------------------------------------------------
+// VITREO CMS: CONTEÚDO HIERÁRQUICO E CONFIGURAÇÕES
+// --------------------------------------------------------
+
+model Content {
+  id         String   @id @default(cuid())
+  title      String
+  slug       String
+  body       String?
+  type       String   // DOCUMENT ou COLLECTION
+  order      Int      @default(0)
+  
+  parentId   String?
+  parent     Content?  @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Content[] @relation("ContentHierarchy")
+  
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("contents")
+}
+
+model Configuration {
+  id              String   @id @default(cuid())
+  siteName        String   @default("Vitrine")
+  siteDescription String?
+  
+  primaryColor    String   @default("#3b82f6")
+  secondaryColor  String   @default("#1e293b")
+  accentColor     String   @default("#f59e0b")
+  
+  logoUrl         String?
+  faviconUrl      String?
+  
+  updatedAt       DateTime @updatedAt
+
+  @@map("configurations")
+}

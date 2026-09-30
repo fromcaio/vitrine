@@ -1,0 +1,62 @@
+// ////////////////////////////////////////////////////////
+// VITREO CMS - DATABASE SCHEMA (SQLite compatible)
+// ////////////////////////////////////////////////////////
+
+// Tabela de usuários (Gerenciada via Auth.js / Prisma)
+Table users {
+  id varchar [primary key]
+  name varchar
+  email varchar [unique, not null]
+  image varchar // URL da foto do perfil
+  created_at timestamp [default: `now()`]
+}
+
+// ////////////////////////////////////////////////////////
+// CONTEÚDO HIERÁRQUICO
+// ////////////////////////////////////////////////////////
+Table contents {
+  id varchar [primary key]
+  title varchar [not null]
+  slug varchar [not null, note: 'URL amigável']
+  body text [note: 'Conteúdo em Markdown']
+  type varchar [not null, note: 'DOCUMENT | COLLECTION']
+  order integer [default: 0, note: 'Ordenação no menu']
+  
+  // Auto-relacionamento para estrutura de árvore
+  parent_id varchar [note: 'ID do conteúdo pai (null se for raiz)']
+  
+  author_id varchar [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+}
+
+// ////////////////////////////////////////////////////////
+// CONFIGURAÇÕES DE UI E BRANDING (Opção B)
+// ////////////////////////////////////////////////////////
+Table configurations {
+  id varchar [primary key]
+  site_name varchar [default: 'Vitrine']
+  site_description text
+  
+  // Variáveis de Identidade Visual
+  primary_color varchar [default: '#3b82f6']
+  secondary_color varchar [default: '#1e293b']
+  accent_color varchar [default: '#f59e0b']
+  
+  // Metadados Adicionais
+  logo_url varchar
+  favicon_url varchar
+  
+  updated_at timestamp
+}
+
+// ////////////////////////////////////////////////////////
+// RELAÇÕES ENTRE TABELAS
+// ////////////////////////////////////////////////////////
+
+// Um conteúdo pertence a um autor
+Ref: contents.author_id > users.id
+
+// Auto-relacionamento: Um conteúdo pode ter vários "filhos"
+// Isso permite: Tutorial (Collection) > Introdução (Document)
+Ref: contents.parent_id > contents.id [delete: cascade]
