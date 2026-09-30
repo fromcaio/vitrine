@@ -1,0 +1,4 @@
+# Scripts e Makefile precisam de fim de linha LF mesmo no Windows (core.autocrlf=true);
+# com CRLF o bash e o make falham ("\r: command not found", "missing separator").
+*.sh text eol=lf
+tex/Makefile text eol=lf
