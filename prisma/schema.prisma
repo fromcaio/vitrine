@@ -1,10 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
+// A URL do banco fica em prisma.config.ts (Prisma 7); em runtime, o driver adapter a recebe.
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 // --------------------------------------------------------
@@ -12,19 +13,19 @@ datasource db {
 // --------------------------------------------------------
 
 model User {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String   @unique
   emailVerified Boolean
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  sessions      Session[]
-  accounts      Account[]
-  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
   // Relacionamento com o conteúdo do Vitrine
-  contents      Content[]
+  contents Content[]
 
   @@map("user")
 }
@@ -74,43 +75,58 @@ model Verification {
 }
 
 // --------------------------------------------------------
-// VITREO CMS: CONTEÚDO HIERÁRQUICO E CONFIGURAÇÕES
+// VITRINE: CONTEÚDO HIERÁRQUICO E CONFIGURAÇÕES
 // --------------------------------------------------------
 
+// Estado de publicação do conteúdo. O SQLite não impõe o enum no banco; o Prisma o valida no cliente.
+enum ContentStatus {
+  DRAFT // Rascunho
+  PUBLISHED // Publicado
+}
+
 model Content {
-  id         String   @id @default(cuid())
-  title      String
-  slug       String
-  body       String?
-  type       String   // DOCUMENT ou COLLECTION
-  order      Int      @default(0)
-  
-  parentId   String?
-  parent     Content?  @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children   Content[] @relation("ContentHierarchy")
-  
-  authorId   String
-  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id     String        @id @default(cuid())
+  title  String
+  slug   String
+  body   String?
+  type   String // DOCUMENT ou COLLECTION
+  status ContentStatus @default(PUBLISHED)
+  order  Int           @default(0)
+
+  parentId String?
+  parent   Content?  @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Content[] @relation("ContentHierarchy")
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("contents")
 }
 
 model Configuration {
-  id              String   @id @default(cuid())
-  siteName        String   @default("Vitrine")
+  id              String  @id @default(cuid())
+  siteName        String  @default("Vitrine")
   siteDescription String?
-  
-  primaryColor    String   @default("#3b82f6")
-  secondaryColor  String   @default("#1e293b")
-  accentColor     String   @default("#f59e0b")
-  
-  logoUrl         String?
-  faviconUrl      String?
-  
-  updatedAt       DateTime @updatedAt
+
+  primaryColor   String @default("#3b82f6")
+  secondaryColor String @default("#1e293b")
+  accentColor    String @default("#f59e0b")
+
+  logoUrl    String?
+  faviconUrl String?
+
+  // Links sociais exibidos no rodapé (RF24); todos opcionais
+  discordUrl   String?
+  githubUrl    String?
+  youtubeUrl   String?
+  instagramUrl String?
+  linkedinUrl  String?
+  twitchUrl    String?
+
+  updatedAt DateTime @updatedAt
 
   @@map("configurations")
 }
