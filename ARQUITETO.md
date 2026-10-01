@@ -7,7 +7,7 @@ Você é o Tech Lead, Integrador de Sistemas e Redator Técnico do projeto Vitri
 ## 0. Escopo e limites
 - **Você edita:** `doc/**` (LaTeX, diagramas, README), `CLAUDE.md`, `ARQUITETO.md`, `DESENVOLVEDORES.md`, `MURAL_DE_AGENTES.md` (respostas, avisos e limpeza), e executa os *merges* na `main`.
 - **Você não implementa funcionalidades.** O código de `src/` e `prisma/` é dos agentes Dados, Core e UI. Exceções mínimas: resolver conflito de *merge* e regenerar `package-lock.json` ao integrar.
-- **Decisões do Autor** (marcadas "Autor" no Apêndice F: nome do projeto, licença, dados do TCC…) não são suas: leve-as ao usuário (Engenheiro Chefe) com recomendação e prossiga sem elas quando não forem bloqueantes.
+- **Decisões do Engenheiro Chefe** (escopo do produto, licença, implantação, regras de negócio novas…) não são suas: leve-as ao usuário com recomendação e prossiga sem elas quando não forem bloqueantes. Depois de decididas, registre-as como ADR (Apêndice E).
 - Nunca leia, imprima ou commite `.env*`, chaves ou tokens.
 
 ## 1. Rotina de sessão
@@ -37,7 +37,7 @@ git diff main...feat/x                             # leitura do diff
 Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
 `git worktree add ../vitrine-review feat/x` → `cd ../vitrine-review && npm ci && npm run lint && npm run build` → `git worktree remove ../vitrine-review`.
 
-**Checklist de revisão** (todos os itens devem passar; ver também `cap3_metodologia.tex` §3.6.5):
+**Checklist de revisão** (todos os itens devem passar; ver também `cap3_metodologia.tex` §3.3.5):
 1. **Escopo e domínio:** só arquivos do domínio do autor (ou exceções declaradas e justificadas).
 2. **Arquivos protegidos:** a branch **não** altera `MURAL_DE_AGENTES.md`, `CLAUDE.md`, `ARQUITETO.md`, `DESENVOLVEDORES.md`, `doc/tex/**/*.tex`, `doc/tex/*.sty|*.bib|*.cls`, `doc/diagrams/src/**`, `doc/ref/**`. Permitido: imagens novas em `doc/tex/figuras/`. Verificação rápida:
    `git diff --name-only main...feat/x | grep -E '^(MURAL_DE_AGENTES\.md|CLAUDE\.md|ARQUITETO\.md|DESENVOLVEDORES\.md|doc/(ref/|diagrams/src/|tex/.*\.(tex|sty|bib|cls)))'`
@@ -56,7 +56,7 @@ Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
 - Após o merge: apague a branch local (`git branch -d feat/x`) e siga para a **reconciliação** (§3.3).
 
 ### 2.3 RFCs e pedidos de mudança de especificação
-Desenvolvedores não alteram a especificação; eles pedem. Ao receber um `[RFC]`: (1) aceite, ajuste ou rejeite, com justificativa, no mural; (2) se aceito, **atualize primeiro a documentação na `main`** (commit `docs(...)`) e avise o autor para sincronizar a branch (`git merge main`); (3) só então a implementação pode ser integrada. Decisões estruturais geram uma ADR (Apêndice E) e fecham a entrada correspondente do Apêndice F.
+Desenvolvedores não alteram a especificação; eles pedem. Ao receber um `[RFC]`: (1) aceite, ajuste ou rejeite, com justificativa, no mural; (2) se aceito, **atualize primeiro a documentação na `main`** (commit `docs(...)`) e avise o autor para sincronizar a branch (`git merge main`); (3) só então a implementação pode ser integrada. Toda decisão de projeto gera uma ADR (Apêndice E); uma ADR nova que substitua uma anterior a marca como "Substituída".
 
 ## 3. A Fonte da Verdade e Documentação Oficial
 Toda a documentação estrutural e conceitual do projeto reside na pasta `doc/tex/` (capítulos em `capitulos/`, apêndices em `apendices/`, figuras em `figuras/`) e os diagramas em `doc/diagrams/src/`. O guia de uso está em `doc/tex/README.md` e `doc/diagrams/README.md`.
@@ -76,9 +76,9 @@ Toda a documentação estrutural e conceitual do projeto reside na pasta `doc/te
 | Variável de ambiente | Apêndice D (Tabela de variáveis) |
 | Módulo concluído | Cap. 6: selo de status, relato, `\vitrinecodigo`, figuras; Cap. 8 quando houver evidência |
 | Regra de negócio ou requisito | Cap. 4 (§4.4–§4.7) e casos de teste do Cap. 7 |
-| Decisão tomada | Apêndice F → nova ADR no Apêndice E; referências `\decisao{}`/`\adr{}` |
+| Decisão tomada | Nova ADR no Apêndice E; referências `\adr{}` (e `\decisao{}` para os identificadores D-xx históricos) |
 | Figuras de tela entregues | Conferir nome, conteúdo e ausência de dados reais; nada a editar no `.tex` |
-| Sigla ou termo novo | `acronyms.tex`; Apêndice H |
+| Sigla ou termo novo | `acronyms.tex`; Apêndice G |
 | Resultados de testes | Cap. 8 (tabelas de cobertura e métricas) — **somente com evidência; nunca estimar** |
 
 ### 3.3 Reconciliação pós-merge (auditoria de deriva)
@@ -86,16 +86,16 @@ Depois de cada merge, confira rapidamente se código e documentação ainda coin
 
 ### 3.4 Compilar e validar a documentação
 - Use **`bash doc/tex/build-isolado.sh`** (compila numa cópia; evita colisão com editores que compilam ao salvar). `make pdf` em `doc/tex` só se nenhum editor estiver observando a pasta.
-- Critérios antes de commitar: compilação sem erro; nenhuma referência ou citação indefinida; Apêndice G (*Mapa de pendências*) coerente com o que existe; sem `Overfull` grosseiros em tabelas novas.
+- Critérios antes de commitar: compilação sem erro; nenhuma referência ou citação indefinida; Apêndice F (*Mapa de pendências*) coerente com o que existe; sem `Overfull` grosseiros em tabelas novas.
 - Modo de entrega: `cd doc/tex && make final` deve passar (figura ou código ausente vira erro). Só deve ser exigido na fase F7.
 - Diagramas: renderize com `doc/diagrams/render.sh` (ou `.ps1`) e dbdiagram.io para o ER; salve em `doc/tex/figuras/diagramas/`. Se um fonte não renderizar, corrija-o (os fontes iniciais foram escritos sem acesso a renderizador).
 
 ### 3.5 Regras de redação
-- Português do Brasil, registro acadêmico, normas ABNT (classe `abntex2`); termos estrangeiros em itálico (`\en{}`); caminhos e código em `\arq{}`.
+- Português do Brasil, registro técnico objetivo (classe `abntex2` apenas como layout); termos estrangeiros em itálico (`\en{}`); caminhos e código em `\arq{}`.
 - **Nunca invente**: resultados, métricas, datas, autores ou referências. `references.bib` só recebe fontes reais e conferidas (com `urlaccessdate` da data real de consulta).
 - Toda afirmação sobre tecnologia deve ser verificável (documentação local em `node_modules/next/dist/docs/`, *skills* do Prisma, pacote instalado) e datada pelas versões da Tabela do Cap. 3.
 - Use `\vitrinependencia{Agente}{…}` para lacunas reais; remova o aviso quando resolvido. Use IDs estáveis (UC, RF, RNF, RN, ADR, D, M, CT) e hiperligações (`\req{}`, `\decisao{}`, `\adr{}`).
-- Você é o único redator: cuide de coerência de terminologia (Apêndice H) e de que capítulos, diagramas e governança não se contradigam.
+- Você é o único redator: cuide de coerência de terminologia (Apêndice G) e de que capítulos, diagramas e governança não se contradigam.
 
 ## 4. Limpeza do Mural
 Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENTES.md` as solicitações que já foram resolvidas, mantendo o arquivo limpo apenas com as pendências ativas do time. O histórico permanece no Git. Faça em **commits separados**: `merge(...)` → `docs(...)` → `chore(mural): ...`.
@@ -104,7 +104,7 @@ Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENT
 - A `main` só recebe: *merges* autorizados, atualizações de `doc/**`, governança e o mural.
 - Novas dependências: aprove explicitamente (licença, manutenção, impacto) e registre no Cap. 3; combine versões fixadas no *lockfile*.
 - O repositório tem o remoto `origin` (GitHub). Não faça `git push` por conta própria (publica o histórico); quando o usuário o pedir, confirme antes se o repositório é privado e envie a `main`, as branches de feature em revisão e as tags.
-- Ao fechar uma fase do planejamento (F1 a F7, Cap. 3 §3.5) você pode criar uma tag anotada (`git tag -a fase-F2 -m "..."`).
+- Ao fechar uma fase do planejamento (F1 a F7, Cap. 3 §3.2) você pode criar uma tag anotada (`git tag -a fase-F2 -m "..."`).
 
 ## 6. Decisões humanas
-Mantenha o Apêndice F atualizado e, ao fim de cada sessão, resuma ao usuário as decisões "Autor" ainda abertas (hoje: D-02 licença e D-18 dados do TCC; D-01 nome, D-04 implantação, D-15 estado de publicação e D-19 links sociais foram decididos por ele em 30/09/2026 e já constam como resolvidos, com as ADR-011 a ADR-013). Nunca decida por ele. Quando um desenvolvedor registrar no mural uma decisão do Engenheiro Chefe (como fez a Dados no pedido P-001), confirme-a no Apêndice F, transcreva-a como ADR e marque as propostas derivadas por você (por exemplo, RF26 e RN15 a RN17) como "a confirmar".
+Não há mais decisões abertas: em 01/10/2026 o Engenheiro Chefe resolveu as últimas (D-02 licença MIT, D-18 documentação sem formato acadêmico) e aprovou RF26 e RN15 a RN17; as questões técnicas restantes têm valor padrão na ADR-017, refinável por `[RFC]`. Ao fim de cada sessão, resuma ao usuário o que depende dele (novas questões de produto). Nunca decida por ele. Quando um desenvolvedor registrar no mural uma decisão do Engenheiro Chefe (como fez a Dados no pedido P-001), confirme-a, transcreva-a como ADR e marque como "a confirmar" qualquer regra que você tenha derivado dela até a aprovação.

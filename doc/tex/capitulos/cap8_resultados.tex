@@ -1,24 +1,11 @@
 %% ===================================================================================
-%% Capítulo 8 -- Resultados e Discussão
-%% Parte 1 (IC) é factual, extraída do relatório de IC. As demais partes são TABELAS E
-%% ROTEIROS a preencher pelo Arquiteto após a execução dos testes do Capítulo 7.
+%% Capítulo 8 -- Situação da Verificação, Limitações e Evolução
+%% Tabelas e roteiros a preencher pelo Arquiteto após a execução dos testes do Capítulo 7.
 %% Regra: nunca inventar resultados. Célula sem medição permanece com "---".
 %% ===================================================================================
-\chapter{Resultados e Discussão}\label{cap:resultados}
+\chapter{Situação da Verificação, Limitações e Evolução}\label{cap:resultados}
 
-Este capítulo apresenta os resultados obtidos na Iniciação Científica (Seção~\ref{sec:res-ic}), os resultados da consolidação do monólito (Seções~\ref{sec:res-requisitos} e~\ref{sec:res-metricas}), o atendimento aos objetivos (Seção~\ref{sec:res-objetivos}) e a discussão, incluindo as ameaças à validade (Seções~\ref{sec:res-discussao} e~\ref{sec:res-ameacas}).
-
-\section{Resultados da Iniciação Científica}\label{sec:res-ic}
-
-O relatório de IC \cite{reis2026ic} registra que os objetivos propostos foram atingidos por meio de uma abordagem de desenvolvimento incremental, e destaca as seguintes conquistas técnicas:
-
-\begin{itemize}
-  \item a implementação de um editor Markdown capaz de renderizar com precisão elementos essenciais da escrita científica, como fórmulas em \LaTeX{} e blocos de código com realce de sintaxe;
-  \item o desenvolvimento de uma interface de personalização visual dinâmica, que permite gerenciar a estética do site por variáveis CSS persistidas em banco de dados, com reflexo instantâneo por ISR;
-  \item a garantia da perenidade do conteúdo digital, uma vez que a arquitetura baseada em arquivos portáteis assegura que o pesquisador detenha a posse integral dos seus dados.
-\end{itemize}
-
-O mesmo relatório apresenta como limitações o prazo de execução --- que restringiu a modelagem da interface a protótipos de baixa fidelidade --- e o sistema de autenticação, que, embora seguro e funcional para a gestão básica, ainda poderia ser expandido para múltiplos níveis de permissão em cenários colaborativos.
+Este capítulo registra a situação da verificação do sistema: a cobertura dos requisitos funcionais (Seção~\ref{sec:res-requisitos}), as metas e medições de qualidade (Seção~\ref{sec:res-metricas}) e o atendimento aos objetivos do produto (Seção~\ref{sec:res-objetivos}). Registra ainda as limitações conhecidas desta versão (Seção~\ref{sec:res-limitacoes}) e o roteiro de evolução (Seção~\ref{sec:trabalhos-futuros}). Os valores só são preenchidos com evidências existentes.
 
 \section{Cobertura dos Requisitos}\label{sec:res-requisitos}
 
@@ -95,7 +82,7 @@ RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & --- & ---\\
 \section{Atendimento aos Objetivos}\label{sec:res-objetivos}
 
 \begin{table}[htb]
-\caption{Atendimento aos objetivos específicos}\label{tab:res-objetivos}
+\caption{Atendimento aos objetivos do produto}\label{tab:res-objetivos}
 \small
 \begin{tabularx}{\linewidth}{@{}L{1.3cm}YL{3.6cm}L{2.0cm}@{}}
 \toprule
@@ -106,40 +93,29 @@ OE2 & Editor Markdown com fórmulas e realce de sintaxe & RF08 a RF11; CT15 a CT
 OE3 & Personalização visual sem novo \en{build} & RF19; CT23, CT24 & ---\\
 OE4 & Arquitetura de dados portátil (Prisma e SQLite) & Seção~\ref{sec:arq-dados}; CT28, CT30 & ---\\
 OE5 & Autenticação segura (better-auth) & RF01, RF20 a RF22; CT01 a CT06 & ---\\
-OE6 & Monólito modular documentado e rastreável & Capítulos~\ref{cap:requisitos} e~\ref{cap:arquitetura}; Apêndice~\ref{ap:adr} & ---\\
-OE7 & Processo DDD com agentes e rastreabilidade & Seção~\ref{sec:processo-ddd}; histórico do Git & ---\\
-OE8 & Verificação e validação do sistema & Capítulo~\ref{cap:testes} & ---\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
 \end{table}
 
-\section{Discussão}\label{sec:res-discussao}
+\section{Limitações Conhecidas}\label{sec:res-limitacoes}
 
-\subsection{Comparação com os Trabalhos Relacionados}
+São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação de usabilidade, que envolve poucos participantes e um contexto específico de uso (docentes e pesquisadores). A modelagem da interface partiu de protótipos de baixa fidelidade \cite{reis2026ic}.
 
-A discussão deve retomar a Tabela~\ref{tab:trabalhos-relacionados} e examinar, com base nas medições, em que critérios (C1 a C5) o Vitrine de fato se diferencia e em quais se aproxima ou fica aquém das categorias comparadas.
+\section{Roteiro de Evolução}\label{sec:trabalhos-futuros}
 
-\subsection{O Processo de Desenvolvimento com Agentes}
-
-Esta subseção avalia o método \en{Documentation-Driven Development} com agentes. Devem ser respondidas, com base no histórico do Git e no mural: quantos pedidos de integração foram aprovados de primeira e quantos foram vetados, e por quais motivos; quantas vezes o código divergiu da documentação e como a divergência foi detectada; quantas atualizações de documentação foram solicitadas pelos desenvolvedores; e qual o esforço de revisão do Arquiteto.
-
-\vitrinependencia{Arquiteto}{Coletar, do histórico do Git e do mural, os indicadores do processo (pedidos aprovados e vetados, motivos de veto, divergências detectadas) e analisá-los nesta subseção; os indicadores só podem ser calculados após as primeiras integrações.}
-
-\section{Ameaças à Validade}\label{sec:res-ameacas}
+Do relatório de IC \cite{reis2026ic} permanecem como propostas de continuidade:
 
 \begin{itemize}
-  \item \textbf{Validade de construção:} as métricas de desempenho e de usabilidade são aproximações das qualidades desejadas; o LCP medido em ambiente simulado pode diferir do experimentado por usuários reais;
-  \item \textbf{Validade interna:} o autor do sistema também conduz a avaliação, o que pode enviesar a interpretação; mitiga-se com casos de teste automatizados, critérios objetivos e evidências registradas;
-  \item \textbf{Validade externa:} o estudo de usabilidade envolve poucos participantes e um contexto institucional específico; os resultados não devem ser generalizados para outros perfis ou áreas;
-  \item \textbf{Validade de conclusão:} o volume de dados é pequeno para testes estatísticos; os resultados são descritos de modo qualitativo e com estatística descritiva;
-  \item \textbf{Variabilidade dos agentes:} o comportamento de agentes de IA varia entre execuções e versões de modelos; o processo depende de revisão humana e de critérios de aceite objetivos, e os resultados do processo podem não se repetir integralmente.
+  \item produzir documentação técnica detalhada e tutoriais em vídeo que demonstrem o processo de clonagem do repositório e de implantação --- considerando que a implantação suportada é a imagem Docker em uma VPS com volume para o SQLite (\decisao{D-04}, \adr{ADR-011}) e que plataformas \emph{serverless} exigiriam um banco remoto compatível;
+  \item lançar o site oficial do projeto, denominado Vitrine, que servirá como repositório central para tutoriais, documentação e instâncias de demonstração;
+  \item explorar a integração com repositórios de dados abertos para a citação automática de publicações;
+  \item expandir a biblioteca de componentes visuais, permitindo maior customização da interface;
+  \item implementar a renderização nativa de gráficos de funções de uma variável (gráficos 2D).
 \end{itemize}
 
-\section{Limitações}
-
-São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação com usuários.
+Da consolidação do monólito surgem novas linhas de evolução: papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
 
 \section{Síntese do Capítulo}
 
-O capítulo consolida os resultados factuais da IC e estrutura a apresentação dos resultados do monólito, com tabelas de cobertura de requisitos, de metas de qualidade e de atendimento aos objetivos. Os valores serão preenchidos após a verificação, sem estimativas.
+O capítulo estrutura o registro da situação da verificação --- cobertura de requisitos, metas de qualidade e atendimento aos objetivos do produto ---, lista as limitações conhecidas e o roteiro de evolução. Os valores serão preenchidos após a verificação, sem estimativas.

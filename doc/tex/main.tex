@@ -1,13 +1,13 @@
 %% ===================================================================================
-%% VITRINE -- Documentação oficial do projeto (Trabalho de Conclusão de Curso)
+%% VITRINE -- Documento de Arquitetura e Requisitos de Software
 %% ===================================================================================
 %% Este arquivo é a RAIZ do documento. Ele é a "Fonte da Verdade" textual do projeto:
 %% a especificação (requisitos, arquitetura, modelo de dados, API) vive aqui e nos
 %% diagramas de doc/diagrams/src/. Quem edita: o agente Arquiteto / Redator Técnico.
 %% Fluxo completo: ver CLAUDE.md, ARQUITETO.md e DESENVOLVEDORES.md na raiz do repo.
 %%
-%% Base: template abntex2 (undergrad_thesis.cls). Compilação:  latexmk -pdf main.tex
-%%   (ou `make pdf` dentro de doc/tex). NÃO é necessário -shell-escape.
+%% Base: classe abntex2 (layout, sumário e apêndices). Compilação:  latexmk -pdf main.tex
+%%   (ou `bash doc/tex/build-isolado.sh`). NÃO é necessário -shell-escape.
 %% ===================================================================================
 
 \documentclass[
@@ -17,7 +17,7 @@
 	a4paper,     % Tamanho do papel
 	english,     % Idioma adicional para hifenização
 	brazil       % Idioma principal do documento (deve ser o último)
-]{undergrad_thesis}
+]{abntex2}
 
 %% ===================================================================================
 %% PACOTES
@@ -36,28 +36,37 @@
 \usepackage{amsmath, amsfonts, amssymb}
 \usepackage{inconsolata}      % Fonte monoespaçada
 
-\usepackage[num]{abntex2cite} % Citações ABNT numéricas (para autor-data: [alf])
+\usepackage[num]{abntex2cite} % Citações numéricas
 
 % Macros do projeto: figuras com placeholder, pendências por agente, selos de status.
 % Troque [rascunho] por [final] na versão de entrega: pendências somem e figura ausente vira erro.
 \usepackage[rascunho]{vitrine}
 
 %% ===================================================================================
-%% INFORMAÇÕES DO DOCUMENTO (capa, folha de rosto e metadados do PDF)
+%% INFORMAÇÕES DO DOCUMENTO (capa e metadados do PDF)
 %% ===================================================================================
-% Título, orientador e banca: dados herdados do Relatório de IC; confirmar para o TCC.
-\titulo{Vitrine: Um Sistema de Publicação de Conteúdo Científico}
+\titulo{Vitrine}
 \autor{Caio Augusto Silva dos Reis}
-\local{São João del-Rei, Minas Gerais}
 \data{2026}
-\orientador{Prof. Dr. Matheus Carvalho Viana}
-\instituicao{%
-  Universidade Federal de São João del-Rei
-  \par
-  Curso de Graduação em Ciência da Computação}
-\tipotrabalho{Trabalho de Conclusão de Curso}
-\preambulo{Trabalho de Conclusão de Curso apresentado ao Curso de Graduação em Ciência da Computação da Universidade Federal de São João del-Rei como requisito parcial para a obtenção do grau de Bacharel em Ciência da Computação.}
-\logo{imgs/university-logo.jpg.png}
+
+% Capa simples de documento técnico (sem folha de rosto, aprovação ou dedicatória).
+\renewcommand{\imprimircapa}{%
+  \begin{capa}%
+    \centering
+    \vspace*{3.5cm}
+    {\ABNTEXchapterfont\bfseries\fontsize{44}{52}\selectfont\imprimirtitulo\par}
+    \vspace{0.8cm}
+    {\ABNTEXchapterfont\Large Documento de Arquitetura e Requisitos de Software\par}
+    \vspace{0.4cm}
+    {\large Plataforma de publicação de conteúdo científico e didático\par}
+    \vfill
+    {\large Engenheiro Chefe: \imprimirautor\par}
+    \vspace{0.3cm}
+    {\large Licença de código: MIT\par}
+    \vspace{0.3cm}
+    {\large\imprimirdata\par}
+    \vspace*{1cm}
+  \end{capa}}
 
 % -----------------------------------------------------------------------------------
 % Hiperlinks e metadados do PDF
@@ -66,11 +75,11 @@
 
 \makeatletter
 \hypersetup{
-    pdftitle={\@title},
+    pdftitle={Vitrine --- Documento de Arquitetura e Requisitos de Software},
     pdfauthor={\@author},
-    pdfsubject={\imprimirpreambulo},
+    pdfsubject={Especificação de requisitos, arquitetura e verificação do Vitrine},
     pdfcreator={LaTeX com abnTeX2},
-    pdfkeywords={CMS acadêmico; Next.js; SQLite; Markdown; Documentation-Driven Development},
+    pdfkeywords={CMS; Next.js; SQLite; Markdown; Documentation-Driven Development; arquitetura de software},
     colorlinks=true,
     linkcolor=hyperlinkblue,
     citecolor=hyperlinkblue,
@@ -99,15 +108,11 @@
 \frenchspacing
 
 % ----------------------------------------------------------
-% ELEMENTOS PRÉ-TEXTUAIS
+% ELEMENTOS PRÉ-TEXTUAIS (capa, listas e sumário)
 % ----------------------------------------------------------
 \pretextual
 
-\imprimircapalogo
-\imprimirfolhaderosto
-
-% Folha de aprovação, dedicatória, agradecimentos, epígrafe, resumo e abstract
-\include{pretextual_elements}
+\imprimircapa
 
 \pdfbookmark[0]{\listfigurename}{lof}
 \listoffigures*
@@ -137,7 +142,6 @@
 \include{capitulos/cap6_implementacao}
 \include{capitulos/cap7_testes}
 \include{capitulos/cap8_resultados}
-\include{capitulos/cap9_consideracoes_finais}
 
 % ----------------------------------------------------------
 % ELEMENTOS PÓS-TEXTUAIS
@@ -155,9 +159,8 @@
 \include{apendices/apendice_c_fontes_diagramas}
 \include{apendices/apendice_d_implantacao}
 \include{apendices/apendice_e_adr}
-\include{apendices/apendice_f_decisoes_abertas}
-\include{apendices/apendice_g_pendencias}
-\include{apendices/apendice_h_glossario}
+\include{apendices/apendice_f_pendencias}
+\include{apendices/apendice_g_glossario}
 \end{apendicesenv}
 
 \end{document}

@@ -54,13 +54,13 @@ Leia os `.tex` diretamente. Os números de seção podem mudar; os rótulos `\la
 | Pipeline de Markdown e tema dinâmico | `cap5_arquitetura.tex` §5.8 e §5.9 |
 | O que fazer em cada módulo (M01–M14), critérios de aceite e status | `cap6_implementacao.tex` |
 | Casos de teste (CT01–CT33) | `cap7_testes.tex` |
-| Decisões tomadas (ADR-001 a ADR-014) e decisões D-xx abertas e resolvidas | `apendices/apendice_e_adr.tex` e `apendices/apendice_f_decisoes_abertas.tex` |
+| Decisões de projeto (ADR-001 a ADR-017; os D-xx iniciais estão todos resolvidos) | `apendices/apendice_e_adr.tex` |
 | Implantação e operação | `apendices/apendice_d_implantacao.tex` |
-| Processo DDD, papéis, fluxo Git, critérios de merge | `cap3_metodologia.tex` §3.6, `ARQUITETO.md`, `DESENVOLVEDORES.md` |
-| Pendências (figuras, trechos de código, textos) | `apendices/apendice_g_pendencias.tex` (gerado) |
+| Processo DDD, papéis, fluxo Git, critérios de merge | `cap3_metodologia.tex` §3.3, `ARQUITETO.md`, `DESENVOLVEDORES.md` |
+| Pendências (figuras, trechos de código, textos) | `apendices/apendice_f_pendencias.tex` (gerado) |
 | Como usar a documentação e os diagramas | `doc/tex/README.md`, `doc/diagrams/README.md` |
 
 Material histórico, **somente leitura**, em `doc/ref/` (relatório de IC, `er.dbml`, `use-case-diagram.plantuml`).
 
-## 5. Estado do Repositório (registro de 2026-09-30)
-Existem o *scaffold* do Next.js 16, o `prisma/schema.prisma` (6 modelos, o enumerado `ContentStatus` e os seis links sociais de `Configuration`), conforme o Prisma 7 desde o merge M-001 (`043ce46`), a governança e a documentação. **Ainda não existem:** migrações, *seed*, `src/lib/*`, rotas de API, autenticação, componentes, `.env.example` e Docker (`Dockerfile`, `docker-compose.yml`). As pendências do schema estão no Cap. 5 §5.5.4 e no Cap. 6 §6.3; a próxima tarefa do time de dados é a A-006 do mural. O remoto `origin` (GitHub) está configurado: nenhum agente faz `git push` sem pedido explícito do Engenheiro Chefe.
+## 5. Estado do Repositório (registro de 2026-10-01)
+O projeto é licenciado sob a **MIT** (arquivo `LICENSE`; ADR-015) e a documentação em `doc/tex/` é um **Documento de Arquitetura e Requisitos de Software**, sem elementos acadêmicos (ADR-016); não há decisões de projeto em aberto (ADR-017). Existem o *scaffold* do Next.js 16, o `prisma/schema.prisma` (6 modelos, o enumerado `ContentStatus` e os seis links sociais de `Configuration`), conforme o Prisma 7 desde o merge M-001 (`043ce46`), a governança e a documentação. **Ainda não existem:** migrações, *seed*, `src/lib/*`, rotas de API, autenticação, componentes, `.env.example` e Docker (`Dockerfile`, `docker-compose.yml`). As pendências do schema estão no Cap. 5 §5.5.4 e no Cap. 6 §6.3; a próxima tarefa do time de dados é a A-006 do mural. O remoto `origin` (GitHub) está configurado: nenhum agente faz `git push` sem pedido explícito do Engenheiro Chefe.

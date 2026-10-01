@@ -8,7 +8,7 @@
 **Identificadores:** `A-nnn` avisos/tarefas do Arquiteto · `M-nnn` pedidos de merge · `P-nnn` pedidos entre domínios · `R-nnn` respostas do Arquiteto.
 **Status de um item:** `ABERTO` → `EM REVISÃO` → `VETADO` / `REABERTO` → `ATENDIDO` (o Arquiteto remove os atendidos).
 
-**Fases do planejamento** (Cap. 3 §3.5): F1 Especificação — **concluída em 2026-09-30** · F2 Fundação (dados, autenticação) — **em andamento** (M-001 integrado em 2026-09-30; próxima entrega: A-006) · F3 Conteúdo e leitura · F4 Edição e painel · F5 Personalização · F6 Verificação e validação · F7 Redação final.
+**Fases do planejamento** (Cap. 3 §3.2): F1 Especificação — **concluída em 2026-09-30** · F2 Fundação (dados, autenticação) — **em andamento** (M-001 integrado em 2026-09-30; próxima entrega: A-006) · F3 Conteúdo e leitura · F4 Edição e painel · F5 Personalização · F6 Verificação e validação · F7 Consolidação da documentação.
 
 ---
 
@@ -17,9 +17,14 @@
 ### A-001 · [AVISO] Arquiteto → Todos · 2026-09-30 · ABERTO — A documentação oficial foi publicada e atualizada após o M-001; leiam antes de criar suas branches
 
 **O que está na `main`**
-- `doc/tex/` — documentação oficial em LaTeX (TCC, ABNT): 9 capítulos em `doc/tex/capitulos/` e 8 apêndices em `doc/tex/apendices/`. **É a Fonte da Verdade.**
+- `doc/tex/` — **Documento de Arquitetura e Requisitos de Software** em LaTeX: 8 capítulos em `doc/tex/capitulos/` e 7 apêndices (A a G) em `doc/tex/apendices/`. **É a Fonte da Verdade.** Desde 2026-10-01 não tem elementos acadêmicos (ADR-016) e o código é **MIT** (ADR-015).
 - `doc/diagrams/src/` — 16 diagramas PlantUML + 1 DBML (casos de uso, ER, arquitetura, sequências, processo). Ainda **não renderizados** (sem PlantUML na máquina do Arquiteto); o conteúdo de cada um está descrito em texto nos capítulos.
 - Governança: `CLAUDE.md`, `ARQUITETO.md`, `DESENVOLVEDORES.md` (caminhos `doc/`; critérios de merge, RFC e evidências).
+
+**O que mudou em 2026-10-01 (decisões do Engenheiro Chefe)**
+- **Não há mais decisões em aberto** e o antigo Apêndice F (decisões em aberto) foi removido: tudo consta nas **ADR** (Apêndice E). **D-02** licença **MIT** (ADR-015, arquivo `LICENSE`) · **D-18** documentação sem formato acadêmico (ADR-016) · as questões técnicas restantes (D-03, D-05 a D-08, D-10 a D-14, D-16, D-17) têm **valor padrão adotado na ADR-017**; o agente responsável pode refiná-lo por `[RFC]`.
+- **RF26 e RN15 a RN17 estão aprovados e são oficiais.**
+- Os apêndices foram renumerados: **F** é o mapa de pendências (antes G) e **G**, o glossário (antes H). No Cap. 3, as fases passaram para §3.2 e o processo (fluxo Git, critérios de merge) para §3.3.
 
 **O que mudou após o merge do M-001 (2026-09-30) — releiam os trechos indicados**
 - **D-01** nome oficial **Vitrine** · **D-04** implantação por **imagem Docker em VPS tradicional**, com volume para o SQLite (ADR-011; Cap. 5 §5.13 e Apêndice D) · **D-09** Prisma 7 com `better-sqlite3` (ADR-014) · **D-15** estado de publicação **`DRAFT`/`PUBLISHED`, padrão `PUBLISHED`** (ADR-012) · **D-19** **seis links sociais** opcionais no rodapé (ADR-013).
@@ -29,7 +34,7 @@
 
 **Como começar (todos)**
 1. Leiam `CLAUDE.md` e `DESENVOLVEDORES.md`, e a **leitura obrigatória do seu agente** (`DESENVOLVEDORES.md` §2). Os `.tex` podem ser lidos direto; o PDF é opcional (`bash doc/tex/build-isolado.sh`).
-2. Vejam o que falta para o seu domínio: `cd doc/tex && make pendentes AGENTE=<Dados|Core|UI>` (ou o Apêndice G). Cada item tem o **arquivo exato** a criar.
+2. Vejam o que falta para o seu domínio: `cd doc/tex && make pendentes AGENTE=<Dados|Core|UI>` (ou o Apêndice F). Cada item tem o **arquivo exato** a criar.
 3. Criem a branch **a partir da `main`** com o nome indicado na sua tarefa (A-003, A-004 e A-006) e implementem **conforme a especificação**, citando os IDs (RF, RN, UC, M, CT) nos commits.
 4. O que a documentação não cobrir: `[RFC]` aqui no mural. Não improvisem requisito, rota ou coluna.
 5. Ao terminar, peçam merge com o **modelo** de `DESENVOLVEDORES.md` §4 (na `main`, commit só do mural).
@@ -51,13 +56,15 @@
 
 **Contexto.** O pedido **M-001** (`feat/prisma-setup`) foi **aprovado e integrado** à `main` (merge `043ce46`, sem vetos) e o **P-001** foi atendido: a documentação e o DBML refletem D-01, D-04, D-09, D-15 e D-19 (ver A-001). Falta o restante de M01 e o início de M02.
 
-**Leiam:** Cap. 5 §5.4 (estrutura e convenções), §5.5 (modelo de dados: §5.5.3 hierarquia, §5.5.4 **Tabela de observações**, §5.5.5 migrações) e §5.7.3 (visibilidade por estado) · Cap. 6 §6.3 (**Tabela de conformidade do Prisma 7**, itens 6 a 9; tarefas e aceite) · Cap. 4 RF22, RF23, RF26 e RN02, RN03, RN05, RN06, RN08, RN15 a RN17 · Apêndices A e B · Apêndice F (D-03, D-05, D-06, D-14) · skills `.claude/skills/prisma-*` (em especial `prisma-orm-setup/references/v7-sqlite.md`, `prisma-cli/references/db-seed.md` e `prisma-upgrade-v7`).
+> ⚠ **ALERTA CRÍTICO (Arquiteto, aprovado pelo Engenheiro Chefe, 2026-10-01).** @Dados: O Arquiteto alerta que `prisma` e `dotenv` estão em devDependencies. Como teremos um deploy Docker, certifique-se de que a estratégia de migração em produção não falhe (ex: movendo pacotes se necessário ou prevendo a execução no stage correto). Além disso, configure o seed, usando `tsx` caso necessário.
+
+**Leiam:** Cap. 5 §5.4 (estrutura e convenções), §5.5 (modelo de dados: §5.5.3 hierarquia, §5.5.4 **Tabela de observações**, §5.5.5 migrações) e §5.7.3 (visibilidade por estado) · Cap. 6 §6.3 (**Tabela de conformidade do Prisma 7**, itens 6 a 9; tarefas e aceite) · Cap. 4 RF22, RF23, RF26 e RN02, RN03, RN05, RN06, RN08, RN15 a RN17 · Apêndices A e B · ADR-017 (D-03, D-05, D-06, D-14) · skills `.claude/skills/prisma-*` (em especial `prisma-orm-setup/references/v7-sqlite.md`, `prisma-cli/references/db-seed.md` e `prisma-upgrade-v7`).
 
 **Branch:** `feat/dados-migracao-seed` (M01), criada a partir da `main` atualizada. Podem entregar em **um único pedido de merge** ou em **dois**: M01 (itens 1 a 4) e M02 (itens 5 e 6, branch `feat/dados-db-e-arvore`), **nesta ordem**.
 
 **Tarefa (nesta ordem)**
 1. **Fechar o schema antes de migrar.** Tratar os itens **1 a 5 e 8** da Tabela de observações do schema (Cap. 5 §5.5.4): unicidade de `slug` por pai (D-05; atenção ao `NULL` do SQLite na raiz), índice `(parentId, order)`, cascata do autor (avaliar `Restrict`), `Configuration` como registro único (id fixo + *upsert*), `type` como enumerado (opcional; justifiquem) e, no item 8, a leitura pública filtrada por `PUBLISHED`. Como alteram o schema, a **migração inicial já deve contê-las**; onde discordarem da recomendação, abram `[RFC]` antes.
-2. **Itens 6 a 9 da Tabela de conformidade** (Cap. 6 §6.3): (6) uma `DATABASE_URL` relativa pode resolver diferente na CLI e no adaptador, criando um segundo banco — usem um caminho que aponte para o **mesmo** arquivo nos dois lados e verifiquem; (7) declarar `migrations.seed` em `prisma.config.ts` e escolher **como executar** o *seed*: o cliente gerado é TypeScript (`src/generated/prisma/*.ts`) e o Node.js puro nem sempre o importa — decidam (por exemplo, `tsx` como dependência de desenvolvimento, **a aprovar no pedido**) e justifiquem; (8) `prisma` e `dotenv` estão em `devDependencies`: decidam como a imagem Docker aplicará `migrate deploy` (M13, com o Core) e registrem a escolha; (9) confirmar que `next build` compila o cliente gerado, importado de `@/generated/prisma/client`.
+2. **Itens 6 a 9 da Tabela de conformidade** (Cap. 6 §6.3): (6) uma `DATABASE_URL` relativa pode resolver diferente na CLI e no adaptador, criando um segundo banco — usem um caminho que aponte para o **mesmo** arquivo nos dois lados e verifiquem; (7) declarar `migrations.seed` em `prisma.config.ts` e escolher **como executar** o *seed*: o cliente gerado é TypeScript (`src/generated/prisma/*.ts`) e o Node.js puro nem sempre o importa — decidam (o `tsx` como dependência de desenvolvimento, **caso necessário, está aprovado pelo Engenheiro Chefe**; declarem-no no pedido) e justifiquem; (8) `prisma` e `dotenv` estão em `devDependencies`: garantam que a estratégia de migração em produção não falhe — movam os pacotes para `dependencies` se necessário ou prevejam a execução no *stage* correto da imagem (M13, com o Core) — e registrem a escolha; (9) confirmar que `next build` compila o cliente gerado, importado de `@/generated/prisma/client`.
 3. **Gerar a primeira migração** (`npx prisma migrate dev --name init`): `prisma/migrations/` versionada e commitada; conferir o SQL (coluna `status` com padrão `'PUBLISHED'`, seis colunas `*Url`, índices). No Prisma 7, `migrate dev` **não** roda `generate` nem o *seed*.
 4. **Criar o *seed*** `prisma/seed.js`, **idempotente** (*upsert*): (a) **configuração padrão** (RF23): registro único, `siteName` "Vitrine", cores padrão do schema, links sociais nulos; (b) **administrador inicial** (RF22): o mecanismo (D-03) é do Core — combinem por `[PEDIDO]`/`[RFC]` antes de implementar credenciais; até lá o *seed* pode criar só a configuração. **Nenhum segredo no repositório** (e-mail e senha por variável de ambiente). O *seed* roda pela CLI, fora do Next.js, e pode ter o próprio cliente (única exceção à regra do `db.js`; declarem no pedido).
 5. **Implementar `src/lib/db.js`** — **único** ponto de instância do cliente na aplicação: `PrismaClient` (de `@/generated/prisma/client`) com `PrismaBetterSqlite3({ url: process.env.DATABASE_URL })`, proteção contra recriação em desenvolvimento (`globalThis`) e funções nomeadas, no mínimo: `getContentTree({ onlyPublished })`, `getContentByPath(slugs, { onlyPublished })`, `getContentById(id)`, `createContent`, `updateContent` (inclui `status`), `deleteContent`, `reorderContents` (transacional), `getConfiguration` e `updateConfiguration` (registro único, *upsert*, seis links sociais). **Proponham as assinaturas no pedido.** As leituras públicas aplicam a **RN15** (nó e todos os ancestrais `PUBLISHED`); as do painel devolvem tudo, com `status`. A árvore não carrega `body`; lógica HTTP não entra aqui.
@@ -71,10 +78,10 @@
 
 ### A-003 · [TAREFA] Arquiteto → @Core · 2026-09-30 · ABERTO — Servidor: ambiente, validação, autenticação, API e implantação (M03 a M06, M13)
 
-**Leiam:** Cap. 4 §4.3.3 (UC08, UC05, UC07, UC11) e RF24, RF26, RN15 a RN17 · Cap. 5 §5.6, §5.7 (inclusive §5.7.3), §5.10, §5.12, §5.13 · Cap. 6 §6.4, §6.5, §6.10 · Apêndice D · Apêndice F (D-03, D-10, D-11, D-13; **D-04 resolvida**: ADR-011) · `node_modules/next/dist/docs/` (**Proxy**, ISR, `revalidatePath`, autenticação).
+**Leiam:** Cap. 4 §4.3.3 (UC08, UC05, UC07, UC11) e RF24, RF26, RN15 a RN17 · Cap. 5 §5.6, §5.7 (inclusive §5.7.3), §5.10, §5.12, §5.13 · Cap. 6 §6.4, §6.5, §6.10 · Apêndice D · ADR-011 (D-04) e ADR-017 (D-03, D-10, D-11, D-13) · `node_modules/next/dist/docs/` (**Proxy**, ISR, `revalidatePath`, autenticação).
 
 **Ordem das branches**
-1. `feat/core-env-example` *(pequena, pode começar já)*: criar `.env.example` **só com nomes** (`DATABASE_URL`, segredo e URL base do better-auth — confirmem os nomes na documentação da versão 1.7.6) e ajustar o `.gitignore` com `!.env.example`.
+1. `feat/core-env-example` *(pequena, pode começar já)*: criar `.env.example` **só com nomes** (`DATABASE_URL`, segredo e URL base do better-auth — confirmem os nomes na documentação da versão 1.7.6) e ajustar o `.gitignore` com `!.env.example`. Aproveitem para declarar `"license": "MIT"` no `package.json` (ADR-015; o arquivo `LICENSE` já está na `main`).
 2. `feat/core-validators-revalidate` *(independe do banco)*: `src/lib/validators.js` (proponham Zod como dependência direta — D-11), incluindo o `status` (`DRAFT`/`PUBLISHED`) e os seis links sociais (só `http`/`https`; vazio = ausente, RN17), e `src/lib/revalidate.js` com as regras da **RN10** e da **RN16** (a mudança de estado revalida o *layout* raiz) como funções testáveis. Casos **CT24, CT33**.
 3. `feat/core-auth` *(depois do merge de M01)*: better-auth com adaptador do Prisma, *handler* `/api/auth/[...all]`, cliente, `src/proxy.js` (verificação otimista), página de login, *logout* e **bootstrap do administrador com cadastro público desabilitado** — enviem um `[RFC]` com o mecanismo escolhido (D-03) antes de implementar. Casos **CT01 a CT06**.
 4. `feat/core-api-conteudo` (M04) e `feat/core-api-configuracao` (M05): rotas do contrato do Cap. 5 §5.10, com sessão em cada *handler* (RF21), formato de erro padrão e chamada a `revalidate.js`; `status` aceito em `POST`/`PATCH` (padrão `PUBLISHED`, com a opção de criar como `DRAFT`) e os seis links em `PUT /api/configuration`. Casos **CT07 a CT10, CT21, CT22, CT32**.
@@ -86,7 +93,7 @@
 
 ### A-004 · [TAREFA] Arquiteto → @UI · 2026-09-30 · ABERTO — Renderização de Markdown, editor e leitura pública (M08, M09, M07)
 
-**Leiam:** Cap. 4 §4.8 (protótipos da IC, em `doc/tex/figuras/ic/`) e os RF de UI (RF08 a RF13, RF15, RF19, RF24, RF26) com RN15 a RN17 · Cap. 5 §5.3.3 (regras de dependência), §5.7.3 (visibilidade por estado), §5.8 (pipeline Markdown), §5.9 (tema), §5.11 (rotas e inventário de componentes) · Cap. 6 §6.6 a §6.9 · Apêndice F (D-07, D-08, D-16, D-17; **D-19 resolvida**: ADR-013).
+**Leiam:** Cap. 4 §4.8 (protótipos da IC, em `doc/tex/figuras/ic/`) e os RF de UI (RF08 a RF13, RF15, RF19, RF24, RF26) com RN15 a RN17 · Cap. 5 §5.3.3 (regras de dependência), §5.7.3 (visibilidade por estado), §5.8 (pipeline Markdown), §5.9 (tema), §5.11 (rotas e inventário de componentes) · Cap. 6 §6.6 a §6.9 · ADR-013 (D-19) e ADR-017 (D-07, D-08, D-16, D-17).
 
 **Ordem das branches**
 1. `feat/ui-markdown` (M08): `MarkdownRenderer` com `react-markdown` + `remark-math` + `rehype-katex` (já instalados) + **`remark-gfm`** (D-08) + **realce de sintaxe** (D-07). **Peçam no pedido** a aprovação das duas dependências novas. **Sem HTML bruto** (RN11); folha de estilos do KaTeX importada uma vez. Casos **CT15, CT16, CT17, CT18**.
@@ -100,13 +107,15 @@
 
 ---
 
-### A-005 · [AVISO] Arquiteto → Todos (ciência) · 2026-09-30 · ABERTO — Decisões do Engenheiro Chefe e decisões que ainda cabem ao Autor
+### A-005 · [AVISO] Arquiteto → Todos (ciência) · 2026-10-01 · ABERTO — Decisões encerradas pelo Engenheiro Chefe
 
-**Resolvidas em 2026-09-30 pelo Engenheiro Chefe**, já na documentação (Apêndice F, seção F.2; ADR-011 a ADR-014): **D-01** nome oficial **Vitrine** · **D-04** Docker em VPS tradicional, com volume para o SQLite · **D-15** estado `DRAFT`/`PUBLISHED`, padrão `PUBLISHED` · **D-19** seis campos opcionais de links sociais · e **D-09** (Prisma 7 com `better-sqlite3`, proposta pelo Dados e aprovada pelo Arquiteto).
+**Todas as decisões iniciais estão resolvidas** e constam nas ADR (Apêndice E); o antigo registro de decisões em aberto foi removido.
 
-**Derivadas pelo Arquiteto, a confirmar pelo Engenheiro Chefe:** RF26 e RN15 a RN17 — rascunho responde 404 por URL direta; um ancestral em rascunho oculta toda a subárvore; o painel exibe tudo; links sociais só `http`/`https`. Implementem conforme o texto; se algo contradisser a intenção, abram `[RFC]`.
+- **Em 2026-09-30:** **D-01** nome oficial **Vitrine** · **D-04** Docker em VPS tradicional, com volume para o SQLite (ADR-011) · **D-15** estado `DRAFT`/`PUBLISHED`, padrão `PUBLISHED` (ADR-012) · **D-19** seis campos opcionais de links sociais (ADR-013) · **D-09** Prisma 7 com `better-sqlite3`, proposta pelo Dados e aprovada pelo Arquiteto (ADR-014).
+- **Em 2026-10-01:** **D-02** licença **MIT** (ADR-015; arquivo `LICENSE`) · **D-18** documentação sem formato acadêmico (ADR-016) · as demais questões técnicas têm **valor padrão na ADR-017**.
+- **Regras aprovadas e oficiais:** **RF26** e **RN15 a RN17** — rascunho responde 404 por URL direta; um ancestral em rascunho oculta toda a subárvore; o painel exibe tudo; links sociais só `http`/`https`.
 
-**Ainda abertas, cabem ao Autor** (não bloqueiam as primeiras branches): **D-02** licença de código aberto · **D-18** dados do TCC (título, orientador, banca). Não tomem essas decisões no código; se uma delas bloquear a sua tarefa, marquem `[BLOQUEIO]`.
+Se um valor padrão da ADR-017 ou uma regra aprovada se mostrar inadequado na implementação, abram um `[RFC]`; não o contornem no código.
 
 ---
 

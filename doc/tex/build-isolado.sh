@@ -33,8 +33,8 @@ done
 mkdir -p "$DEST/doc/tex" "$DEST/doc/diagrams" "$DEST/prisma"
 
 # Fontes LaTeX (sem artefatos de build) e arquivos que o LaTeX lê do restante do repositório
-cp -u "$AQUI"/*.tex "$AQUI"/*.sty "$AQUI"/*.cls "$AQUI"/*.bib "$DEST/doc/tex/"
-for d in capitulos apendices figuras imgs; do
+cp -u "$AQUI"/*.tex "$AQUI"/*.sty "$AQUI"/*.bib "$DEST/doc/tex/"
+for d in capitulos apendices figuras; do
   mkdir -p "$DEST/doc/tex/$d"
   # Não copia artefatos de build (.aux etc.): o auto-build do editor os grava nestas pastas e,
   # se estiverem corrompidos, sobrescreveriam os da cópia e derrubariam a próxima compilação

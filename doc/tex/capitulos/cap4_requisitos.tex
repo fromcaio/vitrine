@@ -8,7 +8,7 @@
 %% ===================================================================================
 \chapter{Levantamento e Análise de Requisitos}\label{cap:requisitos}
 
-Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restrições. Os requisitos RF01 a RF04 foram definidos no relatório de IC \cite{reis2026ic}; os demais requisitos funcionais, os requisitos não funcionais e as regras de negócio foram derivados dos casos de uso, dos protótipos e dos objetivos (Seção~\ref{sec:objetivos-especificos}) durante a consolidação do monólito, e estão marcados com a sua origem. A especificação segue as recomendações de identificação única, verificabilidade e rastreabilidade da ISO/IEC/IEEE 29148 \cite{iso29148}.
+Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restrições. Os requisitos RF01 a RF04 foram definidos no relatório de IC \cite{reis2026ic}; os demais requisitos funcionais, os requisitos não funcionais e as regras de negócio foram derivados dos casos de uso, dos protótipos e dos objetivos (Seção~\ref{sec:objetivos-especificos}) durante a consolidação do monólito, e estão marcados com a sua origem. Todos os requisitos e regras deste capítulo, inclusive RF26 e RN15 a RN17, foram aprovados pelo Engenheiro Chefe e são oficiais. A especificação segue as recomendações de identificação única, verificabilidade e rastreabilidade da ISO/IEC/IEEE 29148 \cite{iso29148}.
 
 \section{Visão Geral do Produto}\label{sec:visao-produto}
 
@@ -18,7 +18,7 @@ Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restriçõ
 
 \textbf{Ambiente operacional.} Navegadores modernos no cliente; no servidor, uma VPS tradicional com Docker, volume persistente em disco local e, em produção, HTTPS (decisão \decisao{D-04}, \adr{ADR-011}).
 
-\textbf{Restrições.} (i) A pilha tecnológica é Next.js, Prisma, SQLite e better-auth; (ii) a interface é em português do Brasil; (iii) o código é aberto, com licença a definir (\decisao{D-02}); (iv) o prazo é o do TCC, o que exige priorização (\emph{risco} R10, Tabela~\ref{tab:riscos}).
+\textbf{Restrições.} (i) A pilha tecnológica é Next.js, Prisma, SQLite e better-auth; (ii) a interface é em português do Brasil; (iii) o código é aberto, sob licença MIT (\adr{ADR-015}); (iv) a capacidade de entrega do time é limitada, o que exige priorização (\emph{risco} R10, Tabela~\ref{tab:riscos}).
 
 \textbf{Premissas e dependências.} Assume-se a disponibilidade de uma VPS com Docker e armazenamento persistente local (\decisao{D-04}); a estabilidade das interfaces de programação das versões fixadas (Tabela~\ref{tab:stack}); e a existência de um único administrador na versão inicial (\decisao{D-13}).
 
@@ -39,7 +39,7 @@ Sistema & Ator secundário & Automação interna que dispara a invalidação do 
 \addlinespace
 Implantador & Parte interessada & Quem instala e opera o sistema --- em geral o próprio docente com apoio técnico ou um desenvolvedor. Interessa-se por simplicidade de instalação, configuração e \en{backup}.\\
 \addlinespace
-Orientador e banca & Parte interessada & Avaliam a qualidade técnica e científica do trabalho e a aderência aos objetivos.\\
+Engenheiro Chefe & Parte interessada & Autor e responsável pelo produto; decide o escopo e as questões de projeto e aprova as integrações e as regras de negócio.\\
 \addlinespace
 Agentes de desenvolvimento & Parte interessada & Dados, Core e UI; consomem esta especificação como contrato de implementação.\\
 \bottomrule
@@ -162,7 +162,7 @@ Os casos de uso com maior impacto sobre a arquitetura são especificados a segui
 
 \section{Requisitos Funcionais}\label{sec:rf}
 
-A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} indica se o requisito foi herdado do relatório de IC (``IC'') ou derivado neste trabalho a partir de casos de uso (UC), protótipos, objetivos (OE), regras (RN) ou decisões (D). A prioridade segue a escala \emph{Essencial}, \emph{Importante} e \emph{Desejável}. A coluna \emph{Agente} indica o responsável principal pela implementação; requisitos que atravessam domínios são coordenados pelo mural.
+A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} indica se o requisito foi herdado do relatório de IC (``IC'') ou derivado nesta especificação a partir de casos de uso (UC), protótipos, objetivos (OE), regras (RN) ou decisões (D). A prioridade segue a escala \emph{Essencial}, \emph{Importante} e \emph{Desejável}. A coluna \emph{Agente} indica o responsável principal pela implementação; requisitos que atravessam domínios são coordenados pelo mural.
 
 \begin{longtable}{@{}L{1.3cm}L{7.2cm}L{1.6cm}L{2.2cm}L{1.8cm}@{}}
 \caption{Requisitos funcionais}\label{tab:rf}\\
@@ -207,7 +207,7 @@ A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} ind
 
 \section{Requisitos Não Funcionais}\label{sec:rnf}
 
-Os requisitos não funcionais (Tabela~\ref{tab:rnf}) estão associados às características de qualidade da ISO/IEC 25010 \cite{iso25010}. As metas numéricas são propostas de trabalho, a serem confirmadas pelo orientador e verificadas no Capítulo~\ref{cap:testes}.
+Os requisitos não funcionais (Tabela~\ref{tab:rnf}) estão associados às características de qualidade da ISO/IEC 25010 \cite{iso25010}. As metas numéricas são as metas oficiais do produto e são verificadas no Capítulo~\ref{cap:testes}.
 
 \begin{longtable}{@{}L{1.4cm}L{7.6cm}L{2.7cm}L{1.9cm}@{}}
 \caption{Requisitos não funcionais}\label{tab:rnf}\\

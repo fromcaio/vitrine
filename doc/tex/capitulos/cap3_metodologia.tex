@@ -1,34 +1,18 @@
 %% ===================================================================================
-%% Capítulo 3 -- Metodologia
-%% Fontes: Relatório de IC (Cap. 3), CLAUDE.md, ARQUITETO.md, DESENVOLVEDORES.md.
-%% Dono: Arquiteto/Redator. Este capítulo descreve o processo; as regras operacionais
-%% vivem nos arquivos de governança na raiz do repositório e devem permanecer coerentes.
+%% Capítulo 3 -- Processo de Desenvolvimento e Ambiente
+%% Fontes: CLAUDE.md, ARQUITETO.md, DESENVOLVEDORES.md. Dono: Arquiteto/Redator.
+%% Este capítulo descreve o processo; as regras operacionais vivem nos arquivos de
+%% governança na raiz do repositório e devem permanecer coerentes.
 %% ===================================================================================
-\chapter{Metodologia}\label{cap:metodologia}
+\chapter{Processo de Desenvolvimento e Ambiente}\label{cap:metodologia}
 
-Este capítulo descreve como a pesquisa foi classificada e conduzida (Seções~\ref{sec:classificacao} a~\ref{sec:cronograma-ic}), como se planeja a consolidação do sistema (Seção~\ref{sec:planejamento-tcc}) e, principalmente, o processo de desenvolvimento orientado por documentação e executado por agentes especializados (Seção~\ref{sec:processo-ddd}). Encerra com o ambiente técnico (Seção~\ref{sec:ambiente}), a estratégia de verificação (Seção~\ref{sec:estrategia-vv}) e os riscos do projeto (Seção~\ref{sec:riscos}).
+Este capítulo descreve a abordagem e as etapas do desenvolvimento (Seção~\ref{sec:abordagem}), o planejamento por fases (Seção~\ref{sec:planejamento}) e, principalmente, o processo de desenvolvimento orientado por documentação e executado por agentes especializados (Seção~\ref{sec:processo-ddd}). Encerra com o ambiente técnico (Seção~\ref{sec:ambiente}), a estratégia de verificação (Seção~\ref{sec:estrategia-vv}) e os riscos do projeto (Seção~\ref{sec:riscos}).
 
-\section{Classificação da Pesquisa}\label{sec:classificacao}
+\section{Abordagem e Etapas do Desenvolvimento}\label{sec:abordagem}
 
-Quanto à \textbf{natureza}, a pesquisa é classificada como \emph{aplicada}, pois objetiva a criação de um artefato tecnológico --- um CMS --- destinado a resolver um problema prático: a presença digital autônoma de docentes e pesquisadores \cite{gil2017,marconi2017}. Quanto aos \textbf{objetivos}, possui caráter \emph{exploratório} e \emph{descritivo}: é exploratória na investigação de tecnologias como o \en{framework} Next.js e o paradigma Jamstack, e descritiva ao detalhar as etapas de modelagem, a arquitetura e os requisitos da solução \cite{reis2026ic}.
+O Vitrine é construído de forma iterativa e incremental \cite{sommerville2011}: cada incremento entrega uma fatia funcional de ponta a ponta --- da persistência no SQLite à renderização no \en{front-end} ---, verificada antes do incremento seguinte. A partir da consolidação do monólito, a especificação passa a ser escrita antes da implementação e atualizada após cada integração (Seção~\ref{sec:processo-ddd}).
 
-Quanto à \textbf{abordagem}, o trabalho é predominantemente qualitativo na fase de concepção e de projeto, e incorpora medições quantitativas na fase de verificação (desempenho, cobertura de requisitos e pontuação de usabilidade, Capítulo~\ref{cap:testes}).
-
-\vitrinependencia{Arquiteto}{Confirmar com o orientador a classificação quanto à abordagem (qualitativa e quantitativa) e se o enquadramento em Design Science deve ser explicitado. O relatório de IC declara apenas natureza aplicada e caráter exploratório-descritivo.}
-
-\section{Procedimentos Técnicos}\label{sec:procedimentos}
-
-Para a condução do estudo foram adotados os procedimentos a seguir.
-
-\begin{itemize}
-  \item \textbf{Revisão bibliográfica e tecnológica:} o foco recaiu sobre arquiteturas web, bancos de dados portáteis (SQLite) e padrões de interface de usuário, fornecendo o embasamento necessário às decisões arquiteturais (Capítulo~\ref{cap:fundamentacao});
-  \item \textbf{Desenvolvimento experimental e incremental:} o método baseia-se na construção de um protótipo funcional por meio de um processo iterativo e incremental \cite{sommerville2011}, o que permitiu validar de ponta a ponta as funcionalidades complexas a cada incremento;
-  \item \textbf{Documentação orientada ao desenvolvimento:} a partir da consolidação do monólito, a especificação passa a ser escrita antes da implementação e atualizada após cada integração (Seção~\ref{sec:processo-ddd}).
-\end{itemize}
-
-\section{Etapas do Desenvolvimento}\label{sec:etapas}
-
-O processo de construção do Vitrine foi estruturado em quatro macroetapas, fundamentadas nos processos clássicos de engenharia de \en{software} \cite{sommerville2011,pressman2021}:
+O processo percorre quatro macroetapas, fundamentadas nos processos clássicos de engenharia de \en{software} \cite{sommerville2011,pressman2021}:
 
 \begin{enumerate}
   \item \textbf{Levantamento de requisitos:} identificação das necessidades dos usuários --- professores e desenvolvedores --- e definição dos requisitos funcionais (RF) e não funcionais (RNF);
@@ -37,43 +21,9 @@ O processo de construção do Vitrine foi estruturado em quatro macroetapas, fun
   \item \textbf{Desenvolvimento incremental (\en{sprints}):} implementação do código-fonte com Next.js e Prisma ORM, da persistência no SQLite até a renderização no \en{front-end} e a configuração de cache (ISR).
 \end{enumerate}
 
-\section{Cronograma Realizado da Iniciação Científica}\label{sec:cronograma-ic}
+\section{Planejamento por Fases}\label{sec:planejamento}
 
-A Tabela~\ref{tab:cronograma-ic} reproduz o cronograma de execução registrado no relatório de IC, de setembro de 2025 a fevereiro de 2026, que evidencia a natureza incremental da implementação. O relatório original escreve as datas no formato mês/dia (por exemplo, ``Out/10''); aqui elas aparecem no formato dia/mês.
-
-\begin{table}[htb]
-\caption{Cronograma de execução da Iniciação Científica}\label{tab:cronograma-ic}
-\small
-\begin{tabularx}{\linewidth}{@{}L{2.6cm}YL{2.4cm}L{2.4cm}@{}}
-\toprule
-\textbf{Etapa} & \textbf{Atividade específica} & \textbf{Início} & \textbf{Término}\\
-\midrule
-\multirow{2}{*}{Concepção} & Levantamento de requisitos e escopo & 25/09/2025 & 10/10/2025\\
- & Revisão bibliográfica e tecnológica & 25/09/2025 & 10/10/2025\\
-\midrule
-\multirow{3}{*}{Modelagem} & Diagramas de casos de uso e ER & 10/10/2025 & 25/10/2025\\
- & Protótipos de baixa fidelidade (UI/UX) & 25/10/2025 & 05/11/2025\\
- & Definição da arquitetura e da \en{stack} & 25/10/2025 & 05/11/2025\\
-\midrule
-\multirow{3}{*}{Desenvolvimento} & \en{Setup} do ambiente e Auth.js & 05/11/2025 & 10/11/2025\\
- & Módulo de conteúdo e Markdown & 10/11/2025 & 10/02/2026\\
- & Módulo de personalização e ISR & 10/11/2025 & 10/02/2026\\
-\midrule
-\multirow{2}{*}{Finalização} & Escrita do relatório final e testes & 10/02/2026 & 26/02/2026\\
- & Entrega do relatório & 10/02/2026 & 26/02/2026\\
-\bottomrule
-\end{tabularx}
-\fonte{Adaptado de \citeonline{reis2026ic}, Tabela 1.}
-\end{table}
-
-\vitrinefigura[tipo=diagrama, arquivo=gantt-cronograma-ic, agente=Arquiteto, largura=0.95,
-  origem={doc/diagrams/src/gantt-cronograma-ic.puml},
-  descricao={Diagrama de Gantt do cronograma da IC (mesmos dados da Tabela~\ref{tab:cronograma-ic}).}]
-  {Diagrama de Gantt do cronograma da Iniciação Científica}{fig:gantt-cronograma-ic}
-
-\section{Planejamento da Consolidação do Monólito}\label{sec:planejamento-tcc}
-
-A consolidação do sistema em arquitetura monolítica documentada é organizada em fases sucessivas. Cada fase termina com a integração das ramificações correspondentes na \texttt{main}, a atualização da documentação e a revisão do estado dos módulos (Seção~\ref{sec:modulos}).
+A consolidação do sistema em arquitetura monolítica documentada é organizada em fases sucessivas. Cada fase termina com a integração das ramificações correspondentes na \texttt{main}, a atualização da documentação e a revisão do estado dos módulos (Seção~\ref{sec:modulos}). As fases não têm datas fixas neste documento: o avanço é registrado no mural de agentes e no Capítulo~\ref{cap:implementacao}.
 
 \begin{table}[htb]
 \caption{Fases planejadas da consolidação}\label{tab:fases}
@@ -94,13 +44,11 @@ F5 & Personalização & Identidade e paleta por variáveis CSS; revalidação de
 \addlinespace
 F6 & Verificação e validação & Testes automatizados, desempenho, segurança, acessibilidade e usabilidade & Todos\\
 \addlinespace
-F7 & Redação final & Consolidação dos capítulos de implementação, resultados e conclusões & \agente{Arquiteto}\\
+F7 & Consolidação da documentação & Relato de implementação por módulo e situação da verificação & \agente{Arquiteto}\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
 \end{table}
-
-\vitrinependencia{Arquiteto}{Definir com o orientador as datas de início e término de cada fase e a data de depósito/defesa do TCC; este planejamento ainda não tem datas.}
 
 \section{Processo de Desenvolvimento: Documentation-Driven Development com Agentes}\label{sec:processo-ddd}
 
@@ -158,7 +106,7 @@ Arquitetura, API, rotas e cache & \arq{doc/tex/capitulos/cap5_arquitetura.tex}; 
 \addlinespace
 Modelo de dados & Implementação: \arq{prisma/schema.prisma}; documentação: \arq{doc/diagrams/src/er-vitrine.dbml} e \arq{doc/tex/apendices/apendice_a_dicionario_dados.tex} & \agente{Dados} (código); \agente{Arquiteto} (documentação)\\
 \addlinespace
-Decisões de projeto & \arq{doc/tex/apendices/apendice_e_adr.tex} e \arq{apendice_f_decisoes_abertas.tex} & \agente{Arquiteto}\\
+Decisões de projeto & \arq{doc/tex/apendices/apendice_e_adr.tex} & \agente{Arquiteto}\\
 \addlinespace
 Estado de cada módulo & \arq{doc/tex/capitulos/cap6_implementacao.tex} e mapa de pendências (Apêndice~\ref{ap:pendencias}) & \agente{Arquiteto}\\
 \addlinespace
@@ -205,17 +153,15 @@ Se algum critério falha, o Arquiteto não realiza o \en{merge} e responde no mu
 
 \subsection{Rastreabilidade e Identificadores}\label{sec:rastreabilidade}
 
-Todos os artefatos usam identificadores estáveis: \texttt{UC} (casos de uso), \texttt{RF} e \texttt{RNF} (requisitos), \texttt{RN} (regras de negócio), \texttt{ADR} (decisões aceitas), \texttt{D} (decisões em aberto), \texttt{M} (módulos) e \texttt{CT} (casos de teste). A Seção~\ref{sec:matriz-rastreabilidade} relaciona requisitos, casos de uso e módulos, e o Capítulo~\ref{cap:testes} relaciona requisitos e casos de teste. As referências cruzadas no documento são hiperligações: clicar em \req{RF01} leva à definição do requisito.
+Todos os artefatos usam identificadores estáveis: \texttt{UC} (casos de uso), \texttt{RF} e \texttt{RNF} (requisitos), \texttt{RN} (regras de negócio), \texttt{ADR} (decisões aceitas) e \texttt{D} (identificadores das decisões iniciais, hoje todas registradas nas ADR), \texttt{M} (módulos) e \texttt{CT} (casos de teste). A Seção~\ref{sec:matriz-rastreabilidade} relaciona requisitos, casos de uso e módulos, e o Capítulo~\ref{cap:testes} relaciona requisitos e casos de teste. As referências cruzadas no documento são hiperligações: clicar em \req{RF01} leva à definição do requisito.
 
 \subsection{Convenções de Ramificações, \emph{Commits} e Idioma}
 
 As ramificações seguem o padrão \arq{tipo/dominio-tema} --- por exemplo, \arq{feat/dados-schema-inicial} ou \arq{fix/core-sessao-expirada} --- e as mensagens de \en{commit}, o padrão \en{Conventional Commits} \cite{conventionalcommits} em português, com os identificadores afetados em rodapé (por exemplo, \texttt{Refs: RF05, RN03}). Identificadores de código e nomes de arquivos são em inglês; comentários, textos de interface e documentação são em português do Brasil.
 
-\subsection{Uso de Agentes de Inteligência Artificial e Responsabilidade Autoral}\label{sec:ia-autoria}
+\subsection{Uso de Agentes de Inteligência Artificial e Responsabilidade}\label{sec:ia-autoria}
 
-Os agentes de inteligência artificial são ferramentas de apoio sob supervisão: não possuem autoria. O autor do trabalho é responsável pela revisão do conteúdo e do código que integra o produto final, pela veracidade das referências e pelo atendimento às normas da instituição. O registro completo das interações relevantes --- pedidos, vetos e decisões --- é preservado no histórico do Git, o que permite auditar como cada parte do sistema foi produzida.
-
-\vitrinependencia{Arquiteto}{Confirmar com o orientador e com as normas da UFSJ a forma de declarar o uso de agentes de IA no TCC (seção de metodologia, declaração nos elementos pré-textuais ou ambos).}
+Os agentes de inteligência artificial são ferramentas de apoio sob supervisão humana: não assumem responsabilidade pelo produto. O Engenheiro Chefe (autor do projeto) é o responsável pela revisão do código e da documentação que integram o produto, pelas decisões de projeto e pela veracidade das referências. O registro das interações relevantes --- pedidos, vetos e decisões --- é preservado no histórico do Git, o que permite auditar como cada parte do sistema foi produzida.
 
 \section{Ambiente e Ferramentas}\label{sec:ambiente}
 
@@ -280,7 +226,7 @@ R06 & Cores escolhidas com contraste insuficiente & M & M & Aviso de contraste n
 R07 & Limite de concorrência de escrita do SQLite & B & M & Modo WAL; poucas escritas; transações curtas\\
 R08 & Agentes introduzem código fora do escopo ou sem testes & M & M & Domínios com dono; critérios de aceite; veto fundamentado no mural\\
 R09 & Perda de dados por exclusão em cascata acidental & M & A & Confirmação explícita; rotina de \en{backup} documentada (Apêndice~\ref{ap:implantacao})\\
-R10 & Escopo maior do que o prazo do TCC comporta & M & A & Priorização Essencial, Importante e Desejável; fases com entregas incrementais\\
+R10 & Escopo maior do que a capacidade de entrega do time & M & A & Priorização Essencial, Importante e Desejável; fases com entregas incrementais\\
 R11 & Vazamento de rascunhos (\texttt{DRAFT}) por consulta pública sem filtro de estado, na página, na \en{sidebar}, na geração estática ou no mapa do site & M & A & Regra RN15; filtro centralizado em \arq{db.js}; caso de teste CT31; revisão de todo \en{endpoint} ou página nova\\
 R12 & Perda do volume do SQLite na VPS (falha de disco ou do provedor) & M & A & Rotina de cópia de segurança com \texttt{VACUUM INTO} e cópias fora da VPS (Apêndice~\ref{ap:implantacao}); teste de restauração (CT30)\\
 \end{longtable}

@@ -48,7 +48,7 @@ pendentes:
 	  | sort -k2,2 -k1,1 || true
 	@echo ""
 	@echo "Avisos de texto no codigo-fonte (grep por agente):"
-	@grep -rn --include=*.tex "vitrinependencia{$(AGENTE)" capitulos apendices pretextual_elements.tex 2>/dev/null \
+	@grep -rn --include=*.tex "vitrinependencia{$(AGENTE)" capitulos apendices 2>/dev/null \
 	  | sed -E 's/\\vitrinependencia\{([^}]*)\}\{(.{0,110}).*/[\1] \2.../' || true
 
 clean:

@@ -1,7 +1,7 @@
 # Documentação oficial do Vitrine (LaTeX) — `doc/tex`
 
-Esta pasta contém a **Fonte da Verdade** textual do projeto: um TCC em LaTeX (classe
-`abntex2`, normas ABNT) que especifica requisitos, arquitetura, modelo de dados, API e
+Esta pasta contém a **Fonte da Verdade** textual do projeto: o Documento de Arquitetura e Requisitos de Software em LaTeX (classe
+`abntex2` como layout) que especifica requisitos, arquitetura, modelo de dados, API e
 decisões do Vitrine. Ela é escrita *antes* do código e atualizada *depois* de cada merge
 (metodologia *Documentation-Driven Development*; veja `CLAUDE.md`, `ARQUITETO.md` e
 `DESENVOLVEDORES.md` na raiz do repositório).
@@ -15,24 +15,21 @@ decisões do Vitrine. Ela é escrita *antes* do código e atualizada *depois* de
 
 | Caminho | Conteúdo |
 |---|---|
-| `main.tex` | Raiz do documento: metadados, ordem dos capítulos e apêndices |
+| `main.tex` | Raiz do documento: capa, metadados, ordem dos capítulos e apêndices |
 | `vitrine.sty` | Macros do projeto: figuras com *placeholder*, pendências por agente, selos de status, listagens |
-| `undergrad_thesis.cls` | Classe do template (capa e folha de rosto sobre `abntex2`) |
-| `pretextual_elements.tex` | Folha de aprovação, dedicatória, agradecimentos, epígrafe, resumo, abstract |
 | `acronyms.tex` | Lista de siglas |
 | `references.bib` | Bibliografia (somente fontes reais e verificadas) |
-| `capitulos/cap1_introducao.tex` … `cap9_consideracoes_finais.tex` | Capítulos |
-| `apendices/apendice_a_…` … `apendice_h_…` | Dicionário de dados, schema, fontes de diagramas, implantação (Docker), ADRs, decisões abertas e resolvidas, mapa de pendências (gerado), glossário |
+| `capitulos/cap1_introducao.tex` … `cap8_resultados.tex` | Capítulos |
+| `apendices/apendice_a_…` … `apendice_g_…` | Dicionário de dados, schema, fontes de diagramas, implantação (Docker), ADRs (todas as decisões), mapa de pendências (gerado), glossário |
 | `figuras/telas/` | Capturas de tela do sistema (PNG) — **substituem placeholders** |
 | `figuras/diagramas/` | Diagramas renderizados a partir de `doc/diagrams/src/` (PNG) |
 | `figuras/testes/` | Evidências de testes (Lighthouse, terminal, etc.) |
 | `figuras/ic/` | Figuras extraídas do relatório de IC (protótipos e diagramas originais) |
-| `imgs/` | Logotipo da instituição (capa) |
 | `Makefile`, `build-isolado.sh` | Compilação, listagem de pendências, limpeza |
 
 Capítulos principais para quem desenvolve: **Cap. 4** (requisitos, regras e casos de uso),
 **Cap. 5** (arquitetura, modelo de dados, API, cache, segurança), **Cap. 6** (módulos, estado
-e critérios de aceite de cada um) e **Apêndice F** (decisões em aberto).
+e critérios de aceite de cada um) e **Apêndice E** (ADRs, com todas as decisões de projeto).
 
 ## 2. Como compilar
 
@@ -78,7 +75,7 @@ Latin-1/acentos comuns (o motor é `pdflatex`): para `≤` escreva `$\leq$`.
 |---|---|
 | `\vitrinefigura[opções]{Legenda}{fig:id}` | Figura com **placeholder automático** (veja §4) |
 | `\vitrinecodigo[linerange={a-b}]{Agente}{caminho/no/repo}{Linguagem}{Legenda}` | Inclui um trecho do repositório; até existir, mostra "CÓDIGO PENDENTE" |
-| `\vitrinependencia{Agente}{texto}` | Aviso de redação pendente endereçado a um agente (aparece no Apêndice G) |
+| `\vitrinependencia{Agente}{texto}` | Aviso de redação pendente endereçado a um agente (aparece no Apêndice F) |
 | `\statusmodulo{planejado\|andamento\|implementado}` | Selo de status de módulo (Cap. 6) |
 | `\req{RF01}` / `\reqtarget{RF01}` | Referência com hiperlink / definição do requisito (idem `\decisao{D-01}`, `\adr{ADR-001}`) |
 | `\reqrow{ID}{Título}{Descrição}{Prior.}{Origem}{Agente}` | Linha padrão da tabela de requisitos |
@@ -112,7 +109,7 @@ Para **substituir**:
    (`.pdf`, `.jpg` e `.jpeg` também são aceitos). Tipos → pastas: `tela` → `telas/`,
    `diagrama` → `diagramas/`, `teste` → `testes/`, `ic` → `ic/`;
 2. **não edite o `.tex`**. Na próxima compilação, a caixa dá lugar à imagem e o item sai do
-   Apêndice G. Se a imagem exigir legenda ou largura diferentes, peça ao Arquiteto pelo mural.
+   Apêndice F. Se a imagem exigir legenda ou largura diferentes, peça ao Arquiteto pelo mural.
 
 Padrões das imagens: PNG; telas capturadas com janela de 1280 px de largura (ou mais), tema
 claro, dados de demonstração realistas (sem e-mails, tokens ou dados pessoais reais);
@@ -129,10 +126,10 @@ alterar o `main.tex`; no modo isolado: `build-isolado.sh --final`) ou troque par
 pendências somem e **figura/código ausente vira erro de compilação**, impedindo entregar
 com lacunas. O `make final` é esperado **falhar** enquanto houver placeholders.
 
-## 5. Sobre o template
+## 5. Base do documento
 
-Baseado em [`latex-academic-thesis`](https://github.com/fromcaio/latex-academic-thesis)
-(abntex2). Diferenças intencionais: `minted` foi substituído por `listings` (sem Python nem
-`-shell-escape`); capítulos em português (`cap1_…`) em `capitulos/`; apêndices em
-`apendices/`; `vitrine.sty` adicionado. A classe `undergrad_thesis.cls` permanece como no
-template.
+A classe `abntex2` é usada apenas pelo *layout* (sumário, listas, apêndices e bibliografia); o
+documento não segue o formato de trabalho acadêmico. Diferenças em relação ao modelo original:
+`minted` foi substituído por `listings` (sem Python nem `-shell-escape`); capítulos em português
+(`cap1_…`) em `capitulos/`; apêndices em `apendices/`; `vitrine.sty` adicionado. A decisão está
+registrada na ADR-016 (`apendices/apendice_e_adr.tex`).

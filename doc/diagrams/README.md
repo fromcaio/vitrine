@@ -30,9 +30,8 @@ O nome do arquivo de origem é **igual** ao nome do arquivo de imagem esperado p
 | `seq-reordenacao-arvore.puml`  | Sequência | `fig:seq-reordenacao-arvore` | Cap. 5                       |
 | `nav-mapa-do-site.puml`        | Mapa mental | `fig:nav-mapa-do-site`    | Cap. 5                        |
 | `impl-implantacao.puml`        | Implantação | `fig:impl-implantacao`    | Cap. 5 e Apêndice D           |
-| `fluxo-ddd-agentes.puml`       | Atividade | `fig:fluxo-ddd-agentes`     | Cap. 3 (Metodologia)          |
+| `fluxo-ddd-agentes.puml`       | Atividade | `fig:fluxo-ddd-agentes`     | Cap. 3 (Processo)             |
 | `fluxo-git-mural.puml`         | Sequência | `fig:fluxo-git-mural`       | Cap. 3                        |
-| `gantt-cronograma-ic.puml`     | Gantt     | `fig:gantt-cronograma-ic`   | Cap. 3                        |
 
 ## Como renderizar
 
@@ -72,7 +71,7 @@ Alternativa sem Java: a extensão *PlantUML* do VS Code (exporte como PNG para a
 ### Depois de renderizar
 
 Compile o LaTeX (`doc/tex`, `make pdf`). Onde havia uma caixa **FIGURA PENDENTE**, a imagem
-passa a aparecer sozinha — nenhuma edição de `.tex` é necessária. Confira o **Apêndice G
+passa a aparecer sozinha — nenhuma edição de `.tex` é necessária. Confira o **Apêndice F
 (Mapa de pendências)** do PDF.
 
 ## Convenções

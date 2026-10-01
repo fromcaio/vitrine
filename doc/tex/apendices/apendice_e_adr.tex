@@ -1,13 +1,15 @@
 %% ===================================================================================
 %% Apêndice E -- Registros de Decisão Arquitetural (ADR)
 %% Formato: Nygard (2011). Uma decisão aceita só muda por uma NOVA ADR que a substitui
-%% (status "Substituída por ADR-0xx"); nunca se apaga uma ADR. Questões ainda abertas
-%% ficam no Apêndice F. Dono: Arquiteto/Redator.
+%% (status "Substituída por ADR-0xx"); nunca se apaga uma ADR. Não há mais registro de
+%% decisões em aberto: as decisões iniciais D-xx constam nas ADR (âncoras
+%% \decisaotarget{D-xx}, que NÃO devem ser removidas: os capítulos citam \decisao{D-xx}).
+%% Dono: Arquiteto/Redator.
 %% ===================================================================================
 \chapter{Registros de Decisão Arquitetural}\label{ap:adr}
 \begingroup\small
 
-Este apêndice reúne as decisões arquiteturais aceitas, no formato de \en{Architecture Decision Records} \cite{nygard2011adr}: contexto, decisão, consequências e alternativas. Uma decisão só é alterada por uma nova ADR que a substitua; as questões ainda não decididas estão no Apêndice~\ref{ap:decisoes}.
+Este apêndice reúne as decisões de projeto aceitas, no formato de \en{Architecture Decision Records} \cite{nygard2011adr}: contexto, decisão, consequências e alternativas. Uma decisão só é alterada por uma nova ADR que a substitua. Os identificadores D-01 a D-19 designam as questões levantadas no início do projeto; todas estão resolvidas e cada uma consta em uma ADR (D-01 e D-02 na ADR-015; D-03, D-05 a D-08, D-10 a D-14, D-16 e D-17 na ADR-017; D-04, D-09, D-15 e D-19 nas ADR-011, ADR-014, ADR-012 e ADR-013; D-18 na ADR-016).
 
 \adrentry{ADR-001}{Monólito modular com Next.js (App Router)}{Aceita.}
 {O Vitrine é um sistema de um único \en{tenant}, com tráfego moderado, implantado pelo próprio docente; a equipe é pequena e há agentes de desenvolvimento em paralelo. O requisito de implantação simples (\req{RNF01}) e o baixo custo operacional são prioritários.}
@@ -31,7 +33,7 @@ Este apêndice reúne as decisões arquiteturais aceitas, no formato de \en{Arch
 {O relatório de IC previu o Auth.js \cite{reis2026ic}. Na consolidação do monólito, o repositório adotou o better-auth: a dependência está declarada, o esquema de dados contém as tabelas \texttt{user}, \texttt{session}, \texttt{account} e \texttt{verification} no formato do better-auth, e o pacote instalado oferece adaptador para Prisma e integração com Next.js.}
 {Adotar o better-auth 1.7.x com adaptador do Prisma, autenticação por e-mail e senha, sessões persistidas em banco e cadastro público desabilitado após o \en{bootstrap}.}
 {Positivas: esquema alinhado ao que já existe; integração com Next.js; \en{plugins} para evolução (papéis, autenticação de dois fatores). Negativas: biblioteca mais recente, exigindo acompanhar mudanças de API; todas as menções ao Auth.js do relatório de IC passam a ser históricas.}
-{Auth.js (prevista na IC); implementação própria, descartada pelo risco de segurança. \textbf{Motivação original a confirmar com o autor}: esta ADR registra o estado do repositório e justificativas técnicas verificáveis; a motivação da troca deve ser completada pelo autor.}
+{Auth.js (prevista na IC); implementação própria, descartada pelo risco de segurança. Esta ADR registra o estado do repositório e justificativas técnicas verificáveis.}
 
 \adrentry{ADR-005}{ISR com revalidação sob demanda}{Aceita.}
 {As páginas públicas precisam de desempenho de página estática (\req{RNF02}) sem exigir novo \en{build} a cada alteração de conteúdo ou de tema (OE3).}
@@ -48,7 +50,7 @@ Este apêndice reúne as decisões arquiteturais aceitas, no formato de \en{Arch
 \adrentry{ADR-007}{Tematização por variáveis CSS e Tailwind CSS 4}{Aceita.}
 {A personalização visual deve refletir-se sem novo \en{build} (OE3).}
 {Mapear tokens do Tailwind para variáveis CSS (\texttt{@theme inline}) e definir os valores no atributo \texttt{style} do elemento raiz, a partir da configuração do banco; validar cores como \texttt{\#RRGGBB}.}
-{Positivas: mudança de tema sem recompilar CSS; baixa complexidade. Negativas: exige disciplina para usar sempre os tokens; convivência com o modo escuro é uma questão em aberto (\decisao{D-17}) \cite{tailwinddocs,mdncssvars}.}
+{Positivas: mudança de tema sem recompilar CSS; baixa complexidade. Negativas: exige disciplina para usar sempre os tokens; a convivência com o modo escuro foi decidida na \adr{ADR-017} (\decisao{D-17}: sem modo escuro automático) \cite{tailwinddocs,mdncssvars}.}
 {CSS-in-JS em tempo de execução; gerar CSS no \en{build} (exigiria recompilar); temas fixos predefinidos.}
 
 \adrentry{ADR-008}{JavaScript com JSDoc, sem TypeScript}{Aceita.}
@@ -58,40 +60,88 @@ Este apêndice reúne as decisões arquiteturais aceitas, no formato de \en{Arch
 {TypeScript desde já.}
 
 \adrentry{ADR-009}{Documentation-Driven Development com \LaTeX{} e diagramas como código}{Aceita.}
-{O desenvolvimento por agentes em paralelo exige um contrato único e versionado; o trabalho é um TCC e a documentação também é o produto acadêmico.}
-{Manter a documentação oficial em \arq{doc/tex} (\LaTeX{}, base abntex2) e os diagramas em \arq{doc/diagrams/src} (PlantUML e DBML), com um único redator (Arquiteto), figuras com \en{placeholder} automático e mapa de pendências.}
-{Positivas: documentação revisável como código e pronta para a entrega; coerência entre agentes. Negativas: custo de redação e de manutenção pelo Arquiteto; dependência de ferramentas de composição e de renderização \cite{parnas1986rational,writethedocs}.}
+{O desenvolvimento por agentes em paralelo exige um contrato único e versionado, mantido junto ao código.}
+{Manter a documentação oficial em \arq{doc/tex} (\LaTeX{}, base abntex2) e os diagramas em \arq{doc/diagrams/src} (PlantUML e DBML), com um único redator (Arquiteto), figuras com \en{placeholder} automático e mapa de pendências. O formato da documentação é definido pela \adr{ADR-016}.}
+{Positivas: documentação revisável como código; coerência entre agentes. Negativas: custo de redação e de manutenção pelo Arquiteto; dependência de ferramentas de composição e de renderização \cite{parnas1986rational,writethedocs}.}
 {Documentação em \en{wiki} ou Markdown solto; documentos de texto proprietários; documentar só ao final.}
 
 \adrentry{ADR-010}{Fluxo Git por domínios com mural na \texttt{main}}{Aceita.}
-{Vários agentes trabalham simultaneamente e precisam de um canal de coordenação e de um ponto único de integração. O repositório não possui, atualmente, um remoto configurado.}
+{Vários agentes trabalham simultaneamente e precisam de um canal de coordenação e de um ponto único de integração. O repositório tem um remoto (\texttt{origin}), mas a revisão e a integração ocorrem localmente, pelo Arquiteto.}
 {Desenvolver apenas em ramificações por domínio; proibir código na \texttt{main}; usar \arq{MURAL_DE_AGENTES.md}, editado somente na \texttt{main}, como canal de pedidos de integração e de comunicação; o Arquiteto revisa, integra ou veta.}
 {Positivas: rastreabilidade no histórico do Git; conflitos de comunicação evitados; integração controlada. Negativas: o Arquiteto é ponto único de revisão; trocar de ramificação exige árvore de trabalho limpa \cite{chacon2014progit,conventionalcommits}.}
-{Pedidos de integração em plataforma Git hospedada (sem remoto hoje); trabalho direto na \texttt{main}.}
+{Pedidos de integração em plataforma Git hospedada (a avaliar se o fluxo passar a usar o remoto); trabalho direto na \texttt{main}.}
 
-\adrentry{ADR-011}{Implantação por imagem Docker em VPS tradicional, com volume persistente}{Aceita (decisão do Engenheiro Chefe em 30/09/2026, pedido P-001; resolve \decisao{D-04}).}
+\adrentry{ADR-011}{Implantação por imagem Docker em VPS tradicional, com volume persistente}{Aceita (decisão do Engenheiro Chefe em 30/09/2026, pedido P-001; resolve \decisaotarget{D-04}).}
 {O SQLite exige disco persistente (\adr{ADR-002}), e o sistema de arquivos de plataformas \emph{serverless} é efêmero (risco R01); o relatório de IC citava a Vercel como exemplo de implantação \cite{reis2026ic}. O Implantador é, em geral, o próprio docente com apoio técnico, e a ISR exige \en{runtime} Node.js e instância única (\adr{ADR-005}).}
 {Distribuir o Vitrine como \textbf{imagem Docker} executada em uma \textbf{VPS tradicional} (Linux com Docker Engine). O arquivo SQLite reside em um \textbf{volume persistente} montado no contêiner (por exemplo, em \arq{/data}); executa-se uma única instância; um \en{proxy} reverso fornece TLS; os segredos entram por variáveis de ambiente, fora da imagem; as cópias de segurança usam \texttt{VACUUM INTO}. Plataformas \emph{serverless} não são alvo desta versão.}
 {Positivas: persistência garantida do banco; ambiente reprodutível e documentável por \texttt{Dockerfile} e \texttt{docker-compose.yml}; coerência com a ISR e com o modelo de instância única \cite{dockerdocs}. Negativas: exige uma VPS e noções básicas de Docker pelo Implantador (o requisito \req{RNF01} é preservado por poucos comandos de \en{compose}); o módulo nativo \arq{better-sqlite3} precisa ser instalado no \en{build} da imagem; o volume e as cópias de segurança são responsabilidade do operador; a CLI do Prisma (hoje em \texttt{devDependencies}) é necessária para aplicar migrações, o que deve ser resolvido no módulo M13.}
 {Plataformas \emph{serverless} (Vercel) com banco remoto compatível com SQLite, como libSQL/Turso (descartada nesta versão: troca do \en{driver}, serviço externo e maior complexidade); PaaS com disco persistente; instalação direta com Node.js sem contêiner (continua possível, mas não é o alvo documentado).}
 
-\adrentry{ADR-012}{Estado de publicação do conteúdo: DRAFT e PUBLISHED, com padrão PUBLISHED}{Aceita (decisão do Engenheiro Chefe em 30/09/2026; resolve \decisao{D-15}; integrada pelo merge M-001).}
+\adrentry{ADR-012}{Estado de publicação do conteúdo: DRAFT e PUBLISHED, com padrão PUBLISHED}{Aceita (decisão do Engenheiro Chefe em 30/09/2026; resolve \decisaotarget{D-15}; integrada pelo merge M-001; RF26 e RN15 a RN17 aprovados em 01/10/2026).}
 {Os protótipos da IC trazem o comando ``Enviar nova versão'' e a possibilidade de preparar conteúdo antes de exibi-lo. A recomendação inicial do Arquiteto era a publicação imediata, com rascunho apenas local no navegador (\req{RF15}).}
 {Adicionar o campo \texttt{Content.status}, do tipo enumerado \texttt{ContentStatus} (\texttt{DRAFT} ou \texttt{PUBLISHED}), com padrão \texttt{PUBLISHED}. Um conteúdo é visível ao público somente se ele e todos os seus ancestrais estiverem publicados (regra RN15). A API aceita e devolve o estado; alterá-lo é uma mudança estrutural para efeito de revalidação (RN10 e RN16). O histórico de versões continua fora do escopo.}
 {Positivas: permite preparar e revisar conteúdo no servidor sem expô-lo. Negativas: toda leitura pública deve filtrar por estado (risco de vazamento de rascunhos, coberto pelo caso de teste CT31); a geração estática e o mapa do site devem excluir rascunhos; como o padrão é \texttt{PUBLISHED}, um conteúdo criado sem escolha explícita fica público, e a interface deve tornar o estado visível; o SQLite não impõe o enumerado no banco, que é validado pelo Prisma e pela aplicação.}
 {Publicação imediata sem campo de estado (recomendação inicial); estado mais tabela de versões (descartada por exceder o escopo).}
 
-\adrentry{ADR-013}{Links sociais do rodapé como campos individuais opcionais}{Aceita (decisão do Engenheiro Chefe em 30/09/2026; resolve \decisao{D-19}; integrada pelo merge M-001).}
+\adrentry{ADR-013}{Links sociais do rodapé como campos individuais opcionais}{Aceita (decisão do Engenheiro Chefe em 30/09/2026; resolve \decisaotarget{D-19}; integrada pelo merge M-001).}
 {O rodapé dos protótipos exibe ícones de redes sociais, mas o esquema original não previa onde guardar os endereços. A recomendação inicial era um único campo de texto em Markdown.}
 {Acrescentar a \texttt{Configuration} seis campos opcionais e independentes: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}. Apenas URLs absolutas com protocolo \texttt{http} ou \texttt{https} são aceitas (RN17); campo vazio significa ícone omitido. O texto de direitos do rodapé é gerado a partir do nome do site e do ano corrente, sem campo próprio nesta versão.}
 {Positivas: formulário simples e validável por campo; ícones padronizados; ausência de Markdown arbitrário no rodapé, o que reduz a superfície de ataque. Negativas: a lista de redes é fixa, e incluir outra rede exige migração e ajuste da interface.}
 {Campo único em Markdown (recomendação inicial); campo JSON com a lista de links; tabela de links extensível (descartada por excesso de estrutura para a versão inicial).}
 
-\adrentry{ADR-014}{Driver adapter better-sqlite3 e conformidade com o Prisma 7}{Aceita (proposta pelo agente Dados no pedido M-001 e aprovada pelo Arquiteto em 30/09/2026; resolve \decisao{D-09}, itens 1 a 5).}
+\adrentry{ADR-014}{Driver adapter better-sqlite3 e conformidade com o Prisma 7}{Aceita (proposta pelo agente Dados no pedido M-001 e aprovada pelo Arquiteto em 30/09/2026; resolve \decisaotarget{D-09}, itens 1 a 5).}
 {O Prisma 7 exige configuração da CLI em \arq{prisma.config.ts}, o gerador \texttt{prisma-client} e um \en{driver adapter} para o SQLite; a configuração inicial do repositório seguia práticas do Prisma 6 e declarava o pacote \arq{sqlite3}, que não é adaptador do Prisma. Com a implantação em VPS (\adr{ADR-011}), não há necessidade de banco remoto.}
 {Adotar o adaptador \arq{@prisma/adapter-better-sqlite3} com o \arq{better-sqlite3} (série 12, em \texttt{dependencies}); renomear a configuração para \arq{prisma.config.ts}; usar o gerador \texttt{prisma-client} com saída em \arq{src/generated/prisma} (não versionada); retirar a URL do \texttt{datasource} do esquema; declarar o \arq{dotenv} em \texttt{devDependencies} para a CLI; mover \arq{@prisma/client} para \texttt{dependencies}; remover o \arq{sqlite3}.}
 {Positivas: acesso direto ao arquivo SQLite, sem rede, coerente com a implantação em contêiner. Negativas: \arq{better-sqlite3} é módulo nativo (o \en{script} de instalação precisa ser permitido em \texttt{allowScripts}, e o \en{build} da imagem precisa de ferramentas de compilação ou binários pré-compilados); o cliente gerado é escrito em TypeScript dentro de um projeto JavaScript, e sua compilação pelo Next.js deve ser validada ao implementar o \arq{db.js}; \arq{prisma} e \arq{dotenv} permanecem em \texttt{devDependencies}, o que afeta a aplicação de migrações na imagem de produção (módulo M13).}
 {\arq{@prisma/adapter-libsql} com \arq{@libsql/client} (banco remoto ou \en{edge}; mantido como via futura, não adotada pela \adr{ADR-011}); o pacote \arq{sqlite3} (não é adaptador do Prisma).}
+
+\adrentry{ADR-015}{Nome Vitrine e licença MIT}{Aceita (nome: decisão do Engenheiro Chefe em 30/09/2026, \decisaotarget{D-01}; licença: decisão do Engenheiro Chefe em 01/10/2026, \decisaotarget{D-02}).}
+{O nome do projeto era usado de forma inconsistente nos comentários do esquema inicial (``Vitreo''), e a licença do código não estava definida; sem uma licença, terceiros não têm permissão clara de uso, modificação e redistribuição, o que contradiz o objetivo de ser um projeto de código aberto.}
+{O nome oficial e definitivo é \textbf{Vitrine}; ``Vitreo'' deixa de ser usado, salvo no arquivo histórico \arq{doc/ref/er.dbml}. O código é licenciado sob a \textbf{licença MIT}, cujo texto consta do arquivo \arq{LICENSE} na raiz do repositório, com o detentor dos direitos Caio Augusto Silva dos Reis (2026); o texto da licença cobre o \en{software} e os arquivos de documentação associados. O campo \texttt{license} do \arq{package.json} deve declarar \texttt{MIT}.}
+{Positivas: licença permissiva e conhecida, que facilita a adoção por docentes e instituições e a reutilização do código. Negativas: sem proteção de \en{copyleft}, qualquer pessoa pode distribuir derivados fechados; o aviso de direitos e o texto da licença devem acompanhar as cópias; as dependências mantêm as suas próprias licenças, que devem ser verificadas na aprovação de cada nova dependência.}
+{Apache-2.0 (inclui concessão explícita de patentes, mais extensa); GPL-3.0 e AGPL-3.0 (\en{copyleft}, restringem o uso por quem quer incorporar o Vitrine a produtos fechados). Preferiu-se a licença mais simples e permissiva.}
+
+\adrentry{ADR-016}{Documento de Arquitetura e Requisitos de Software, sem formato acadêmico}{Aceita (decisão do Engenheiro Chefe em 01/10/2026; resolve \decisaotarget{D-18}).}
+{A documentação nasceu como esqueleto de um trabalho de conclusão de curso, com elementos pré-textuais acadêmicos (folha de aprovação, dedicatória, agradecimentos, epígrafe, resumo), dados de orientador e banca, capítulos de método de pesquisa, resultados da Iniciação Científica e conclusões. O Engenheiro Chefe fez o \en{backup} do trabalho acadêmico e quer a documentação a serviço do produto e dos agentes de desenvolvimento.}
+{Reduzir a documentação a um \textbf{Documento de Arquitetura e Requisitos de Software}: remover a capa e a folha de rosto institucionais, a folha de aprovação, a dedicatória, os agradecimentos, a epígrafe, o resumo e o \en{abstract}, os dados de orientador e banca, o logotipo e a classe de modelo da instituição, a classificação da pesquisa, o cronograma da IC, os resultados e a discussão acadêmica, as ameaças à validade e o capítulo de considerações finais. Mantêm-se os capítulos técnicos, as listas de figuras e tabelas, a lista de siglas, os apêndices e a bibliografia; a classe \texttt{abntex2} permanece apenas como \en{layout}. Os dados do trabalho acadêmico (título, orientador, banca e datas) deixam de ser necessários, o que encerra a pendência D-18. O registro de decisões em aberto foi removido: todas as decisões constam nestas ADR.}
+{Positivas: foco no que os agentes consomem; menos texto a manter e menos pendências sem dono. Negativas: o conteúdo acadêmico removido só pode ser recuperado no histórico do Git (versões anteriores a esta ADR) ou no \en{backup} do Engenheiro Chefe; o relatório de IC permanece como referência histórica em \arq{doc/ref/}.}
+{Manter o formato de TCC (descartada); manter dois documentos, um acadêmico e outro de arquitetura (descartada pelo custo de manter duas fontes da verdade).}
+
+\section{ADR-017 --- Decisões técnicas com valor padrão adotado}\hypertarget{adr:ADR-017}{}
+\noindent\textbf{Status:} Aceita (decisão do Engenheiro Chefe em 01/10/2026, ao encerrar o registro de decisões em aberto). Resolve as questões D-03, D-05, D-06, D-07, D-08, D-10, D-11, D-12, D-13, D-14, D-16 e D-17.\par\smallskip
+\noindent\textbf{Contexto.} Além das decisões do Engenheiro Chefe (ADR-011 a ADR-016), o registro de decisões em aberto trazia questões técnicas, cada uma com opções, uma recomendação inicial do Arquiteto e um agente responsável. O Engenheiro Chefe determinou que nenhuma decisão permaneça aberta.\par\smallskip
+\noindent\textbf{Decisão.} Adotar, para cada questão da Tabela~\ref{tab:adr017}, o valor padrão indicado, que corresponde à recomendação inicial do Arquiteto. O agente responsável implementa o valor padrão; se precisar de outro, abre um \texttt{[RFC]} no mural com a justificativa, e a mudança só vale depois de uma nova ADR que substitua esta.\par\medskip
+
+\begingroup
+\begin{longtable}{@{}L{1.1cm}L{3.2cm}L{8.4cm}L{1.7cm}@{}}
+\caption{Valores padrão adotados para as questões técnicas}\label{tab:adr017}\\
+\toprule
+\textbf{ID} & \textbf{Questão} & \textbf{Valor padrão adotado} & \textbf{Responsável}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Questão} & \textbf{Valor padrão adotado} & \textbf{Responsável}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\decisaotarget{D-03} & \en{Bootstrap} do administrador & Comando ou \en{script} explícito na instalação (por exemplo, o \en{seed}), com as credenciais informadas por variáveis de ambiente, e cadastro público desabilitado; sem página aberta de primeiro acesso, pelo risco de sequestro da instalação. O mecanismo exato é proposto pelo Core por \texttt{[RFC]}. & Core\\[1pt]
+\decisaotarget{D-05} & Unicidade de \en{slug} e \en{slugs} reservados & Validação na aplicação e índice no banco: índice único composto (\texttt{parentId}, \texttt{slug}) mais o tratamento da raiz, pois o SQLite trata valores nulos como distintos; reservados: \texttt{admin}, \texttt{api}, \texttt{login} e \arq{_next}. & Dados\\[1pt]
+\decisaotarget{D-06} & Resolução de caminhos & Calculada em memória a partir da árvore (Código~\ref{lst:algoritmo-arvore}); reavaliar se o volume de conteúdo crescer. & Dados\\[1pt]
+\decisaotarget{D-07} & Realce de sintaxe & Solução que realce no servidor, sem JavaScript adicional no cliente (\arq{rehype-highlight}, \arq{rehype-prism} ou Shiki, por exemplo via \arq{rehype-pretty-code}); a UI escolhe e justifica no pedido, avaliando temas e tamanho. & UI\\[1pt]
+\decisaotarget{D-08} & Markdown estendido & Adicionar \arq{remark-gfm} para tabelas, tachado e listas de tarefas (\req{RF11}). & UI\\[1pt]
+\decisaotarget{D-10} & Logotipo e \en{favicon} & URL externa ou arquivo em \arq{public/}, sem envio (\en{upload}) nesta versão. & Core e UI\\[1pt]
+\decisaotarget{D-11} & Validação de entrada & Zod como dependência direta. & Core\\[1pt]
+\decisaotarget{D-12} & Ferramentas de teste & Vitest e Playwright (Tabela~\ref{tab:tipos-teste}). & Arquiteto\\[1pt]
+\decisaotarget{D-13} & Papéis e permissões & Administrador único nesta versão; esquema compatível com a evolução futura pelo \en{plugin} \texttt{admin} do better-auth. & Core\\[1pt]
+\decisaotarget{D-14} & Estratégia de ordenação & Inteiros contíguos com reindexação em transação (árvore pequena). & Dados\\[1pt]
+\decisaotarget{D-16} & Página inicial e coleções & Início com a lista de coleções e documentos publicados da raiz; a coleção redireciona ao primeiro documento publicado (RN14). & UI e Core\\[1pt]
+\decisaotarget{D-17} & Modo escuro \emph{versus} paleta personalizada & Sem modo escuro automático nesta versão: respeitar somente a paleta escolhida. & UI\\[1pt]
+\end{longtable}
+\endgroup
+
+\noindent\textbf{Consequências.} Positivas: nenhuma questão de projeto bloqueia as ramificações; os agentes têm um padrão claro. Negativas: algumas escolhas (D-03 e D-07) ainda pedem uma proposta detalhada do agente responsável antes da implementação; um valor padrão que se mostre inadequado exige RFC e nova ADR.\par\smallskip
+\noindent\textbf{Alternativas consideradas.} Manter as questões abertas até a implementação (descartada por determinação do Engenheiro Chefe); decidir cada questão em uma ADR própria (descartada pelo volume, já que a maioria é de baixo impacto).\par\medskip
 
 \endgroup
 

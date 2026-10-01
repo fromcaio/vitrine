@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume; as questões ainda abertas e as já resolvidas estão no Apêndice~\ref{ap:decisoes}. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, e as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begin{table}[htb]
 \caption{Resumo das decisões arquiteturais aceitas}\label{tab:resumo-adr}
@@ -49,6 +49,9 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-012} & Estado de publicação \texttt{DRAFT}/\texttt{PUBLISHED}, padrão \texttt{PUBLISHED} & Rascunhos sem histórico de versões (resolve D-15)\\
 \adr{ADR-013} & Seis campos opcionais de redes sociais em \texttt{Configuration} & Rodapé configurável sem tabela adicional (resolve D-19)\\
 \adr{ADR-014} & Adaptador \texttt{better-sqlite3} e conformidade com o Prisma 7 & O Prisma 7 exige \en{driver adapter} para o SQLite (resolve D-09)\\
+\adr{ADR-015} & Nome Vitrine e licença MIT & Identidade e licença permissiva do código aberto (resolve D-01 e D-02)\\
+\adr{ADR-016} & Documento de Arquitetura e Requisitos de Software, sem formato acadêmico & Documentação a serviço do produto (resolve D-18)\\
+\adr{ADR-017} & Decisões técnicas com valor padrão adotado & Encerra as questões técnicas iniciais, refináveis por RFC (D-03, D-05 a D-08, D-10 a D-14, D-16, D-17)\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
@@ -212,7 +215,7 @@ export function resolvePath(roots, slugs) {
 }
 \end{lstlisting}
 
-A alternativa de gravar o caminho materializado em cada nó foi descartada nesta versão, pois exigiria atualizar todos os descendentes a cada renomeação ou movimentação; fica registrada como decisão em aberto, para o caso de o volume de conteúdo o justificar (\decisao{D-06}).
+A alternativa de gravar o caminho materializado em cada nó foi descartada nesta versão, pois exigiria atualizar todos os descendentes a cada renomeação ou movimentação; fica registrada como evolução possível, para o caso de o volume de conteúdo o justificar (\decisao{D-06}, \adr{ADR-017}).
 
 \subsection{Observações sobre o Esquema Atual}\label{sec:arq-observacoes-schema}
 
@@ -408,7 +411,7 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
 }
 \end{lstlisting}
 
-O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (links, botões, item ativo da \en{sidebar}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos); e \textbf{destaque} para realce interativo (\en{hover}, foco e marcadores). O painel calcula a razão de contraste entre as combinações de texto e fundo e emite aviso, sem bloquear, quando ela é inferior a 4,5:1 (RN09 e \req{RNF05}). A convivência entre o tema personalizado e o modo escuro do sistema operacional é uma decisão em aberto (\decisao{D-17}).
+O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (links, botões, item ativo da \en{sidebar}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos); e \textbf{destaque} para realce interativo (\en{hover}, foco e marcadores). O painel calcula a razão de contraste entre as combinações de texto e fundo e emite aviso, sem bloquear, quando ela é inferior a 4,5:1 (RN09 e \req{RNF05}). Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-personalizacao-tema, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
@@ -563,4 +566,4 @@ O perfil de carga é dominado por leituras. A ISR evita consultas ao banco na ma
 
 \section{Síntese do Capítulo}
 
-O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados (com o estado de publicação e os links sociais), autenticação em camadas, estratégia de cache e de visibilidade, pipeline de conteúdo, tematização, contrato de API, segurança e implantação por imagem Docker. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e as decisões em aberto formam a lista de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.
+O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados (com o estado de publicação e os links sociais), autenticação em camadas, estratégia de cache e de visibilidade, pipeline de conteúdo, tematização, contrato de API, segurança e implantação por imagem Docker. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e os valores padrão da \adr{ADR-017} formam a lista de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.

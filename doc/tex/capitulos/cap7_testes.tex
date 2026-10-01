@@ -133,11 +133,10 @@ A usabilidade será validada com usuários do perfil do Administrador (docentes 
 
 A meta é pontuação SUS média igual ou superior a 68 (\req{RNF04}) e taxa de conclusão de pelo menos 80\% por tarefa.
 
-\vitrinependencia{Arquiteto}{Submeter o protocolo de avaliação com usuários ao orientador e verificar a necessidade de aprovação em comitê de ética e de termo de consentimento conforme as normas da UFSJ, antes de recrutar participantes.}
 
 \section{Critérios de Saída}\label{sec:testes-saida}
 
-A versão é considerada pronta para a entrega do TCC quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint} e \texttt{npm run build} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
+A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint} e \texttt{npm run build} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
 
 \vitrinefigura[tipo=teste, arquivo=teste-suite-automatizada, agente=Core, largura=0.85,
   descricao={Saída do executor de testes (unidade, integração e E2E) mostrando o total de casos aprovados, falhos e ignorados e o tempo de execução.}]

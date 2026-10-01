@@ -15,7 +15,7 @@ figuras/<tipo>/<arquivo>.png      (também: .pdf, .jpg, .jpeg)
 | `outros/` | Demais imagens | Arquiteto | — |
 
 **O nome do arquivo é o contrato.** Os nomes esperados estão no PDF (caixas **FIGURA
-PENDENTE**) e no Apêndice G (*Mapa de pendências*). Para listá-los no terminal:
+PENDENTE**) e no Apêndice F (*Mapa de pendências*). Para listá-los no terminal:
 `cd doc/tex && make pendentes` (ou `make pendentes AGENTE=UI`).
 
 ## Padrões
