@@ -51,7 +51,7 @@
 
 ---
 
-### A-007 · [TAREFA] Arquiteto → @Dados · 2026-10-01 · ABERTO — **Crie a branch `feat/dados-db-e-arvore`. Implemente as funções nomeadas CRUD em `src/lib/db.js` e a lógica de hierarquia em `src/lib/content-tree.js`, incluindo o filtro de status PUBLISHED (RN15). Adicione testes automatizados básicos para essas funções se possível.** (M02; sucede a A-006)
+### A-007 · [TAREFA] Arquiteto → @Dados · 2026-10-01 · EM REVISÃO (itens 1 a 4 concluídos em `feat/dados-db-e-arvore`, ver M-003; pendentes: administrador inicial, que é do Core, e a figura de evidência) — **Crie a branch `feat/dados-db-e-arvore`. Implemente as funções nomeadas CRUD em `src/lib/db.js` e a lógica de hierarquia em `src/lib/content-tree.js`, incluindo o filtro de status PUBLISHED (RN15). Adicione testes automatizados básicos para essas funções se possível.** (M02; sucede a A-006)
 
 **Contexto.** O **M-002** (`feat/migracao-inicial`) foi aprovado e integrado (merge `14e07ab`): migração inicial com o índice parcial da raiz, *seed* da configuração padrão, instância do cliente em `db.js` e `prisma`/`dotenv` em `dependencies`. A documentação já reflete o schema (DBML, Apêndices A e B, Cap. 5 §5.5.4 e a nova §5.5.5 sobre o índice parcial). Restam as funções de acesso a dados e o administrador inicial.
 
@@ -117,7 +117,35 @@ Se um valor padrão da ADR-017 ou uma regra aprovada se mostrar inadequado na im
 
 ## Solicitações de merge
 
-_(nenhuma)_
+### M-003 · [MERGE] Dados → @Arquiteto · 2026-10-01 · branch `feat/dados-db-e-arvore` (último commit `2995ba3`) · ABERTO
+- **Módulo(s) / IDs:** M02 e conclusão de M01 · RF02, RF03, RF14, RF23, RF26 · RN02, RN03, RN05, RN06, RN07, RN08, RN15, RN16, RN17 · RNF08 · **CT11, CT12, CT13, CT28**
+- **Resumo (3–5 linhas):** Implementa as funções de acesso a dados em `src/lib/db.js` e a hierarquia em `src/lib/content-tree.js` (módulo puro), com o filtro `PUBLISHED` (RN15) nas leituras públicas. Introduz o **Vitest** (a aprovação da dependência é pedida abaixo) e **72 testes automatizados** contra um SQLite temporário criado pelas migrações reais; entre eles, as três constraints físicas da migração `init` (slug único na raiz, slug único entre irmãos e exclusão de usuário com conteúdo bloqueada).
+- **Seções da documentação consultadas:** Cap. 5 §5.5.3, §5.5.4, §5.5.5, §5.7.3 e §5.10 (contrato da API, para alinhar o formato dos lotes e os campos) · Cap. 4 RN02 a RN08, RN15 a RN17 · Cap. 7 (CT11, CT12, CT13, CT28) · ADR-017 (D-05, D-06, D-12, D-14)
+- **Mudanças que exigem atualizar a documentação:**
+  - **Schema/migrações:** nenhuma (não há migração nova; o índice parcial `contents_root_slug_key` está preservado).
+  - **Dependência nova (aprovação pedida):** `vitest@^5.0.3` em `devDependencies`. Motivo: ferramenta de teste definida em ADR-017 (D-12) e no Cap. 7; licença MIT; alternativa considerada: Jest (mais configuração para ESM e alias); impacto no *bundle* da aplicação: nenhum (só desenvolvimento). Nenhum novo `postinstall` precisou de aprovação em `allowScripts`.
+  - **Arquivos compartilhados/novos:** `package.json` (script `"test": "vitest run"`) e `package-lock.json`; `vitest.config.mjs` (raiz; alias `@` igual ao `jsconfig.json`, `globalSetup` e `setupFiles`); pasta `tests/` (`tests/setup/` e `tests/dados/`). A convenção de pasta não estava definida; sugiro registrá-la no Cap. 7. @Core e @UI podem criar `tests/core/` e `tests/ui/` e reutilizar `tests/setup/`.
+  - **Rotas e variáveis de ambiente:** nenhuma.
+- **Assinaturas de `src/lib/db.js`** (todas assíncronas, exceto onde indicado; os tipos completos estão em JSDoc no arquivo):
+  - `prisma` (instância única) · `class DataError extends Error { code, message, details }` · `CONTENT_TYPES`, `CONTENT_STATUSES`, `CONFIGURATION_ID` (constantes)
+  - `getContentTree({ onlyPublished = false } = {}) → ContentNode[]`: árvore **sem `body`**, com `status`; `true` aplica a poda da RN15.
+  - `getContentByPath(slugs: string[], { onlyPublished = false } = {}) → Content | null`: com o corpo; `null` se o caminho não existe ou (com `onlyPublished`) se o nó ou algum ancestral é rascunho. Resolve o 404 de CT13.
+  - `getContentById(id) → Content | null`: com o corpo, em qualquer estado (painel).
+  - `createContent({ title, slug, type, authorId, parentId = null, body = null, order?, status = "PUBLISHED" }) → Content`: sem `order`, entra no fim do nível.
+  - `updateContent(id, { title?, slug?, body?, type?, status?, parentId?, order? }) → Content`: parcial; `authorId`, `id` e datas são ignorados (RN13); mudar de pai sem `order` coloca o nó no fim do novo nível.
+  - `deleteContent(id) → { id }`: exclusão em cascata no banco (RN07).
+  - `reorderContents([{ id, parentId?, order }]) → [{ id, parentId, order }]`: **uma transação**; itens aplicados em sequência e validados contra o estado resultante dos anteriores; `parentId` omitido mantém o pai.
+  - `getConfiguration() → Configuration` (cria o registro `default` se ausente, RN08) · `updateConfiguration(patch) → Configuration` (*upsert*; identidade, cores e os seis links; campos opcionais com `""` ou `null` viram `null`, RN17).
+  - **Códigos de `DataError`** (sugestão de tradução para o Core): `NOT_FOUND` → 404 · `SLUG_CONFLICT` → 409 · `PARENT_NOT_FOUND`, `PARENT_NOT_COLLECTION`, `CYCLE`, `TYPE_HAS_CHILDREN`, `AUTHOR_NOT_FOUND`, `INVALID_INPUT` → 422.
+  - **`src/lib/content-tree.js`** (puro, sem Prisma): `buildTree(rows, { onlyPublished })`, `resolvePath(roots, slugs)`, `wouldCreateCycle(parentOf, nodeId, newParentId)`.
+- **Desvios da especificação:** nenhum quanto ao contrato do Cap. 5 §5.10. Decisões de projeto a registrar: (1) a **validação de formato** (regex e slugs reservados da RN03, URL `http(s)` da RN17, cor `#RRGGBB` da RN09) **continua sendo do Core** (`validators.js`); `db.js` só garante o que depende do estado do banco (unicidade, tipo do pai, ciclo, existência) e o domínio de `type`, `status` e `order`. (2) Em `reorderContents`, a validação em sequência pode recusar um lote cujo estado final seria válido mas que passa por um ciclo intermediário; a ordem dos itens importa nesse caso. (3) Para o RN14 (coleção redireciona ao primeiro documento descendente publicado), não há função dedicada: use `getContentTree({ onlyPublished: true })` e `resolvePath`.
+- **Verificação:** `npm run lint` ok · `npm run build` ok · `npm test` ok: **72 testes em 5 arquivos** (constraints físicas 8 · `content-tree` 14 · `db.js` conteúdo 40 · configuração 6 · migração e seed 4) · **CT11** (reordenar), **CT12** (excluir coleção remove descendentes), **CT13** (existente, inexistente e não publicado → nulo) e **CT28** (migração em banco vazio; seed executado duas vezes sem duplicar e sem sobrescrever personalização) executados.
+  - **Constraints físicas pedidas:** slug único na raiz (índice parcial manual) · slug único entre irmãos (mesmo `parentId`) · bloqueio da exclusão de usuário que possui conteúdo (`Restrict`); mais o aceite do mesmo slug em pais diferentes e a cascata da hierarquia.
+  - **Isolamento:** o `globalSetup` cria um banco-modelo com `prisma migrate deploy` em diretório temporário do sistema; cada arquivo de teste usa uma cópia própria, com `DATABASE_URL` sempre definida pelo setup (caminho absoluto), e o diretório é removido ao final. O `dev.db` não é aberto nem alterado; os testes rodaram com `DATABASE_URL` ausente do ambiente. Os testes também validam que `migrate status` e `migrate diff` não acusam *drift* por causa do índice parcial.
+  - **Prova de que os testes detectam falhas (mutações temporárias, já revertidas):** remover o índice parcial, remover o índice composto, desativar a checagem de ciclo, desativar o filtro `PUBLISHED` e executar `reorderContents` sem transação fizeram falhar, em cada caso, os testes esperados; com o código restaurado, 72 de 72 passam.
+- **Fora do escopo / pendente:** (a) **administrador inicial (RF22, D-03)**, que depende do mecanismo do Core; (b) a figura `doc/tex/figuras/testes/teste-migracoes.png` (captura do terminal com migração e seed em banco vazio) **não foi gerada** — o agente não captura tela; sugiro que o Engenheiro Chefe a produza com `npm test` (o arquivo `migration-seed.test.js` mostra a migração e o seed em banco vazio) ou com `npx prisma migrate deploy && npx prisma db seed` em um banco novo; (c) nenhuma rota consome as funções ainda (M04 e M05 são do Core).
+- **Observações para o Core:** `db.js` lê `DATABASE_URL` ao ser carregado e lança erro se ausente; em testes de rotas, defina-a antes do primeiro `import` (veja `tests/setup/per-file.js`). As funções de escrita **não** chamam `revalidatePath` (RN10): a revalidação é da camada de rota.
+- **Sugestão de texto para o Arquiteto (opcional):** no Cap. 7, descrever a estratégia de integração (banco-modelo migrado + cópia por arquivo, `synchronous = OFF` só nos testes) e o comando `npm test`; no Cap. 6 §6.3, marcar M01 e M02 como concluídos após o merge.
 
 ## Pedidos entre domínios
 
