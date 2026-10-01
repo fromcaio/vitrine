@@ -44,7 +44,9 @@
 
 ---
 
-### A-002 · [TAREFA] Arquiteto → @Dados · 2026-09-30 · ABERTO — Fundação dos dados (M01 e M02)
+### A-002 · [TAREFA] Arquiteto → @Dados · 2026-09-30 · EM REVISÃO (parcial: item 1 concluído em `feat/prisma-setup`, ver M-001) — Fundação dos dados (M01 e M02)
+
+> **Andamento (Dados, 2026-09-30):** ✅ item 1 (D-09) concluído · ✅ achados 6 e 7 da A-001 tratados (nome "Vitrine"; links sociais) · ⏳ itens 2 (tabela de observações: unicidade de `slug`, índice em `parentId`, cascata do autor, registro único de `Configuration`, `type`), 3 (migração e *seed*) e 4 (`db.js`) seguem **abertos** para `feat/dados-schema-inicial`.
 
 **Leiam:** Cap. 5 §5.4–§5.5 (inclusive a Tabela de observações do schema) · Cap. 6 §6.3 · Cap. 4 §4.6 (RN02, RN03, RN05, RN06, RN08) · Apêndices A e B · Apêndice F (D-05, D-06, D-09, D-14, D-19) · skills `.claude/skills/prisma-*`.
 
@@ -96,11 +98,25 @@ Registradas no Apêndice F e levadas ao Engenheiro Chefe: **D-01** nome oficial 
 
 ## Solicitações de merge
 
-_(nenhuma)_
+### M-001 · [MERGE] Dados → @Arquiteto · 2026-09-30 · branch `feat/prisma-setup` (commit `13aba00`) · ABERTO
+- **Módulo(s) / IDs:** M01 (parcial) · RF24 · D-01, D-09, D-15, D-19
+- **Resumo (3–5 linhas):** Conforma o Prisma 7 (itens 1 a 5 da Tabela `tab:prisma7`): `prisma7.config.ts` → `prisma.config.ts`; gerador `prisma-client` com `output = "../src/generated/prisma"` (coerente com o `.gitignore`); `url` sai do `datasource` e fica na configuração; *driver adapter* `@prisma/adapter-better-sqlite3`; `sqlite3` removido; `@prisma/client` em `dependencies`. Nome "Vitrine" nos comentários do schema. `Content.status` (enum `ContentStatus`: `DRAFT`/`PUBLISHED`, padrão `PUBLISHED`) e seis links sociais opcionais em `Configuration`. Client gerado (`prisma generate`, 7.10.0; `prisma validate` ok).
+- **Seções da documentação consultadas:** Cap. 5 §5.5, Cap. 6 §6.3 (Tabela de conformidade), Cap. 4 RF24, figura `ic-fig3-instancia-fromcaio.png`, Apêndice F (D-01, D-04, D-09, D-15, D-19)
+- **Mudanças que exigem atualizar a documentação:**
+  - **Schema:** `Content.status` (enum `ContentStatus`, `@default(PUBLISHED)`); `Configuration.discordUrl`, `githubUrl`, `youtubeUrl`, `instagramUrl`, `linkedinUrl`, `twitchUrl` (todas `String?`, as seis redes do rodapé do protótipo). Nenhum índice novo. DBML, Apêndice A e Apêndice B precisam refletir.
+  - **Dependências:** `@prisma/adapter-better-sqlite3@^7.10.0` e `better-sqlite3@^12.11.1` (produção; escolhido em vez de libSQL por ser o *driver* direto para SQLite em disco, coerente com a implantação em VPS; o adapter exige a série 12.x); `dotenv@^18` (dev; importado por `prisma.config.ts`); removida `sqlite3`; `@prisma/client` movido para produção. `package.json`: `allowScripts` aprova `better-sqlite3@12.11.1` (compilação nativa) e remove `sqlite3`.
+  - **Compartilhado:** `eslint.config.mjs` ignora `src/generated/**` (código gerado produzia 14 avisos).
+  - **Variáveis de ambiente:** nenhuma nova (`DATABASE_URL`, agora lida só por `prisma.config.ts` e, futuramente, por `db.js`).
+- **Desvios da especificação:** (1) **D-19** recomendava um único campo de texto Markdown para o rodapé; foram criados campos separados por rede, por determinação do Engenheiro Chefe e com base nas seis redes do protótipo (Discord, GitHub, YouTube, Instagram, LinkedIn, Twitch). (2) **D-15** recomendava publicação imediata sem campo de estado; o Engenheiro Chefe determinou o sistema Rascunho/Publicado. O padrão `PUBLISHED` preserva o comportamento documentado de RF16 até que a API use o novo campo. Ambos dependem de atualização do Apêndice F.
+- **Fora do escopo desta branch (continua na A-002):** migração inicial (portanto **não há** `prisma/migrations` e `teste-migracoes.png`), *seed*, `src/lib/db.js`, e os itens 1 a 5 da Tabela de observações do schema. Como o schema mudou, a primeira migração deve ser gerada **depois** deste merge. O item 6 da `tab:prisma7` (`DATABASE_URL` relativa) fica para `db.js`/migração.
+- **Verificação:** `npm run lint` ok (0 erros, 0 avisos) · `npm run build` ok · `npx prisma validate` e `npx prisma generate` ok · CT: nenhum aplicável nesta etapa (sem migração e sem `db.js`)
+- **Evidências:** nenhuma figura (sem alteração visível)
+- **Sugestão de texto para o Arquiteto (opcional):** em D-19, registrar "seis campos opcionais em `Configuration`, um por rede do protótipo" como decisão do Engenheiro Chefe; em D-15, registrar o estado `DRAFT`/`PUBLISHED` com padrão `PUBLISHED`.
 
 ## Pedidos entre domínios
 
-_(nenhum)_
+### P-001 · [PEDIDO] Dados → @Arquiteto · 2026-09-30 · ABERTO — Decisões do Engenheiro Chefe e atualização da documentação
+@Arquiteto: O banco foi atualizado. Além disso, o Engenheiro Chefe determinou que o deploy será via imagem Docker em VPS tradicional (resolvendo D-04) e que o nome oficial é 'Vitrine' (resolvendo D-01). Por favor, atualize o DBML, a seção de implantação e o Apêndice F da documentação. _(Detalhes do schema em M-001.)_ Ass: Dados
 
 ## Respostas do Arquiteto
 
