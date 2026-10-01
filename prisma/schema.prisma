@@ -97,17 +97,24 @@ model Content {
   parent   Content?  @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children Content[] @relation("ContentHierarchy")
 
+  // Restrict: excluir um usuário com conteúdo é bloqueado, em vez de apagar o conteúdo dele (RNF10)
   authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // RN03: slug único entre irmãos. No SQLite o NULL é distinto de NULL, então a unicidade
+  // na raiz (parentId nulo) é coberta por um índice parcial na migração SQL (D-05).
+  @@unique([parentId, slug])
+  // RNF02: consulta da árvore e ordenação dos irmãos (RN05)
+  @@index([parentId, order])
   @@map("contents")
 }
 
+// Registro único (RN08): o id é fixo e o acesso é sempre por upsert nesse id.
 model Configuration {
-  id              String  @id @default(cuid())
+  id              String  @id @default("default")
   siteName        String  @default("Vitrine")
   siteDescription String?
 
