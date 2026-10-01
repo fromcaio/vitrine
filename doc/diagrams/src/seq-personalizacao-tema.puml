@@ -14,24 +14,31 @@ autonumber
 actor "Administrador" as Admin
 participant "ThemeForm\n(Client Component)" as Form
 participant "Route Handler\nPUT /api/configuration" as Api
-participant "validators.js\ntheme.js" as Val
+participant "validators.js" as Val
 participant "db.js" as DB
 database "SQLite" as Sql
 participant "Cache ISR" as Cache
+participant "theme.js\n(contrastWarnings)" as Theme
 actor "Leitor" as Leitor
 participant "RootLayout\n(Server Component)" as Layout
 
 Admin -> Form : Escolhe cores / nome / logotipo
+Form -> Theme : contrastWarnings(cores do formulário)
+Theme --> Form : avisos da pré-visualização
 Form -> Form : pré-visualização local\n(altera variáveis CSS no cliente)
 Admin -> Form : Salvar
 Form -> Api : PUT { siteName, primaryColor, ... }
-Api -> Api : exige sessão (better-auth)
-Api -> Val : valida formato hexadecimal\ne calcula contraste (WCAG)
-Val --> Api : ok (+ avisos de contraste)
+Api -> Api : exige sessão e origem (better-auth)
+Api -> Val : valida o corpo\n(formato #RRGGBB, URLs http/https)
+Val --> Api : ok (ou 422, sem gravar nada)
 Api -> DB : updateConfiguration(dados)
 DB -> Sql : UPDATE configurations
+DB --> Api : configuração gravada
 Api -> Cache : revalidatePath("/", "layout")
-Api --> Form : 200 { configuração, avisos }
+Api -> Theme : contrastWarnings(cores gravadas)
+Theme --> Api : lista de avisos (vazia se nada falha)
+note right of Api : o cálculo vem por último: se falhar,\n500 INTERNAL_ERROR com a configuração\njá gravada e o layout já revalidado
+Api --> Form : 200 { data, warnings }
 Form --> Admin : confirmação e avisos de contraste
 
 == Próxima visita de um leitor ==
