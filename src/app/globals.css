@@ -1,26 +1,77 @@
 @import "tailwindcss";
 
+/*
+ * Tokens de tema do Vitrine (Cap. 5 §5.9; RF19). As três cores da paleta são variáveis CSS com
+ * os valores padrão da RN08; o layout raiz as sobrescreve no atributo style de <html> com a
+ * configuração gravada (M11), sem novo build. Os componentes usam somente os utilitários gerados
+ * por estes tokens (bg-primary, text-on-primary, bg-secondary, border-accent...), nunca as cores
+ * fixas do Tailwind.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Paleta configurável: estes nomes são o contrato com o M11. */
+  --vitrine-primary: #3b82f6;
+  --vitrine-secondary: #1e293b;
+  --vitrine-accent: #f59e0b;
+
+  /*
+   * Texto sobre a cor primária: o valor de readableTextOn(primária), de src/lib/theme.js. Com a
+   * primária padrão, o texto branco teria 3,68:1 e reprovaria o nível AA; o escuro dá 4,87:1.
+   * Quem sobrescrever --vitrine-primary deve sobrescrever também esta variável.
+   */
+  --vitrine-on-primary: #171717;
+  /* Texto sobre a cor secundária: branco fixo (Cap. 5 §5.9), coberto pelo aviso da RN09. */
+  --vitrine-on-secondary: #ffffff;
+
+  /* Neutros fixos: não há modo escuro automático (D-17). */
+  --vitrine-background: #ffffff;
+  --vitrine-foreground: #171717;
+  --vitrine-surface: #f5f5f5;
+  --vitrine-muted: #525252;
+  --vitrine-border: #d4d4d4;
+  --vitrine-border-strong: #737373;
+  --vitrine-danger: #b91c1c;
+
+  /* Indicador de foco: independe da paleta, que o administrador pode trocar. */
+  --vitrine-focus: #171717;
+  --vitrine-focus-halo: #ffffff;
+
+  color-scheme: light;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--vitrine-primary);
+  --color-secondary: var(--vitrine-secondary);
+  --color-accent: var(--vitrine-accent);
+  --color-on-primary: var(--vitrine-on-primary);
+  --color-on-secondary: var(--vitrine-on-secondary);
+  --color-background: var(--vitrine-background);
+  --color-foreground: var(--vitrine-foreground);
+  --color-surface: var(--vitrine-surface);
+  --color-muted: var(--vitrine-muted);
+  --color-border: var(--vitrine-border);
+  --color-border-strong: var(--vitrine-border-strong);
+  --color-danger: var(--vitrine-danger);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* D-17: a variante dark: só vale sob a classe .dark, nunca pela preferência do sistema. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    background: var(--vitrine-background);
+    color: var(--vitrine-foreground);
+    font-family: var(--font-sans);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /*
+   * Foco visível (RNF05): contorno escuro com um halo claro junto ao elemento, de modo que um
+   * dos dois contraste com qualquer fundo, inclusive as cores do tema.
+   */
+  :focus-visible {
+    outline: 2px solid var(--vitrine-focus);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--vitrine-focus-halo);
+  }
 }
