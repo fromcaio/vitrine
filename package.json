@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "admin:create": "tsx --tsconfig jsconfig.json scripts/create-admin.js"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
