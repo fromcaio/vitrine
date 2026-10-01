@@ -100,16 +100,17 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação --- o \en{scaffold} do Next.js, o esquema do Prisma 7 já conformado (merge M-001) e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação --- o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial, o \en{seed} e a instância de \arq{db.js} (merges M-001 e M-002) e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
 |-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md  MURAL_DE_AGENTES.md
 |-- doc/                      # documentação (ref/, tex/, diagrams/)
-|-- prisma/schema.prisma      # esquema do Prisma 7 (Dados); ainda sem migrations/
+|-- prisma/                   # schema.prisma, migrations/ (init) e seed.js (Dados)
 |-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
 |-- public/                   # ativos estáticos do scaffold
 |-- src/app/                  # favicon.ico, globals.css, layout.js, page.js
+|-- src/lib/db.js             # instância do PrismaClient (Dados); funções ainda não implementadas
 |-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
 |-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
 |-- package.json  package-lock.json  skills-lock.json
@@ -163,7 +164,7 @@ O domínio possui seis entidades (Figura~\ref{fig:classes-dominio}): quatro de a
 
 \subsection{Modelo Físico}
 
-O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata em todas as relações. O enumerado \texttt{ContentStatus} é gravado como texto; o SQLite não impõe o conjunto de valores, de modo que a verificação cabe ao Prisma e à aplicação. Os seis links sociais são colunas de texto opcionais da tabela \arq{configurations}: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}.
+O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata nas relações, exceto o autor do conteúdo (\texttt{Content.author}), que usa \texttt{Restrict}: excluir um usuário que tenha conteúdo é bloqueado (RNF10). O enumerado \texttt{ContentStatus} é gravado como texto; o SQLite não impõe o conjunto de valores, de modo que a verificação cabe ao Prisma e à aplicação. Os seis links sociais são colunas de texto opcionais da tabela \arq{configurations}: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}.
 
 \vitrinefigura[tipo=diagrama, arquivo=er-vitrine, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/er-vitrine.dbml},
@@ -219,7 +220,7 @@ A alternativa de gravar o caminho materializado em cada nó foi descartada nesta
 
 \subsection{Observações sobre o Esquema Atual}\label{sec:arq-observacoes-schema}
 
-A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que são entradas para o agente Dados (tarefa A-006 do mural). O merge M-001, aprovado em 30/09/2026, já integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}); as observações 1 a 5 continuam pendentes e a 8 é nova.
+A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que foram entradas para o agente Dados. O merge M-001, aprovado em 30/09/2026, integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}). O merge M-002, aprovado em 01/10/2026, resolveu as observações 1, 3, 4 e 5 na migração inicial e manteve a 2 como validação na aplicação; a observação 8 depende das funções de acesso a dados (tarefa A-007).
 
 \begin{longtable}{@{}L{0.8cm}L{5.6cm}L{2.2cm}L{4.8cm}@{}}
 \caption{Observações sobre o esquema atual do Prisma}\label{tab:obs-schema}\\
@@ -233,20 +234,35 @@ A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação r
 \endhead
 \bottomrule
 \endfoot
-1 & \texttt{slug} sem restrição de unicidade & RN03 & Índice único composto por (\texttt{parentId}, \texttt{slug}); como o SQLite trata valores nulos como distintos, cobrir a raiz com índice parcial em migração SQL ou com validação na aplicação (D-05)\\[1pt]
-2 & \texttt{type} é texto livre, ao passo que \texttt{status} já é um enumerado & RN02 & Validar DOCUMENT e COLLECTION na aplicação; seguir o precedente de \texttt{ContentStatus} e declarar um \texttt{enum} do Prisma, sabendo que o SQLite não impõe o valor\\[1pt]
-3 & Sem índice em \texttt{parentId} & RNF02 & Adicionar índice (\texttt{parentId}, \texttt{order}) para a consulta da árvore\\[1pt]
-4 & \arq{Content.author} com \texttt{onDelete: Cascade}: excluir o usuário apaga todo o seu conteúdo & RNF10 & Avaliar \texttt{Restrict}; ao menos documentar e proteger a exclusão de usuários\\[1pt]
-5 & \texttt{Configuration} sem garantia de registro único & RN08 & Usar identificador fixo e \emph{upsert}\\[1pt]
+1 & \texttt{slug} sem restrição de unicidade & RN03 & \emph{Resolvido (M-002)}: índice único (\texttt{parentId}, \texttt{slug}) mais índice parcial para a raiz, em SQL (Seção~\ref{sec:arq-indice-parcial}; D-05)\\[1pt]
+2 & \texttt{type} é texto livre, ao passo que \texttt{status} já é um enumerado & RN02 & \emph{Mantido como texto}: DOCUMENT e COLLECTION são validados na aplicação (Zod, Core), pois o SQLite não impõe enumerados e um \texttt{enum} do Prisma só duplicaria a regra\\[1pt]
+3 & Sem índice em \texttt{parentId} & RNF02 & \emph{Resolvido (M-002)}: índice (\texttt{parentId}, \texttt{order}) para a consulta da árvore\\[1pt]
+4 & \arq{Content.author} com \texttt{onDelete: Cascade}: excluir o usuário apaga todo o seu conteúdo & RNF10 & \emph{Resolvido (M-002)}: \texttt{onDelete: Restrict}; excluir um usuário que tenha conteúdo é bloqueado pelo banco\\[1pt]
+5 & \texttt{Configuration} sem garantia de registro único & RN08 & \emph{Resolvido (M-002)}: identificador fixo \texttt{default} (padrão do esquema) e acesso por \emph{upsert}\\[1pt]
 6 & Datas e booleanos sem valor padrão em \arq{User.emailVerified} & --- & Manter: o valor é fornecido pelo better-auth\\[1pt]
 7 & Tabela \texttt{verification} sem relação com \texttt{user} & --- & Manter: desenho do better-auth\\[1pt]
 8 & \texttt{status} tem padrão \texttt{PUBLISHED}: um conteúdo recém-criado torna-se público de imediato (decisão D-15) & RN15, RN16, risco R11 & Manter o padrão; a API deve aceitar a criação já como \texttt{DRAFT}, a interface deve exibir o estado com destaque e a camada de dados deve filtrar por \texttt{PUBLISHED} nas leituras públicas\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
+\subsection{Índice Parcial da Raiz}\label{sec:arq-indice-parcial}
+
+A regra RN03 exige \en{slug} único entre irmãos. O índice único composto (\texttt{parentId}, \texttt{slug}) resolve a regra para todos os nós com pai, mas não para a raiz: no SQLite, \texttt{NULL} é distinto de \texttt{NULL}, de modo que dois conteúdos de raiz (\texttt{parentId} nulo) com o mesmo \en{slug} passariam pelo índice composto. O agente Dados resolveu a lacuna com um \textbf{índice único parcial} escrito à mão no SQL da migração inicial (Código~\ref{lst:indice-parcial}), que cobre apenas as linhas da raiz. O Prisma não modela índices parciais, mas também não os trata como divergência (\en{drift}): \texttt{migrate diff} contra as migrações e contra o banco não acusa diferenças. O resultado é a garantia de unicidade no próprio banco, sem depender só da validação na aplicação, que permanece como primeira barreira (\decisao{D-05}, \adr{ADR-017}).
+
+\begin{lstlisting}[caption={Índice parcial da raiz (trecho da migração inicial)}, label={lst:indice-parcial}]
+CREATE UNIQUE INDEX "contents_parentId_slug_key"
+  ON "contents"("parentId", "slug");
+
+-- manual: cobre somente a raiz
+CREATE UNIQUE INDEX "contents_root_slug_key"
+  ON "contents"("slug") WHERE "parentId" IS NULL;
+\end{lstlisting}
+
+Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma deve preservar esse índice; o agente Dados deve conferir isso ao alterar o esquema. Em banco descartável, o agente Dados verificou que um \en{slug} repetido na raiz e entre irmãos é recusado e que o mesmo \en{slug} em pais diferentes é aceito; os testes de integração correspondentes (casos CT08 e CT28) ainda devem ser automatizados.
+
 \subsection{Migrações e Dados Iniciais}
 
-As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração, o \en{seed} e o módulo \arq{src/lib/db.js} ainda não existem e formam a tarefa A-006 do agente Dados. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados deve verificar que ambos apontam para o mesmo arquivo (por exemplo, com caminho absoluto). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados e o administrador inicial ainda não existem (tarefa A-007 do agente Dados; \decisao{D-03} para o administrador). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
 
 \section{Autenticação e Autorização}\label{sec:arq-auth}
 
@@ -553,7 +569,7 @@ Os requisitos normativos sobre a imagem, que o módulo M13 deve atender, são:
 \begin{itemize}
   \item \textbf{Módulo nativo.} O \arq{better-sqlite3} é um módulo nativo (\adr{ADR-014}); os estágios de \en{build} e de execução devem usar a mesma versão do Node.js e a mesma distribuição (\en{glibc}, por exemplo \texttt{node:22-bookworm-slim}), e o estágio de \en{build} precisa de compilador (\texttt{python3}, \texttt{make}, \texttt{g++}) caso não haja binário pré-compilado;
   \item \textbf{Cliente gerado.} \texttt{prisma generate} roda antes de \texttt{next build}, pois \arq{src/generated/prisma} não é versionado;
-  \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv}, hoje em \texttt{devDependencies}, estejam disponíveis na imagem (decisão do agente Dados, \adr{ADR-014});
+  \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv} estejam na imagem, o que está garantido desde o merge M-002, que os moveu para \texttt{dependencies} (\adr{ADR-014});
   \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}) e o SQLite tem um escritor por vez;
   \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.
 \end{itemize}

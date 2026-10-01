@@ -24,6 +24,7 @@
   \item[\en{Driver adapter}] Módulo que liga o cliente do Prisma 7 ao banco; o Vitrine usa o \arq{@prisma/adapter-better-sqlite3} (\adr{ADR-014}).
   \item[Estado de publicação] Atributo \texttt{status} de um conteúdo, com os valores \texttt{DRAFT} (rascunho, invisível ao público) e \texttt{PUBLISHED} (publicado, valor padrão); um conteúdo só é público se ele e todos os seus ancestrais estiverem publicados (RN15).
   \item[Fonte da verdade] Artefato que prevalece em caso de conflito sobre determinada informação (Tabela~\ref{tab:fontes-verdade}).
+  \item[Índice parcial] Índice do banco que vale apenas para as linhas que satisfazem uma condição; no Vitrine, o índice único de \en{slug} restrito aos conteúdos de raiz (\texttt{WHERE parentId IS NULL}), escrito à mão na migração inicial (Seção~\ref{sec:arq-indice-parcial}).
   \item[ISR] \en{Incremental Static Regeneration}: estratégia do Next.js que serve páginas estáticas e as regenera de forma incremental.
   \item[KaTeX] Biblioteca de composição de fórmulas matemáticas para a web.
   \item[Link social] Um dos seis campos opcionais da configuração do site (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch) que originam os ícones do rodapé (RF24, RN17).

@@ -76,7 +76,7 @@ class Content {
 }
 
 class Configuration <<registro único>> {
-  id : String <<cuid>>
+  id : String = "default"
   siteName : String = "Vitrine"
   siteDescription : String [0..1]
   primaryColor : String = "#3b82f6"
@@ -103,7 +103,9 @@ Content ..> ContentStatus : status
 note bottom of Content
   Regras: apenas COLLECTION pode ter filhos;
   exclusão de um nó remove seus descendentes (cascata);
-  slug único entre irmãos (ver decisão D-05);
+  excluir um usuário com conteúdo é bloqueado (Restrict);
+  slug único entre irmãos: índice (parentId, slug) mais
+  índice parcial para a raiz, em SQL (D-05, ADR-017);
   visível ao público somente se o nó e todos os
   ancestrais forem PUBLISHED (RN15).
 end note

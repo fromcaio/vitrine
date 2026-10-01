@@ -42,7 +42,7 @@ M12 & SEO e metadados & Core & RF25 & \arq{feat/core-seo} & \statusmodulo{planej
 M13 & Implantação e operação & Core, Dados & RF22; RNF01 & \arq{feat/core-implantacao} & \statusmodulo{planejado}\\[1pt]
 M14 & Testes automatizados & Todos & RNF08 & \arq{feat/<dominio>-testes} & \statusmodulo{planejado}\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores. O estado de M01 é ``em andamento'': o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais foram integrados pelo merge M-001 (ramificação \arq{feat/prisma-setup}, 30/09/2026); faltam a primeira migração e o \en{seed}, tarefa A-006 do mural.}
+\fonte{Elaborado pelos autores. O estado de M01 é ``em andamento'': o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais foram integrados pelo merge M-001 (ramificação \arq{feat/prisma-setup}, 30/09/2026); a migração inicial, o \en{seed} e a instância de \arq{db.js} foram integrados pelo merge M-002 (01/10/2026); faltam as funções de acesso a dados e o administrador inicial (tarefa A-007 do mural).}
 
 A ordem recomendada de execução respeita as dependências: M01 e M02 (dados) habilitam M03 a M06 (servidor), que habilitam M07 e M08 (leitura), seguidos de M09 a M11 (edição e personalização); M12 a M14 acompanham o restante.
 
@@ -74,36 +74,37 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \noindent\statusmodulo{andamento}\quad Agente: \agente{Dados}. Requisitos: \req{RF02}, \req{RF03}, \req{RF14}, \req{RF22}, \req{RF23}.
 
-\textbf{Situação.} O pedido de merge M-001 (ramificação \arq{feat/prisma-setup}, commit \texttt{13aba00}) foi revisado e integrado à \texttt{main} em 30/09/2026 (merge \texttt{043ce46}). Ele conformou o esquema ao Prisma 7 (itens 1 a 5 da Tabela~\ref{tab:prisma7}; \decisao{D-09}, \adr{ADR-014}), adicionou o enumerado \texttt{ContentStatus} e a coluna \texttt{status} (\decisao{D-15}, \adr{ADR-012}) e criou os seis campos de links sociais em \texttt{Configuration} (\decisao{D-19}, \adr{ADR-013}). O esquema atual está no Apêndice~\ref{ap:schema}. Faltam a primeira migração versionada, o \en{seed}, o módulo \arq{src/lib/db.js} e as observações 1 a 5 e 8 da Tabela~\ref{tab:obs-schema}; esse trabalho é a tarefa A-006 do mural. A Tabela~\ref{tab:prisma7} compara a configuração com as instruções do Prisma 7 incluídas nas \en{skills} do repositório (\arq{.claude/skills/prisma-orm-setup} e \arq{.claude/skills/prisma-upgrade-v7}).
+\textbf{Situação.} O pedido de merge M-001 (ramificação \arq{feat/prisma-setup}, commit \texttt{13aba00}) foi revisado e integrado à \texttt{main} em 30/09/2026 (merge \texttt{043ce46}). Ele conformou o esquema ao Prisma 7 (itens 1 a 5 da Tabela~\ref{tab:prisma7}; \decisao{D-09}, \adr{ADR-014}), adicionou o enumerado \texttt{ContentStatus} e a coluna \texttt{status} (\decisao{D-15}, \adr{ADR-012}) e criou os seis campos de links sociais em \texttt{Configuration} (\decisao{D-19}, \adr{ADR-013}). O pedido M-002 (ramificação \arq{feat/migracao-inicial}, último commit \texttt{a07f0ea}) foi revisado e integrado em 01/10/2026 (merge \texttt{14e07ab}; \texttt{lint} e \texttt{build} passam). Ele fechou o esquema (unicidade de \en{slug} entre irmãos, índice (\texttt{parentId}, \texttt{order}), \texttt{Restrict} no autor e identificador fixo em \texttt{Configuration}), gerou a migração inicial com o índice parcial da raiz (Seção~\ref{sec:arq-indice-parcial}), criou o \en{seed} idempotente da configuração padrão e a instância do cliente em \arq{src/lib/db.js}, e moveu \arq{prisma} e \arq{dotenv} para \texttt{dependencies}. O esquema atual está no Apêndice~\ref{ap:schema}. Faltam as funções de acesso a dados, \arq{content-tree.js}, o filtro de publicação (observação 8 da Tabela~\ref{tab:obs-schema}) e os testes; esse trabalho é a tarefa A-007 do mural, e o administrador inicial depende do Core (\decisao{D-03}). A Tabela~\ref{tab:prisma7} compara a configuração com as instruções do Prisma 7 incluídas nas \en{skills} do repositório (\arq{.claude/skills/prisma-orm-setup} e \arq{.claude/skills/prisma-upgrade-v7}).
 
 \begin{table}[htb]
 \caption{Conformidade da configuração do Prisma com a versão 7}\label{tab:prisma7}
 \small
 \begin{tabularx}{\linewidth}{@{}L{0.7cm}L{3.0cm}L{4.9cm}Y@{}}
 \toprule
-\textbf{\#} & \textbf{Item} & \textbf{Situação em 30/09/2026} & \textbf{Ação}\\
+\textbf{\#} & \textbf{Item} & \textbf{Situação em 01/10/2026} & \textbf{Ação}\\
 \midrule
 1 & Arquivo de configuração & \emph{Resolvido (M-001)}: \arq{prisma.config.ts}, nome padrão da CLI & ---\\
 2 & Gerador & \emph{Resolvido}: \texttt{prisma-client} com \texttt{output} em \arq{src/generated/prisma}, coerente com o \arq{.gitignore} & ---\\
 3 & URL do banco & \emph{Resolvido}: \texttt{datasource.url} em \arq{prisma.config.ts}, lida de \arq{DATABASE_URL}; o esquema mantém só o \texttt{provider} & ---\\
 4 & \en{Driver adapter} & \emph{Resolvido}: \arq{@prisma/adapter-better-sqlite3} e \arq{better-sqlite3}; \texttt{sqlite3} removido (\adr{ADR-014}) & Instanciar o adaptador em \arq{db.js}\\
 5 & \arq{@prisma/client} & \emph{Resolvido}: em \texttt{dependencies} & ---\\
-6 & \arq{DATABASE_URL} relativa & \emph{Pendente}: não verificada & Caminhos relativos podem resolver diferente na CLI e no \emph{runtime}; usar caminho explícito e conferir os dois lados (A-006)\\
-7 & \en{Seed} na configuração e no ambiente de execução & \emph{Pendente}: \arq{prisma.config.ts} não declara \texttt{migrations.seed}, e o cliente gerado é TypeScript, que o Node.js puro nem sempre importa & Declarar \texttt{migrations.seed} e escolher como executá-lo (por exemplo, \texttt{tsx} como dependência de desenvolvimento, a aprovar); o \en{script} de \en{seed} roda fora do Next.js e pode instanciar o próprio cliente, exceção a declarar (A-006)\\
-8 & CLI do Prisma e \arq{dotenv} em produção & \emph{Pendente}: estão em \texttt{devDependencies} & Decidir como a imagem executa \texttt{migrate deploy} (A-006 e M13; \adr{ADR-014})\\
-9 & Cliente gerado em TypeScript & \emph{Pendente}: o gerador emite arquivos \texttt{.ts} em um projeto JavaScript & Verificar que \texttt{next build} compila \arq{src/generated/prisma} (A-006)\\
+6 & \arq{DATABASE_URL} relativa & \emph{Resolvido (M-002)}: verificado; com \texttt{file:./dev.db} a CLI e o adaptador abrem o mesmo arquivo, e o adaptador resolve o caminho a partir do diretório de trabalho do processo & Em produção, usar caminho absoluto (por exemplo, \texttt{file:/data/vitrine.db})\\
+7 & \en{Seed} na configuração e no ambiente de execução & \emph{Resolvido (M-002)}: \texttt{migrations.seed} declara \texttt{tsx prisma/seed.js}; o \en{script} roda fora do Next.js e instancia o próprio cliente (exceção prevista) & ---\\
+8 & CLI do Prisma e \arq{dotenv} em produção & \emph{Resolvido (M-002)}: \arq{prisma} e \arq{dotenv} movidos para \texttt{dependencies}, de modo que \texttt{migrate deploy} roda na imagem & O Dockerfile do M13 apenas os instala (\adr{ADR-014})\\
+9 & Cliente gerado em TypeScript & \emph{Resolvido (M-002)}: \texttt{next build} compila o cliente importado de \arq{@/generated/prisma/client}; o \texttt{tsx} (desenvolvimento) executa o \en{seed} & ---\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores, a partir do repositório e das \en{skills} do Prisma 7.}
 \end{table}
 
-\textbf{Tarefas} (A-006; podem ser entregues em um ou em dois pedidos de merge, na ordem a seguir).
+\textbf{Concluído (A-006 / M-002):} fechamento do esquema, migração inicial, \en{seed} da configuração padrão (RF23) e instância do cliente em \arq{db.js}.
+
+\textbf{Tarefas pendentes (A-007, branch \arq{feat/dados-db-e-arvore}).}
 \begin{itemize}
-  \item Tratar as observações 1 a 5 e 8 da Tabela~\ref{tab:obs-schema} (unicidade de \en{slug}, índice em \texttt{parentId}, cascata do autor, registro único de configuração, \texttt{type} como enumerado) \emph{antes} de gerar a primeira migração, pois alteram o esquema e a migração inicial deve já contê-las; registrar as escolhas em \decisao{D-05} e \decisao{D-14};
-  \item resolver os itens 6 a 9 da Tabela~\ref{tab:prisma7};
-  \item gerar a primeira migração (\arq{prisma/migrations}); escrever um \en{seed} idempotente com a configuração padrão (RF23) e o administrador inicial (RF22), em coordenação com o agente Core (\decisao{D-03});
-  \item implementar \arq{src/lib/db.js} (instância única do cliente com o adaptador \arq{better-sqlite3}; funções de leitura da árvore, do documento por caminho e da configuração; e de escrita transacional), aplicando o filtro de publicação (RN15) nas leituras públicas;
-  \item implementar \arq{src/lib/content-tree.js} conforme o Código~\ref{lst:algoritmo-arvore}.
+  \item implementar em \arq{src/lib/db.js} as funções nomeadas de acesso a dados (CRUD de conteúdo, leitura da árvore e do documento por caminho, reordenação transacional e configuração), aplicando o filtro de publicação (RN15) nas leituras públicas;
+  \item implementar \arq{src/lib/content-tree.js} conforme o Código~\ref{lst:algoritmo-arvore};
+  \item acrescentar testes automatizados básicos das funções (casos CT11, CT12, CT13);
+  \item incluir no \en{seed} o administrador inicial (RF22), em coordenação com o agente Core (\decisao{D-03}).
 \end{itemize}
 
 \textbf{Critérios de aceite.} A migração aplica-se em um banco vazio; o \en{seed} é idempotente; a consulta da árvore retorna a estrutura ordenada sem carregar o corpo; a resolução de caminho devolve o nó correto ou nulo, e nulo também para nó não publicado ou com ancestral não publicado (RN15); \texttt{next build} compila o cliente gerado; a CLI e o adaptador usam o mesmo arquivo de banco; nenhum arquivo fora de \arq{db.js} instancia o cliente.

@@ -45,6 +45,7 @@ done
 cp -ru "$RAIZ/doc/diagrams/src" "$DEST/doc/diagrams/" 2>/dev/null
 [ -f "$RAIZ/prisma/schema.prisma" ] && cp -u "$RAIZ/prisma/schema.prisma" "$DEST/prisma/"
 [ -f "$RAIZ/prisma.config.ts" ] && cp -u "$RAIZ/prisma.config.ts" "$DEST/"
+[ -d "$RAIZ/prisma/migrations" ] && cp -ru "$RAIZ/prisma/migrations" "$DEST/prisma/"
 # \vitrinecodigo lê trechos de src/ e .env.example: sincroniza o que existir
 [ -d "$RAIZ/src" ] && { mkdir -p "$DEST/src"; cp -ru "$RAIZ/src/." "$DEST/src/"; }
 [ -f "$RAIZ/.env.example" ] && cp -u "$RAIZ/.env.example" "$DEST/"

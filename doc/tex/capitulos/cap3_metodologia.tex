@@ -181,7 +181,8 @@ React Compiler (plugin Babel) & 1.0.0 & Memoização automática (\texttt{reactC
 Tailwind CSS & 4.3.3 (instalada; \texttt{\^{}4}) & Estilização por utilitários\\
 Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações; configuração em \arq{prisma.config.ts}; cliente gerado em \arq{src/generated/prisma} (gerador \texttt{prisma-client})\\
 \arq{@prisma/adapter-better-sqlite3} e \arq{better-sqlite3} & 7.10.0 e 12.11.1 & \en{Driver adapter} do Prisma para SQLite (módulo nativo) e o próprio SQLite em arquivo (\adr{ADR-014})\\
-\arq{dotenv} & 18.0.5 (desenvolvimento) & Carregamento do \arq{.env} pela CLI do Prisma\\
+\arq{prisma} (CLI) e \arq{dotenv} & 7.10.0 e 18.0.5 (\texttt{dependencies}) & Migrações e carregamento do \arq{.env} pela CLI; necessários na imagem de produção (\texttt{prisma migrate deploy})\\
+\arq{tsx} & 4.23.15 (desenvolvimento) & Execução do \en{seed} (\arq{prisma/seed.js}) com o cliente gerado em TypeScript\\
 better-auth & 1.7.6 & Autenticação e sessões\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
 remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\

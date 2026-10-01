@@ -6,7 +6,7 @@
 %% ===================================================================================
 \chapter{Dicionário de Dados}\label{ap:dicionario}
 
-Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prisma em vigor (Apêndice~\ref{ap:schema}). Os nomes de tabela vêm da diretiva \texttt{@@map}; os nomes de coluna são os campos dos modelos. \emph{PK} indica chave primária; \emph{FK}, chave estrangeira; ``?'' após o tipo indica valor opcional (nulo permitido). Todas as chaves estrangeiras têm exclusão em cascata. \texttt{ContentStatus} é um enumerado do Prisma (\texttt{DRAFT} ou \texttt{PUBLISHED}) que o SQLite não impõe no banco; a validação ocorre no Prisma e na aplicação.
+Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prisma em vigor (Apêndice~\ref{ap:schema}). Os nomes de tabela vêm da diretiva \texttt{@@map}; os nomes de coluna são os campos dos modelos. \emph{PK} indica chave primária; \emph{FK}, chave estrangeira; ``?'' após o tipo indica valor opcional (nulo permitido). As chaves estrangeiras têm exclusão em cascata, exceto \texttt{contents.authorId}, que usa \texttt{Restrict}. \texttt{ContentStatus} é um enumerado do Prisma (\texttt{DRAFT} ou \texttt{PUBLISHED}) que o SQLite não impõe no banco; a validação ocorre no Prisma e na aplicação.
 
 \begin{longtable}{@{}L{3.9cm}L{1.8cm}L{3.3cm}L{5.0cm}@{}}
 \caption{Dicionário de dados}\label{tab:dicionario}\\
@@ -59,17 +59,17 @@ Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prism
 \multicolumn{4}{@{}l}{\textbf{Tabela \texttt{contents} (modelo \texttt{Content}) --- conteúdo hierárquico}}\\[2pt]
 \texttt{id} & String & PK; \texttt{cuid()} & Identificador do conteúdo\\
 \texttt{title} & String & Obrigatório & Título exibido no menu e na página\\
-\texttt{slug} & String & Obrigatório (unicidade: D-05) & Trecho amigável da URL (RN03)\\
+\texttt{slug} & String & Obrigatório; único entre irmãos & Trecho amigável da URL (RN03; índices na Tabela~\ref{tab:indices})\\
 \texttt{body} & String? & Opcional & Corpo em Markdown (vazio para coleções)\\
 \texttt{type} & String & Obrigatório & \texttt{DOCUMENT} ou \texttt{COLLECTION} (RN02)\\
 \texttt{status} & ContentStatus & \texttt{PUBLISHED} & Estado de publicação: \texttt{DRAFT} (rascunho) ou \texttt{PUBLISHED} (RN15, RN16; D-15)\\
 \texttt{order} & Int & \texttt{0} & Ordem entre irmãos (RN05)\\
 \texttt{parentId} & String? & FK $\rightarrow$ \arq{contents.id} & Conteúdo pai; nulo indica raiz\\
-\texttt{authorId} & String & FK $\rightarrow$ \arq{user.id} & Autor (RN13)\\
+\texttt{authorId} & String & FK $\rightarrow$ \arq{user.id}; \texttt{Restrict} & Autor (RN13); excluir um usuário que tenha conteúdo é bloqueado (RNF10)\\
 \texttt{createdAt}, \texttt{updatedAt} & DateTime & \texttt{now()}; \texttt{@updatedAt} & Carimbos de tempo\\
 \midrule
 \multicolumn{4}{@{}l}{\textbf{Tabela \arq{configurations} (modelo \texttt{Configuration}) --- registro único}}\\[2pt]
-\texttt{id} & String & PK; \texttt{cuid()} & Identificador (fixo, RN08)\\
+\texttt{id} & String & PK; padrão \texttt{default} & Identificador fixo do registro único (RN08); acesso sempre por \emph{upsert}\\
 \texttt{siteName} & String & \texttt{"Vitrine"} & Nome do site\\
 \arq{siteDescription} & String? & Opcional & Descrição do site\\
 \texttt{primaryColor} & String & \texttt{"\#3b82f6"} & Cor primária (RN09)\\
@@ -80,3 +80,22 @@ Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prism
 \texttt{updatedAt} & DateTime & \texttt{@updatedAt} & Data da última alteração\\
 \end{longtable}
 \fonte{Elaborado pelos autores, a partir de \arq{prisma/schema.prisma}.}
+
+A Tabela~\ref{tab:indices} lista os índices de \texttt{contents}, criados pela migração \arq{20261001034824_init}. O índice parcial da raiz não é modelado pelo Prisma: foi escrito à mão no SQL da migração (Seção~\ref{sec:arq-indice-parcial}).
+
+\begin{table}[htb]
+\caption{Índices da tabela \texttt{contents}}\label{tab:indices}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.6cm}L{4.4cm}Y@{}}
+\toprule
+\textbf{Índice} & \textbf{Colunas} & \textbf{Finalidade}\\
+\midrule
+\arq{contents_parentId_slug_key} & único: (\texttt{parentId}, \texttt{slug}) & RN03: \en{slug} único entre irmãos de um mesmo pai\\
+\addlinespace
+\arq{contents_root_slug_key} & único parcial: \texttt{slug} \texttt{WHERE parentId IS NULL} & RN03 na raiz, onde o SQLite trata \texttt{NULL} como distinto (D-05)\\
+\addlinespace
+\arq{contents_parentId_order_idx} & (\texttt{parentId}, \texttt{order}) & RNF02, RN05: consulta da árvore e ordenação dos irmãos\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da migração inicial.}
+\end{table}

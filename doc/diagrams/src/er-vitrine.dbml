@@ -94,16 +94,22 @@ Table contents {
   // Auto-relacionamento para estrutura de árvore
   parentId varchar [note: 'ID do conteúdo pai (null se for raiz)']
 
-  authorId varchar [not null]
+  authorId varchar [not null, note: 'Autor; excluir um usuário com conteúdo é bloqueado (Restrict, RNF10)']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null]
+
+  indexes {
+    (parentId, slug) [unique, name: 'contents_parentId_slug_key', note: 'RN03: slug único entre irmãos']
+    slug [unique, name: 'contents_root_slug_key', note: 'Índice parcial (migração SQL manual): UNIQUE (slug) WHERE parentId IS NULL; cobre a raiz, onde o SQLite trata NULL como distinto (D-05)']
+    (parentId, order) [name: 'contents_parentId_order_idx', note: 'RNF02, RN05: consulta da árvore e ordenação dos irmãos']
+  }
 }
 
 // ////////////////////////////////////////////////////////
 // CONFIGURAÇÕES DE UI E BRANDING (registro único)
 // ////////////////////////////////////////////////////////
 Table configurations {
-  id varchar [pk]
+  id varchar [pk, default: 'default', note: 'Registro único (RN08): id fixo "default"; acesso sempre por upsert']
   siteName varchar [not null, default: 'Vitrine']
   siteDescription text
 
@@ -129,11 +135,13 @@ Table configurations {
 }
 
 // ////////////////////////////////////////////////////////
-// RELAÇÕES (todas com exclusão em cascata, como em prisma/schema.prisma)
+// RELAÇÕES (como em prisma/schema.prisma; migração 20261001034824_init)
+// Cascata em session, account e no auto-relacionamento de contents;
+// Restrict no autor do conteúdo (M-002, RNF10).
 // ////////////////////////////////////////////////////////
 Ref: session.userId > user.id [delete: cascade]
 Ref: account.userId > user.id [delete: cascade]
-Ref: contents.authorId > user.id [delete: cascade]
+Ref: contents.authorId > user.id [delete: restrict]
 
 // Auto-relacionamento: um conteúdo pode ter vários "filhos".
 // Permite: Tutorial (COLLECTION) > Introdução (DOCUMENT)
