@@ -1,5 +1,5 @@
 // Configuração da CLI do Prisma 7 (nome padrão: prisma.config.ts).
-// Requer: npm install --save-dev prisma dotenv
+// Requer: prisma e dotenv em dependencies (o `prisma migrate deploy` roda na imagem de produção).
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
