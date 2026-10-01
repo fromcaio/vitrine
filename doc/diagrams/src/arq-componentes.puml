@@ -77,11 +77,12 @@ LDb --> Schema
 LDb --> Sqlite
 
 note bottom of CUi
-  Regra: src/components NÃO importa src/lib/db.js nem @prisma/client.
+  Regra: src/components NÃO importa src/lib/db.js nem o cliente gerado (@/generated/prisma).
   Dados chegam por props (Server Components em src/app) ou via fetch às rotas /api.
 end note
 note bottom of LDb
-  Regra: somente db.js instancia o PrismaClient. Rotas /api não
+  Regra: somente db.js instancia o PrismaClient na aplicação
+  (exceção: prisma/seed.js, rodado pela CLI). Rotas /api não
   escrevem consultas Prisma inline: chamam funções de db.js.
 end note
 @enduml

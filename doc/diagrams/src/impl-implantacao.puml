@@ -1,9 +1,9 @@
 @startuml impl-implantacao
 ' ===========================================================================
-' Vitrine - Diagrama de implantação (alvo recomendado: servidor com disco persistente)
+' Vitrine - Diagrama de implantação: contêiner Docker em VPS tradicional
 ' Figura: fig:impl-implantacao (doc/tex/capitulos/cap5_arquitetura.tex, Apêndice D)
-' Observação: plataformas serverless com sistema de arquivos efêmero exigem outro
-' driver de banco (ver decisão D-04 e Apêndice D).
+' Decisão D-04 (Engenheiro Chefe, 2026-09-30): imagem Docker em VPS tradicional com
+' volume persistente para o SQLite (ADR-011). Plataformas serverless não são alvo.
 ' ===========================================================================
 skinparam shadowing false
 skinparam defaultFontName Arial
@@ -16,23 +16,25 @@ skinparam node {
 actor "Leitor / Administrador" as User
 cloud "Internet" as Net
 
-node "Servidor (VPS, contêiner ou máquina própria)" as Srv {
-  node "Proxy reverso\n(TLS/HTTPS: Nginx, Caddy ou equivalente)" as Rp
-  node "Processo Node.js 20.9+\nnext start" as App {
-    artifact "Build do Next.js\n(.next/)" as Build
-    artifact "Prisma Client gerado\n+ driver adapter" as Client
+node "VPS tradicional (Linux)" as Vps {
+  node "Docker Engine" as Docker {
+    node "Proxy reverso (opcional)\nTLS/HTTPS: Caddy ou Nginx" as Rp
+    node "Contêiner vitrine\nNode.js 20.9+ - next start (1 instância)" as App {
+      artifact "Build do Next.js\n(.next/)" as Build
+      artifact "Prisma Client gerado\n+ adapter better-sqlite3" as Client
+    }
   }
-  node "Volume persistente" as Vol {
+  node "Volume persistente\n(bind mount ./data montado em /data)" as Vol {
     database "vitrine.db\n(+ vitrine.db-wal, vitrine.db-shm)" as Db
-    artifact "Cópias de segurança\n(VACUUM INTO / cópia do arquivo)" as Bkp
+    artifact "Cópias de segurança\n(VACUUM INTO)" as Bkp
   }
-  artifact ".env\n(DATABASE_URL, segredos do better-auth)" as Env
+  artifact ".env (fora da imagem)\nDATABASE_URL e segredos do better-auth" as Env
 }
 
 User --> Net
 Net --> Rp : HTTPS 443
-Rp --> App : HTTP (porta interna)
-App --> Db : SQL (arquivo local)
-App ..> Env : lê variáveis de ambiente
+Rp --> App : HTTP (rede interna do Docker)
+App --> Db : SQL (arquivo no volume)
+App ..> Env : variáveis de ambiente\n(env_file)
 Db ..> Bkp : rotina periódica
 @enduml

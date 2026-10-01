@@ -3,10 +3,10 @@
 %% Os listings abaixo leem os arquivos reais: nunca ficam desatualizados em relação ao
 %% que está na main. Não copie o conteúdo para este arquivo.
 %% ===================================================================================
-\chapter{Esquema do Prisma e Configuração Atual}\label{ap:schema}
+\chapter{Esquema e Configuração do Prisma}\label{ap:schema}
 
-Este apêndice reproduz, diretamente do repositório, o esquema do Prisma e o arquivo de configuração da CLI em vigor na data de compilação deste documento. O conteúdo é incluído por referência aos arquivos, de modo que sempre reflete a \texttt{main}. As divergências em relação às práticas do Prisma 7 estão na Tabela~\ref{tab:prisma7} e as observações sobre o modelo, na Tabela~\ref{tab:obs-schema}.
+Este apêndice reproduz, diretamente do repositório, o esquema do Prisma e o arquivo de configuração da CLI em vigor na data de compilação deste documento. O conteúdo é incluído por referência aos arquivos, de modo que sempre reflete a \texttt{main}. O estado de conformidade com as práticas do Prisma 7 está na Tabela~\ref{tab:prisma7} e as observações sobre o modelo, na Tabela~\ref{tab:obs-schema}.
 
 \lstinputlisting[language=VPrisma, caption={Conteúdo de prisma/schema.prisma}, label={lst:schema-prisma}]{../../prisma/schema.prisma}
 
-\lstinputlisting[language=VJS, caption={Conteúdo de prisma7.config.ts}, label={lst:prisma-config}]{../../prisma7.config.ts}
+\lstinputlisting[language=VJS, caption={Conteúdo de prisma.config.ts}, label={lst:prisma-config}]{../../prisma.config.ts}

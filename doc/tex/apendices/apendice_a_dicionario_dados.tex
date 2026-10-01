@@ -6,7 +6,7 @@
 %% ===================================================================================
 \chapter{Dicionário de Dados}\label{ap:dicionario}
 
-Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prisma em vigor (Apêndice~\ref{ap:schema}). Os nomes de tabela vêm da diretiva \texttt{@@map}; os nomes de coluna são os campos dos modelos. \emph{PK} indica chave primária; \emph{FK}, chave estrangeira; ``?'' após o tipo indica valor opcional (nulo permitido). Todas as chaves estrangeiras têm exclusão em cascata.
+Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prisma em vigor (Apêndice~\ref{ap:schema}). Os nomes de tabela vêm da diretiva \texttt{@@map}; os nomes de coluna são os campos dos modelos. \emph{PK} indica chave primária; \emph{FK}, chave estrangeira; ``?'' após o tipo indica valor opcional (nulo permitido). Todas as chaves estrangeiras têm exclusão em cascata. \texttt{ContentStatus} é um enumerado do Prisma (\texttt{DRAFT} ou \texttt{PUBLISHED}) que o SQLite não impõe no banco; a validação ocorre no Prisma e na aplicação.
 
 \begin{longtable}{@{}L{3.9cm}L{1.8cm}L{3.3cm}L{5.0cm}@{}}
 \caption{Dicionário de dados}\label{tab:dicionario}\\
@@ -62,6 +62,7 @@ Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prism
 \texttt{slug} & String & Obrigatório (unicidade: D-05) & Trecho amigável da URL (RN03)\\
 \texttt{body} & String? & Opcional & Corpo em Markdown (vazio para coleções)\\
 \texttt{type} & String & Obrigatório & \texttt{DOCUMENT} ou \texttt{COLLECTION} (RN02)\\
+\texttt{status} & ContentStatus & \texttt{PUBLISHED} & Estado de publicação: \texttt{DRAFT} (rascunho) ou \texttt{PUBLISHED} (RN15, RN16; D-15)\\
 \texttt{order} & Int & \texttt{0} & Ordem entre irmãos (RN05)\\
 \texttt{parentId} & String? & FK $\rightarrow$ \arq{contents.id} & Conteúdo pai; nulo indica raiz\\
 \texttt{authorId} & String & FK $\rightarrow$ \arq{user.id} & Autor (RN13)\\
@@ -75,6 +76,7 @@ Este apêndice descreve as tabelas do banco de dados conforme o esquema do Prism
 \arq{secondaryColor} & String & \texttt{"\#1e293b"} & Cor secundária\\
 \texttt{accentColor} & String & \texttt{"\#f59e0b"} & Cor de destaque\\
 \texttt{logoUrl}, \texttt{faviconUrl} & String? & Opcionais & Logotipo e \en{favicon} (D-10)\\
+\arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl}, \arq{twitchUrl} & String? & Opcionais; somente http(s) (RN17) & Links sociais do rodapé (RF24, D-19); vazio = ícone omitido\\
 \texttt{updatedAt} & DateTime & \texttt{@updatedAt} & Data da última alteração\\
 \end{longtable}
 \fonte{Elaborado pelos autores, a partir de \arq{prisma/schema.prisma}.}

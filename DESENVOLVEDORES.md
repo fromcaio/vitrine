@@ -32,9 +32,9 @@ Regra de fronteira: o que não é seu, **peça ao dono pelo mural** (`[PEDIDO]`)
 | Agente | Leia |
 |---|---|
 | **Todos** | `capitulos/cap3_metodologia.tex` §3.6 (processo); `cap5_arquitetura.tex` §5.1 a §5.4 (princípios, regras de dependência, estrutura de pastas); `cap4_requisitos.tex` §4.4 (RF) e §4.6 (RN) |
-| **Dados** | `cap5_arquitetura.tex` §5.5 (modelo de dados e **Tabela de observações sobre o schema**); `cap6_implementacao.tex` §6.3 (M01/M02 e **Tabela de conformidade com o Prisma 7**); `apendices/apendice_a_dicionario_dados.tex`, `apendice_b_schema_prisma.tex`; decisões D-05, D-06, D-09, D-14, D-19 (`apendice_f_decisoes_abertas.tex`); `doc/diagrams/src/er-vitrine.dbml`, `classes-dominio.puml` |
-| **Core** | `cap4_requisitos.tex` §4.3.3 (especificações de UC08, UC05, UC07, UC11); `cap5_arquitetura.tex` §5.6 (autenticação), §5.7 (ISR), §5.10 (**contrato da API**), §5.12 (segurança), §5.13 (implantação); `cap6_implementacao.tex` §6.4, §6.5, §6.10; `apendice_d_implantacao.tex`; decisões D-03, D-04, D-10, D-11, D-13; diagramas `seq-*.puml` |
-| **UI** | `cap4_requisitos.tex` §4.8 (protótipos) e RF de UI; `cap5_arquitetura.tex` §5.8 (Markdown), §5.9 (tema), §5.11 (rotas e inventário de componentes); `cap6_implementacao.tex` §6.6 a §6.9; decisões D-07, D-08, D-16, D-17, D-19; figuras de referência em `doc/tex/figuras/ic/` |
+| **Dados** | `cap5_arquitetura.tex` §5.5 (modelo de dados e **Tabela de observações sobre o schema**); `cap6_implementacao.tex` §6.3 (M01/M02 e **Tabela de conformidade com o Prisma 7**); `apendices/apendice_a_dicionario_dados.tex`, `apendice_b_schema_prisma.tex`; decisões abertas D-05, D-06, D-14 e resolvidas D-09, D-15, D-19 (`apendice_f_decisoes_abertas.tex`; ADR-012 a ADR-014 no `apendice_e_adr.tex`); RF26 e RN15 a RN17 no Cap. 4; `doc/diagrams/src/er-vitrine.dbml`, `classes-dominio.puml` |
+| **Core** | `cap4_requisitos.tex` §4.3.3 (especificações de UC08, UC05, UC07, UC11); `cap5_arquitetura.tex` §5.6 (autenticação), §5.7 (ISR e visibilidade por estado de publicação), §5.10 (**contrato da API**), §5.12 (segurança), §5.13 (implantação com Docker); `cap6_implementacao.tex` §6.4, §6.5, §6.10; `apendice_d_implantacao.tex`; decisões abertas D-03, D-10, D-11, D-13 e resolvida D-04 (ADR-011); diagramas `seq-*.puml` |
+| **UI** | `cap4_requisitos.tex` §4.8 (protótipos) e RF de UI; `cap5_arquitetura.tex` §5.8 (Markdown), §5.9 (tema), §5.11 (rotas e inventário de componentes); `cap6_implementacao.tex` §6.6 a §6.9; decisões abertas D-07, D-08, D-16, D-17 e resolvida D-19 (seis links sociais, ADR-013); RF24, RF26, RN15 a RN17; figuras de referência em `doc/tex/figuras/ic/` |
 
 ## 3. Fluxo de Git Obrigatório (Sem exceções)
 - **Código apenas em Branches:** Todo o trabalho de código deve ocorrer obrigatoriamente em branches separadas, nomeadas `tipo/dominio-tema` (ex.: `feat/dados-schema-inicial`, `fix/core-sessao-expirada`, `chore/ui-dependencias`, `test/core-api-conteudo`). Crie a branch a partir da `main` atualizada.
@@ -59,7 +59,7 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 ### M-001 · [MERGE] Dados → @Arquiteto · 2026-09-30 · branch `feat/dados-schema-inicial`
 - **Módulo(s) / IDs:** M01 · RF02, RF03, RF23 · RN02, RN03, RN08
 - **Resumo (3–5 linhas):** ...
-- **Seções da documentação consultadas:** Cap. 5 §5.5, Cap. 6 §6.3, Apêndice F (D-05, D-09)
+- **Seções da documentação consultadas:** Cap. 5 §5.5, Cap. 6 §6.3, Apêndice F (D-05, D-14)
 - **Mudanças que exigem atualizar a documentação:** schema (modelos/colunas/índices: ...), rotas (...), dependências (...), variáveis de ambiente (...)
 - **Desvios da especificação:** nenhum | lista com justificativa (e RFC, se houver)
 - **Verificação:** `npm run lint` ok · `npm run build` ok · testes/CT executados: CT11, CT28
@@ -78,9 +78,9 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 
 ## 6. Regras Técnicas por Domínio
 **Dados**
-- O modelo vive em `prisma/schema.prisma`; altere-o por migrações (`prisma migrate dev`) e **nunca edite uma migração já aplicada**. Resolva primeiro a conformidade com o Prisma 7 (Cap. 6, Tabela de §6.3, decisão D-09).
-- `src/lib/db.js` é o **único** lugar que instancia o cliente do Prisma (um por processo, com proteção contra recriação no modo de desenvolvimento) e exporta funções nomeadas; nada de lógica HTTP ali.
-- A consulta da árvore não carrega `body`; mover e reordenar usam transação. *Seed* idempotente; sem credenciais no código.
+- O modelo vive em `prisma/schema.prisma`; altere-o por migrações (`prisma migrate dev`) e **nunca edite uma migração já aplicada**. A conformidade com o Prisma 7 foi integrada no M-001 (D-09, ADR-014); confira os itens pendentes da Tabela de §6.3 (caminho de `DATABASE_URL`, `migrations.seed`, CLI em produção, cliente gerado). No Prisma 7, `migrate dev` não roda `generate` nem o *seed*.
+- `src/lib/db.js` é o **único** lugar que instancia o cliente do Prisma (um por processo, com o adaptador `better-sqlite3` e proteção contra recriação no modo de desenvolvimento) e exporta funções nomeadas; nada de lógica HTTP ali. O cliente gerado (TypeScript) é importado de `@/generated/prisma/client`. Única exceção: `prisma/seed.js`, que roda pela CLI fora do Next.js e pode ter o próprio cliente (declare no pedido).
+- A consulta da árvore não carrega `body`; mover e reordenar usam transação. As leituras públicas filtram por `PUBLISHED`, com a regra de ancestrais da RN15; as leituras do painel devolvem tudo. *Seed* idempotente; sem credenciais no código.
 - Ao mudar o schema, liste no pedido modelos, colunas, índices e impacto em RF/RN (o Arquiteto atualiza DBML e Apêndice A).
 
 **Core**
@@ -90,7 +90,7 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 - Crie `.env.example` (só nomes) e ajuste o `.gitignore` (`!.env.example`), pois `.env*` hoje o ignora. Nunca coloque segredos em variáveis `NEXT_PUBLIC_*`.
 
 **UI**
-- Server Components por padrão; `'use client'` só onde houver estado/eventos. Componentes **não** importam `db.js` nem `@prisma/client`: dados chegam por *props* ou pelas rotas `/api`.
+- Server Components por padrão; `'use client'` só onde houver estado/eventos. Componentes **não** importam `db.js` nem o cliente gerado do Prisma (`@/generated/prisma`): dados chegam por *props* ou pelas rotas `/api`.
 - Markdown: **sem HTML bruto**, mantendo a transformação padrão de URLs; importar a folha de estilos do KaTeX; a pré-visualização do editor usa o **mesmo** `MarkdownRenderer` da página pública.
 - Tema: cores só por tokens/variáveis CSS (Cap. 5 §5.9), nunca fixas; aviso de contraste (WCAG 2.1 AA). Acessibilidade: teclado, foco visível, rótulos. `lang="pt-BR"` (arquivo de rota: combine com o Core).
 
@@ -101,7 +101,7 @@ A documentação contém *placeholders* amarelos **FIGURA PENDENTE** que dizem o
 - Commite as imagens na **sua branch de feature** (arquivos novos não geram conflito).
 
 ## 8. Dependências, Segredos e Dados
-- **Nova dependência:** declare no pedido (nome, versão, motivo, licença, alternativa, impacto no *bundle*); o Arquiteto aprova e atualiza o Cap. 3. Em princípio aprovadas: `remark-gfm` (D-08), um *driver adapter* do Prisma para SQLite (D-09) e Zod (D-11) — confirme no pedido.
+- **Nova dependência:** declare no pedido (nome, versão, motivo, licença, alternativa, impacto no *bundle*); o Arquiteto aprova e atualiza o Cap. 3. Em princípio aprovadas: `remark-gfm` (D-08) e Zod (D-11) — confirme no pedido. O *driver adapter* `better-sqlite3` já foi aprovado e integrado (ADR-014).
 - **Segredos:** nunca leia, imprima ou commite `.env*`; use `.env.example` para nomes. Testes e capturas usam dados fictícios e um banco temporário.
 
 ## 9. Em Caso de Dúvida

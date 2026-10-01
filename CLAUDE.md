@@ -20,7 +20,7 @@ O detalhamento de propriedade de arquivos está em `DESENVOLVEDORES.md` (§1).
 
 ## 2. Regras Universais do Repositório
 Independentemente do seu papel, estas regras se aplicam a você:
-- **Stack:** Next.js 16 (App Router), Prisma ORM 7 (SQLite local, ex.: `dev.db`), Tailwind CSS 4, `better-auth`, `react-markdown` + `remark-math` + `rehype-katex`. Linguagem: JavaScript com JSDoc (sem TypeScript).
+- **Stack:** Next.js 16 (App Router), Prisma ORM 7 com o *driver adapter* `better-sqlite3` (SQLite em arquivo, ex.: `DATABASE_URL=file:./dev.db`), Tailwind CSS 4, `better-auth`, `react-markdown` + `remark-math` + `rehype-katex`. Linguagem: JavaScript com JSDoc (sem TypeScript). Implantação: imagem Docker em VPS tradicional, com volume para o SQLite (D-04, ADR-011).
 - **GitFlow:** É expressamente proibido fazer commits de código fonte diretamente na branch `main`. Todo desenvolvimento de software deve ser feito em branches nomeadas `tipo/dominio-tema` (ex.: `feat/dados-schema-inicial`, `fix/core-sessao-expirada`).
 - **Comunicação:** A coordenação entre as áreas é feita através do arquivo `MURAL_DE_AGENTES.md`. Você só tem permissão para editar este mural estando na branch `main`, em commit exclusivo do mural.
 - **Documentação:** A fonte da verdade do projeto são os arquivos LaTeX na pasta `doc/tex/` (capítulos em `doc/tex/capitulos/`, apêndices em `doc/tex/apendices/`) e os diagramas como código em `doc/diagrams/src/`. Nunca invente regras de negócio que não estejam documentadas lá: se faltar algo, abra um `[RFC]` no mural.
@@ -34,7 +34,8 @@ Independentemente do seu papel, estas regras se aplicam a você:
 - Instalar dependências: `npm install`
 - Rodar o servidor de desenvolvimento: `npm run dev`
 - Verificar antes de pedir merge: `npm run lint` e `npm run build`
-- Aplicar migrações do banco (apenas Arquiteto de Dados): `npx prisma migrate dev` (antes, resolva a conformidade com o Prisma 7: nome do arquivo de configuração, gerador e *driver adapter* — ver decisão D-09)
+- Gerar o cliente do Prisma (necessário após `npm install` e antes de `npm run build`; `src/generated/prisma` não é versionado): `npx prisma generate`
+- Aplicar migrações do banco (apenas Arquiteto de Dados): `npx prisma migrate dev` (a conformidade com o Prisma 7 já foi integrada, D-09 e ADR-014; no Prisma 7 esse comando **não** roda `generate` nem o *seed*: execute `npx prisma generate` e `npx prisma db seed` explicitamente)
 - Visualizar banco de dados: `npx prisma studio`
 - Ler/compilar a documentação: os `.tex` são texto e podem ser lidos direto; para gerar o PDF use `bash doc/tex/build-isolado.sh`
 - Ver o que falta documentar ou ilustrar: `cd doc/tex && make pendentes AGENTE=<Core|Dados|UI|Arquiteto>`
@@ -52,8 +53,8 @@ Leia os `.tex` diretamente. Os números de seção podem mudar; os rótulos `\la
 | Autenticação, cache/ISR, API HTTP, rotas, segurança | `cap5_arquitetura.tex` §5.6, §5.7, §5.10, §5.11, §5.12 |
 | Pipeline de Markdown e tema dinâmico | `cap5_arquitetura.tex` §5.8 e §5.9 |
 | O que fazer em cada módulo (M01–M14), critérios de aceite e status | `cap6_implementacao.tex` |
-| Casos de teste (CT01–CT30) | `cap7_testes.tex` |
-| Decisões tomadas (ADR) e em aberto (D-xx) | `apendices/apendice_e_adr.tex` e `apendices/apendice_f_decisoes_abertas.tex` |
+| Casos de teste (CT01–CT33) | `cap7_testes.tex` |
+| Decisões tomadas (ADR-001 a ADR-014) e decisões D-xx abertas e resolvidas | `apendices/apendice_e_adr.tex` e `apendices/apendice_f_decisoes_abertas.tex` |
 | Implantação e operação | `apendices/apendice_d_implantacao.tex` |
 | Processo DDD, papéis, fluxo Git, critérios de merge | `cap3_metodologia.tex` §3.6, `ARQUITETO.md`, `DESENVOLVEDORES.md` |
 | Pendências (figuras, trechos de código, textos) | `apendices/apendice_g_pendencias.tex` (gerado) |
@@ -62,4 +63,4 @@ Leia os `.tex` diretamente. Os números de seção podem mudar; os rótulos `\la
 Material histórico, **somente leitura**, em `doc/ref/` (relatório de IC, `er.dbml`, `use-case-diagram.plantuml`).
 
 ## 5. Estado do Repositório (registro de 2026-09-30)
-Existem o *scaffold* do Next.js 16, o `prisma/schema.prisma` inicial (6 modelos), a governança e a documentação. **Ainda não existem:** migrações, `src/lib/*`, rotas de API, autenticação, componentes e `.env.example`. Divergências já identificadas estão no Cap. 5 §5.5.4, no Cap. 6 §6.3 e nos avisos iniciais do mural. O repositório não possui remoto Git configurado.
+Existem o *scaffold* do Next.js 16, o `prisma/schema.prisma` (6 modelos, o enumerado `ContentStatus` e os seis links sociais de `Configuration`), conforme o Prisma 7 desde o merge M-001 (`043ce46`), a governança e a documentação. **Ainda não existem:** migrações, *seed*, `src/lib/*`, rotas de API, autenticação, componentes, `.env.example` e Docker (`Dockerfile`, `docker-compose.yml`). As pendências do schema estão no Cap. 5 §5.5.4 e no Cap. 6 §6.3; a próxima tarefa do time de dados é a A-006 do mural. O remoto `origin` (GitHub) está configurado: nenhum agente faz `git push` sem pedido explícito do Engenheiro Chefe.

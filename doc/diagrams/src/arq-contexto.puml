@@ -18,7 +18,7 @@ actor "Implantador\n(em geral, o próprio docente)" as Impl
 
 rectangle "Vitrine\n[Sistema de software]\nCMS monolítico para publicação\nde conteúdo científico e didático" as Vitrine #DBEAFE
 
-rectangle "Plataforma de hospedagem\n[Node.js 20.9+ em VPS, contêiner\nou servidor próprio]" as Host
+rectangle "Plataforma de hospedagem\n[VPS tradicional com Docker\n(contêiner Node.js 20.9+)]" as Host
 rectangle "Repositório Git\n[código-fonte aberto]" as Repo
 
 Leitor --> Vitrine : Lê documentos\n(HTTPS, navegador)

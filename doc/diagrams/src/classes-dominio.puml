@@ -18,6 +18,11 @@ enum ContentType <<valor lógico>> {
   COLLECTION
 }
 
+enum ContentStatus <<enum do Prisma>> {
+  DRAFT
+  PUBLISHED
+}
+
 class User {
   id : String <<cuid>>
   name : String
@@ -64,6 +69,7 @@ class Content {
   slug : String
   body : String [0..1]
   type : ContentType
+  status : ContentStatus = PUBLISHED
   order : Int = 0
   createdAt : DateTime
   updatedAt : DateTime
@@ -78,6 +84,12 @@ class Configuration <<registro único>> {
   accentColor : String = "#f59e0b"
   logoUrl : String [0..1]
   faviconUrl : String [0..1]
+  discordUrl : String [0..1]
+  githubUrl : String [0..1]
+  youtubeUrl : String [0..1]
+  instagramUrl : String [0..1]
+  linkedinUrl : String [0..1]
+  twitchUrl : String [0..1]
   updatedAt : DateTime
 }
 
@@ -86,11 +98,18 @@ User "1" *-- "0..*" Account : possui
 User "1" *-- "0..*" Content : autor de
 Content "0..1" *-- "0..*" Content : pai de
 Content ..> ContentType : type
+Content ..> ContentStatus : status
 
 note bottom of Content
   Regras: apenas COLLECTION pode ter filhos;
   exclusão de um nó remove seus descendentes (cascata);
-  slug único entre irmãos (ver decisão D-05).
+  slug único entre irmãos (ver decisão D-05);
+  visível ao público somente se o nó e todos os
+  ancestrais forem PUBLISHED (RN15).
+end note
+note right of Configuration
+  Links sociais: seis campos opcionais e
+  independentes, apenas URLs http(s) (RN17).
 end note
 note right of Verification
   Usada pelo better-auth (verificação de e-mail

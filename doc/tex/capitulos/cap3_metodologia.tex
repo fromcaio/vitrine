@@ -219,7 +219,7 @@ Os agentes de inteligência artificial são ferramentas de apoio sob supervisão
 
 \section{Ambiente e Ferramentas}\label{sec:ambiente}
 
-A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declaradas no repositório, conferidas em \arq{package.json} e em \arq{node_modules} na data de elaboração deste capítulo.
+A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declaradas no repositório, conferidas em \arq{package.json} e em \arq{node_modules}; os valores foram atualizados após o merge M-001 (30/09/2026).
 
 \begin{table}[htb]
 \caption{Tecnologias e versões do projeto}\label{tab:stack}
@@ -233,9 +233,9 @@ Next.js & 16.3.7 & \en{Framework} web (App Router, ISR, Route Handlers, Proxy)\\
 React e React DOM & 19.2.8 & Biblioteca de interface\\
 React Compiler (plugin Babel) & 1.0.0 & Memoização automática (\texttt{reactCompiler: true})\\
 Tailwind CSS & 4.3.3 (instalada; \texttt{\^{}4}) & Estilização por utilitários\\
-Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações\\
-SQLite & via \en{driver adapter} & Banco de dados em arquivo (\en{driver} a definir, D-09)\\
-\texttt{sqlite3} (Node) & 6.0.1 & Declarado como dependência de desenvolvimento; \textbf{não é} \en{driver adapter} do Prisma (ver \decisao{D-09})\\
+Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações; configuração em \arq{prisma.config.ts}; cliente gerado em \arq{src/generated/prisma} (gerador \texttt{prisma-client})\\
+\arq{@prisma/adapter-better-sqlite3} e \arq{better-sqlite3} & 7.10.0 e 12.11.1 & \en{Driver adapter} do Prisma para SQLite (módulo nativo) e o próprio SQLite em arquivo (\adr{ADR-014})\\
+\arq{dotenv} & 18.0.5 (desenvolvimento) & Carregamento do \arq{.env} pela CLI do Prisma\\
 better-auth & 1.7.6 & Autenticação e sessões\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
 remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\
@@ -245,6 +245,7 @@ ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
 \LaTeX{} (MiKTeX) e \texttt{latexmk} & pdfTeX 4.19 & Composição desta documentação\\
 PlantUML e Graphviz & a instalar & Renderização dos diagramas (\arq{doc/diagrams/})\\
 Git & --- & Controle de versão e fluxo por ramificações\\
+Docker Engine e Docker Compose & versão do servidor & Implantação por imagem em VPS tradicional (\adr{ADR-011})\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores, a partir de \arq{package.json} e das instalações locais.}
@@ -270,7 +271,7 @@ A Tabela~\ref{tab:riscos} registra os principais riscos identificados, com proba
 \endhead
 \bottomrule
 \endfoot
-R01 & O sistema de arquivos efêmero de plataformas \en{serverless} impede a persistência do arquivo SQLite & A & A & Documentar alvos de implantação com disco persistente; manter a opção de \en{driver} libSQL (decisão \decisao{D-04})\\
+R01 & O sistema de arquivos efêmero de plataformas \en{serverless} impede a persistência do arquivo SQLite & B & A & Mitigado pela decisão \decisao{D-04}: implantação por imagem Docker em VPS com volume persistente (\adr{ADR-011}); plataformas \en{serverless} não são alvo desta versão\\
 R02 & Divergência entre código e documentação (deriva) & M & A & Princípios PR1 e PR2; critérios de aceite; Arquiteto como revisor único\\
 R03 & Conflitos de fusão em \arq{package-lock.json} quando várias ramificações adicionam dependências & A & B & Novas dependências declaradas no pedido; o Arquiteto regenera o \en{lockfile} ao integrar\\
 R04 & Mudanças incompatíveis nas dependências (Next.js 16, Prisma 7, better-auth 1.x) em relação ao conhecimento dos agentes & M & M & Versões fixadas no \en{lockfile}; consulta obrigatória à documentação local e às \en{skills} do Prisma antes de codificar\\
@@ -280,5 +281,7 @@ R07 & Limite de concorrência de escrita do SQLite & B & M & Modo WAL; poucas es
 R08 & Agentes introduzem código fora do escopo ou sem testes & M & M & Domínios com dono; critérios de aceite; veto fundamentado no mural\\
 R09 & Perda de dados por exclusão em cascata acidental & M & A & Confirmação explícita; rotina de \en{backup} documentada (Apêndice~\ref{ap:implantacao})\\
 R10 & Escopo maior do que o prazo do TCC comporta & M & A & Priorização Essencial, Importante e Desejável; fases com entregas incrementais\\
+R11 & Vazamento de rascunhos (\texttt{DRAFT}) por consulta pública sem filtro de estado, na página, na \en{sidebar}, na geração estática ou no mapa do site & M & A & Regra RN15; filtro centralizado em \arq{db.js}; caso de teste CT31; revisão de todo \en{endpoint} ou página nova\\
+R12 & Perda do volume do SQLite na VPS (falha de disco ou do provedor) & M & A & Rotina de cópia de segurança com \texttt{VACUUM INTO} e cópias fora da VPS (Apêndice~\ref{ap:implantacao}); teste de restauração (CT30)\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}

@@ -1,22 +1,28 @@
 %% ===================================================================================
 %% Apêndice D -- Guia de Implantação e Operação
-%% ESBOÇO normativo escrito antes do código. Os agentes Core e Dados devem validar cada
-%% passo numa instalação limpa (CT29) e pedir ao Arquiteto, pelo mural, as correções.
+%% Reconciliado após a decisão D-04 (ADR-011): imagem Docker em VPS tradicional, com volume
+%% persistente para o SQLite. ESBOÇO normativo escrito antes do código (Dockerfile e
+%% docker-compose.yml ainda não existem: módulo M13). Os agentes Core e Dados devem validar
+%% cada passo numa VPS limpa (CT29) e pedir ao Arquiteto, pelo mural, as correções.
 %% ===================================================================================
 \chapter{Guia de Implantação e Operação}\label{ap:implantacao}
 
-Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). Os comandos foram redigidos a partir da especificação e da documentação das ferramentas; devem ser validados em uma instalação limpa (caso de teste CT29) e corrigidos conforme a implementação real.
+Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). O alvo de implantação é a \textbf{imagem Docker em uma VPS (\en{Virtual Private Server}) tradicional, com volume persistente para o arquivo SQLite} (decisão \decisao{D-04}, registrada na \adr{ADR-011}); plataformas \emph{serverless} não são suportadas nesta versão. Os comandos foram redigidos a partir da especificação e da documentação das ferramentas \cite{dockerdocs}; devem ser validados em uma instalação limpa (caso de teste CT29) e corrigidos conforme a implementação real.
 
-\vitrinependencia{Core}{Validar este guia em uma instalação limpa, corrigindo comandos e nomes de variáveis, e confirmar com o Arquiteto pelo mural o texto final (caso CT29).}
+\vitrinependencia{Core}{Criar o Dockerfile e o docker-compose.yml (módulo M13), validar este guia em uma VPS limpa, corrigir comandos e nomes de variáveis, e confirmar com o Arquiteto pelo mural o texto final (caso CT29).}
 
 \section{Pré-requisitos}
 
 \begin{itemize}
-  \item Servidor Linux, máquina virtual ou contêiner com \textbf{Node.js 20.9 ou superior} e \texttt{npm};
-  \item \textbf{disco persistente} para o arquivo do banco (um volume dedicado, em contêineres);
-  \item \textbf{HTTPS} em produção, tipicamente por um \en{proxy} reverso com TLS;
-  \item acesso ao repositório Git do projeto.
+  \item uma \textbf{VPS Linux} com \textbf{Docker Engine} e o plugin \textbf{Docker Compose} (comando \texttt{docker compose}), com acesso por SSH;
+  \item um \textbf{nome de domínio} apontando para o endereço da VPS e as portas 80 e 443 liberadas, para o \en{proxy} reverso com HTTPS;
+  \item \textbf{disco persistente} no servidor, em sistema de arquivos \textbf{local} (não de rede), para o diretório do volume que guarda o banco;
+  \item acesso ao repositório Git do projeto e, para as cópias de segurança, a CLI \texttt{sqlite3} no servidor.
 \end{itemize}
+
+\section{Arquitetura da Implantação}
+
+A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a topologia: um \en{proxy} reverso com TLS recebe as conexões públicas e encaminha ao contêiner \texttt{vitrine}, que executa \texttt{next start} com \textbf{uma única instância} (Seção~\ref{sec:arq-isr}); o arquivo \arq{vitrine.db} (com os arquivos auxiliares do modo WAL) reside em um volume do servidor montado no contêiner em \arq{/data}; os segredos ficam em um arquivo \arq{.env} fora da imagem e fora do Git.
 
 \section{Variáveis de Ambiente}
 
@@ -27,13 +33,13 @@ Este apêndice descreve como instalar, executar, atualizar e proteger uma instâ
 \toprule
 \textbf{Variável} & \textbf{Obrigatória} & \textbf{Descrição}\\
 \midrule
-\arq{DATABASE_URL} & Sim & Localização do arquivo SQLite, no formato \texttt{file:CAMINHO}. Em produção, usar caminho absoluto em volume persistente (por exemplo, \arq{file:/data/vitrine.db})\\
+\arq{DATABASE_URL} & Sim & Localização do arquivo SQLite, no formato \texttt{file:CAMINHO}. No contêiner, deve apontar para o volume com caminho absoluto: \arq{file:/data/vitrine.db}\\
 \addlinespace
 \arq{BETTER_AUTH_SECRET} & Sim (nome a confirmar) & Segredo usado pelo better-auth para assinar/criptografar dados de sessão; longo e aleatório\\
 \addlinespace
 \arq{BETTER_AUTH_URL} & Sim (nome a confirmar) & URL pública base do site (por exemplo, \arq{https://meusite.exemplo})\\
 \addlinespace
-\arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção\\
+\arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção (definida na imagem)\\
 \addlinespace
 \arq{PORT} & Não & Porta do servidor Next.js; o padrão é 3000\\
 \bottomrule
@@ -43,29 +49,84 @@ Este apêndice descreve como instalar, executar, atualizar e proteger uma instâ
 
 \section{Instalação}
 
-\begin{lstlisting}[language=VSh, caption={Esboço: instalação em servidor}, label={lst:instalacao}]
-# 1. Obter o código e instalar as dependências
+O Código~\ref{lst:instalacao} mostra o roteiro previsto. Na primeira execução, a imagem é construída e as migrações e os dados iniciais são aplicados com contêineres descartáveis, antes de subir o serviço.
+
+\begin{lstlisting}[language=VSh, caption={Esboço: instalação em VPS com Docker}, label={lst:instalacao}]
+# 1. Obter o código
 git clone <url-do-repositorio> vitrine && cd vitrine
-npm ci
 
-# 2. Configurar o ambiente (.env nunca é versionado)
-cp .env.example .env
-# editar .env: DATABASE_URL, segredo e URL do better-auth
+# 2. Configurar o ambiente (.env nunca é versionado) e criar o diretório do volume
+cp .env.example .env              # preencher o segredo e a URL do better-auth
+mkdir -p data && sudo chown 1000:1000 data   # usuário "node" do contêiner
 
-# 3. Aplicar as migrações e criar os dados iniciais
-npx prisma migrate deploy
-npx prisma db seed        # configuração padrão + primeiro administrador (RF22, RF23)
+# 3. Construir a imagem
+docker compose build
 
-# 4. Compilar e iniciar
-npm run build
-npm run start             # http://localhost:3000
+# 4. Aplicar as migrações e criar os dados iniciais (uma vez)
+docker compose run --rm vitrine npx prisma migrate deploy
+docker compose run --rm vitrine npx prisma db seed   # configuração padrão + administrador (RF22, RF23)
+
+# 5. Subir o serviço
+docker compose up -d
 \end{lstlisting}
 
-Em produção, o processo deve ser supervisionado por um gerenciador (por exemplo, \texttt{systemd} ou um gerenciador de processos Node.js) ou executado em contêiner com reinício automático. Deve haver \textbf{uma única instância} (Seção~\ref{sec:arq-isr}).
+O Código~\ref{lst:dockerfile}, o Código~\ref{lst:compose} e o Código~\ref{lst:dockerignore} são esboços não vinculantes dos arquivos que o módulo M13 deve produzir; o \arq{.dockerignore} é essencial, pois sem ele o comando \texttt{COPY . .} levaria o \arq{.env}, o banco em \arq{data/} e o \arq{node_modules} do hospedeiro para dentro da imagem. A imagem de exemplo inclui as dependências de desenvolvimento porque a CLI do Prisma e o \arq{dotenv} (usado por \arq{prisma.config.ts}) são necessários para aplicar migrações; o Core pode otimizar a imagem (por exemplo, com a saída \emph{standalone} do Next.js) desde que a aplicação de migrações continue possível (\adr{ADR-014}). O módulo nativo \arq{better-sqlite3} é instalado no \en{build}, e a versão do Node.js da imagem deve ser a mesma usada no desenvolvimento.
+
+\begin{lstlisting}[language=VSh, caption={Esboço: Dockerfile em dois estágios}, label={lst:dockerfile}]
+# Esboço não vinculante (módulo M13); validar no caso CT29.
+FROM node:22-bookworm-slim AS build
+WORKDIR /app
+# Ferramentas de compilação, caso o better-sqlite3 não tenha binário pré-compilado
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npx prisma generate && npm run build
+
+FROM node:22-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app ./
+RUN mkdir -p /data && chown -R node:node /data /app
+USER node
+EXPOSE 3000
+CMD ["npm", "run", "start"]
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Esboço: docker-compose.yml}, label={lst:compose}]
+services:
+  vitrine:
+    build: .
+    image: vitrine:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: "file:/data/vitrine.db"
+    volumes:
+      - ./data:/data              # volume persistente do SQLite
+    ports:
+      - "127.0.0.1:3000:3000"     # só o proxy reverso do servidor acessa
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Esboço: .dockerignore}, label={lst:dockerignore}]
+.git
+.env*
+data
+node_modules
+.next
+src/generated
+doc
+.agents
+.claude
+.windsurf
+\end{lstlisting}
+
+Deve haver \textbf{uma única instância} do serviço (Seção~\ref{sec:arq-isr}): não use réplicas nem \texttt{docker compose up -{}-scale}.
 
 \section{Proxy Reverso e HTTPS}
 
-Um \en{proxy} reverso com TLS recebe as conexões públicas e as encaminha à porta interna do Node.js. Exemplo mínimo com o servidor Caddy, que obtém e renova certificados automaticamente:
+Um \en{proxy} reverso com TLS, instalado no servidor ou executado como outro serviço do \en{compose}, recebe as conexões públicas e as encaminha à porta interna do contêiner. Exemplo mínimo com o servidor Caddy no próprio servidor, que obtém e renova certificados automaticamente:
 
 \begin{lstlisting}[caption={Esboço: Caddyfile para o Vitrine}, label={lst:caddy}]
 meusite.exemplo {
@@ -75,18 +136,22 @@ meusite.exemplo {
 
 \section{Cópia de Segurança e Restauração}\label{sec:backup}
 
-O banco é um único arquivo; porém, com o modo WAL, a cópia de arquivos com o sistema em execução pode ser inconsistente. A forma recomendada é gerar uma cópia consistente com o próprio SQLite, por exemplo:
+O banco é um único arquivo no diretório \arq{data/}; porém, com o modo WAL, copiar os arquivos com o sistema em execução pode produzir uma cópia inconsistente. A forma recomendada é gerar uma cópia consistente com o próprio SQLite, executada no servidor sobre o arquivo do volume, por exemplo:
 
 \begin{lstlisting}[language=VSh, caption={Esboço: cópia de segurança consistente do SQLite}, label={lst:backup}]
 # Requer a CLI sqlite3 (SQLite 3.27 ou superior para VACUUM INTO)
-sqlite3 /data/vitrine.db "VACUUM INTO '/backup/vitrine-$(date +%F).db'"
+sqlite3 ./data/vitrine.db "VACUUM INTO '/backup/vitrine-$(date +%F).db'"
 \end{lstlisting}
 
-Para restaurar: parar o servidor, substituir o arquivo do banco pela cópia e iniciar novamente. A rotina deve ser agendada (por exemplo, diariamente) e as cópias guardadas fora do servidor (RNF10).
+Para restaurar: parar o serviço (\texttt{docker compose down}), substituir o arquivo do banco pela cópia, remover os arquivos auxiliares \arq{vitrine.db-wal} e \arq{vitrine.db-shm}, se existirem, e subir novamente (\texttt{docker compose up -d}). A rotina deve ser agendada (por exemplo, diariamente, por \texttt{cron}) e as cópias guardadas \textbf{fora da VPS} (RNF10).
 
 \section{Atualização}
 
-Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reinstalar dependências (\texttt{npm ci}), aplicar migrações (\texttt{npx prisma migrate deploy}), recompilar (\texttt{npm run build}) e reiniciar o serviço. A recompilação gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação.
+Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). A reconstrução gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação.
+
+\section{Alternativa sem Contêiner}
+
+A execução direta com Node.js 20.9 ou superior (\texttt{npm ci}, \texttt{npx prisma migrate deploy}, \texttt{npm run build} e \texttt{npm run start}, sob um gerenciador de processos como o \texttt{systemd}) continua possível e segue as mesmas regras de instância única, disco persistente e HTTPS, mas \textbf{não é o alvo documentado} desta versão.
 
 \section{Solução de Problemas}
 
@@ -102,10 +167,13 @@ Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo có
 \endhead
 \bottomrule
 \endfoot
-Erro de banco não encontrado & Caminho relativo em \arq{DATABASE_URL} resolvido de forma diferente pela CLI e pelo servidor & Usar caminho absoluto em produção\\[1pt]
+Erro de banco não encontrado & Caminho relativo em \arq{DATABASE_URL} resolvido de forma diferente pela CLI e pelo servidor & Usar caminho absoluto (\arq{file:/data/vitrine.db}) no contêiner\\[1pt]
+Falha de escrita no banco ou erro de permissão & O usuário do contêiner (\texttt{node}, UID 1000) não tem permissão de escrita no diretório do volume & Ajustar o dono e as permissões de \arq{data/}\\[1pt]
+Dados perdidos ao recriar o contêiner & O arquivo foi gravado dentro do contêiner, e não no volume & Conferir \arq{DATABASE_URL} e o mapeamento do volume (\arq{./data:/data})\\[1pt]
+Erros de bloqueio ou corrupção ao usar WAL & Volume em sistema de arquivos de rede (NFS e similares) & Usar disco local da VPS para o volume\\[1pt]
+\texttt{prisma: command not found} no contêiner & A CLI do Prisma está em \texttt{devDependencies} e foi omitida da imagem & Manter as dependências de desenvolvimento na imagem ou aplicar migrações em um estágio com a CLI (\adr{ADR-014})\\[1pt]
+Falha ao compilar o \arq{better-sqlite3} no \en{build} & Falta de binário pré-compilado para a versão do Node.js ou das ferramentas de compilação & Instalar \arq{python3}, \arq{make} e \arq{g++} no estágio de \en{build} ou alinhar a versão do Node.js\\[1pt]
 Login não persiste & URL base incorreta ou \en{cookie} \texttt{Secure} sem HTTPS & Conferir a URL do better-auth e o TLS do \en{proxy}\\[1pt]
 Alteração não aparece no site público & Mais de uma instância (cache por instância) ou falha na revalidação & Manter uma única instância; verificar o cabeçalho \arq{x-nextjs-cache}\\[1pt]
-Falha de escrita no banco & Permissão de escrita ausente na pasta do arquivo & Ajustar o dono e as permissões do volume\\[1pt]
-Dados perdidos após reinício em plataforma \en{serverless} & Sistema de arquivos efêmero & Usar servidor com disco persistente ou banco remoto (D-04)\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}

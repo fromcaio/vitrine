@@ -32,14 +32,14 @@ Além das limitações registradas na Seção~\ref{sec:res-ameacas}, o relatóri
 Do relatório de IC \cite{reis2026ic} permanecem como propostas de continuidade:
 
 \begin{itemize}
-  \item produzir documentação técnica detalhada e tutoriais em vídeo que demonstrem o processo de clonagem do repositório e de implantação --- considerando a ressalva sobre plataformas \emph{serverless} e a persistência do SQLite (\decisao{D-04});
+  \item produzir documentação técnica detalhada e tutoriais em vídeo que demonstrem o processo de clonagem do repositório e de implantação --- considerando que a implantação suportada é a imagem Docker em uma VPS com volume para o SQLite (\decisao{D-04}, \adr{ADR-011}) e que plataformas \emph{serverless} exigiriam um banco remoto compatível;
   \item lançar o site oficial do projeto, denominado Vitrine, que servirá como repositório central para tutoriais, documentação e instâncias de demonstração;
   \item explorar a integração com repositórios de dados abertos para a citação automática de publicações;
   \item expandir a biblioteca de componentes visuais, permitindo maior customização da interface;
   \item implementar a renderização nativa de gráficos de funções de uma variável (gráficos 2D).
 \end{itemize}
 
-Da consolidação do monólito surgem novas linhas de evolução, já mapeadas como decisões em aberto (Apêndice~\ref{ap:decisoes}): papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); estados de publicação e histórico de versões (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; e temas pré-definidos.
+Da consolidação do monólito surgem novas linhas de evolução, já mapeadas no Apêndice~\ref{ap:decisoes}: papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
 
 \section{Considerações Finais}
 

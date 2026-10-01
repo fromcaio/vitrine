@@ -36,11 +36,14 @@ mkdir -p "$DEST/doc/tex" "$DEST/doc/diagrams" "$DEST/prisma"
 cp -u "$AQUI"/*.tex "$AQUI"/*.sty "$AQUI"/*.cls "$AQUI"/*.bib "$DEST/doc/tex/"
 for d in capitulos apendices figuras imgs; do
   mkdir -p "$DEST/doc/tex/$d"
-  cp -ru "$AQUI/$d/." "$DEST/doc/tex/$d/"
+  # Não copia artefatos de build (.aux etc.): o auto-build do editor os grava nestas pastas e,
+  # se estiverem corrompidos, sobrescreveriam os da cópia e derrubariam a próxima compilação
+  # ("Extra }, or forgotten \endgroup" ao ler capitulos/*.aux).
+  (cd "$AQUI/$d" && find . -type f ! -name '*.aux' ! -name '*.log' ! -name '*.toc' -print0 \
+    | xargs -0 -r cp -u --parents -t "$DEST/doc/tex/$d/")
 done
 cp -ru "$RAIZ/doc/diagrams/src" "$DEST/doc/diagrams/" 2>/dev/null
 [ -f "$RAIZ/prisma/schema.prisma" ] && cp -u "$RAIZ/prisma/schema.prisma" "$DEST/prisma/"
-[ -f "$RAIZ/prisma7.config.ts" ] && cp -u "$RAIZ/prisma7.config.ts" "$DEST/"
 [ -f "$RAIZ/prisma.config.ts" ] && cp -u "$RAIZ/prisma.config.ts" "$DEST/"
 # \vitrinecodigo lê trechos de src/ e .env.example: sincroniza o que existir
 [ -d "$RAIZ/src" ] && { mkdir -p "$DEST/src"; cp -ru "$RAIZ/src/." "$DEST/src/"; }

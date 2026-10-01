@@ -2,7 +2,8 @@
 ' ===========================================================================
 ' Vitrine - Arquitetura: diagrama de contêineres (nível 2 do modelo C4)
 ' Figura: fig:arq-conteineres (doc/tex/capitulos/cap5_arquitetura.tex)
-' Um único processo Node.js (Next.js) + um arquivo SQLite. Sem serviços externos.
+' Um único processo Node.js (Next.js), empacotado em uma imagem Docker (ADR-011),
+' + um arquivo SQLite em volume. Sem serviços externos.
 ' ===========================================================================
 skinparam shadowing false
 skinparam defaultFontName Arial
@@ -20,17 +21,17 @@ node "Navegador" as Browser {
   component "HTML estático +\nhidratação React\n(Client Components)" as Web
 }
 
-node "Servidor Node.js (Next.js 16, App Router)" as Server {
+node "Servidor Node.js (Next.js 16, App Router)\nem contêiner Docker" as Server {
   component "Páginas públicas\n(Server Components, ISR)" as Pub
   component "Painel administrativo\n(/admin, dinâmico)" as Adm
   component "Route Handlers\n(/api/contents, /api/configuration)" as Api
   component "better-auth\n(/api/auth/...)" as Auth
   component "Proxy (src/proxy.js)\nverificação otimista de sessão" as Proxy
-  component "Camada de dados\n(src/lib/db.js + Prisma Client)" as Data
+  component "Camada de dados\n(src/lib/db.js + Prisma Client\n+ adapter better-sqlite3)" as Data
   database "Cache ISR\n(.next/)" as Isr
 }
 
-database "SQLite\n(arquivo .db)" as Db
+database "SQLite\n(arquivo .db em volume)" as Db
 
 Leitor --> Web
 Admin --> Web

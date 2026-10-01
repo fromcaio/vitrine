@@ -3,7 +3,8 @@
 ' Vitrine - Sequência: edição e publicação de um documento
 ' Figura: fig:seq-publicacao-conteudo (doc/tex/capitulos/cap5_arquitetura.tex)
 ' Regra de revalidação: só o corpo mudou => revalida a página; estrutura mudou
-' (título, slug, pai, ordem) => revalida o layout raiz (árvore na sidebar).
+' (título, slug, pai, ordem ou estado DRAFT/PUBLISHED) => revalida o layout raiz
+' (árvore na sidebar).
 ' ===========================================================================
 skinparam shadowing false
 skinparam defaultFontName Arial
@@ -24,7 +25,7 @@ participant "Cache ISR" as Cache
 Admin -> Ed : Edita o Markdown\n(pré-visualização em tempo real)
 Ed -> Ed : "Salvar Localmente"\n(rascunho no navegador)
 Admin -> Ed : "Enviar Nova Versão"
-Ed -> Api : PATCH { title?, slug?, body?, parentId?, order? }
+Ed -> Api : PATCH { title?, slug?, body?, status?, parentId?, order? }
 Api -> Auth : getSession(headers)
 alt sem sessão válida
   Auth --> Api : null
@@ -41,7 +42,7 @@ else sessão válida
     Sql --> DB : ok
     DB --> Api : conteúdo atualizado
     Api -> Rev : revalidateContent(antes, depois)
-    alt estrutura alterada
+    alt estrutura ou estado de publicação alterados
       Rev -> Cache : revalidatePath("/", "layout")
     else apenas corpo alterado
       Rev -> Cache : revalidatePath(caminho do documento)

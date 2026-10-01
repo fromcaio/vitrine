@@ -61,6 +61,7 @@ RF22 & \en{Bootstrap} do administrador & --- & ---\\
 RF23 & Configuração inicial & --- & ---\\
 RF24 & Rodapé configurável & --- & ---\\
 RF25 & Metadados de SEO & --- & ---\\
+RF26 & Estado de publicação & --- & ---\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -81,7 +82,7 @@ RNF02 & LCP (percentil 75, perfil móvel simulado) & $\leq$ 2,5 s & --- & ---\\
 RNF02 & Pontuação de desempenho no Lighthouse & $\geq$ 90 & --- & ---\\
 RNF05 & Pontuação de acessibilidade & $\geq$ 90 e WCAG AA & --- & ---\\
 RNF04 & Pontuação SUS média & $\geq$ 68 & --- & ---\\
-RNF04 & Taxa de conclusão das tarefas T1 a T5 & $\geq$ 80\% & --- & ---\\
+RNF04 & Taxa de conclusão das tarefas T1 a T6 & $\geq$ 80\% & --- & ---\\
 RNF03 & Vulnerabilidades críticas em dependências & 0 & --- & ---\\
 RNF01 & Comandos da instalação limpa (Apêndice~\ref{ap:implantacao}) & Informativo & --- & ---\\
 RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & --- & ---\\
@@ -100,7 +101,7 @@ RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & --- & ---\\
 \toprule
 \textbf{Objetivo} & \textbf{Resumo} & \textbf{Evidência} & \textbf{Situação}\\
 \midrule
-OE1 & Publicação independente por clonagem e implantação simples & Apêndice~\ref{ap:implantacao}; CT29 & ---\\
+OE1 & Publicação independente por clonagem e implantação simples (imagem Docker em VPS) & Apêndice~\ref{ap:implantacao}; CT29 & ---\\
 OE2 & Editor Markdown com fórmulas e realce de sintaxe & RF08 a RF11; CT15 a CT19 & ---\\
 OE3 & Personalização visual sem novo \en{build} & RF19; CT23, CT24 & ---\\
 OE4 & Arquitetura de dados portátil (Prisma e SQLite) & Seção~\ref{sec:arq-dados}; CT28, CT30 & ---\\
@@ -137,7 +138,7 @@ Esta subseção avalia o método \en{Documentation-Driven Development} com agent
 
 \section{Limitações}
 
-São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); dependência de armazenamento persistente para o SQLite (\decisao{D-04}); e o alcance da validação com usuários.
+São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação com usuários.
 
 \section{Síntese do Capítulo}
 

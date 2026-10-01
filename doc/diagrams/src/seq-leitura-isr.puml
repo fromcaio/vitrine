@@ -33,7 +33,7 @@ else página expirada por tempo (STALE)
   Sql --> DB : linhas
   Next -> Cache : grava a nova versão
 else sem cache ou invalidada por revalidatePath (MISS)
-  Next -> DB : resolve o caminho por slugs\ne lê o documento
+  Next -> DB : resolve o caminho por slugs\ne lê o documento (somente PUBLISHED, RN15)
   DB -> Sql : SELECT
   Sql --> DB : linhas
   Next -> Next : renderiza Server Components\n(Markdown -> HTML, KaTeX)

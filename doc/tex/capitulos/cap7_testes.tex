@@ -11,7 +11,7 @@ A \emph{verificação} responde se o sistema foi construído corretamente, isto 
 
 \section{Objetivos e Escopo}\label{sec:testes-objetivos}
 
-Os objetivos da verificação e validação são: (i) demonstrar que cada requisito essencial e importante é atendido (\req{RF01} a \req{RF25}); (ii) comprovar as regras de negócio invariantes (RN01 a RN14) no servidor; (iii) medir as qualidades declaradas como metas (\req{RNF02}, \req{RNF04}, \req{RNF05}); e (iv) verificar o comportamento do cache ISR em modo de produção. Ficam fora do escopo testes de carga em grande escala, pois o perfil de uso esperado é de um único administrador e tráfego de leitura moderado.
+Os objetivos da verificação e validação são: (i) demonstrar que cada requisito essencial e importante é atendido (\req{RF01} a \req{RF26}); (ii) comprovar as regras de negócio invariantes (RN01 a RN17) no servidor; (iii) medir as qualidades declaradas como metas (\req{RNF02}, \req{RNF04}, \req{RNF05}); e (iv) verificar o comportamento do cache ISR em modo de produção. Ficam fora do escopo testes de carga em grande escala, pois o perfil de uso esperado é de um único administrador e tráfego de leitura moderado.
 
 \section{Estratégia de Testes}\label{sec:testes-estrategia}
 
@@ -36,7 +36,7 @@ Não funcionais & Desempenho, acessibilidade, segurança e ISR & Lighthouse \cit
 \fonte{Elaborado pelos autores.}
 \end{table}
 
-\textbf{Ambiente de teste.} Cada suíte de integração usa um arquivo SQLite temporário, criado a partir das migrações, com \en{seed} controlado. Os testes de ISR e de desempenho usam \texttt{next build} seguido de \texttt{next start}, porque o comportamento de cache em \texttt{next dev} não representa a produção \cite{nextjsdocs}. Nenhum teste usa o banco de desenvolvimento nem segredos reais.
+\textbf{Ambiente de teste.} Cada suíte de integração usa um arquivo SQLite temporário, criado a partir das migrações, com \en{seed} controlado. Os testes de ISR e de desempenho usam \texttt{next build} seguido de \texttt{next start}, porque o comportamento de cache em \texttt{next dev} não representa a produção \cite{nextjsdocs}. Nenhum teste usa o banco de desenvolvimento nem segredos reais. O caso CT29 exige uma máquina com Docker e Compose, de preferência uma VPS limpa, para validar a instalação por imagem (\adr{ADR-011}).
 
 \textbf{Responsabilidades.} Cada agente implementa os testes do seu domínio (Tabela~\ref{tab:casos-teste}); o Arquiteto verifica a cobertura dos requisitos e consolida os resultados no Capítulo~\ref{cap:resultados}.
 
@@ -68,7 +68,7 @@ CT09 & Pai que não é coleção retorna 422 (\arq{INVALID_PARENT}) & RN02 & API
 CT10 & Mover um nó para dentro de um descendente é rejeitado (\arq{CYCLE_DETECTED}) & RN06 & API & Core\\[2pt]
 CT11 & Reordenar irmãos persiste a nova ordem e a listagem a respeita & RF03; RN05 & Integração & Dados\\[2pt]
 CT12 & Excluir uma coleção remove todos os descendentes & RF07; RN07 & Integração & Dados\\[2pt]
-CT13 & Resolver caminho existente retorna o nó; inexistente retorna nulo (404) & RF14; RN04 & Unidade & Dados\\[2pt]
+CT13 & Resolver caminho existente e publicado retorna o nó; inexistente, ou não publicado (RN15), retorna nulo (404) & RF14; RN04; RN15 & Unidade & Dados\\[2pt]
 CT14 & Abrir uma coleção redireciona ao primeiro documento descendente & RN14 & E2E & UI\\[2pt]
 CT15 & Fórmulas em linha e em bloco são renderizadas pelo KaTeX & RF09 & Unidade & UI\\[2pt]
 CT16 & HTML bruto no Markdown é exibido como texto e não é executado & RN11; RNF03 & Unidade & UI\\[2pt]
@@ -84,8 +84,11 @@ CT25 & Metadados de SEO presentes no HTML pré-renderizado & RF25; RNF07 & E2E &
 CT26 & A \en{sidebar} é navegável por teclado e destaca o item ativo & RF12; RNF05 & E2E & UI\\[2pt]
 CT27 & O layout permanece utilizável em largura de 320 px & RNF06 & E2E & UI\\[2pt]
 CT28 & A migração aplica-se em banco vazio e o \en{seed} é idempotente & RF23 & Integração & Dados\\[2pt]
-CT29 & Uma instalação limpa, seguindo o Apêndice~\ref{ap:implantacao}, produz sistema funcional & RNF01 & Manual & Core\\[2pt]
-CT30 & O \en{backup} do banco pode ser restaurado com os dados íntegros & RNF10 & Manual & Dados\\[2pt]
+CT29 & Uma instalação limpa em VPS com Docker, seguindo o Apêndice~\ref{ap:implantacao}, produz sistema funcional, e o banco persiste após recriar o contêiner & RNF01; D-04 & Manual & Core\\[2pt]
+CT30 & O \en{backup} do banco (\texttt{VACUUM INTO}) pode ser restaurado com os dados íntegros & RNF10 & Manual & Dados\\[2pt]
+CT31 & Um conteúdo \texttt{DRAFT}, e toda a sua subárvore, responde 404 por URL direta e não aparece na \en{sidebar}, na barra superior nem no mapa do site; o painel continua listando todos os conteúdos & RF26; RN15; RF25 & E2E & Core\\[2pt]
+CT32 & A criação sem estado explícito resulta em \texttt{PUBLISHED}; alternar o estado revalida o \en{layout} raiz e o conteúdo passa a aparecer ou a desaparecer na visita seguinte, sem novo \en{build} & RN16; RF17; RF26 & E2E & Core\\[2pt]
+CT33 & Link social com protocolo diferente de \texttt{http} e \texttt{https} é recusado (422); campo vazio é aceito e o ícone não é exibido; links válidos recebem \texttt{noopener} e \texttt{noreferrer} & RF24; RN17; RNF03 & API/Unid. & Core, UI\\[2pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -105,7 +108,7 @@ O desempenho será medido com o Lighthouse \cite{lighthouse} sobre o \en{build} 
 
 \subsection{Segurança}
 
-A verificação de segurança consiste em: executar os casos CT02, CT04, CT06 e CT16; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas; e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
+A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, CT16, CT31 e CT33; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas; e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
 
 \subsection{Acessibilidade}
 
@@ -122,9 +125,10 @@ A usabilidade será validada com usuários do perfil do Administrador (docentes 
 \begin{enumerate}[label=\textbf{T\arabic*.}, leftmargin=1.2cm]
   \item entrar no painel e criar uma coleção chamada ``Cálculo'';
   \item criar, dentro dela, um documento com um título, um parágrafo e uma fórmula;
-  \item publicar o documento e encontrá-lo na página pública;
+  \item conferir que o documento está publicado e encontrá-lo na página pública; colocá-lo em rascunho e confirmar que deixa de aparecer;
   \item mover o documento para outra coleção e reordená-lo;
-  \item alterar a cor primária do site e confirmar o efeito na página pública.
+  \item alterar a cor primária do site e confirmar o efeito na página pública;
+  \item preencher o link do GitHub nas configurações e localizar o ícone correspondente no rodapé.
 \end{enumerate}
 
 A meta é pontuação SUS média igual ou superior a 68 (\req{RNF04}) e taxa de conclusão de pelo menos 80\% por tarefa.
@@ -141,4 +145,4 @@ A versão é considerada pronta para a entrega do TCC quando: (i) todos os casos
 
 \section{Síntese do Capítulo}
 
-O capítulo definiu a estratégia de verificação e validação, trinta casos de teste rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.
+O capítulo definiu a estratégia de verificação e validação, trinta e três casos de teste rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.

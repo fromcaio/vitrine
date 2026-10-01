@@ -21,16 +21,16 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
   \item \textbf{Configuração por ambiente.} Segredos e parâmetros de implantação em variáveis de ambiente, nunca no repositório \cite{twelvefactor}.
   \item \textbf{Conteúdo é dado, não código.} O corpo é Markdown; HTML bruto é proibido (RN11).
   \item \textbf{Personalização por dados.} Identidade e cores vêm do banco e chegam ao CSS por variáveis, sem novo \en{build}.
-  \item \textbf{Simplicidade operacional.} Sem fila, cache externo ou serviço adicional obrigatório.
+  \item \textbf{Simplicidade operacional.} Sem fila, cache externo ou serviço adicional obrigatório; a implantação é um contêiner Docker com um volume para o banco (\adr{ADR-011}).
 \end{enumerate}
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume; as questões ainda abertas estão no Apêndice~\ref{ap:decisoes}.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume; as questões ainda abertas e as já resolvidas estão no Apêndice~\ref{ap:decisoes}. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001.
 
 \begin{table}[htb]
 \caption{Resumo das decisões arquiteturais aceitas}\label{tab:resumo-adr}
-\small
+\small\renewcommand{\arraystretch}{1.25}
 \begin{tabularx}{\linewidth}{@{}L{2.0cm}L{5.6cm}Y@{}}
 \toprule
 \textbf{ADR} & \textbf{Decisão} & \textbf{Motivo principal}\\
@@ -45,6 +45,10 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-008} & JavaScript com JSDoc, sem TypeScript & Herdado do projeto base; menor fricção\\
 \adr{ADR-009} & Documentation-Driven Development com \LaTeX{} e diagramas como código & Coerência entre agentes\\
 \adr{ADR-010} & Fluxo Git por domínios com mural na \texttt{main} & Coordenação assíncrona rastreável\\
+\adr{ADR-011} & Implantação por imagem Docker em VPS tradicional, com volume para o SQLite & Persistência do arquivo de banco e ambiente reprodutível (resolve D-04)\\
+\adr{ADR-012} & Estado de publicação \texttt{DRAFT}/\texttt{PUBLISHED}, padrão \texttt{PUBLISHED} & Rascunhos sem histórico de versões (resolve D-15)\\
+\adr{ADR-013} & Seis campos opcionais de redes sociais em \texttt{Configuration} & Rodapé configurável sem tabela adicional (resolve D-19)\\
+\adr{ADR-014} & Adaptador \texttt{better-sqlite3} e conformidade com o Prisma 7 & O Prisma 7 exige \en{driver adapter} para o SQLite (resolve D-09)\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
@@ -54,20 +58,20 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 
 \subsection{Contexto}
 
-O sistema atende dois atores humanos --- Leitor e Administrador --- e depende apenas de uma plataforma de hospedagem com Node.js. O Implantador obtém o código de um repositório Git e executa o \en{build} (Figura~\ref{fig:arq-contexto}).
+O sistema atende dois atores humanos --- Leitor e Administrador --- e depende apenas de uma VPS tradicional com Docker (\decisao{D-04}). O Implantador obtém o código de um repositório Git, constrói a imagem Docker e a executa na VPS (Figura~\ref{fig:arq-contexto}).
 
 \vitrinefigura[tipo=diagrama, arquivo=arq-contexto, agente=Arquiteto, largura=0.9,
   origem={doc/diagrams/src/arq-contexto.puml},
-  descricao={Diagrama de contexto (C4 nível 1): Leitor, Administrador, Implantador, o sistema Vitrine, a plataforma de hospedagem e o repositório Git.}]
+  descricao={Diagrama de contexto (C4 nível 1): Leitor, Administrador, Implantador, o sistema Vitrine, a VPS tradicional com Docker e o repositório Git.}]
   {Diagrama de contexto do Vitrine}{fig:arq-contexto}
 
 \subsection{Contêineres}
 
-Há um único contêiner de aplicação --- o servidor Next.js --- mais o navegador do usuário e o arquivo SQLite. Dentro do servidor convivem as páginas públicas (Server Components com ISR), o painel administrativo, os Route Handlers, o better-auth, o Proxy, a camada de dados e o cache de ISR (Figura~\ref{fig:arq-conteineres}).
+Na terminologia do modelo C4, há um único \emph{contêiner} de aplicação --- o servidor Next.js, que na implantação é empacotado em uma imagem Docker (\adr{ADR-011}) --- mais o navegador do usuário e o arquivo SQLite. Dentro do servidor convivem as páginas públicas (Server Components com ISR), o painel administrativo, os Route Handlers, o better-auth, o Proxy, a camada de dados e o cache de ISR (Figura~\ref{fig:arq-conteineres}).
 
 \vitrinefigura[tipo=diagrama, arquivo=arq-conteineres, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/arq-conteineres.puml},
-  descricao={Diagrama de contêineres (C4 nível 2): navegador, servidor Node.js com páginas públicas, painel, Route Handlers, better-auth, Proxy, camada de dados e cache ISR, e o banco SQLite.}]
+  descricao={Diagrama de contêineres (C4 nível 2): navegador, servidor Node.js em contêiner Docker com páginas públicas, painel, Route Handlers, better-auth, Proxy, camada de dados (Prisma e adaptador better-sqlite3) e cache ISR, e o banco SQLite em volume.}]
   {Diagrama de contêineres do Vitrine}{fig:arq-conteineres}
 
 \subsection{Componentes e Regras de Dependência}
@@ -75,9 +79,9 @@ Há um único contêiner de aplicação --- o servidor Next.js --- mais o navega
 A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agente responsável por cada um, e a Figura~\ref{fig:arq-camadas} resume as camadas. As regras de dependência são normativas:
 
 \begin{itemize}
-  \item componentes em \arq{src/components} \textbf{não} importam \arq{src/lib/db.js} nem \arq{@prisma/client}; recebem dados por \en{props} dos Server Components ou os buscam nas rotas \arq{/api};
+  \item componentes em \arq{src/components} \textbf{não} importam \arq{src/lib/db.js} nem o cliente gerado do Prisma (\arq{@/generated/prisma}); recebem dados por \en{props} dos Server Components ou os buscam nas rotas \arq{/api};
   \item rotas em \arq{src/app/api} \textbf{não} escrevem consultas Prisma; chamam funções de \arq{db.js};
-  \item apenas \arq{db.js} instancia o cliente do Prisma (uma instância por processo);
+  \item apenas \arq{db.js} instancia o cliente do Prisma na aplicação, com o adaptador \arq{better-sqlite3} (uma instância por processo, \adr{ADR-014}); a única exceção é o \en{script} \arq{prisma/seed.js}, executado pela CLI fora do Next.js;
   \item toda rota de escrita valida a sessão e a entrada antes de chamar a camada de dados.
 \end{itemize}
 
@@ -93,16 +97,17 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação --- apenas o \en{scaffold} do Next.js, o esquema inicial do Prisma e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação --- o \en{scaffold} do Next.js, o esquema do Prisma 7 já conformado (merge M-001) e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
-|-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md
+|-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md  MURAL_DE_AGENTES.md
 |-- doc/                      # documentação (ref/, tex/, diagrams/)
-|-- prisma/schema.prisma      # esquema inicial (Dados)
-|-- prisma7.config.ts         # configuração da CLI do Prisma
+|-- prisma/schema.prisma      # esquema do Prisma 7 (Dados); ainda sem migrations/
+|-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
 |-- public/                   # ativos estáticos do scaffold
 |-- src/app/                  # favicon.ico, globals.css, layout.js, page.js
+|-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
 |-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
 |-- package.json  package-lock.json  skills-lock.json
 `-- .agents/ .claude/ .windsurf/   # skills do Prisma para os agentes
@@ -133,29 +138,33 @@ src/
     |-- validators.js             # esquemas de entrada (Core)
     |-- revalidate.js             # regras de revalidação (Core)
     `-- theme.js                  # variáveis CSS e contraste (UI)
+src/generated/prisma/             # cliente gerado por "prisma generate" (não versionado)
 prisma/                           # schema.prisma, migrations/, seed.js (Dados)
+prisma.config.ts                  # CLI do Prisma: schema, migrations, seed, DATABASE_URL
+Dockerfile  docker-compose.yml  .dockerignore   # implantação (M13)
+.env.example                      # nomes das variáveis de ambiente, sem valores
 \end{lstlisting}
 
-Convenções: identificadores em inglês; comentários e textos de interface em português; módulos ES (\texttt{import}/\texttt{export}); funções públicas de \arq{src/lib} documentadas com JSDoc (\adr{ADR-008}); um arquivo \arq{.env.example} lista os nomes das variáveis de ambiente, sem valores.
+Convenções: identificadores em inglês; comentários e textos de interface em português; módulos ES (\texttt{import}/\texttt{export}); funções públicas de \arq{src/lib} documentadas com JSDoc (\adr{ADR-008}); um arquivo \arq{.env.example} lista os nomes das variáveis de ambiente, sem valores. O \arq{.gitignore} atual ignora \arq{.env*}, o que alcançaria também o \arq{.env.example}; é preciso acrescentar a exceção \arq{!.env.example} ao criá-lo. O cliente do Prisma é gerado em \arq{src/generated/prisma}, diretório ignorado pelo Git, e importado de \arq{@/generated/prisma/client} somente por \arq{db.js}; por isso \texttt{prisma generate} deve rodar depois de \texttt{npm install} e antes de \texttt{next build} (\adr{ADR-014}).
 
 \section{Modelo de Dados}\label{sec:arq-dados}
 
 \subsection{Modelo de Domínio}
 
-O domínio possui seis entidades (Figura~\ref{fig:classes-dominio}): quatro de autenticação, gerenciadas pelo better-auth (\texttt{User}, \texttt{Session}, \texttt{Account}, \texttt{Verification}), e duas de negócio do Vitrine (\texttt{Content} e \texttt{Configuration}). \texttt{Content} possui um auto-relacionamento que forma a árvore de documentos e coleções e se relaciona com o autor (\texttt{User}). \texttt{Configuration} é um registro único.
+O domínio possui seis entidades (Figura~\ref{fig:classes-dominio}): quatro de autenticação, gerenciadas pelo better-auth (\texttt{User}, \texttt{Session}, \texttt{Account}, \texttt{Verification}), e duas de negócio do Vitrine (\texttt{Content} e \texttt{Configuration}), além do enumerado \texttt{ContentStatus}. \texttt{Content} possui um auto-relacionamento que forma a árvore de documentos e coleções, um estado de publicação (\texttt{DRAFT} ou \texttt{PUBLISHED}, padrão \texttt{PUBLISHED}; \adr{ADR-012}) e se relaciona com o autor (\texttt{User}). \texttt{Configuration} é um registro único e guarda também os seis links sociais do rodapé, todos opcionais (\adr{ADR-013}).
 
 \vitrinefigura[tipo=diagrama, arquivo=classes-dominio, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/classes-dominio.puml},
-  descricao={Diagrama de classes do domínio espelhando prisma/schema.prisma: User, Session, Account, Verification, Content (auto-relacionamento pai e filhos), Configuration e o valor lógico ContentType.}]
+  descricao={Diagrama de classes do domínio espelhando prisma/schema.prisma: User, Session, Account, Verification, Content (auto-relacionamento pai e filhos, com status), Configuration (com os seis links sociais), o enumerado ContentStatus e o valor lógico ContentType.}]
   {Modelo de domínio do Vitrine}{fig:classes-dominio}
 
 \subsection{Modelo Físico}
 
-O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata em todas as relações.
+O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata em todas as relações. O enumerado \texttt{ContentStatus} é gravado como texto; o SQLite não impõe o conjunto de valores, de modo que a verificação cabe ao Prisma e à aplicação. Os seis links sociais são colunas de texto opcionais da tabela \arq{configurations}: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}.
 
 \vitrinefigura[tipo=diagrama, arquivo=er-vitrine, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/er-vitrine.dbml},
-  descricao={Diagrama entidade-relacionamento gerado no dbdiagram.io a partir de er-vitrine.dbml: tabelas user, session, account, verification, contents (auto-relacionamento) e configurations.}]
+  descricao={Diagrama entidade-relacionamento gerado no dbdiagram.io a partir de er-vitrine.dbml: tabelas user, session, account, verification, contents (auto-relacionamento e coluna status do enumerado ContentStatus) e configurations (com as seis colunas de links sociais).}]
   {Diagrama entidade-relacionamento do Vitrine}{fig:er-vitrine}
 
 A Figura~\ref{fig:ic-er} reproduz o modelo do relatório de IC, com três tabelas. A evolução consiste em substituir a tabela genérica \texttt{users} pelas tabelas do better-auth e em explicitar as relações de cascata.
@@ -166,23 +175,29 @@ A Figura~\ref{fig:ic-er} reproduz o modelo do relatório de IC, com três tabela
 
 \subsection{Hierarquia de Conteúdo}\label{sec:arq-hierarquia}
 
-A árvore de conteúdos é representada pelo campo \texttt{parentId} (nulo para nós raiz). A URL pública é a cadeia de \en{slugs} da raiz ao nó (RN04). Para a navegação, a árvore é carregada por \textbf{uma única consulta}, sem o corpo dos documentos, e montada em memória em tempo linear; a resolução de um caminho percorre os níveis comparando \en{slugs}. O Código~\ref{lst:algoritmo-arvore} é um \emph{esboço} do algoritmo a ser implementado em \arq{src/lib/content-tree.js}.
+A árvore de conteúdos é representada pelo campo \texttt{parentId} (nulo para nós raiz). A URL pública é a cadeia de \en{slugs} da raiz ao nó (RN04). Para a navegação, a árvore é carregada por \textbf{uma única consulta}, sem o corpo dos documentos, e montada em memória em tempo linear; a resolução de um caminho percorre os níveis comparando \en{slugs}. O Código~\ref{lst:algoritmo-arvore} é um \emph{esboço} do algoritmo a ser implementado em \arq{src/lib/content-tree.js}. O parâmetro \texttt{onlyPublished} implementa a RN15: um nó \texttt{DRAFT} é removido junto com toda a sua subárvore, de modo que um descendente publicado de um ancestral em rascunho também não aparece. A área pública usa a árvore podada; o painel usa a árvore completa.
 
 \begin{lstlisting}[language=VJS, caption={Esboço: montagem da árvore e resolução de caminho}, label={lst:algoritmo-arvore}]
-// rows: [{ id, title, slug, type, order, parentId, createdAt }] (sem o corpo)
-export function buildTree(rows) {
+// rows: [{ id, title, slug, type, status, order, parentId, createdAt }] (sem o corpo)
+export function buildTree(rows, { onlyPublished = false } = {}) {
   const byId = new Map(rows.map((r) => [r.id, { ...r, children: [] }]));
   const roots = [];
   for (const node of byId.values()) {
     const parent = node.parentId ? byId.get(node.parentId) : null;
     (parent ? parent.children : roots).push(node);
   }
+  // RN15: nó não publicado oculta toda a sua subárvore
+  const prune = (list) =>
+    list
+      .filter((n) => !onlyPublished || n.status === "PUBLISHED")
+      .map((n) => ({ ...n, children: prune(n.children) }));
   const sortLevel = (list) => {
     list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt); // RN05
     list.forEach((n) => sortLevel(n.children));
   };
-  sortLevel(roots);
-  return roots;
+  const visible = prune(roots);
+  sortLevel(visible);
+  return visible;
 }
 
 export function resolvePath(roots, slugs) {
@@ -190,7 +205,7 @@ export function resolvePath(roots, slugs) {
   let node = null;
   for (const slug of slugs) {
     node = level.find((n) => n.slug === slug) ?? null;
-    if (!node) return null; // 404 (RF14)
+    if (!node) return null; // 404 (RF14, RN15)
     level = node.children;
   }
   return node;
@@ -201,7 +216,7 @@ A alternativa de gravar o caminho materializado em cada nó foi descartada nesta
 
 \subsection{Observações sobre o Esquema Atual}\label{sec:arq-observacoes-schema}
 
-A revisão do esquema inicial (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que são entradas para o agente Dados.
+A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que são entradas para o agente Dados (tarefa A-006 do mural). O merge M-001, aprovado em 30/09/2026, já integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}); as observações 1 a 5 continuam pendentes e a 8 é nova.
 
 \begin{longtable}{@{}L{0.8cm}L{5.6cm}L{2.2cm}L{4.8cm}@{}}
 \caption{Observações sobre o esquema atual do Prisma}\label{tab:obs-schema}\\
@@ -216,18 +231,19 @@ A revisão do esquema inicial (\arq{prisma/schema.prisma}) contra esta especific
 \bottomrule
 \endfoot
 1 & \texttt{slug} sem restrição de unicidade & RN03 & Índice único composto por (\texttt{parentId}, \texttt{slug}); como o SQLite trata valores nulos como distintos, cobrir a raiz com índice parcial em migração SQL ou com validação na aplicação (D-05)\\[1pt]
-2 & \texttt{type} é texto livre & RN02 & Validar DOCUMENT e COLLECTION na aplicação; opcionalmente usar \texttt{enum} do Prisma, sabendo que o SQLite não impõe o valor\\[1pt]
+2 & \texttt{type} é texto livre, ao passo que \texttt{status} já é um enumerado & RN02 & Validar DOCUMENT e COLLECTION na aplicação; seguir o precedente de \texttt{ContentStatus} e declarar um \texttt{enum} do Prisma, sabendo que o SQLite não impõe o valor\\[1pt]
 3 & Sem índice em \texttt{parentId} & RNF02 & Adicionar índice (\texttt{parentId}, \texttt{order}) para a consulta da árvore\\[1pt]
 4 & \arq{Content.author} com \texttt{onDelete: Cascade}: excluir o usuário apaga todo o seu conteúdo & RNF10 & Avaliar \texttt{Restrict}; ao menos documentar e proteger a exclusão de usuários\\[1pt]
 5 & \texttt{Configuration} sem garantia de registro único & RN08 & Usar identificador fixo e \emph{upsert}\\[1pt]
 6 & Datas e booleanos sem valor padrão em \arq{User.emailVerified} & --- & Manter: o valor é fornecido pelo better-auth\\[1pt]
 7 & Tabela \texttt{verification} sem relação com \texttt{user} & --- & Manter: desenho do better-auth\\[1pt]
+8 & \texttt{status} tem padrão \texttt{PUBLISHED}: um conteúdo recém-criado torna-se público de imediato (decisão D-15) & RN15, RN16, risco R11 & Manter o padrão; a API deve aceitar a criação já como \texttt{DRAFT}, a interface deve exibir o estado com destaque e a camada de dados deve filtrar por \texttt{PUBLISHED} nas leituras públicas\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
 \subsection{Migrações e Dados Iniciais}
 
-As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração, o \en{seed} e o módulo \arq{src/lib/db.js} ainda não existem e formam a tarefa A-006 do agente Dados. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados deve verificar que ambos apontam para o mesmo arquivo (por exemplo, com caminho absoluto). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
 
 \section{Autenticação e Autorização}\label{sec:arq-auth}
 
@@ -299,7 +315,7 @@ A Tabela~\ref{tab:rotas-render} define o modo de renderização de cada conjunto
 \toprule
 \textbf{Rota} & \textbf{Modo} & \textbf{Regras}\\
 \midrule
-\arq{/} e \arq{/[...slug]} & Estático com ISR & \arq{generateStaticParams} lista os caminhos existentes; \texttt{revalidate} alto (por exemplo, 3600 s) como rede de segurança; novos caminhos são gerados sob demanda; revalidação sob demanda pelas mutações\\
+\arq{/} e \arq{/[...slug]} & Estático com ISR & \arq{generateStaticParams} lista os caminhos \emph{publicados} (RN15); \texttt{revalidate} alto (por exemplo, 3600 s) como rede de segurança; novos caminhos são gerados sob demanda; revalidação sob demanda pelas mutações\\
 \addlinespace
 \arq{/login} & Estático ou dinâmico & Formulário; sem dados sensíveis\\
 \addlinespace
@@ -313,7 +329,7 @@ A Tabela~\ref{tab:rotas-render} define o modo de renderização de cada conjunto
 
 \subsection{Regras de Revalidação}
 
-A Tabela~\ref{tab:revalidacao} implementa a regra RN10. A invalidação é feita em Route Handlers com \arq{revalidatePath}, função que só pode ser chamada no servidor, não em Componentes Cliente nem no Proxy. Em Route Handlers, a função marca o caminho para revalidação, que ocorre na próxima visita \cite{nextjsdocs}. A escolha por \emph{layout} raiz quando a estrutura muda é necessária porque a \en{sidebar} e a barra superior, presentes em todas as páginas, dependem da árvore inteira.
+A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16. A invalidação é feita em Route Handlers com \arq{revalidatePath}, função que só pode ser chamada no servidor, não em Componentes Cliente nem no Proxy. Em Route Handlers, a função marca o caminho para revalidação, que ocorre na próxima visita \cite{nextjsdocs}. A escolha por \emph{layout} raiz quando a estrutura muda é necessária porque a \en{sidebar} e a barra superior, presentes em todas as páginas, dependem da árvore inteira.
 
 \begin{table}[htb]
 \caption{Eventos de mutação e a revalidação correspondente}\label{tab:revalidacao}
@@ -324,13 +340,19 @@ A Tabela~\ref{tab:revalidacao} implementa a regra RN10. A invalidação é feita
 \midrule
 Criar ou excluir conteúdo; alterar título, \en{slug}, pai ou ordem; mover/reordenar & \texttt{revalidatePath("/", "layout")}: invalida todas as páginas, pois a árvore de navegação mudou\\
 \addlinespace
-Alterar somente o corpo de um documento & \texttt{revalidatePath(caminho do documento)}\\
+Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó & \texttt{revalidatePath("/", "layout")}: a visibilidade do nó e de seus descendentes altera a árvore de navegação e o conjunto de páginas (RN16)\\
 \addlinespace
-Alterar a configuração (nome, logotipo, cores) & \texttt{revalidatePath("/", "layout")}\\
+Alterar somente o corpo de um documento (estado inalterado) & \texttt{revalidatePath(caminho do documento)}\\
+\addlinespace
+Alterar a configuração (nome, logotipo, cores, links sociais) & \texttt{revalidatePath("/", "layout")}: o rodapé aparece em todas as páginas\\
 \bottomrule
 \end{tabularx}
-\fonte{Elaborado pelos autores, com base em RN10.}
+\fonte{Elaborado pelos autores, com base em RN10 e RN16.}
 \end{table}
+
+\subsection{Visibilidade por Estado de Publicação}\label{sec:arq-visibilidade}
+
+A regra RN15 --- um conteúdo só é público se ele e todos os seus ancestrais estiverem \texttt{PUBLISHED} --- é aplicada em um único lugar, a camada de dados, e nunca nos componentes. Os pontos de aplicação são: (i) a árvore usada pela \en{sidebar}, pela barra superior e por \arq{generateStaticParams}, podada conforme o Código~\ref{lst:algoritmo-arvore}; (ii) a resolução do caminho nos Server Components, que responde 404 (\arq{notFound()}) para um nó ausente da árvore podada, de modo que um rascunho não é acessível nem por URL direta; e (iii) o mapa do site e os metadados (RF25). As rotas \arq{/api/contents} e o painel recebem a árvore completa, com o campo \texttt{status} de cada nó (RF26). Como o estado entra na regeneração do \en{layout} raiz (Tabela~\ref{tab:revalidacao}), a mudança de estado reflete-se em todas as páginas na visita seguinte. Como o padrão do estado é \texttt{PUBLISHED} (\decisao{D-15}), a proteção contra a publicação acidental depende de a interface exibir o estado de forma explícita e de a API aceitar a criação já como rascunho (risco R11).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-leitura-isr, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-leitura-isr.puml},
@@ -344,7 +366,7 @@ Alterar a configuração (nome, logotipo, cores) & \texttt{revalidatePath("/", "
 
 \subsection{Limitações e Observabilidade}
 
-A documentação do Next.js 16 registra ressalvas que condicionam a implantação: a ISR exige o \en{runtime} Node.js e não funciona em exportação estática; com mais de uma instância, o cache padrão em sistema de arquivos é por instância e a invalidação só atinge a instância que recebeu a chamada; e o Proxy não é executado em requisições de ISR sob demanda \cite{nextjsdocs}. Por isso, a implantação recomendada usa \textbf{uma única instância} (o que também convém ao SQLite). Em testes, o cabeçalho \arq{x-nextjs-cache} (\texttt{HIT}, \texttt{STALE}, \texttt{MISS}, \texttt{REVALIDATED}) permite verificar o comportamento do cache (Capítulo~\ref{cap:testes}).
+A documentação do Next.js 16 registra ressalvas que condicionam a implantação: a ISR exige o \en{runtime} Node.js e não funciona em exportação estática; com mais de uma instância, o cache padrão em sistema de arquivos é por instância e a invalidação só atinge a instância que recebeu a chamada; e o Proxy não é executado em requisições de ISR sob demanda \cite{nextjsdocs}. Por isso, a implantação usa \textbf{uma única instância}, isto é, um único contêiner (o que também convém ao SQLite). Em testes, o cabeçalho \arq{x-nextjs-cache} (\texttt{HIT}, \texttt{STALE}, \texttt{MISS}, \texttt{REVALIDATED}) permite verificar o comportamento do cache (Capítulo~\ref{cap:testes}).
 
 \section{Pipeline de Conteúdo Markdown}\label{sec:arq-markdown}
 
@@ -425,21 +447,23 @@ Códigos de erro previstos: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{
 \endhead
 \bottomrule
 \endfoot
-\texttt{GET} & \arq{/api/contents} & Sim & Árvore completa, sem o corpo dos documentos & 200\\[1pt]
-\texttt{POST} & \arq{/api/contents} & Sim & Cria conteúdo (\texttt{title}, \texttt{slug}, \texttt{type}, \texttt{parentId}, \texttt{body}, \texttt{order}) & 201\\[1pt]
-\texttt{GET} & \arq{/api/contents/:id} & Sim & Detalhe, incluindo o corpo & 200\\[1pt]
-\texttt{PATCH} & \arq{/api/contents/:id} & Sim & Atualização parcial; dispara revalidação (RN10) & 200\\[1pt]
+\texttt{GET} & \arq{/api/contents} & Sim & Árvore completa, inclusive rascunhos, sem o corpo dos documentos e com o \texttt{status} de cada nó & 200\\[1pt]
+\texttt{POST} & \arq{/api/contents} & Sim & Cria conteúdo (\texttt{title}, \texttt{slug}, \texttt{type}, \texttt{parentId}, \texttt{body}, \texttt{order}, \texttt{status}; este, se omitido, assume \texttt{PUBLISHED}) & 201\\[1pt]
+\texttt{GET} & \arq{/api/contents/:id} & Sim & Detalhe, incluindo o corpo e o \texttt{status} & 200\\[1pt]
+\texttt{PATCH} & \arq{/api/contents/:id} & Sim & Atualização parcial, inclusive de \texttt{status}; dispara revalidação (RN10, RN16) & 200\\[1pt]
 \texttt{DELETE} & \arq{/api/contents/:id} & Sim & Exclui o nó e seus descendentes (RN07) & 204\\[1pt]
 \texttt{PATCH} & \arq{/api/contents/reorder} & Sim & Lote \texttt{[\{id, parentId, order\}]}, em transação (RN05, RN06) & 200\\[1pt]
 \texttt{GET} & \arq{/api/configuration} & Sim & Configuração vigente & 200\\[1pt]
-\texttt{PUT} & \arq{/api/configuration} & Sim & Atualiza identidade e cores; devolve avisos de contraste & 200\\[1pt]
+\texttt{PUT} & \arq{/api/configuration} & Sim & Atualiza identidade, cores e os seis links sociais (RN17); devolve avisos de contraste & 200\\[1pt]
 \texttt{POST} & \arq{/api/auth/sign-in/email} & Não & Login (rota do better-auth) & 200\\[1pt]
 \texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20) & 200\\[1pt]
 \texttt{GET} & \arq{/api/auth/get-session} & Não & Sessão corrente ou nula & 200\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth e devem ser conferidas na versão instalada.}
 
-A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas. As rotas de conteúdo e de configuração servem ao painel administrativo.
+A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas e aplica o filtro de publicação (RN15). As rotas de conteúdo e de configuração servem ao painel administrativo.
+
+Os campos de entrada têm as seguintes regras de validação no servidor (\texttt{422} em caso de falha): \texttt{status} deve ser \texttt{DRAFT} ou \texttt{PUBLISHED}; cada link social, quando preenchido, deve ser uma URL absoluta com protocolo \texttt{http} ou \texttt{https}, e a cadeia vazia equivale a \texttt{null} (RN17); as cores devem ser \texttt{\#RRGGBB} (RN09).
 
 \section{Roteamento e Navegação}\label{sec:arq-rotas}
 
@@ -459,12 +483,13 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 \midrule
 Navbar & \arq{components/layout} & Logotipo, nome do site e coleções raiz (RF13)\\
 Sidebar & \arq{components/layout} & Árvore da coleção corrente, item ativo, recolher níveis (RF12)\\
-Footer & \arq{components/layout} & Rodapé configurável (RF24)\\
+Footer, SocialLinks & \arq{components/layout} & Rodapé: direitos gerados a partir do nome do site e do ano, e ícones apenas das redes com link preenchido, com os atributos \texttt{noopener} e \texttt{noreferrer} (RF24, RN17)\\
 MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11)\\
 Editor, Toolbar, Preview & \arq{components/editor} & Edição com painel dividido, rascunho local e publicação (RF08, RF15, RF16)\\
-ContentTree & \arq{components/admin} & Árvore do painel com criar, editar, mover e excluir (RF03, RF06, RF07)\\
-ContentForm & \arq{components/admin} & Formulário de título, \en{slug} e pai (RF05)\\
-ThemeForm & \arq{components/admin} & Identidade e cores, com pré-visualização e aviso de contraste (RF18, RF19)\\
+ContentTree & \arq{components/admin} & Árvore do painel com criar, editar, mover e excluir, mostrando o estado de cada nó (RF03, RF06, RF07, RF26)\\
+ContentForm & \arq{components/admin} & Formulário de título, \en{slug}, pai e estado de publicação (RF05, RF26)\\
+StatusToggle & \arq{components/admin} & Indicador e alternância \texttt{DRAFT}/\texttt{PUBLISHED} na árvore e no editor, com destaque para rascunhos (RF26, RN16)\\
+ThemeForm & \arq{components/admin} & Identidade, cores e links sociais, com pré-visualização e aviso de contraste (RF18, RF19, RF24)\\
 LoginForm & \arq{components/admin} & Formulário de autenticação (RF01)\\
 UI primitivos & \arq{components/ui} & Botão, diálogo de confirmação, \en{toast}, campo de cor\\
 \bottomrule
@@ -498,11 +523,14 @@ CSRF & Requisição de outro site com o \en{cookie} do administrador & \texttt{S
 Injeção de SQL & Entradas em consultas & Prisma parametriza; proibido \texttt{\$queryRawUnsafe}\\[1pt]
 Força bruta e enumeração & Tentativas repetidas de login & Limitação de tentativas; mensagem genérica de erro (UC08)\\[1pt]
 Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21); Proxy apenas otimista\\[1pt]
-Exposição de segredos & \arq{.env} no repositório ou variáveis no navegador & \arq{.env} ignorado pelo Git; nenhuma variável com prefixo \arq{NEXT_PUBLIC_} para segredos\\[1pt]
+Exposição de segredos & \arq{.env} no repositório, na imagem Docker ou variáveis no navegador & \arq{.env} ignorado pelo Git e excluído da imagem por \arq{.dockerignore}, fornecido ao contêiner em tempo de execução; nenhuma variável com prefixo \arq{NEXT_PUBLIC_} para segredos\\[1pt]
+Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou por página em cache & Filtro de publicação na camada de dados (RN15); revalidação do \en{layout} ao alterar o estado (RN16); testes CT31 e CT32\\[1pt]
+Link social malicioso & URL \texttt{javascript:} ou \texttt{data:} em um dos seis campos do rodapé & Validação de protocolo \texttt{http}/\texttt{https} no servidor (RN17); atributos \texttt{noopener} e \texttt{noreferrer}; teste CT33\\[1pt]
 Injeção de CSS & Valor de cor malicioso & Validação \texttt{\#RRGGBB} no servidor (RN09)\\[1pt]
 Dependências vulneráveis & Pacotes desatualizados ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit}; \en{lockfile} versionado\\[1pt]
 \en{Clickjacking} & Página incorporada em \texttt{iframe} & Cabeçalho \arq{frame-ancestors}/\arq{X-Frame-Options}\\[1pt]
 Exclusão acidental & Cascata indevida & Confirmação explícita; \en{backup} (RNF10)\\[1pt]
+Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atualização que descarta o volume & Banco em \en{bind mount} fora da imagem; \en{backup} periódico com \texttt{VACUUM INTO} e cópia externa (Apêndice~\ref{ap:implantacao}; risco R12)\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -510,14 +538,24 @@ Além dos controles acima, o \arq{next.config.mjs} deve definir cabeçalhos de s
 
 \section{Implantação e Operação}\label{sec:arq-implantacao}
 
-O alvo recomendado é um servidor com Node.js 20.9 ou superior, disco persistente e \en{proxy} reverso com TLS, executando uma única instância (\texttt{next build} e \texttt{next start}), com o arquivo de banco em volume persistente (Figura~\ref{fig:impl-implantacao}). O passo a passo está no Apêndice~\ref{ap:implantacao}.
+Por decisão do Engenheiro Chefe (\decisao{D-04}, \adr{ADR-011}), o alvo de implantação é uma VPS tradicional com Docker Engine e Docker Compose. A aplicação é empacotada em uma imagem construída em dois estágios (instalação e \en{build}; execução) que executa o servidor Next.js (\texttt{next start}) como usuário sem privilégios, em um único contêiner. O arquivo do SQLite fica em um \en{bind mount} do hospedeiro (\arq{./data}, montado em \arq{/data}), fora da imagem, e as variáveis de ambiente vêm de um arquivo \arq{.env} também fora da imagem. Um \en{proxy} reverso com TLS (Caddy ou Nginx) encaminha as requisições para a porta 3000 do contêiner, publicada apenas em \arq{127.0.0.1} (Figura~\ref{fig:impl-implantacao}). O passo a passo, com esboços do \arq{Dockerfile} e do \arq{docker-compose.yml}, está no Apêndice~\ref{ap:implantacao}.
 
 \vitrinefigura[tipo=diagrama, arquivo=impl-implantacao, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/impl-implantacao.puml},
-  descricao={Diagrama de implantação: proxy reverso com TLS, processo Node.js com o build do Next.js, volume persistente com o arquivo SQLite (e WAL) e cópias de segurança, e arquivo .env.}]
-  {Diagrama de implantação recomendado}{fig:impl-implantacao}
+  descricao={Diagrama de implantação: VPS com Docker Engine; proxy reverso com TLS; contêiner vitrine com o build do Next.js, o cliente do Prisma e o adaptador better-sqlite3; volume ./data com o arquivo SQLite (e WAL) e cópias de segurança; arquivo .env fora da imagem.}]
+  {Diagrama de implantação}{fig:impl-implantacao}
 
-Uma observação crítica: o relatório de IC cita a plataforma Vercel como exemplo de implantação \cite{reis2026ic}. O sistema de arquivos de funções \emph{serverless} é efêmero, de modo que um arquivo SQLite local não persiste entre invocações nesse tipo de ambiente. Para usar plataformas dessa natureza é necessário trocar o \en{driver adapter} por um banco remoto compatível (por exemplo, libSQL/Turso, previsto nas instruções do Prisma 7 para SQLite). Essa escolha está registrada como decisão em aberto (\decisao{D-04}) e como risco R01.
+Os requisitos normativos sobre a imagem, que o módulo M13 deve atender, são:
+
+\begin{itemize}
+  \item \textbf{Módulo nativo.} O \arq{better-sqlite3} é um módulo nativo (\adr{ADR-014}); os estágios de \en{build} e de execução devem usar a mesma versão do Node.js e a mesma distribuição (\en{glibc}, por exemplo \texttt{node:22-bookworm-slim}), e o estágio de \en{build} precisa de compilador (\texttt{python3}, \texttt{make}, \texttt{g++}) caso não haja binário pré-compilado;
+  \item \textbf{Cliente gerado.} \texttt{prisma generate} roda antes de \texttt{next build}, pois \arq{src/generated/prisma} não é versionado;
+  \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv}, hoje em \texttt{devDependencies}, estejam disponíveis na imagem (decisão do agente Dados, \adr{ADR-014});
+  \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}) e o SQLite tem um escritor por vez;
+  \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.
+\end{itemize}
+
+O relatório de IC citava a plataforma Vercel como exemplo de implantação \cite{reis2026ic}. O sistema de arquivos de funções \emph{serverless} é efêmero, de modo que um arquivo SQLite local não persistiria entre invocações nesse tipo de ambiente; a decisão por uma VPS com volume elimina esse obstáculo, que constava como risco R01, para esta versão. Plataformas dessa natureza só seriam viáveis com a troca do \en{driver adapter} por um banco remoto compatível (por exemplo, libSQL/Turso), o que está fora do escopo (\adr{ADR-011}).
 
 \section{Desempenho e Escalabilidade}\label{sec:arq-desempenho}
 
@@ -525,4 +563,4 @@ O perfil de carga é dominado por leituras. A ISR evita consultas ao banco na ma
 
 \section{Síntese do Capítulo}
 
-O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados, autenticação em camadas, estratégia de cache, pipeline de conteúdo, tematização, contrato de API, segurança e implantação. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e as decisões em aberto formam a lista inicial de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.
+O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados (com o estado de publicação e os links sociais), autenticação em camadas, estratégia de cache e de visibilidade, pipeline de conteúdo, tematização, contrato de API, segurança e implantação por imagem Docker. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e as decisões em aberto formam a lista de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.

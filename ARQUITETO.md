@@ -103,8 +103,8 @@ Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENT
 ## 5. Higiene do repositório
 - A `main` só recebe: *merges* autorizados, atualizações de `doc/**`, governança e o mural.
 - Novas dependências: aprove explicitamente (licença, manutenção, impacto) e registre no Cap. 3; combine versões fixadas no *lockfile*.
-- O repositório **não tem remoto**: lembre o usuário de configurar um remoto privado para *backup* assim que possível.
+- O repositório tem o remoto `origin` (GitHub). Não faça `git push` por conta própria (publica o histórico); quando o usuário o pedir, confirme antes se o repositório é privado e envie a `main`, as branches de feature em revisão e as tags.
 - Ao fechar uma fase do planejamento (F1 a F7, Cap. 3 §3.5) você pode criar uma tag anotada (`git tag -a fase-F2 -m "..."`).
 
 ## 6. Decisões humanas
-Mantenha o Apêndice F atualizado e, ao fim de cada sessão, resuma ao usuário as decisões "Autor" ainda abertas (hoje: D-01 nome oficial, D-02 licença, D-18 dados do TCC; D-04 e D-15 precisam de sua confirmação). Nunca decida por ele.
+Mantenha o Apêndice F atualizado e, ao fim de cada sessão, resuma ao usuário as decisões "Autor" ainda abertas (hoje: D-02 licença e D-18 dados do TCC; D-01 nome, D-04 implantação, D-15 estado de publicação e D-19 links sociais foram decididos por ele em 30/09/2026 e já constam como resolvidos, com as ADR-011 a ADR-013). Nunca decida por ele. Quando um desenvolvedor registrar no mural uma decisão do Engenheiro Chefe (como fez a Dados no pedido P-001), confirme-a no Apêndice F, transcreva-a como ADR e marque as propostas derivadas por você (por exemplo, RF26 e RN15 a RN17) como "a confirmar".

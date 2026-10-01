@@ -10,6 +10,10 @@
 // Diferenças: (1) tabelas de autenticação do better-auth (user, session, account,
 // verification) no lugar da tabela "users" genérica do Auth.js; (2) nomes de coluna
 // em camelCase, exatamente como os campos do Prisma (o relatório de IC usava snake_case).
+// Atualizado após o merge M-001 (2026-09-30), decisões do Engenheiro Chefe:
+//   - D-15: enum ContentStatus (DRAFT | PUBLISHED, padrão PUBLISHED) em contents.status;
+//   - D-19: seis links sociais opcionais do rodapé em configurations;
+//   - D-01: o nome oficial do projeto é "Vitrine".
 // Renderizar: https://dbdiagram.io (colar o conteúdo e exportar PNG) - ver README.
 // ////////////////////////////////////////////////////////
 
@@ -68,6 +72,14 @@ Table verification {
 }
 
 // ////////////////////////////////////////////////////////
+// ESTADO DE PUBLICAÇÃO (enum do Prisma; o SQLite não impõe o valor no banco)
+// ////////////////////////////////////////////////////////
+Enum ContentStatus {
+  DRAFT [note: 'Rascunho: não aparece ao público']
+  PUBLISHED [note: 'Publicado (padrão): visível ao público']
+}
+
+// ////////////////////////////////////////////////////////
 // CONTEÚDO HIERÁRQUICO
 // ////////////////////////////////////////////////////////
 Table contents {
@@ -76,6 +88,7 @@ Table contents {
   slug varchar [not null, note: 'URL amigável']
   body text [note: 'Conteúdo em Markdown']
   type varchar [not null, note: 'DOCUMENT | COLLECTION']
+  status ContentStatus [not null, default: 'PUBLISHED', note: 'Visível ao público somente se o nó e todos os ancestrais forem PUBLISHED (RN15)']
   order integer [not null, default: 0, note: 'Ordenação entre irmãos']
 
   // Auto-relacionamento para estrutura de árvore
@@ -102,6 +115,15 @@ Table configurations {
   // Metadados adicionais
   logoUrl varchar
   faviconUrl varchar
+
+  // Links sociais do rodapé (RF24, D-19): todos opcionais e independentes;
+  // somente URLs http(s) são aceitas (RN17); vazio = ícone não exibido
+  discordUrl varchar
+  githubUrl varchar
+  youtubeUrl varchar
+  instagramUrl varchar
+  linkedinUrl varchar
+  twitchUrl varchar
 
   updatedAt timestamp [not null]
 }

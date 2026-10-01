@@ -22,7 +22,7 @@ decisões do Vitrine. Ela é escrita *antes* do código e atualizada *depois* de
 | `acronyms.tex` | Lista de siglas |
 | `references.bib` | Bibliografia (somente fontes reais e verificadas) |
 | `capitulos/cap1_introducao.tex` … `cap9_consideracoes_finais.tex` | Capítulos |
-| `apendices/apendice_a_…` … `apendice_h_…` | Dicionário de dados, schema, fontes de diagramas, implantação, ADRs, decisões em aberto, mapa de pendências (gerado), glossário |
+| `apendices/apendice_a_…` … `apendice_h_…` | Dicionário de dados, schema, fontes de diagramas, implantação (Docker), ADRs, decisões abertas e resolvidas, mapa de pendências (gerado), glossário |
 | `figuras/telas/` | Capturas de tela do sistema (PNG) — **substituem placeholders** |
 | `figuras/diagramas/` | Diagramas renderizados a partir de `doc/diagrams/src/` (PNG) |
 | `figuras/testes/` | Evidências de testes (Lighthouse, terminal, etc.) |

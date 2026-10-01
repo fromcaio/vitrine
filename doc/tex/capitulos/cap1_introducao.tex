@@ -65,11 +65,11 @@ A relevância do trabalho pode ser resumida em quatro dimensões:
 
 \section{Escopo e Delimitações}\label{sec:escopo}
 
-O escopo desta versão do Vitrine compreende: autenticação de um administrador; gestão hierárquica de documentos e coleções; edição e renderização de Markdown com fórmulas \LaTeX{}, tabelas e código; navegação por barra superior e \en{sidebar} hierárquica; personalização de identidade e paleta de cores; e entrega das páginas públicas por ISR com invalidação sob demanda.
+O escopo desta versão do Vitrine compreende: autenticação de um administrador; gestão hierárquica de documentos e coleções, com estado de publicação (rascunho ou publicado); edição e renderização de Markdown com fórmulas \LaTeX{}, tabelas e código; navegação por barra superior e \en{sidebar} hierárquica; personalização de identidade, paleta de cores e links sociais do rodapé; e entrega das páginas públicas por ISR com invalidação sob demanda, implantadas por imagem Docker em uma VPS.
 
 Ficam fora do escopo desta versão, embora documentados como possibilidades de evolução (Seção~\ref{sec:trabalhos-futuros}): múltiplos usuários com papéis e permissões distintos; comentários e interação de leitores; busca textual; histórico de versões de conteúdo; envio e gerenciamento de mídia; internacionalização; e edição colaborativa em tempo real.
 
-\vitrinependencia{Arquiteto}{Confirmar com o orientador a lista de itens fora do escopo, em especial histórico de versões e upload de mídia (decisões D-10 e D-15).}
+\vitrinependencia{Arquiteto}{Confirmar com o orientador a lista de itens fora do escopo, em especial o histórico de versões e o envio de mídia (decisão D-10).}
 
 \section{Contribuições Esperadas}\label{sec:contribuicoes}
 
@@ -99,6 +99,10 @@ Processo & Incremental, individual & \en{Documentation-Driven Development} com a
 Interface & Protótipos de baixa fidelidade e uma instância de demonstração & Implementação completa conforme a especificação (Capítulo~\ref{cap:implementacao})\\
 \addlinespace
 Cache & ISR citado como requisito & ISR com revalidação sob demanda por rota e por \en{layout} (Seção~\ref{sec:arq-isr})\\
+\addlinespace
+Implantação & Clonagem do repositório e implantação em plataforma como a Vercel (tutoriais previstos) & Imagem Docker em VPS tradicional, com volume persistente para o SQLite (\adr{ADR-011})\\
+\addlinespace
+Conteúdo & Sem estado de publicação no modelo de dados (o protótipo oferece ``Salvar localmente'' e ``Enviar nova versão'') & Estado de publicação \texttt{DRAFT} ou \texttt{PUBLISHED}, com padrão \texttt{PUBLISHED} (\adr{ADR-012})\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores, com base em \citeonline{reis2026ic} e no estado do repositório.}

@@ -21,10 +21,10 @@ L2 --> L3 : funções de db.js
 L3 --> L4
 
 note right of L1
-  Proibido: importar db.js ou @prisma/client
-  em Client Components.
+  Proibido: importar db.js ou o cliente gerado do
+  Prisma (@/generated/prisma) em Client Components.
 end note
 note right of L3
-  Único ponto de acesso ao PrismaClient.
+  Único ponto de acesso ao PrismaClient (na aplicação).
 end note
 @enduml
