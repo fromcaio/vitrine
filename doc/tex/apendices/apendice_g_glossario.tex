@@ -12,6 +12,7 @@
   \item[ADR] \en{Architecture Decision Record}: registro curto de uma decisão arquitetural com contexto, decisão e consequências.
   \item[better-auth] Biblioteca de autenticação usada pelo Vitrine para login por e-mail e senha e gestão de sessões.
   \item[\en{Bind mount}] Montagem de um diretório do hospedeiro dentro do contêiner; no Vitrine, guarda o arquivo do SQLite fora da imagem Docker.
+  \item[Client Component] Componente React que também é executado no navegador, declarado com a diretiva \texttt{"use client"}; no Vitrine, só os que têm estado ou eventos, como o \texttt{LoginForm} e a navegação lateral do painel.
   \item[Coleção] Conteúdo do tipo \texttt{COLLECTION}, que funciona como pasta e pode ter documentos e outras coleções como filhos.
   \item[Contêiner] Instância em execução de uma imagem Docker; no Vitrine, um único contêiner executa o servidor Next.js (\adr{ADR-011}).
   \item[Conteúdo] Nó da árvore do site: documento ou coleção.
@@ -37,12 +38,15 @@
   \item[Prisma] Biblioteca de acesso a dados com esquema declarativo, cliente tipado e migrações; o projeto usa a versão 7 (\adr{ADR-003}, \adr{ADR-014}).
   \item[Proxy] Arquivo do Next.js 16 (antigo \en{Middleware}) que executa lógica antes da conclusão de uma requisição.
   \item[Rascunho] Termo com dois sentidos no projeto: o estado \texttt{DRAFT} de um conteúdo no servidor (RF26) e o rascunho local do editor, guardado no navegador antes do envio (RF15).
+  \item[Razão de contraste] Medida da WCAG 2.1 da diferença de luminância entre duas cores, de 1:1 (cores iguais) a 21:1 (preto e branco), calculada por $(L_1 + 0{,}05)/(L_2 + 0{,}05)$; o nível AA exige 4,5:1 para texto e 3:1 para componentes de interface (RN09, RNF05).
   \item[Revalidação] Invalidação de páginas em cache para que sejam regeneradas na próxima requisição.
   \item[Route Handler] Arquivo \arq{route.js} do App Router que implementa um \en{endpoint} HTTP.
   \item[Server Component] Componente React executado apenas no servidor.
+  \item[Server Function] Função executada no servidor, definida em um arquivo com a diretiva \texttt{"use server"} e acionada pelo navegador, por exemplo por um formulário (também chamada \en{Server Action}); no Vitrine, o encerramento da sessão (\texttt{signOut}). Cada função exportada é um ponto de entrada HTTP e deve validar no servidor tudo o que exige.
   \item[Slug] Trecho legível da URL que identifica um conteúdo entre seus irmãos.
   \item[SQLite] Banco de dados SQL embutido, em arquivo único.
   \item[Tema] Conjunto de identidade (nome, logotipo) e cores do site, aplicado por variáveis CSS.
+  \item[Token de tema] Variável CSS do tema (por exemplo, \arq{--vitrine-primary}) e o utilitário do Tailwind que a referencia (\texttt{bg-primary}); os componentes usam somente tokens, nunca cores fixas (RF19).
   \item[UI] Agente responsável pela interface: componentes, estilos e editor.
   \item[VPS] \en{Virtual Private Server}: servidor virtual dedicado, alvo de implantação do Vitrine (\decisao{D-04}).
   \item[WAL] \en{Write-Ahead Logging}: modo do SQLite que permite leituras simultâneas a uma escrita.

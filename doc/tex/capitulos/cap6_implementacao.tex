@@ -29,20 +29,20 @@ Este capítulo acompanha a construção do Vitrine módulo a módulo. Cada módu
 \endfoot
 M01 & Modelo de dados e migrações & Dados & RF02, RF03, RF22, RF23, RF26 & \arq{feat/dados-migracao-seed} & \statusmodulo{implementado}\\[1pt]
 M02 & Acesso a dados e árvore & Dados & RF02, RF03, RF14 & \arq{feat/dados-db-e-arvore} & \statusmodulo{implementado}\\[1pt]
-M03 & Autenticação e sessão & Core & RF01, RF20 a RF22 & \arq{feat/core-auth-api} & \statusmodulo{implementado}\\[1pt]
+M03 & Autenticação e sessão & Core, UI & RF01, RF20 a RF22 & \arq{feat/core-auth-api} & \statusmodulo{implementado}\\[1pt]
 M04 & API de conteúdo & Core & RF05 a RF07, RF16, RF26 & \arq{feat/core-auth-api} & \statusmodulo{implementado}\\[1pt]
 M05 & API de configuração & Core & RF18, RF19, RF21 & \arq{feat/core-auth-api} & \statusmodulo{andamento}\\[1pt]
 M06 & Revalidação de cache (ISR) & Core & RF17 & \arq{feat/core-auth-api} & \statusmodulo{andamento}\\[1pt]
 M07 & Leitura pública e navegação & UI, Core & RF12 a RF14, RF24, RF26 & \arq{feat/ui-leitura-publica} & \statusmodulo{planejado}\\[1pt]
 M08 & Renderização de Markdown & UI & RF09 a RF11 & \arq{feat/ui-markdown} & \statusmodulo{planejado}\\[1pt]
 M09 & Editor de conteúdo & UI & RF08, RF15, RF16 & \arq{feat/ui-editor} & \statusmodulo{planejado}\\[1pt]
-M10 & Painel de gestão da árvore & UI, Core & RF03, RF06, RF07, RF26 & \arq{feat/ui-painel-arvore} & \statusmodulo{planejado}\\[1pt]
-M11 & Personalização visual & UI, Core, Dados & RF04, RF18, RF19, RF24 & \arq{feat/ui-personalizacao} & \statusmodulo{planejado}\\[1pt]
+M10 & Painel de gestão da árvore & UI, Core & RF03, RF06, RF07, RF26 & \arq{feat/ui-painel-arvore} & \statusmodulo{andamento}\\[1pt]
+M11 & Personalização visual & UI, Core, Dados & RF04, RF18, RF19, RF24 & \arq{feat/ui-personalizacao} & \statusmodulo{andamento}\\[1pt]
 M12 & SEO e metadados & Core & RF25 & \arq{feat/core-seo} & \statusmodulo{planejado}\\[1pt]
 M13 & Implantação e operação & Core, Dados & RF22; RNF01 & \arq{feat/core-implantacao} & \statusmodulo{planejado}\\[1pt]
 M14 & Testes automatizados & Todos & RNF08 & \arq{feat/<dominio>-testes} & \statusmodulo{andamento}\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores. M01 e M02 estão implementados: o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais vieram do merge M-001 (30/09/2026); a migração inicial, o \en{seed} e a instância de \arq{db.js}, do M-002; as funções de acesso a dados, o \arq{content-tree.js} e os testes, do M-003; e o administrador inicial (RF22), do M-004 (01/10/2026), pelo comando \texttt{npm run admin:create}, do Core. M03 e M04 estão implementados; M05 e M06 estão em andamento (avisos de contraste e verificação do cache dependem da UI e das páginas públicas).}
+\fonte{Elaborado pelos autores. M01 e M02 estão implementados: o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais vieram do merge M-001 (30/09/2026); a migração inicial, o \en{seed} e a instância de \arq{db.js}, do M-002; as funções de acesso a dados, o \arq{content-tree.js} e os testes, do M-003; e o administrador inicial (RF22), do M-004 (01/10/2026), pelo comando \texttt{npm run admin:create}, do Core. M03 e M04 estão implementados; M05 e M06 estão em andamento (a integração dos avisos de contraste e a verificação do cache dependem do Core e das páginas públicas). O merge M-005 (01/10/2026), da UI, entregou a fundação visual: o \texttt{LoginForm} definitivo e a figura \arq{tela-login} (M03), a casca do painel (início do M10) e os tokens de tema e as funções de contraste (início do M11), em ramificação própria (\arq{feat/ui-fundacao-tema}); por isso M10 e M11 passam a andamento.}
 
 A ordem recomendada de execução respeita as dependências: M01 e M02 (dados) habilitam M03 a M06 (servidor), que habilitam M07 e M08 (leitura), seguidos de M09 a M11 (edição e personalização); M12 a M14 acompanham o restante.
 
@@ -123,21 +123,27 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \section{M03 --- Autenticação e Sessão}\label{sec:impl-auth}
 
-\noindent\statusmodulo{implementado}\quad Agente: \agente{Core}. Requisitos: \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}. Regras: RN01, RN12.
+\noindent\statusmodulo{implementado}\quad Agentes: \agente{Core} e \agente{UI}. Requisitos: \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}. Regras: RN01, RN12.
 
-\textbf{Situação.} O pedido M-004 (ramificação \arq{feat/core-auth-api}, último commit \texttt{4a7928c}) foi revisado e integrado em 01/10/2026 (merge \texttt{d02e641}), junto com a aprovação do RFC P-002 (\adr{ADR-018}). O módulo entregou: o better-auth configurado conforme a Tabela~\ref{tab:auth-config}; o \en{handler} \arq{/api/auth/[...all]}; o cliente React; o Proxy (\arq{src/proxy.js}); a página \arq{/login} e o encerramento de sessão por \en{Server Function} no painel; a validação de sessão no layout e na página \arq{/admin} (\arq{requireAdminSession}); a limitação de tentativas de login; e o comando do administrador inicial. As páginas \arq{/login} e \arq{/admin} são \textbf{provisórias} e sem identidade visual: o \texttt{LoginForm} definitivo e o painel são da UI (pedido P-003). A configuração efetiva difere do esboço original apenas pelas opções da Tabela~\ref{tab:auth-config}; \texttt{prismaAdapter}, \texttt{nextCookies} e \texttt{toNextJsHandler} existem como previsto.
+\textbf{Situação.} O pedido M-004 (ramificação \arq{feat/core-auth-api}, último commit \texttt{4a7928c}) foi revisado e integrado em 01/10/2026 (merge \texttt{d02e641}), junto com a aprovação do RFC P-002 (\adr{ADR-018}). O módulo entregou: o better-auth configurado conforme a Tabela~\ref{tab:auth-config}; o \en{handler} \arq{/api/auth/[...all]}; o cliente React; o Proxy (\arq{src/proxy.js}); a página \arq{/login} e o encerramento de sessão por \en{Server Function} no painel; a validação de sessão no layout e na página \arq{/admin} (\arq{requireAdminSession}); a limitação de tentativas de login; e o comando do administrador inicial. Nessa entrega, as páginas \arq{/login} e \arq{/admin} eram provisórias e sem identidade visual. O pedido M-005 (ramificação \arq{feat/ui-fundacao-tema}, último commit \texttt{fc3eb36}, que atendeu ao pedido P-003) completou o módulo pelo lado da interface e foi integrado no mesmo dia (merge \texttt{f57b076}): o \texttt{LoginForm} definitivo (\arq{src/components/admin/LoginForm.js}), que substituiu o formulário provisório do Core; o cartão da página \arq{/login}; o botão ``Sair'' no cabeçalho do painel; e a figura \arq{tela-login}. Além da mensagem genérica (UC08, fluxo A1) e do aviso do status \texttt{429}, o formulário trata a falha de conexão --- o cliente do better-auth lança uma exceção quando não há resposta, e sem esse tratamento o botão ficava desabilitado para sempre. O encerramento da sessão (RF20) passou a ser feito pela \en{Server Function} \texttt{signOut}, que saiu de \arq{admin/page.js} para \arq{src/app/admin/_lib/actions.js}, sem mudança de comportamento (Seção~\ref{sec:arq-auth}). Os arquivos de rota \arq{login/page.js}, \arq{admin/layout.js} e \arq{admin/page.js} são do Core; a UI os alterou, com autorização do Engenheiro Chefe, somente na apresentação, e o Arquiteto conferiu no \en{diff} que a barreira de segurança (\texttt{requireAdminSession}, \texttt{safeRedirectPath} e o redirecionamento de quem já tem sessão) foi preservada. A configuração efetiva difere do esboço original apenas pelas opções da Tabela~\ref{tab:auth-config}; \texttt{prismaAdapter}, \texttt{nextCookies} e \texttt{toNextJsHandler} existem como previsto.
 
 \textbf{Administrador inicial (RF22, \decisao{D-03}).} O comando \texttt{npm run admin:create} (\texttt{tsx -{}-tsconfig jsconfig.json scripts/create-admin.js}) lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e \arq{ADMIN_NAME} (opcional), valida o formato (e-mail válido; senha de 8 a 128 caracteres) e chama \texttt{ensureInitialAdmin}. Na imagem: \texttt{docker compose run -{}-rm vitrine npm run admin:create}. O comportamento (idempotência, recusa de um segundo usuário, saída 0 ou 1, senha nunca impressa) está na Seção~\ref{sec:arq-auth}. O \arq{prisma/seed.js} não foi alterado e segue criando só a configuração padrão. Depois da criação, \arq{ADMIN_PASSWORD} deve ser removida do \arq{.env}.
 
-\textbf{Pendente.} O \texttt{LoginForm} definitivo e a figura \arq{tela-login} (UI); os casos CT01 e CT03 de ponta a ponta, que exigem o Playwright (ainda não instalado) e as páginas públicas. A ausência de \arq{BETTER_AUTH_SECRET} em produção foi verificada pelo Arquiteto na revisão: o servidor sobe, mas toda rota de autenticação e de API responde 500, sem expor dados (falha fechada).
+\textbf{Pendente.} Os casos CT01 e CT03 de ponta a ponta, que exigem o Playwright (ainda não instalado) e as páginas públicas; e a verificação com um leitor de tela real (RNF05), que a UI não executou (só a marcação foi conferida: rótulos, \texttt{role="alert"}, \texttt{aria-current} e \texttt{aria-busy}). A ausência de \arq{BETTER_AUTH_SECRET} em produção foi verificada pelo Arquiteto na revisão: o servidor sobe, mas toda rota de autenticação e de API responde 500, sem expor dados (falha fechada).
 
 \textbf{Critérios de aceite (verificados).} Credenciais válidas criam a sessão com \en{cookie} \texttt{HttpOnly} e \texttt{SameSite}; inválidas retornam a mesma mensagem genérica para e-mail inexistente e senha errada (CT02); \arq{/admin} sem \en{cookie} redireciona a \arq{/login?redirectTo=...}; qualquer rota de escrita sem sessão retorna 401 mesmo chamada sem o Proxy (CT04); \en{logout} invalida a sessão no banco e remove o \en{cookie} (CT05); o cadastro público é recusado antes e depois do \en{bootstrap} (CT06).
+
+\textbf{Verificação da interface (relatada pela UI).} No pedido M-005, a UI relatou 46 verificações aprovadas, executadas duas vezes --- sobre o servidor de desenvolvimento e sobre a \en{build} de produção ---, com o Edge em modo \en{headless} conduzido pelo protocolo DevTools e um banco temporário, sem dependência nova: \arq{/admin} sem sessão redireciona a \arq{/login?redirectTo=...}; o login válido leva ao painel; senha errada e e-mail inexistente mostram a mesma mensagem, sem marcar campo (CT02 na interface); a sexta tentativa em 60 s mostra o aviso de excesso de tentativas; a falha de conexão reabilita o botão; ``Sair'' remove o \en{cookie} e \arq{/admin} volta a exigir login (CT05 na interface); a 320 px não há rolagem horizontal, e a navegação recolhida abre e fecha pelo teclado; o foco é visível em todos os controles. O Arquiteto reproduziu o \en{lint}, o \en{build} e os 377 testes, mas não essa verificação no navegador; a UI também não usou leitor de tela nem auditoria automática de acessibilidade (Lighthouse ou axe).
 
 \vitrinecodigo[linerange={1-46}]{Core}{src/lib/auth.js}{VJS}{Configuração do servidor de autenticação (better-auth)}
 
 \vitrinecodigo{Core}{scripts/create-admin.js}{VJS}{Comando do administrador inicial (npm run admin:create)}
 
 \vitrinecodigo{Core}{src/proxy.js}{VJS}{Proxy: verificação otimista de sessão}
+
+\vitrinecodigo[linerange={28-52}]{UI}{src/components/admin/LoginForm.js}{VJS}{Formulário de login: envio, mensagem única e tratamento de erros}
+
+\vitrinecodigo{Core}{src/app/admin/_lib/actions.js}{VJS}{Server Function de encerramento da sessão (signOut)}
 
 \vitrinefigura[tipo=tela, arquivo=tela-login, agente=UI, largura=0.6,
   descricao={Tela de login: formulário de e-mail e senha, botão de entrar; estado de erro com mensagem genérica.},
@@ -146,11 +152,11 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \section{M04, M05 e M06 --- API, Configuração e Revalidação}\label{sec:impl-api}
 
-\noindent\statusmodulo{andamento}\quad Agente: \agente{Core}. Requisitos: \req{RF05} a \req{RF07}, \req{RF16} a \req{RF19}, \req{RF21}, \req{RF24}, \req{RF26}. O M04 (API de conteúdo) e as regras do M06 (revalidação) estão implementados; o M05 (API de configuração) aguarda os avisos de contraste.
+\noindent\statusmodulo{andamento}\quad Agente: \agente{Core}. Requisitos: \req{RF05} a \req{RF07}, \req{RF16} a \req{RF19}, \req{RF21}, \req{RF24}, \req{RF26}. O M04 (API de conteúdo) e as regras do M06 (revalidação) estão implementados; o M05 (API de configuração) aguarda a integração dos avisos de contraste, cuja função a UI já entregou (merge M-005).
 
 \textbf{Situação.} O merge M-004 (01/10/2026) entregou: os Route Handlers de \arq{/api/contents}, \arq{/api/contents/[id]}, \arq{/api/contents/reorder} e \arq{/api/configuration}, todos sobre as funções de \arq{db.js}; o envoltório \texttt{route()} (\arq{src/app/api/_lib/http.js}), que valida a origem e a sessão antes de qualquer ação e converte qualquer erro na resposta padrão; os validadores Zod (\arq{src/lib/validators.js}, D-11), que cuidam do \emph{formato} (RN03, RN09, RN17, D-10); e as regras de revalidação (\arq{src/lib/revalidate.js}), chamadas só pelos Route Handlers, depois da escrita confirmada. O contrato efetivo --- envelope \texttt{\{ data \}}, formato de erro, mapeamento de \texttt{DataError} (Tabela~\ref{tab:dataerror}) e regras comuns de entrada --- está na Seção~\ref{sec:arq-api} e foi aprovado na \adr{ADR-018}. Não há divergência em relação aos códigos de status e de erro previstos. Quanto à revalidação, o layout raiz é revalidado ao criar, excluir, reordenar ou alterar título, \en{slug}, pai, ordem, tipo, estado ou configuração, e só a página (\texttt{/a/b/c}) quando apenas o corpo muda; uma falha de revalidação é registrada e não desfaz a escrita.
 
-\textbf{Pendente.} (i) \textbf{Avisos de contraste no \texttt{PUT /api/configuration}} (M05): o Core os devolve em \texttt{warnings} assim que a UI entregar \texttt{contrastWarnings} em \arq{src/lib/theme.js}, conforme os pares da Tabela~\ref{tab:pares-contraste}; (ii) a verificação da revalidação com o cabeçalho \texttt{x-nextjs-cache} e os casos CT21, CT22, CT31 e CT32, que dependem das páginas públicas com ISR (M07) e do Playwright; (iii) os cabeçalhos de segurança e a imagem Docker (M13).
+\textbf{Pendente.} (i) \textbf{Avisos de contraste no \texttt{PUT /api/configuration}} (M05): o Core os devolve em \texttt{warnings}, chamando \texttt{contrastWarnings} de \arq{src/lib/theme.js} (entregue pela UI no merge M-005), conforme os pares da Tabela~\ref{tab:pares-contraste}; (ii) a verificação da revalidação com o cabeçalho \texttt{x-nextjs-cache} e os casos CT21, CT22, CT31 e CT32, que dependem das páginas públicas com ISR (M07) e do Playwright; (iii) os cabeçalhos de segurança e a imagem Docker (M13).
 
 \textbf{Critérios de aceite (verificados em testes automatizados com o better-auth real).} Cada rota responde com os códigos de status da Seção~\ref{sec:arq-api}; conflitos de \en{slug} retornam 409 com \arq{SLUG_CONFLICT} e sugestão; ciclos retornam \arq{CYCLE_DETECTED}; um \texttt{status} fora de \texttt{DRAFT} e \texttt{PUBLISHED} e um link social com protocolo diferente de \texttt{http} e \texttt{https} retornam 422; uma alteração só de corpo revalida apenas a página, e uma alteração estrutural ou de estado revalida o \en{layout} raiz; nenhuma rota escreve sem sessão, sem cookie válido ou vinda de outra origem, e nada é gravado nem revalidado nesses casos.
 
@@ -208,7 +214,9 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \section{M10 --- Painel de Gestão da Árvore}\label{sec:impl-painel}
 
-\noindent\statusmodulo{planejado}\quad Agentes: \agente{UI} e \agente{Core}. Requisitos: \req{RF03}, \req{RF06}, \req{RF07}, \req{RF26}.
+\noindent\statusmodulo{andamento}\quad Agentes: \agente{UI} e \agente{Core}. Requisitos: \req{RF03}, \req{RF06}, \req{RF07}, \req{RF26}.
+
+\textbf{Situação.} O merge M-005 entregou apenas a \emph{casca} do painel, em \arq{src/components/admin/}: o \texttt{AdminShell} (atalho ``Pular para o conteúdo'', barra superior, navegação e área principal), o \texttt{AdminHeader} (nome do site, nome e e-mail do usuário e ``Sair''), o \texttt{AdminSidebar} (item ativo pela rota; recolhível em um \texttt{<details>} abaixo de 768~px e barra lateral fixa a partir dessa largura, sem estado em JavaScript; só \arq{/admin} tem link, e Conteúdo e Configurações aparecem como ``em breve'') e o \texttt{AdminOverview}, uma visão geral provisória. O \texttt{AdminShell} aceita a \en{prop} \texttt{siteName} (padrão ``Vitrine'', RN08), que o layout do painel ainda não preenche com a configuração. As próximas páginas ficam em \arq{/admin/conteudo} e \arq{/admin/configuracoes}, como na estrutura-alvo (Seção~\ref{sec:arq-estrutura}): cada uma repete \texttt{requireAdminSession} e devolve só o conteúdo, pois o elemento \texttt{<main>} é da casca. Faltam a árvore de conteúdos, as ações por nó e os formulários.
 
 \textbf{Tarefas.} Implementar a visão geral do painel, a árvore de conteúdos com ações por nó (criar documento ou coleção, editar, mover, reordenar, alternar o estado de publicação, excluir com confirmação), com indicação visível do estado de cada nó, e os formulários de criação e edição de metadados (inclusive o estado de publicação), integrados às rotas da Tabela~\ref{tab:api}.
 
@@ -231,13 +239,15 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \section{M11 --- Personalização Visual}\label{sec:impl-personalizacao}
 
-\noindent\statusmodulo{planejado}\quad Agentes: \agente{UI}, \agente{Core} e \agente{Dados}. Requisitos: \req{RF04}, \req{RF18}, \req{RF19}, \req{RF24}.
+\noindent\statusmodulo{andamento}\quad Agentes: \agente{UI}, \agente{Core} e \agente{Dados}. Requisitos: \req{RF04}, \req{RF18}, \req{RF19}, \req{RF24}.
+
+\textbf{Situação.} O merge M-005 entregou a base visual: o \arq{globals.css} com os tokens de tema (Código~\ref{lst:tema-css}), sem modo escuro automático (\decisao{D-17}), e o módulo \arq{src/lib/theme.js}, com \texttt{contrastRatio}, \texttt{contrastWarnings} e \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e 36 casos de teste em \arq{tests/ui/}. Faltam o formulário de tema; a leitura da configuração e a injeção das quatro variáveis no \en{layout} raiz (Core); o rodapé com os links sociais; e a chamada de \texttt{contrastWarnings} no \texttt{PUT /api/configuration} (Core).
 
 \textbf{Tarefas.} Implementar o formulário de identidade (nome, descrição, logotipo, \en{favicon}), de paleta (três cores) e de links sociais (seis campos opcionais: Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch; \adr{ADR-013}, RN17), com pré-visualização local e aviso de contraste; a rota \texttt{PUT /api/configuration}; a leitura da configuração no \en{layout} raiz; os tokens do Código~\ref{lst:tema-css}; e a decisão sobre armazenamento de logotipo e \en{favicon} (\decisao{D-10}).
 
 \textbf{Critérios de aceite.} Alterar uma cor no painel muda a aparência de todas as páginas na próxima requisição, sem novo \en{build}; valores inválidos (cor fora de \texttt{\#RRGGBB}, link social que não seja \texttt{http} ou \texttt{https}) são recusados; o aviso de contraste aparece para combinações abaixo de 4,5:1; nome e logotipo aparecem na barra superior e nos metadados; preencher ou esvaziar um link social inclui ou remove o ícone correspondente no rodapé de todas as páginas.
 
-\vitrinecodigo{UI}{src/lib/theme.js}{VJS}{Geração das variáveis CSS e cálculo de contraste}
+\vitrinecodigo[linerange={65-121}]{UI}{src/lib/theme.js}{VJS}{Cálculo de contraste do tema: contrastRatio, contrastWarnings e readableTextOn}
 
 \vitrinefigura[tipo=tela, arquivo=tela-admin-configuracoes, agente=UI, largura=0.85,
   descricao={Tela de configurações: identidade (nome, descrição, logotipo, favicon) e paleta (seletores de cor e campos hexadecimais) com pré-visualização e aviso de contraste.},
@@ -253,7 +263,7 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
   descricao={Duas capturas lado a lado da mesma página antes e depois de alterar a paleta, comprovando o efeito sem novo build.}]
   {Efeito da personalização sobre uma mesma página}{fig:tela-antes-depois}
 
-\vitrinependencia{UI}{Relatar a implementação da personalização, o mapeamento final das cores (Seção~\ref{sec:arq-tema}) e o tratamento do modo escuro (D-17).}
+\vitrinependencia{UI}{Relatar a implementação do formulário de tema, da injeção das variáveis no \en{layout} raiz e do rodapé com os links sociais; o mapeamento das cores e o tratamento do modo escuro já constam na Seção~\ref{sec:arq-tema}.}
 
 \section{M12, M13 e M14 --- SEO, Implantação e Testes}\label{sec:impl-demais}
 
@@ -263,7 +273,7 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \textbf{M13 --- Implantação e operação (\agente{Core} e \agente{Dados}).} Criar o \arq{Dockerfile} em dois estágios, o \arq{docker-compose.yml} (um serviço, volume \arq{./data} para o SQLite, porta publicada somente em \arq{127.0.0.1}) e o \arq{.dockerignore} (\decisao{D-04}, \adr{ADR-011}), seguindo os requisitos da Seção~\ref{sec:arq-implantacao} e os esboços do Apêndice~\ref{ap:implantacao}; fazer a imagem aplicar as migrações (\arq{prisma} e \arq{dotenv} já estão em \texttt{dependencies}, \adr{ADR-014}), executar o \en{seed} e o \texttt{npm run admin:create} (o que exige o \texttt{tsx} na imagem) e definir \arq{DATABASE_URL} no estágio de \en{build}, sem segredos (Seção~\ref{sec:arq-implantacao}); documentar o roteiro de instalação, atualização e \en{backup}; definir os cabeçalhos de segurança em \arq{next.config.mjs}. O \arq{.env.example} e a exceção no \arq{.gitignore} já existem (merge M-004). Critério de aceite: uma instalação limpa em uma VPS com Docker, seguindo apenas o Apêndice~\ref{ap:implantacao}, produz um sistema funcional, com administrador criado por \texttt{admin:create}, e o banco persiste após recriar o contêiner (CT29).
 
-\textbf{M14 --- Testes automatizados (todos).} Em andamento. O Vitest foi adotado (\decisao{D-12}, \adr{ADR-017}) e a suíte tem 341 testes (72 do Dados e 269 do Core, verificados na revisão do merge M-004), com banco SQLite isolado (Seção~\ref{sec:testes-banco}). Faltam os testes da UI, a instalação do Playwright e os casos de ponta a ponta do Capítulo~\ref{cap:testes} (CT01, CT03, CT14, CT18 a CT23, CT25 a CT27, CT31 e CT32).
+\textbf{M14 --- Testes automatizados (todos).} Em andamento. O Vitest foi adotado (\decisao{D-12}, \adr{ADR-017}) e a suíte tem 377 testes em 15 arquivos (72 do Dados, 269 do Core e 36 da UI, verificados na revisão do merge M-005), com banco SQLite isolado (Seção~\ref{sec:testes-banco}). Faltam os testes de componentes da UI (que exigiriam um ambiente de DOM, como o jsdom e a Testing Library, ainda não adotados), a instalação do Playwright e os casos de ponta a ponta do Capítulo~\ref{cap:testes} (CT01, CT03, CT14, CT18 a CT23, CT25 a CT27, CT31 e CT32).
 
 \vitrinecodigo{Core}{.env.example}{VSh}{Variáveis de ambiente necessárias (sem valores)}
 

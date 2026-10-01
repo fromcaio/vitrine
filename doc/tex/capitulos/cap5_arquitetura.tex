@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, e as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, e a ADR-020 em 01/10/2026, após o merge M-005; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begingroup\small\renewcommand{\arraystretch}{1.25}
 \begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
@@ -60,6 +60,7 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-017} & Decisões técnicas com valor padrão adotado & Encerra as questões técnicas iniciais, refináveis por RFC (D-03, D-05 a D-08, D-10 a D-14, D-16, D-17)\\
 \adr{ADR-018} & Administrador por \texttt{npm run admin:create} e contrato da API (envelope \texttt{data}, erros de entrada e de origem) & Aprova as nove propostas do Core (RFC P-002; fecha o D-03)\\
 \adr{ADR-019} & Manter o Prisma 7 apesar de quatro alertas do \texttt{npm audit} & A correção automática rebaixaria o Prisma para a versão 6\\
+\adr{ADR-020} & Texto sobre a cor primária escolhido por \texttt{readableTextOn} e indicador de foco neutro & O branco fixo reprova o nível AA com a paleta padrão, e o foco não pode depender de uma cor configurável\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup
@@ -107,7 +108,7 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-004: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelo Core e pelo Dados fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/} e \arq{core/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-005: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
@@ -116,17 +117,18 @@ O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório n
 |-- prisma/                   # schema.prisma, migrations/ (init) e seed.js (Dados)
 |-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
 |-- scripts/create-admin.js   # npm run admin:create (Core)
-|-- tests/                    # setup/ (comum), dados/ e core/ (Vitest)
+|-- tests/                    # setup/ (comum), dados/, core/ e ui/ (Vitest)
 |-- vitest.config.mjs         # configuração do Vitest (alias @, banco temporário)
 |-- .env.example              # nomes das variáveis de ambiente, sem valores
 |-- public/                   # ativos estáticos do scaffold
 |-- src/proxy.js              # verificação otimista de sessão em /admin (Core)
-|-- src/app/                  # layout.js, page.js, globals.css (scaffold)
-|   |-- login/                # page.js e login-form.js (provisórios)
-|   |-- admin/                # layout.js, page.js (provisória) e _lib/session.js
+|-- src/app/                  # layout.js e page.js (scaffold); globals.css (tema, UI)
+|   |-- login/                # page.js (cartão de login; usa o LoginForm)
+|   |-- admin/                # layout.js, page.js e _lib/ (session, actions)
 |   `-- api/                  # auth/[...all], contents/, configuration/ e _lib/
+|-- src/components/           # admin/ (painel, LoginForm) e ui/ (Button, icons)
 |-- src/lib/                  # db.js, content-tree.js (Dados); auth.js, auth-client.js,
-|                             #   validators.js, revalidate.js (Core)
+|                             #   validators.js, revalidate.js (Core); theme.js (UI)
 |-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
 |-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
 |-- package.json  package-lock.json  skills-lock.json
@@ -142,9 +144,11 @@ src/
 |   |-- page.js                   # página inicial
 |   |-- [...slug]/page.js         # leitura de documento/coleção (ISR)
 |   |-- not-found.js
-|   |-- login/page.js             # + login-form.js provisório, até o LoginForm da UI
+|   |-- login/page.js             # cartão de login; usa o LoginForm (UI)
 |   |-- admin/                    # painel (dinâmico): layout, page, conteudo/, configuracoes/
-|   |   `-- _lib/session.js       # requireAdminSession (pasta privada, Core)
+|   |   `-- _lib/                 # pasta privada (Core)
+|   |       |-- session.js        # requireAdminSession
+|   |       `-- actions.js        # Server Function signOut ("use server")
 |   `-- api/
 |       |-- _lib/                 # http.js (envelope, erros, sessão, origem) e contents.js
 |       |-- auth/[...all]/route.js
@@ -368,6 +372,8 @@ O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:se
 \fonte{Elaborado pelos autores.}
 \end{table}
 
+\textbf{Interface do login e do encerramento da sessão.} O formulário de login é o componente \texttt{LoginForm} (\arq{src/components/admin/LoginForm.js}, Componente Cliente), que chama \texttt{authClient.signIn.email}: em qualquer erro de credencial mostra uma única mensagem genérica (UC08, fluxo A1); no status \texttt{429} avisa que as tentativas foram excedidas; sem resposta do servidor, informa a falha de conexão; e, em caso de sucesso, faz a navegação completa para o destino que o servidor já validou (\texttt{safeRedirectPath}). O encerramento da sessão (RF20) \emph{não} passa pela rota \arq{/api/auth/sign-out}: o botão ``Sair'' do cabeçalho do painel envia um formulário à \en{Server Function} \texttt{signOut}, definida em \arq{src/app/admin/_lib/actions.js} (diretiva \texttt{"use server"}), que chama \texttt{auth.api.signOut} com os cabeçalhos da requisição --- apaga a sessão do banco e remove o \en{cookie} --- e redireciona para \arq{/login}. O layout do painel, que é um arquivo de rota do Core, entrega a função ao cabeçalho por \en{prop}; assim, os componentes da UI não importam o módulo de autenticação do servidor (regras de dependência, Seção~\ref{sec:arq-visoes}). Toda função exportada de um arquivo \texttt{"use server"} é um ponto de entrada HTTP, alcançável por uma requisição direta; por isso esse arquivo só pode conter funções que validem no servidor tudo o que exigem (a \texttt{signOut} não recebe argumentos).
+
 \vitrinefigura[tipo=diagrama, arquivo=seq-autenticacao, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-autenticacao.puml},
   descricao={Sequência de autenticação: acesso a /admin sem cookie, redirecionamento a /login, POST de credenciais ao better-auth, criação de sessão, Set-Cookie e acesso autorizado.}]
@@ -463,31 +469,48 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
 
 \begin{enumerate}
   \item \textbf{Tokens.} Em \arq{globals.css}, o bloco \texttt{@theme inline} do Tailwind mapeia os tokens de cor (por exemplo, \arq{--color-primary}) para variáveis (por exemplo, \arq{var(--vitrine-primary)}); os utilitários compilados referenciam a variável, não o valor;
-  \item \textbf{Injeção.} O \en{layout} raiz, um Server Component, lê a configuração e define as variáveis no atributo \texttt{style} do elemento \texttt{<html>}, além do nome do site, do logotipo e do \en{favicon}; os valores são validados como \texttt{\#RRGGBB} antes de persistir, o que impede a injeção de CSS;
+  \item \textbf{Injeção.} O \en{layout} raiz, um Server Component, lê a configuração e define as variáveis no atributo \texttt{style} do elemento \texttt{<html>} --- as três cores e a cor do texto sobre a primária, \arq{--vitrine-on-primary}, calculada por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) ---, além do nome do site, do logotipo e do \en{favicon}; os valores são validados como \texttt{\#RRGGBB} antes de persistir, o que impede a injeção de CSS;
   \item \textbf{Invalidação.} Ao salvar a configuração, o Route Handler invalida o \en{layout} raiz; na próxima requisição, as páginas são regeneradas com as novas variáveis, sem \en{build}.
 \end{enumerate}
 
-\begin{lstlisting}[language=VCSS, caption={Esboço: tokens de tema em globals.css}, label={lst:tema-css}]
+\begin{lstlisting}[language=VCSS, caption={Tokens de tema em globals.css (resumo do arquivo integrado no merge M-005)}, label={lst:tema-css}]
 @import "tailwindcss";
 
 :root {
-  --vitrine-primary: #3b82f6;    /* valores padrão; sobrescritos por <html style> */
+  /* Paleta configurável (contrato do M11): <html style> sobrescreve o padrão */
+  --vitrine-primary: #3b82f6;
   --vitrine-secondary: #1e293b;
   --vitrine-accent: #f59e0b;
+  /* Texto sobre a primária = readableTextOn(primária); definida no layout raiz */
+  --vitrine-on-primary: #171717;
+  --vitrine-on-secondary: #ffffff;
+
+  /* Neutros fixos (D-17: sem modo escuro automático) e foco independente */
+  --vitrine-background: #ffffff;  --vitrine-foreground: #171717;
+  --vitrine-surface: #f5f5f5;     --vitrine-muted: #525252;
+  --vitrine-border: #d4d4d4;      --vitrine-border-strong: #737373;
+  --vitrine-danger: #b91c1c;
+  --vitrine-focus: #171717;       --vitrine-focus-halo: #ffffff;
 }
 
 @theme inline {
   --color-primary: var(--vitrine-primary);
   --color-secondary: var(--vitrine-secondary);
   --color-accent: var(--vitrine-accent);
+  --color-on-primary: var(--vitrine-on-primary);
+  --color-on-secondary: var(--vitrine-on-secondary);
+  /* neutros no mesmo padrão: --color-background, -foreground, -surface... */
 }
+
+/* D-17: dark: só vale sob a classe .dark, nunca pela preferência do sistema */
+@custom-variant dark (&:where(.dark, .dark *));
 \end{lstlisting}
 
-O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (links, botões, item ativo da \en{sidebar}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos); e \textbf{destaque} para realce interativo (\en{hover}, foco e marcadores). Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}); por isso o fundo da página e o texto sobre cores preenchidas são fixos e brancos (\texttt{\#FFFFFF}), e só as três cores do tema são verificadas.
+O mapeamento semântico é: \textbf{primária} para ações e ênfase (botão principal e item ativo da navegação, com o fundo \texttt{bg-primary} e o texto \texttt{text-on-primary}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos, com texto branco, \texttt{text-on-secondary}) e para o \en{hover} dos botões; e \textbf{destaque} para marcadores e realce não textual (marcador do item ativo e \en{hover} da navegação). O \textbf{indicador de foco} não usa a cor de destaque: é neutro e global --- contorno de 2~px em \texttt{\#171717} com halo branco (\arq{--vitrine-focus} e \arq{--vitrine-focus-halo}) ---, de modo que fica visível sobre qualquer fundo, inclusive sobre uma paleta que o administrador troque (RNF05; \adr{ADR-020}). Os demais tons da interface --- fundo, texto, superfícies, bordas e mensagens de erro --- são neutros fixos, não configuráveis. Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}), e a variante \texttt{dark:} do Tailwind só vale sob a classe \texttt{.dark}, nunca pela preferência do sistema; por isso o fundo da página é fixo e branco, o texto sobre a cor secundária é branco, o texto sobre a cor primária é escolhido por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e só as três cores do tema são verificadas. Os componentes usam apenas os utilitários gerados pelos tokens (por exemplo, \texttt{bg-primary}, \texttt{text-on-primary}, \texttt{bg-surface} e \texttt{text-muted}), nunca as cores fixas do Tailwind (RF19).
 
 \subsection{Avisos de Contraste}\label{sec:arq-contraste}
 
-Ao salvar a configuração, o sistema calcula a razão de contraste da WCAG 2.1 (luminância relativa do sRGB, razão $(L_1 + 0{,}05)/(L_2 + 0{,}05)$) entre cada cor do tema e o branco, conforme a Tabela~\ref{tab:pares-contraste}, e emite um aviso, sem bloquear o salvamento, quando a razão é inferior ao mínimo do par (RN09, \req{RNF05}). A razão é simétrica: o par ``primária e branco'' cobre tanto a cor primária como texto sobre o fundo da página quanto o texto branco sobre a cor primária.
+Ao salvar a configuração, o sistema calcula a razão de contraste da WCAG 2.1 (luminância relativa do sRGB, razão $(L_1 + 0{,}05)/(L_2 + 0{,}05)$) entre cada cor do tema e o branco, conforme a Tabela~\ref{tab:pares-contraste}, e emite um aviso, sem bloquear o salvamento, quando a razão é inferior ao mínimo do par (RN09, \req{RNF05}). A razão é simétrica, e o par é sempre contra o branco: o par ``primária e branco'' cobre a cor primária usada como texto sobre o fundo da página (por exemplo, em links). O texto \emph{sobre} um fundo da cor primária, ao contrário, não é branco fixo: é calculado, como descrito adiante.
 
 \begin{table}[htb]
 \caption{Pares de contraste verificados na configuração}\label{tab:pares-contraste}
@@ -496,17 +519,31 @@ Ao salvar a configuração, o sistema calcula a razão de contraste da WCAG 2.1 
 \toprule
 \textbf{Campo avisado} & \textbf{Par (cor e branco)} & \textbf{Mínimo} & \textbf{Uso que a razão protege}\\
 \midrule
-\texttt{primaryColor} & primária $\times$ \texttt{\#FFFFFF} & 4,5:1 & Links, botões e item ativo da \en{sidebar}: texto da cor primária sobre a página e texto branco sobre a cor primária\\
+\texttt{primaryColor} & primária $\times$ \texttt{\#FFFFFF} & 4,5:1 & Texto na cor primária sobre a página (por exemplo, links); o texto sobre um fundo da cor primária é tratado por \texttt{readableTextOn}, e não por este par\\
 \addlinespace
 \texttt{secondaryColor} & secundária $\times$ \texttt{\#FFFFFF} & 4,5:1 & Texto branco sobre a barra superior e os cabeçalhos\\
 \addlinespace
-\texttt{accentColor} & destaque $\times$ \texttt{\#FFFFFF} & 3:1 & Realce interativo (\en{hover}, foco e marcadores), que não é texto: contraste de componentes de interface (WCAG 1.4.11)\\
+\texttt{accentColor} & destaque $\times$ \texttt{\#FFFFFF} & 3:1 & Marcadores e realce não textual (item ativo e \en{hover} da navegação): contraste de componentes de interface (WCAG 1.4.11); o foco não usa esta cor\\
 \bottomrule
 \end{tabularx}
-\fonte{Elaborado pelos autores, a partir da resposta ao pedido P-002 (item 5).}
+\fonte{Elaborado pelos autores, a partir da resposta ao pedido P-002 (item 5) e da revisão do merge M-005.}
 \end{table}
 
-A função de cálculo, \texttt{contrastWarnings}, pertence à UI (\arq{src/lib/theme.js}): recebe as três cores e devolve uma lista de avisos \texttt{\{ code, field, ratio, minimum, message \}}, com o código \texttt{LOW\_CONTRAST}. O formulário a usa na pré-visualização local, e o Route Handler de \texttt{PUT /api/configuration} (Core) a chama com as cores já gravadas e devolve a lista no campo \texttt{warnings} da resposta (Seção~\ref{sec:arq-api}). Cores inválidas não chegam à função: já foram recusadas pela validação de formato (RN09).
+As funções de cálculo pertencem à UI e estão em \arq{src/lib/theme.js} (merge M-005), um módulo puro --- não importa o Next.js nem o Prisma e não usa APIs do navegador ---, que o servidor e o navegador compartilham:
+
+\begin{itemize}
+  \item \texttt{contrastRatio(a, b)} devolve a razão da WCAG 2.1 entre duas cores \texttt{\#RRGGBB}, sem arredondar e independentemente da ordem dos argumentos;
+  \item \texttt{contrastWarnings(\{ primaryColor, secondaryColor, accentColor \})} devolve a lista de avisos \texttt{\{ code, field, ratio, minimum, message \}}, com o código \texttt{LOW\_CONTRAST}, vazia se nenhuma cor falha; a mensagem vem em português, por exemplo ``A cor primária tem contraste de 3,67:1 com o branco, abaixo do mínimo de 4,5:1 (WCAG 2.1 AA).'';
+  \item \texttt{readableTextOn(cor)} devolve \texttt{\#FFFFFF} ou o texto escuro padrão, o de maior razão de contraste com a cor dada (no empate, o branco).
+\end{itemize}
+
+A comparação com o mínimo usa a razão \emph{sem arredondar}; o campo \texttt{ratio} e a mensagem trazem a razão \emph{truncada} em duas casas, para que 4,499 não apareça como 4,50 e pareça cumprir o mínimo (por isso a primária padrão aparece como 3,67, e não 3,68). O formulário de tema (M11) usa \texttt{contrastWarnings} na pré-visualização local, e o Route Handler de \texttt{PUT /api/configuration} (Core) a chama, depois da escrita, com as cores já gravadas --- inclusive quando o corpo da requisição não traz cores, pois o \texttt{PUT} é parcial --- e devolve a lista no campo \texttt{warnings} da resposta, ao lado de \texttt{data} (Seção~\ref{sec:arq-api}). O campo está sempre presente na resposta do \texttt{PUT} (lista vazia quando nenhuma cor falha), o aviso não bloqueia o salvamento (o status continua \texttt{200}) e o \texttt{GET} não o devolve. Cores fora do formato \texttt{\#RRGGBB} lançam \texttt{TypeError}: não chegam às funções, pois a validação de formato as recusa antes (RN09).
+
+\textbf{Texto sobre a cor primária.} O branco fixo não atende ao nível AA com a paleta padrão: sobre a primária \texttt{\#3b82f6}, ele dá 3,68:1. Por isso o texto sobre um fundo da cor primária (o botão principal e o item ativo da navegação) usa a variável \arq{--vitrine-on-primary}, exposta como o utilitário \texttt{text-on-primary}, cujo valor é \texttt{readableTextOn(primaryColor)}; com a paleta padrão, \texttt{\#171717}, que dá 4,87:1. O \en{layout} raiz define essa variável junto com as três cores no atributo \texttt{style} de \texttt{<html>}, e quem sobrescrever \arq{--vitrine-primary} deve sobrescrever também \arq{--vitrine-on-primary}; do contrário, uma primária escura ficaria com texto escuro. O texto sobre a cor secundária continua branco (\arq{--vitrine-on-secondary}), protegido pelo par da secundária. A decisão, tomada com o Engenheiro Chefe, consta na \adr{ADR-020}.
+
+\textbf{Limites conhecidos.} (i) Como o texto escuro é \texttt{\#171717}, e não o preto, existe uma faixa de primárias de luminância média (luminância relativa entre 0,183 e 0,214, cerca de 6\% das cores \texttt{\#RRGGBB}; por exemplo, \texttt{\#7b7b7b} e \texttt{\#676fe3}) em que nem o branco nem o escuro chegam a 4,5:1; o pior caso é 4,23:1. Nessa faixa o par da primária também reprova e o aviso da RN09 é emitido, de modo que o administrador é informado. Com o preto puro (\texttt{\#000000}), o pior caso passa a 4,58:1 e a faixa desaparece; essa troca foi decidida na \adr{ADR-020} e está pendente na UI. (ii) A primária padrão tem 3,68:1 também sobre a página, e a de destaque padrão, 2,15:1: com a paleta padrão da RN08, texto na cor primária (links) não atende ao nível AA, e marcadores na cor de destaque ficam abaixo de 3:1; o primeiro \texttt{PUT /api/configuration} com essa paleta devolve, portanto, dois avisos (primária e destaque). Por isso os links do conteúdo (M07 e M08) não podem depender apenas da cor primária para atingir 4,5:1 com uma paleta qualquer.
+
+\vitrinependencia{UI}{Trocar o texto escuro de \texttt{readableTextOn}, e o valor padrão de \arq{--vitrine-on-primary}, de \texttt{\#171717} para \texttt{\#000000}, ajustando \arq{tests/ui/theme.test.js}; e propor, no pedido do M07 ou do M08, o mecanismo de cor dos links do conteúdo, que atenda a 4,5:1 com uma paleta qualquer.}
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-personalizacao-tema, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
@@ -607,7 +644,7 @@ Duas observações de implementação. Em \texttt{reorderContents}, os itens do 
 \texttt{PUT} & \arq{/api/configuration} & Sim & Atualização \emph{parcial} (campos ausentes não mudam) de identidade, cores e dos seis links sociais (RN17); logotipo e \en{favicon} aceitam URL \texttt{http(s)} ou caminho de \arq{public/} iniciado por uma única barra (D-10); devolve \texttt{warnings} de contraste & 200\\[1pt]
 \texttt{POST} & \arq{/api/auth/sign-in/email} & Não & Login (rota do better-auth), com limite de 5 tentativas por minuto por IP & 200 (429 acima do limite)\\[1pt]
 \texttt{POST} & \arq{/api/auth/sign-up/email} & Não & Recusado: cadastro público desabilitado (RF22) & 400 (\arq{EMAIL_PASSWORD_SIGN_UP_DISABLED})\\[1pt]
-\texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20) & 200\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20); o painel usa, em seu lugar, a \en{Server Function} \texttt{signOut} (\arq{admin/_lib/actions.js}) & 200\\[1pt]
 \texttt{GET} & \arq{/api/auth/get-session} & Não & Sessão corrente ou nula & 200\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth, conferidas na versão 1.7.6 (merge M-004); as demais rotas padrão da biblioteca (por exemplo, troca de senha) também ficam expostas em \arq{/api/auth/*} e exigem sessão.}
@@ -625,28 +662,38 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
   descricao={Mapa mental das rotas: área pública (início e leitura de documento), login, painel administrativo (visão geral, árvore, novo conteúdo, editor, configurações) e API.}]
   {Mapa de rotas e navegação}{fig:nav-mapa-do-site}
 
-\begin{table}[htb]
-\caption{Inventário de componentes de interface (proposta para o agente UI)}\label{tab:componentes-ui}
-\small
-\begin{tabularx}{\linewidth}{@{}L{3.6cm}L{3.3cm}Y@{}}
+\begingroup\small
+\begin{longtable}{@{}L{3.3cm}L{2.9cm}L{6.0cm}L{2.2cm}@{}}
+\caption{Inventário de componentes de interface e situação após o merge M-005}\label{tab:componentes-ui}\\
 \toprule
-\textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade}\\
+\textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade} & \textbf{Situação}\\
 \midrule
-Navbar & \arq{components/layout} & Logotipo, nome do site e coleções raiz (RF13)\\
-Sidebar & \arq{components/layout} & Árvore da coleção corrente, item ativo, recolher níveis (RF12)\\
-Footer, SocialLinks & \arq{components/layout} & Rodapé: direitos gerados a partir do nome do site e do ano, e ícones apenas das redes com link preenchido, com os atributos \texttt{noopener} e \texttt{noreferrer} (RF24, RN17)\\
-MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11)\\
-Editor, Toolbar, Preview & \arq{components/editor} & Edição com painel dividido, rascunho local e publicação (RF08, RF15, RF16)\\
-ContentTree & \arq{components/admin} & Árvore do painel com criar, editar, mover e excluir, mostrando o estado de cada nó (RF03, RF06, RF07, RF26)\\
-ContentForm & \arq{components/admin} & Formulário de título, \en{slug}, pai e estado de publicação (RF05, RF26)\\
-StatusToggle & \arq{components/admin} & Indicador e alternância \texttt{DRAFT}/\texttt{PUBLISHED} na árvore e no editor, com destaque para rascunhos (RF26, RN16)\\
-ThemeForm & \arq{components/admin} & Identidade, cores e links sociais, com pré-visualização e aviso de contraste (RF18, RF19, RF24)\\
-LoginForm & \arq{components/admin} & Formulário de autenticação (RF01)\\
-UI primitivos & \arq{components/ui} & Botão, diálogo de confirmação, \en{toast}, campo de cor\\
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade} & \textbf{Situação}\\
+\midrule
+\endhead
 \bottomrule
-\end{tabularx}
-\fonte{Elaborado pelos autores.}
-\end{table}
+\endfoot
+Navbar & \arq{components/layout} & Logotipo, nome do site e coleções raiz (RF13) & Planejado\\
+Sidebar & \arq{components/layout} & Árvore da coleção corrente, item ativo, recolher níveis (RF12) & Planejado\\
+Footer, SocialLinks & \arq{components/layout} & Rodapé: direitos gerados a partir do nome do site e do ano, e ícones apenas das redes com link preenchido, com os atributos \texttt{noopener} e \texttt{noreferrer} (RF24, RN17) & Planejado\\
+MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11) & Planejado\\
+Editor, Toolbar, Preview & \arq{components/editor} & Edição com painel dividido, rascunho local e publicação (RF08, RF15, RF16) & Planejado\\
+AdminShell & \arq{components/admin} & Casca do painel: atalho para o conteúdo, barra superior, navegação e área principal; \en{Server Component} de apresentação, que não valida a sessão (M10) & Implementado\\
+AdminHeader & \arq{components/admin} & Barra superior: nome do site, nome e e-mail do usuário e botão ``Sair'', que recebe a \en{Server Function} \texttt{signOut} por \en{prop} (RF20) & Implementado\\
+AdminSidebar & \arq{components/admin} & Navegação do painel, com item ativo pela rota e recolhível em telas estreitas (RNF06); Componente Cliente; seções sem página aparecem como ``em breve'' & Implementado\\
+AdminOverview & \arq{components/admin} & Visão geral provisória: identifica a sessão e anuncia as seções futuras & Implementado\\
+ContentTree & \arq{components/admin} & Árvore do painel com criar, editar, mover e excluir, mostrando o estado de cada nó (RF03, RF06, RF07, RF26) & Planejado\\
+ContentForm & \arq{components/admin} & Formulário de título, \en{slug}, pai e estado de publicação (RF05, RF26) & Planejado\\
+StatusToggle & \arq{components/admin} & Indicador e alternância \texttt{DRAFT}/\texttt{PUBLISHED} na árvore e no editor, com destaque para rascunhos (RF26, RN16) & Planejado\\
+ThemeForm & \arq{components/admin} & Identidade, cores e links sociais, com pré-visualização e aviso de contraste (RF18, RF19, RF24) & Planejado\\
+LoginForm & \arq{components/admin} & Formulário de autenticação (RF01, UC08): mensagem de erro única, aviso de excesso de tentativas e falha de conexão; Componente Cliente & Implementado\\
+Button, icons & \arq{components/ui} & Botão com as variantes \texttt{primary} e \texttt{inverse}, só com tokens de tema, e ícones em SVG embutido, decorativos (RF19) & Implementado\\
+Demais primitivos & \arq{components/ui} & Diálogo de confirmação, \en{toast}, campo de cor & Planejado\\
+\end{longtable}
+\fonte{Elaborado pelos autores. O inventário nasceu como proposta para o agente UI; os componentes ``Implementado'' vieram do merge M-005.}
+\endgroup
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-reordenacao-arvore, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-reordenacao-arvore.puml},
