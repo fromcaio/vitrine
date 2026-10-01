@@ -1,11 +1,12 @@
 // Página de login (UC08). O formulário usa o cliente do better-auth, que envia as credenciais a
-// POST /api/auth/sign-in/email (rota com limitação de tentativas). Formulário provisório do
-// Core: a aparência definitiva é do componente LoginForm da UI (Cap. 5 §5.11).
+// POST /api/auth/sign-in/email (rota com limitação de tentativas). A lógica de sessão e de
+// redirecionamento é do Core; a aparência é da UI: o cartão abaixo e o componente LoginForm
+// (Cap. 5 §5.11).
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { LoginForm } from "@/components/admin/LoginForm";
 import { getSession } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/validators";
-import { LoginForm } from "./login-form";
 
 export const metadata = {
   title: "Entrar",
@@ -20,9 +21,15 @@ export default async function LoginPage({ searchParams }) {
   if (await getSession(await headers())) redirect(destination);
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Entrar</h1>
-      <LoginForm redirectTo={destination} />
+    <main className="flex flex-1 items-center justify-center bg-surface px-4 py-10">
+      <div className="w-full max-w-sm rounded-lg border border-border border-t-4 border-t-secondary bg-background p-6 sm:p-8">
+        <p className="text-sm font-semibold uppercase tracking-wide text-muted">Vitrine</p>
+        <h1 className="mt-1 text-2xl font-semibold">Entrar</h1>
+        <p className="mt-2 mb-6 text-sm text-muted">
+          Acesse o painel administrativo com o seu e-mail e a sua senha.
+        </p>
+        <LoginForm redirectTo={destination} />
+      </div>
     </main>
   );
 }
