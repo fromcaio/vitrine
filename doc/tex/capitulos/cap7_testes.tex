@@ -56,6 +56,8 @@ Os testes que exercitam o banco seguem uma estratégia de isolamento, implementa
 
 A primeira rodada, no merge M-003, tem 72 testes em cinco arquivos: restrições físicas do banco (8), \arq{content-tree} (14), conteúdo em \arq{db.js} (40), configuração (6) e migração com \en{seed} (4). Cobrem os casos CT11, CT12, CT13 e CT28 e três restrições da migração inicial: \en{slug} único na raiz, \en{slug} único entre irmãos e bloqueio da exclusão de usuário que possui conteúdo. Para validar a eficácia da suíte, o agente Dados introduziu mutações temporárias (remover o índice parcial, remover o índice composto, desativar a checagem de ciclo, desativar o filtro \texttt{PUBLISHED}, executar a reordenação sem transação) e confirmou que, em cada caso, os testes esperados falharam. Testes de Route Handlers devem definir \texttt{DATABASE\_URL} antes do primeiro \texttt{import} de \arq{db.js}, como faz \arq{tests/setup/per-file.js}.
 
+O Core reutiliza essa infraestrutura em \arq{tests/core/} (merge M-004), com 269 testes em nove arquivos: validadores (93), utilitários HTTP e mapeamento de erros (33), revalidação (18), autenticação (16), comando \texttt{admin:create} (6), guarda de sessão (37), API de conteúdo (48), API de configuração (13) e Proxy (5). A diferença é que esses testes usam o \textbf{better-auth real}: o administrador é criado no banco de teste, o login passa por \texttt{auth.handler} e os Route Handlers recebem o \en{cookie} verdadeiro, de modo que a sessão é validada no banco, como em produção. O comando \texttt{admin:create} é executado de verdade com o \texttt{tsx}, com o \arq{.env} desligado. Apenas o \texttt{revalidatePath} é substituído por um duplo (\texttt{vi.mock("next/cache")}), pois exige o servidor do Next.js; o arquivo \arq{tests/core/env.js} define um segredo fictício. As recusas de escrita sem sessão (CT04) chamam os \en{handlers} diretamente, sem o Proxy, o que comprova que a barreira real está na API. Com as 72 do Dados, a suíte tem 341 testes. O Core também aplicou mutações temporárias (22, das quais 21 fizeram testes falharem; a restante era redundante), e o Arquiteto repetiu, na revisão, o \texttt{lint}, o \texttt{build} e a suíte completa.
+
 \section{Casos de Teste}\label{sec:casos-teste}
 
 A Tabela~\ref{tab:casos-teste} relaciona cada caso de teste aos requisitos e regras que ele verifica. Um caso é considerado \emph{aprovado} quando o resultado observado coincide com o esperado; um requisito essencial só é considerado atendido quando todos os seus casos de teste aprovam.
@@ -124,7 +126,7 @@ O desempenho será medido com o Lighthouse \cite{lighthouse} sobre o \en{build} 
 
 \subsection{Segurança}
 
-A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, CT16, CT31 e CT33; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas; e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
+A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, CT16, CT31 e CT33; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas (os quatro alertas altos já avaliados e aceitos constam na Seção~\ref{sec:arq-npm-audit} e na \adr{ADR-019}; qualquer alerta novo exige nova avaliação); e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
 
 \subsection{Acessibilidade}
 
@@ -152,7 +154,7 @@ A meta é pontuação SUS média igual ou superior a 68 (\req{RNF04}) e taxa de 
 
 \section{Critérios de Saída}\label{sec:testes-saida}
 
-A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint} e \texttt{npm run build} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
+A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint}, \texttt{npm run build} e \texttt{npm test} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências, e as vulnerabilidades altas se limitam às aceitas e documentadas na \adr{ADR-019}; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
 
 \vitrinefigura[tipo=teste, arquivo=teste-suite-automatizada, agente=Core, largura=0.85,
   descricao={Saída do executor de testes (unidade, integração e E2E) mostrando o total de casos aprovados, falhos e ignorados e o tempo de execução.}]

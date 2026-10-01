@@ -26,8 +26,9 @@ Admin -> Ed : Edita o Markdown\n(pré-visualização em tempo real)
 Ed -> Ed : "Salvar Localmente"\n(rascunho no navegador)
 Admin -> Ed : "Enviar Nova Versão"
 Ed -> Api : PATCH { title?, slug?, body?, status?, parentId?, order? }
+Api -> Api : confere Origin (mutação)
 Api -> Auth : getSession(headers)
-alt sem sessão válida
+alt origem incorreta ou sem sessão válida
   Auth --> Api : null
   Api --> Ed : 401
 else sessão válida

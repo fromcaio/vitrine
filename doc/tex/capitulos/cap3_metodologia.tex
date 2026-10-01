@@ -184,11 +184,11 @@ Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações; confi
 \arq{prisma} (CLI) e \arq{dotenv} & 7.10.0 e 18.0.5 (\texttt{dependencies}) & Migrações e carregamento do \arq{.env} pela CLI; necessários na imagem de produção (\texttt{prisma migrate deploy})\\
 Vitest & 5.0.3 (desenvolvimento) & Testes de unidade e de integração com banco SQLite isolado (\texttt{npm test}; Seção~\ref{sec:testes-banco})\\
 \arq{tsx} & 4.23.15 (desenvolvimento) & Execução do \en{seed} (\arq{prisma/seed.js}) com o cliente gerado em TypeScript\\
-better-auth & 1.7.6 & Autenticação e sessões\\
+better-auth & 1.7.6 & Autenticação e sessões (e-mail e senha, cadastro público desabilitado, limitação de tentativas)\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
 remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\
 KaTeX & 0.16.47 & Composição de fórmulas (dependência do \arq{rehype-katex})\\
-Zod & 4.6.5 & Presente como dependência transitiva; declarar se adotado (\decisao{D-11})\\
+Zod & 4.6.5 (\texttt{dependencies}) & Validação de entrada da API e do comando do administrador (\decisao{D-11}); declarado diretamente no merge M-004 (já era dependência do better-auth)\\
 ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
 \LaTeX{} (MiKTeX) e \texttt{latexmk} & pdfTeX 4.19 & Composição desta documentação\\
 PlantUML e Graphviz & a instalar & Renderização dos diagramas (\arq{doc/diagrams/})\\
@@ -231,5 +231,7 @@ R09 & Perda de dados por exclusão em cascata acidental & M & A & Confirmação 
 R10 & Escopo maior do que a capacidade de entrega do time & M & A & Priorização Essencial, Importante e Desejável; fases com entregas incrementais\\
 R11 & Vazamento de rascunhos (\texttt{DRAFT}) por consulta pública sem filtro de estado, na página, na \en{sidebar}, na geração estática ou no mapa do site & M & A & Regra RN15; filtro centralizado em \arq{db.js}; caso de teste CT31; revisão de todo \en{endpoint} ou página nova\\
 R12 & Perda do volume do SQLite na VPS (falha de disco ou do provedor) & M & A & Rotina de cópia de segurança com \texttt{VACUUM INTO} e cópias fora da VPS (Apêndice~\ref{ap:implantacao}); teste de restauração (CT30)\\
+R13 & Alertas de vulnerabilidade do \texttt{npm audit} em dependências transitivas do Prisma 7 (\arq{mysql2} e \arq{deepmerge-ts}), cuja correção automática rebaixaria o Prisma para a versão 6 & B & M & Alertas avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019}): os pacotes não são exercidos pelo Vitrine; \texttt{npm audit} a cada entrega e nova avaliação quando o Prisma publicar versão corrigida\\
+R14 & Perda do acesso ao painel por senha esquecida do administrador único, sem envio de e-mail nem redefinição & B & A & Guardar a senha com segurança; evolução prevista de um comando de redefinição (Seção~\ref{sec:trabalhos-futuros}); \en{backup} do banco (Apêndice~\ref{ap:implantacao})\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}

@@ -23,6 +23,7 @@
   \item[Documentation-Driven Development] Processo em que a documentação é escrita antes do código e é a fonte da verdade que o código deve atender.
   \item[\en{Driver adapter}] Módulo que liga o cliente do Prisma 7 ao banco; o Vitrine usa o \arq{@prisma/adapter-better-sqlite3} (\adr{ADR-014}).
   \item[Estado de publicação] Atributo \texttt{status} de um conteúdo, com os valores \texttt{DRAFT} (rascunho, invisível ao público) e \texttt{PUBLISHED} (publicado, valor padrão); um conteúdo só é público se ele e todos os seus ancestrais estiverem publicados (RN15).
+  \item[Envelope de resposta] Estrutura \texttt{\{ "data": ... \}} que embrulha toda resposta de sucesso com corpo da API, deixando espaço para campos ao lado, como \texttt{warnings} (\adr{ADR-018}).
   \item[Fonte da verdade] Artefato que prevalece em caso de conflito sobre determinada informação (Tabela~\ref{tab:fontes-verdade}).
   \item[Índice parcial] Índice do banco que vale apenas para as linhas que satisfazem uma condição; no Vitrine, o índice único de \en{slug} restrito aos conteúdos de raiz (\texttt{WHERE parentId IS NULL}), escrito à mão na migração inicial (Seção~\ref{sec:arq-indice-parcial}).
   \item[ISR] \en{Incremental Static Regeneration}: estratégia do Next.js que serve páginas estáticas e as regenera de forma incremental.
@@ -31,6 +32,7 @@
   \item[Merge] Integração de uma ramificação na \texttt{main}.
   \item[Monólito modular] Aplicação implantada como uma unidade, com módulos internos bem delimitados.
   \item[Mural] Arquivo \arq{MURAL_DE_AGENTES.md}, canal de comunicação e de pedidos de integração, editado somente na \texttt{main}.
+  \item[Pasta privada] Diretório do App Router cujo nome começa por sublinhado (por exemplo, \arq{_lib}); não gera rota e guarda código compartilhado por uma área do \arq{src/app}.
   \item[Placeholder] Marcador de figura ou de código ausente, que indica o arquivo a ser criado e é substituído automaticamente quando o arquivo existe.
   \item[Prisma] Biblioteca de acesso a dados com esquema declarativo, cliente tipado e migrações; o projeto usa a versão 7 (\adr{ADR-003}, \adr{ADR-014}).
   \item[Proxy] Arquivo do Next.js 16 (antigo \en{Middleware}) que executa lógica antes da conclusão de uma requisição.

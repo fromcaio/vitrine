@@ -4,12 +4,14 @@
 %% persistente para o SQLite. ESBOÇO normativo escrito antes do código (Dockerfile e
 %% docker-compose.yml ainda não existem: módulo M13). Os agentes Core e Dados devem validar
 %% cada passo numa VPS limpa (CT29) e pedir ao Arquiteto, pelo mural, as correções.
+%% Atualizado após o merge M-004 e o RFC P-002 (ADR-018): o administrador inicial é criado
+%% por `npm run admin:create` (ADMIN_EMAIL e ADMIN_PASSWORD), não pelo seed.
 %% ===================================================================================
 \chapter{Guia de Implantação e Operação}\label{ap:implantacao}
 
 Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). O alvo de implantação é a \textbf{imagem Docker em uma VPS (\en{Virtual Private Server}) tradicional, com volume persistente para o arquivo SQLite} (decisão \decisao{D-04}, registrada na \adr{ADR-011}); plataformas \emph{serverless} não são suportadas nesta versão. Os comandos foram redigidos a partir da especificação e da documentação das ferramentas \cite{dockerdocs}; devem ser validados em uma instalação limpa (caso de teste CT29) e corrigidos conforme a implementação real.
 
-\vitrinependencia{Core}{Criar o Dockerfile e o docker-compose.yml (módulo M13), validar este guia em uma VPS limpa, corrigir comandos e nomes de variáveis, e confirmar com o Arquiteto pelo mural o texto final (caso CT29).}
+\vitrinependencia{Core}{Criar o Dockerfile e o docker-compose.yml (módulo M13), validar este guia em uma VPS limpa, corrigir comandos, e confirmar com o Arquiteto pelo mural o texto final (caso CT29). Os nomes das variáveis de ambiente e o comando do administrador já foram confirmados no merge M-004.}
 
 \section{Pré-requisitos}
 
@@ -35,42 +37,55 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \midrule
 \arq{DATABASE_URL} & Sim & Localização do arquivo SQLite, no formato \texttt{file:CAMINHO}. No contêiner, deve apontar para o volume com caminho absoluto: \arq{file:/data/vitrine.db}\\
 \addlinespace
-\arq{BETTER_AUTH_SECRET} & Sim (nome a confirmar) & Segredo usado pelo better-auth para assinar/criptografar dados de sessão; longo e aleatório\\
+\arq{BETTER_AUTH_SECRET} & Sim, na execução & Segredo que assina os \en{cookies} de sessão; longo e aleatório (32 ou mais caracteres; por exemplo, \texttt{openssl rand -base64 32}). Sem ele, as rotas de autenticação e de API respondem 500. Não deve ser definido no \en{build} da imagem\\
 \addlinespace
-\arq{BETTER_AUTH_URL} & Sim (nome a confirmar) & URL pública base do site (por exemplo, \arq{https://meusite.exemplo})\\
+\arq{BETTER_AUTH_URL} & Sim, na execução & URL pública base do site, sem barra final (por exemplo, \arq{https://meusite.exemplo}). Em \texttt{https}, o \en{cookie} de sessão ganha \texttt{Secure}; também é uma das origens aceitas nas mutações da API\\
+\addlinespace
+\arq{ADMIN_EMAIL} & Só para \texttt{admin:create} & E-mail do administrador inicial; lido somente pelo comando \texttt{npm run admin:create}\\
+\addlinespace
+\arq{ADMIN_PASSWORD} & Só para \texttt{admin:create} & Senha do administrador inicial (8 a 128 caracteres). \textbf{Remova do \arq{.env} depois de criar o administrador}: com \texttt{env\_file}, o valor ficaria no ambiente do contêiner em execução\\
+\addlinespace
+\arq{ADMIN_NAME} & Não & Nome de exibição do administrador; o padrão é \texttt{Administrador}\\
 \addlinespace
 \arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção (definida na imagem)\\
 \addlinespace
 \arq{PORT} & Não & Porta do servidor Next.js; o padrão é 3000\\
 \bottomrule
 \end{tabularx}
-\fonte{Elaborado pelos autores. Os nomes das variáveis do better-auth devem ser confirmados pelo agente Core na documentação da versão instalada.}
+\fonte{Elaborado pelos autores. Os nomes das variáveis do better-auth foram confirmados na versão 1.7.6 (merge M-004): a biblioteca as lê sozinha. O \arq{.env.example} traz somente os nomes.}
 \end{table}
 
 \section{Instalação}
 
-O Código~\ref{lst:instalacao} mostra o roteiro previsto. Na primeira execução, a imagem é construída e as migrações e os dados iniciais são aplicados com contêineres descartáveis, antes de subir o serviço.
+O Código~\ref{lst:instalacao} mostra o roteiro previsto. Na primeira execução, a imagem é construída e as migrações, a configuração padrão e o administrador inicial são aplicados com contêineres descartáveis, antes de subir o serviço. O administrador \textbf{não} é criado pelo \en{seed}: o \texttt{prisma db seed} garante apenas a configuração padrão (RF23), e o comando \texttt{npm run admin:create} cria o administrador (RF22) a partir de \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD}, que \textbf{precisam estar definidas no ambiente da instalação} (\adr{ADR-018}).
 
 \begin{lstlisting}[language=VSh, caption={Esboço: instalação em VPS com Docker}, label={lst:instalacao}]
 # 1. Obter o código
 git clone <url-do-repositorio> vitrine && cd vitrine
 
 # 2. Configurar o ambiente (.env nunca é versionado) e criar o diretório do volume
-cp .env.example .env              # preencher o segredo e a URL do better-auth
+cp .env.example .env              # preencher BETTER_AUTH_SECRET, BETTER_AUTH_URL,
+                                  # ADMIN_EMAIL e ADMIN_PASSWORD (esta, só até o passo 5)
 mkdir -p data && sudo chown 1000:1000 data   # usuário "node" do contêiner
 
 # 3. Construir a imagem
 docker compose build
 
-# 4. Aplicar as migrações e criar os dados iniciais (uma vez)
+# 4. Aplicar as migrações e a configuração padrão (uma vez)
 docker compose run --rm vitrine npx prisma migrate deploy
-docker compose run --rm vitrine npx prisma db seed   # configuração padrão + administrador (RF22, RF23)
+docker compose run --rm vitrine npx prisma db seed   # só a configuração padrão (RF23)
 
-# 5. Subir o serviço
+# 5. Criar o administrador inicial (uma vez; idempotente)
+docker compose run --rm vitrine npm run admin:create # lê ADMIN_EMAIL e ADMIN_PASSWORD
+#    depois, apague ADMIN_PASSWORD do .env
+
+# 6. Subir o serviço
 docker compose up -d
 \end{lstlisting}
 
-O Código~\ref{lst:dockerfile}, o Código~\ref{lst:compose} e o Código~\ref{lst:dockerignore} são esboços não vinculantes dos arquivos que o módulo M13 deve produzir; o \arq{.dockerignore} é essencial, pois sem ele o comando \texttt{COPY . .} levaria o \arq{.env}, o banco em \arq{data/} e o \arq{node_modules} do hospedeiro para dentro da imagem. A CLI do Prisma e o \arq{dotenv} (usado por \arq{prisma.config.ts}), necessários para aplicar migrações, estão em \texttt{dependencies} desde o merge M-002; o \arq{tsx}, que só executa o \en{seed} em desenvolvimento, fica em \texttt{devDependencies}, e o \texttt{npm ci} do esboço o instala porque a mesma imagem executa o \en{seed} na primeira instalação. O Core pode otimizar a imagem (por exemplo, com a saída \emph{standalone} do Next.js) desde que a aplicação de migrações continue possível (\adr{ADR-014}). O módulo nativo \arq{better-sqlite3} é instalado no \en{build}, e a versão do Node.js da imagem deve ser a mesma usada no desenvolvimento.
+O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (há um único administrador, \decisao{D-13}) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
+
+O Código~\ref{lst:dockerfile}, o Código~\ref{lst:compose} e o Código~\ref{lst:dockerignore} são esboços não vinculantes dos arquivos que o módulo M13 deve produzir; o \arq{.dockerignore} é essencial, pois sem ele o comando \texttt{COPY . .} levaria o \arq{.env}, o banco em \arq{data/} e o \arq{node_modules} do hospedeiro para dentro da imagem. A CLI do Prisma e o \arq{dotenv} (usado por \arq{prisma.config.ts}), necessários para aplicar migrações, estão em \texttt{dependencies} desde o merge M-002. O \arq{tsx}, que executa o \en{seed} e o \texttt{admin:create}, fica em \texttt{devDependencies}; por isso a imagem de produção \textbf{deve manter as dependências de desenvolvimento} (o esboço copia o diretório inteiro do estágio de \en{build}) ou, se o Core otimizar a imagem, mover o \arq{tsx} para \texttt{dependencies}: sem ele, os dois comandos falham com \texttt{tsx: not found}. O \texttt{next build} exige \arq{DATABASE_URL} definida, porque as rotas importam \arq{db.js}; o esboço a define no estágio de \en{build} com um valor bem formado (o arquivo não precisa existir, pois o \en{build} não faz consultas). Nenhum segredo entra no \en{build}: o \arq{BETTER_AUTH_SECRET} só é fornecido na execução (\texttt{env\_file}), e o aviso do segredo padrão registrado no \en{build} é esperado. O módulo nativo \arq{better-sqlite3} é instalado no \en{build}, e a versão do Node.js da imagem deve ser a mesma usada no desenvolvimento.
 
 \begin{lstlisting}[language=VSh, caption={Esboço: Dockerfile em dois estágios}, label={lst:dockerfile}]
 # Esboço não vinculante (módulo M13); validar no caso CT29.
@@ -82,6 +97,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# O build importa as rotas, que importam db.js: DATABASE_URL precisa existir (o arquivo, não)
+ENV DATABASE_URL=file:/data/vitrine.db
 RUN npx prisma generate && npm run build
 
 FROM node:22-bookworm-slim AS runtime
@@ -124,7 +141,7 @@ doc
 
 Deve haver \textbf{uma única instância} do serviço (Seção~\ref{sec:arq-isr}): não use réplicas nem \texttt{docker compose up -{}-scale}.
 
-\section{Proxy Reverso e HTTPS}
+\section{Proxy Reverso e HTTPS}\label{sec:proxy}
 
 Um \en{proxy} reverso com TLS, instalado no servidor ou executado como outro serviço do \en{compose}, recebe as conexões públicas e as encaminha à porta interna do contêiner. Exemplo mínimo com o servidor Caddy no próprio servidor, que obtém e renova certificados automaticamente:
 
@@ -133,6 +150,19 @@ meusite.exemplo {
     reverse_proxy 127.0.0.1:3000
 }
 \end{lstlisting}
+
+\textbf{Cabeçalhos do \en{proxy}.} A limitação de tentativas de login (cinco por minuto) identifica o cliente pelo cabeçalho \texttt{x-forwarded-for}, que o better-auth só aceita com um \emph{único} endereço (Seção~\ref{sec:arq-auth}). O \en{proxy} deve, portanto, \emph{definir} o cabeçalho com o endereço real do cliente, descartando o valor que o cliente enviou, e repassar o \texttt{Host} original (a verificação de origem das mutações compara o \texttt{Origin} com ele e com o \arq{BETTER_AUTH_URL}). O Caddy, na configuração padrão, já substitui o \texttt{x-forwarded-for} pelo endereço do cliente. No Nginx, use:
+
+\begin{lstlisting}[caption={Esboço: cabeçalhos no Nginx}, label={lst:nginx}]
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;   # substitui; NÃO use $proxy_add_x_forwarded_for
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+\end{lstlisting}
+
+Se o cabeçalho chegar com mais de um endereço, todos os visitantes passam a dividir um único contador de tentativas (cinco por minuto no total em \arq{/sign-in/email}); o sintoma é o erro 429 no login do administrador com poucas tentativas.
 
 \section{Cópia de Segurança e Restauração}\label{sec:backup}
 
@@ -173,7 +203,14 @@ Dados perdidos ao recriar o contêiner & O arquivo foi gravado dentro do contêi
 Erros de bloqueio ou corrupção ao usar WAL & Volume em sistema de arquivos de rede (NFS e similares) & Usar disco local da VPS para o volume\\[1pt]
 \texttt{prisma: command not found} no contêiner & A imagem foi montada sem as dependências de produção completas (\arq{prisma} e \arq{dotenv} estão em \texttt{dependencies} desde o merge M-002) & Instalar as dependências com \texttt{npm ci} sem omitir \texttt{dependencies} (\adr{ADR-014})\\[1pt]
 Falha ao compilar o \arq{better-sqlite3} no \en{build} & Falta de binário pré-compilado para a versão do Node.js ou das ferramentas de compilação & Instalar \arq{python3}, \arq{make} e \arq{g++} no estágio de \en{build} ou alinhar a versão do Node.js\\[1pt]
-Login não persiste & URL base incorreta ou \en{cookie} \texttt{Secure} sem HTTPS & Conferir a URL do better-auth e o TLS do \en{proxy}\\[1pt]
+Login não persiste & \arq{BETTER_AUTH_URL} incorreta ou \en{cookie} \texttt{Secure} (URL em \texttt{https}) sem TLS no \en{proxy} & Conferir a \arq{BETTER_AUTH_URL} e o TLS do \en{proxy}\\[1pt]
+Toda rota de \arq{/api} e de \arq{/api/auth} responde 500; o \en{log} cita o ``segredo padrão'' & \arq{BETTER_AUTH_SECRET} não definido na execução & Definir o segredo no \arq{.env} (32 ou mais caracteres) e recriar o contêiner\\[1pt]
+Mutação da API responde 401 para um administrador autenticado & O \texttt{Origin} do navegador não coincide com o \texttt{Host} nem com a \arq{BETTER_AUTH_URL} (acesso por outro domínio ou \en{proxy} que altera o \texttt{Host}) & Acessar pelo domínio configurado e fazer o \en{proxy} repassar o \texttt{Host} original\\[1pt]
+Erro 429 no login com poucas tentativas & O \en{proxy} não define um único \texttt{x-forwarded-for}, e todos dividem o mesmo contador & Ajustar o \en{proxy} (Seção~\ref{sec:proxy}); aguardar um minuto\\[1pt]
+\texttt{next build} falha com ``DATABASE\_URL não definida'' & Estágio de \en{build} sem a variável & Definir \texttt{ENV DATABASE\_URL=...} no Dockerfile antes do \en{build}\\[1pt]
+\texttt{admin:create} informa ``Defina ADMIN\_EMAIL'' ou ``Defina ADMIN\_PASSWORD'' & Variáveis ausentes no ambiente da execução (por exemplo, já removidas do \arq{.env}) & Definir as variáveis e repetir; o comando é idempotente\\[1pt]
+\texttt{admin:create} informa que já existe um usuário com outro e-mail & Há um único administrador (\decisao{D-13}) e o e-mail informado difere do existente & Usar o e-mail do administrador existente; não há criação de um segundo usuário\\[1pt]
+\texttt{tsx: not found} ao executar o \en{seed} ou o \texttt{admin:create} & A imagem foi montada sem as dependências de desenvolvimento & Manter as dependências de desenvolvimento na imagem ou mover o \arq{tsx} para \texttt{dependencies}\\[1pt]
 Alteração não aparece no site público & Mais de uma instância (cache por instância) ou falha na revalidação & Manter uma única instância; verificar o cabeçalho \arq{x-nextjs-cache}\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}

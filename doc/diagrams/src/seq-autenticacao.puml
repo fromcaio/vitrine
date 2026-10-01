@@ -21,7 +21,7 @@ database "SQLite" as Sql
 Admin -> Nav : Acessa /admin
 Nav -> Proxy : GET /admin
 Proxy -> Proxy : cookie de sessão presente?
-Proxy --> Nav : 307 para /login?next=/admin\n(sem cookie)
+Proxy --> Nav : 307 para /login?redirectTo=/admin\n(sem cookie)
 
 Admin -> Nav : Informa e-mail e senha
 Nav -> Route : POST /api/auth/sign-in/email
@@ -38,6 +38,8 @@ alt credenciais válidas
   Nav -> Proxy : GET /admin (com cookie)
   Proxy --> Nav : segue para a página
   Nav -> Nav : Server Component valida a sessão\n(auth.api.getSession)
+else limite de tentativas excedido (5 por minuto por IP)
+  BA --> Nav : 429
 else credenciais inválidas
   BA --> Nav : 401 (mensagem genérica)
 end

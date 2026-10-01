@@ -27,12 +27,12 @@ Este capítulo acompanha a construção do Vitrine módulo a módulo. Cada módu
 \endhead
 \bottomrule
 \endfoot
-M01 & Modelo de dados e migrações & Dados & RF02, RF03, RF22, RF23, RF26 & \arq{feat/dados-migracao-seed} & \statusmodulo{andamento}\\[1pt]
+M01 & Modelo de dados e migrações & Dados & RF02, RF03, RF22, RF23, RF26 & \arq{feat/dados-migracao-seed} & \statusmodulo{implementado}\\[1pt]
 M02 & Acesso a dados e árvore & Dados & RF02, RF03, RF14 & \arq{feat/dados-db-e-arvore} & \statusmodulo{implementado}\\[1pt]
-M03 & Autenticação e sessão & Core & RF01, RF20 a RF22 & \arq{feat/core-auth} & \statusmodulo{planejado}\\[1pt]
-M04 & API de conteúdo & Core & RF05 a RF07, RF16, RF26 & \arq{feat/core-api-conteudo} & \statusmodulo{planejado}\\[1pt]
-M05 & API de configuração & Core & RF18, RF19, RF21 & \arq{feat/core-api-configuracao} & \statusmodulo{planejado}\\[1pt]
-M06 & Revalidação de cache (ISR) & Core & RF17 & \arq{feat/core-revalidacao} & \statusmodulo{planejado}\\[1pt]
+M03 & Autenticação e sessão & Core & RF01, RF20 a RF22 & \arq{feat/core-auth-api} & \statusmodulo{implementado}\\[1pt]
+M04 & API de conteúdo & Core & RF05 a RF07, RF16, RF26 & \arq{feat/core-auth-api} & \statusmodulo{implementado}\\[1pt]
+M05 & API de configuração & Core & RF18, RF19, RF21 & \arq{feat/core-auth-api} & \statusmodulo{andamento}\\[1pt]
+M06 & Revalidação de cache (ISR) & Core & RF17 & \arq{feat/core-auth-api} & \statusmodulo{andamento}\\[1pt]
 M07 & Leitura pública e navegação & UI, Core & RF12 a RF14, RF24, RF26 & \arq{feat/ui-leitura-publica} & \statusmodulo{planejado}\\[1pt]
 M08 & Renderização de Markdown & UI & RF09 a RF11 & \arq{feat/ui-markdown} & \statusmodulo{planejado}\\[1pt]
 M09 & Editor de conteúdo & UI & RF08, RF15, RF16 & \arq{feat/ui-editor} & \statusmodulo{planejado}\\[1pt]
@@ -40,41 +40,45 @@ M10 & Painel de gestão da árvore & UI, Core & RF03, RF06, RF07, RF26 & \arq{fe
 M11 & Personalização visual & UI, Core, Dados & RF04, RF18, RF19, RF24 & \arq{feat/ui-personalizacao} & \statusmodulo{planejado}\\[1pt]
 M12 & SEO e metadados & Core & RF25 & \arq{feat/core-seo} & \statusmodulo{planejado}\\[1pt]
 M13 & Implantação e operação & Core, Dados & RF22; RNF01 & \arq{feat/core-implantacao} & \statusmodulo{planejado}\\[1pt]
-M14 & Testes automatizados & Todos & RNF08 & \arq{feat/<dominio>-testes} & \statusmodulo{planejado}\\[1pt]
+M14 & Testes automatizados & Todos & RNF08 & \arq{feat/<dominio>-testes} & \statusmodulo{andamento}\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores. O estado de M01 é ``em andamento'': o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais foram integrados pelo merge M-001 (ramificação \arq{feat/prisma-setup}, 30/09/2026); a migração inicial, o \en{seed} e a instância de \arq{db.js} foram integrados pelo merge M-002 e as funções de acesso a dados, o \arq{content-tree.js} e os testes pelo merge M-003 (01/10/2026), que conclui o M02; falta o administrador inicial (RF22), que depende do Core (tarefa A-008).}
+\fonte{Elaborado pelos autores. M01 e M02 estão implementados: o esquema, a conformidade com o Prisma 7 e os campos do estado de publicação e dos links sociais vieram do merge M-001 (30/09/2026); a migração inicial, o \en{seed} e a instância de \arq{db.js}, do M-002; as funções de acesso a dados, o \arq{content-tree.js} e os testes, do M-003; e o administrador inicial (RF22), do M-004 (01/10/2026), pelo comando \texttt{npm run admin:create}, do Core. M03 e M04 estão implementados; M05 e M06 estão em andamento (avisos de contraste e verificação do cache dependem da UI e das páginas públicas).}
 
 A ordem recomendada de execução respeita as dependências: M01 e M02 (dados) habilitam M03 a M06 (servidor), que habilitam M07 e M08 (leitura), seguidos de M09 a M11 (edição e personalização); M12 a M14 acompanham o restante.
 
 \section{Ambiente de Desenvolvimento}\label{sec:impl-ambiente}
 
-O Código~\ref{lst:comandos-dev} resume os comandos previstos. É um \emph{esboço}: a configuração do Prisma 7 já foi resolvida (\decisao{D-09}, \adr{ADR-014}), mas a sequência depende de a primeira migração e do \en{seed} existirem; ela deve ser validada e, se necessário, corrigida pelos agentes Dados e Core, registrando a versão final no Apêndice~\ref{ap:implantacao}.
+O Código~\ref{lst:comandos-dev} resume os comandos do ciclo de desenvolvimento, validados pelos agentes Dados e Core até o merge M-004. A configuração do Prisma 7 está resolvida (\decisao{D-09}, \adr{ADR-014}); a versão para produção está no Apêndice~\ref{ap:implantacao}.
 
-\begin{lstlisting}[language=VSh, caption={Esboço: comandos do ciclo de desenvolvimento}, label={lst:comandos-dev}]
+\begin{lstlisting}[language=VSh, caption={Comandos do ciclo de desenvolvimento}, label={lst:comandos-dev}]
 # 1. Instalar dependências
 npm install
 
 # 2. Variáveis de ambiente (.env nunca é versionado; .env.example lista os nomes)
-cp .env.example .env
+cp .env.example .env          # preencher DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL
 
 # 3. Banco de dados (Dados) -- conferir as skills do Prisma em .claude/skills/
 npx prisma generate           # gera src/generated/prisma (não versionado); passo explícito no Prisma 7
 npx prisma migrate dev        # desenvolvimento (no Prisma 7 não gera o cliente nem roda o seed)
-npx prisma db seed            # configuração padrão e primeiro administrador (migrations.seed)
+npx prisma db seed            # configuração padrão (migrations.seed); NÃO cria o administrador
 
-# 4. Executar e verificar
+# 4. Administrador inicial (Core): lê ADMIN_EMAIL, ADMIN_PASSWORD e ADMIN_NAME (opcional)
+npm run admin:create          # idempotente; recusa um segundo usuário com outro e-mail
+
+# 5. Executar e verificar
 npm run dev                   # http://localhost:3000
 npm run lint
-npm run build && npm run start   # verifica produção e o comportamento do ISR
+npm test                      # Vitest, com banco SQLite temporário (Cap. 7, Seção 7.3)
+npm run build && npm run start   # exige DATABASE_URL; verifica produção e o ISR
 \end{lstlisting}
 
 O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da versão instalada; os agentes devem consultá-la antes de escrever código de roteamento, cache ou autenticação, pois a versão traz mudanças em relação ao conhecimento anterior (por exemplo, a renomeação de \en{Middleware} para \en{Proxy}).
 
 \section{M01 e M02 --- Dados}\label{sec:impl-dados}
 
-\noindent\statusmodulo{andamento}\quad Agente: \agente{Dados}. Requisitos: \req{RF02}, \req{RF03}, \req{RF14}, \req{RF22}, \req{RF23}.
+\noindent\statusmodulo{implementado}\quad Agente: \agente{Dados}. Requisitos: \req{RF02}, \req{RF03}, \req{RF14}, \req{RF22}, \req{RF23}.
 
-\textbf{Situação.} O pedido de merge M-001 (ramificação \arq{feat/prisma-setup}, commit \texttt{13aba00}) foi revisado e integrado à \texttt{main} em 30/09/2026 (merge \texttt{043ce46}). Ele conformou o esquema ao Prisma 7 (itens 1 a 5 da Tabela~\ref{tab:prisma7}; \decisao{D-09}, \adr{ADR-014}), adicionou o enumerado \texttt{ContentStatus} e a coluna \texttt{status} (\decisao{D-15}, \adr{ADR-012}) e criou os seis campos de links sociais em \texttt{Configuration} (\decisao{D-19}, \adr{ADR-013}). O pedido M-002 (ramificação \arq{feat/migracao-inicial}, último commit \texttt{a07f0ea}) foi revisado e integrado em 01/10/2026 (merge \texttt{14e07ab}; \texttt{lint} e \texttt{build} passam). Ele fechou o esquema (unicidade de \en{slug} entre irmãos, índice (\texttt{parentId}, \texttt{order}), \texttt{Restrict} no autor e identificador fixo em \texttt{Configuration}), gerou a migração inicial com o índice parcial da raiz (Seção~\ref{sec:arq-indice-parcial}), criou o \en{seed} idempotente da configuração padrão e a instância do cliente em \arq{src/lib/db.js}, e moveu \arq{prisma} e \arq{dotenv} para \texttt{dependencies}. O esquema atual está no Apêndice~\ref{ap:schema}. O pedido M-003 (ramificação \arq{feat/dados-db-e-arvore}, último commit \texttt{2995ba3}) foi integrado em 01/10/2026 (merge \texttt{b8075e9}): implementou as funções de \arq{db.js} (assinaturas na Seção~\ref{sec:arq-dataerror} e no próprio arquivo), o \arq{content-tree.js}, o filtro de publicação (observação 8 da Tabela~\ref{tab:obs-schema}) e 72 testes com o Vitest (Seção~\ref{sec:testes-banco}); \texttt{lint}, \texttt{build} e \texttt{npm test} passam. Falta o administrador inicial, que depende do Core (\decisao{D-03}; tarefa A-008). A Tabela~\ref{tab:prisma7} compara a configuração com as instruções do Prisma 7 incluídas nas \en{skills} do repositório (\arq{.claude/skills/prisma-orm-setup} e \arq{.claude/skills/prisma-upgrade-v7}).
+\textbf{Situação.} O pedido de merge M-001 (ramificação \arq{feat/prisma-setup}, commit \texttt{13aba00}) foi revisado e integrado à \texttt{main} em 30/09/2026 (merge \texttt{043ce46}). Ele conformou o esquema ao Prisma 7 (itens 1 a 5 da Tabela~\ref{tab:prisma7}; \decisao{D-09}, \adr{ADR-014}), adicionou o enumerado \texttt{ContentStatus} e a coluna \texttt{status} (\decisao{D-15}, \adr{ADR-012}) e criou os seis campos de links sociais em \texttt{Configuration} (\decisao{D-19}, \adr{ADR-013}). O pedido M-002 (ramificação \arq{feat/migracao-inicial}, último commit \texttt{a07f0ea}) foi revisado e integrado em 01/10/2026 (merge \texttt{14e07ab}; \texttt{lint} e \texttt{build} passam). Ele fechou o esquema (unicidade de \en{slug} entre irmãos, índice (\texttt{parentId}, \texttt{order}), \texttt{Restrict} no autor e identificador fixo em \texttt{Configuration}), gerou a migração inicial com o índice parcial da raiz (Seção~\ref{sec:arq-indice-parcial}), criou o \en{seed} idempotente da configuração padrão e a instância do cliente em \arq{src/lib/db.js}, e moveu \arq{prisma} e \arq{dotenv} para \texttt{dependencies}. O esquema atual está no Apêndice~\ref{ap:schema}. O pedido M-003 (ramificação \arq{feat/dados-db-e-arvore}, último commit \texttt{2995ba3}) foi integrado em 01/10/2026 (merge \texttt{b8075e9}): implementou as funções de \arq{db.js} (assinaturas na Seção~\ref{sec:arq-dataerror} e no próprio arquivo), o \arq{content-tree.js}, o filtro de publicação (observação 8 da Tabela~\ref{tab:obs-schema}) e 72 testes com o Vitest (Seção~\ref{sec:testes-banco}); \texttt{lint}, \texttt{build} e \texttt{npm test} passam. O administrador inicial (RF22) foi entregue pelo Core no merge M-004, por um comando próprio, e não pelo \en{seed} (\decisao{D-03}, \adr{ADR-018}). A Tabela~\ref{tab:prisma7} compara a configuração com as instruções do Prisma 7 incluídas nas \en{skills} do repositório (\arq{.claude/skills/prisma-orm-setup} e \arq{.claude/skills/prisma-upgrade-v7}).
 
 \begin{table}[htb]
 \caption{Conformidade da configuração do Prisma com a versão 7}\label{tab:prisma7}
@@ -101,7 +105,7 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \textbf{Pendente.}
 \begin{itemize}
-  \item incluir no \en{seed} o administrador inicial (RF22), no mecanismo que o Core definir (\decisao{D-03}; tarefa A-008);
+  \item o administrador inicial (RF22) \emph{não} entra no \en{seed}: é criado pelo comando \texttt{npm run admin:create} do Core (Seção~\ref{sec:impl-auth}; \adr{ADR-018}), o que fecha este item;
   \item gerar a figura \arq{teste-migracoes.png} (captura da migração e do \en{seed} em banco vazio), que o agente não produz e fica com o Engenheiro Chefe.
 \end{itemize}
 
@@ -119,13 +123,19 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \section{M03 --- Autenticação e Sessão}\label{sec:impl-auth}
 
-\noindent\statusmodulo{planejado}\quad Agente: \agente{Core}. Requisitos: \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}. Regras: RN01, RN12.
+\noindent\statusmodulo{implementado}\quad Agente: \agente{Core}. Requisitos: \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}. Regras: RN01, RN12.
 
-\textbf{Tarefas.} Configurar o better-auth com o adaptador do Prisma (Código~\ref{lst:auth-esboco}); expor o Route Handler; criar o cliente React; implementar \arq{src/proxy.js} (verificação otimista); criar a página \arq{/login} e o \en{logout}; validar a sessão nos layouts e nas rotas do painel; implementar o \en{bootstrap} do primeiro administrador com cadastro público desabilitado (\decisao{D-03}); habilitar a limitação de tentativas de login.
+\textbf{Situação.} O pedido M-004 (ramificação \arq{feat/core-auth-api}, último commit \texttt{4a7928c}) foi revisado e integrado em 01/10/2026 (merge \texttt{d02e641}), junto com a aprovação do RFC P-002 (\adr{ADR-018}). O módulo entregou: o better-auth configurado conforme a Tabela~\ref{tab:auth-config}; o \en{handler} \arq{/api/auth/[...all]}; o cliente React; o Proxy (\arq{src/proxy.js}); a página \arq{/login} e o encerramento de sessão por \en{Server Function} no painel; a validação de sessão no layout e na página \arq{/admin} (\arq{requireAdminSession}); a limitação de tentativas de login; e o comando do administrador inicial. As páginas \arq{/login} e \arq{/admin} são \textbf{provisórias} e sem identidade visual: o \texttt{LoginForm} definitivo e o painel são da UI (pedido P-003). A configuração efetiva difere do esboço original apenas pelas opções da Tabela~\ref{tab:auth-config}; \texttt{prismaAdapter}, \texttt{nextCookies} e \texttt{toNextJsHandler} existem como previsto.
 
-\textbf{Critérios de aceite.} Credenciais válidas redirecionam ao destino original; inválidas retornam mensagem genérica; \arq{/admin} sem \en{cookie} redireciona a \arq{/login}; qualquer rota de escrita sem sessão retorna 401 (mesmo com o Proxy desativado); \en{logout} invalida a sessão no banco; o \en{cookie} tem os atributos \texttt{HttpOnly} e \texttt{SameSite}, e \texttt{Secure} em produção.
+\textbf{Administrador inicial (RF22, \decisao{D-03}).} O comando \texttt{npm run admin:create} (\texttt{tsx -{}-tsconfig jsconfig.json scripts/create-admin.js}) lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e \arq{ADMIN_NAME} (opcional), valida o formato (e-mail válido; senha de 8 a 128 caracteres) e chama \texttt{ensureInitialAdmin}. Na imagem: \texttt{docker compose run -{}-rm vitrine npm run admin:create}. O comportamento (idempotência, recusa de um segundo usuário, saída 0 ou 1, senha nunca impressa) está na Seção~\ref{sec:arq-auth}. O \arq{prisma/seed.js} não foi alterado e segue criando só a configuração padrão. Depois da criação, \arq{ADMIN_PASSWORD} deve ser removida do \arq{.env}.
 
-\vitrinecodigo{Core}{src/lib/auth.js}{VJS}{Configuração do servidor de autenticação (better-auth)}
+\textbf{Pendente.} O \texttt{LoginForm} definitivo e a figura \arq{tela-login} (UI); os casos CT01 e CT03 de ponta a ponta, que exigem o Playwright (ainda não instalado) e as páginas públicas. A ausência de \arq{BETTER_AUTH_SECRET} em produção foi verificada pelo Arquiteto na revisão: o servidor sobe, mas toda rota de autenticação e de API responde 500, sem expor dados (falha fechada).
+
+\textbf{Critérios de aceite (verificados).} Credenciais válidas criam a sessão com \en{cookie} \texttt{HttpOnly} e \texttt{SameSite}; inválidas retornam a mesma mensagem genérica para e-mail inexistente e senha errada (CT02); \arq{/admin} sem \en{cookie} redireciona a \arq{/login?redirectTo=...}; qualquer rota de escrita sem sessão retorna 401 mesmo chamada sem o Proxy (CT04); \en{logout} invalida a sessão no banco e remove o \en{cookie} (CT05); o cadastro público é recusado antes e depois do \en{bootstrap} (CT06).
+
+\vitrinecodigo[linerange={1-46}]{Core}{src/lib/auth.js}{VJS}{Configuração do servidor de autenticação (better-auth)}
+
+\vitrinecodigo{Core}{scripts/create-admin.js}{VJS}{Comando do administrador inicial (npm run admin:create)}
 
 \vitrinecodigo{Core}{src/proxy.js}{VJS}{Proxy: verificação otimista de sessão}
 
@@ -134,21 +144,19 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
   ref={Fig. 5 do relatório de IC (estilo visual do painel).}]
   {Tela de autenticação do painel administrativo}{fig:tela-login}
 
-\vitrinependencia{Core}{Descrever a configuração final (opções de sessão, limitação de tentativas, variáveis de ambiente efetivas), o procedimento de bootstrap escolhido e eventuais diferenças entre a API do better-auth 1.7.6 e o esboço do Código~\ref{lst:auth-esboco}.}
-
 \section{M04, M05 e M06 --- API, Configuração e Revalidação}\label{sec:impl-api}
 
-\noindent\statusmodulo{planejado}\quad Agente: \agente{Core}. Requisitos: \req{RF05} a \req{RF07}, \req{RF16} a \req{RF19}, \req{RF21}, \req{RF24}, \req{RF26}.
+\noindent\statusmodulo{andamento}\quad Agente: \agente{Core}. Requisitos: \req{RF05} a \req{RF07}, \req{RF16} a \req{RF19}, \req{RF21}, \req{RF24}, \req{RF26}. O M04 (API de conteúdo) e as regras do M06 (revalidação) estão implementados; o M05 (API de configuração) aguarda os avisos de contraste.
 
-\textbf{Tarefas.} Implementar as rotas da Tabela~\ref{tab:api} com validação de entrada (\decisao{D-11}), verificação de sessão em cada handler, formato de erro padronizado (Código~\ref{lst:erro-json}) e chamada às funções de \arq{db.js}; validar o campo \texttt{status} e os seis links sociais (somente \texttt{http} e \texttt{https}, RN17); implementar \arq{src/lib/revalidate.js} com as regras da Tabela~\ref{tab:revalidacao}, inclusive a mudança de estado de publicação como alteração estrutural (RN16); proteger \arq{/api/configuration} e a atualização de tema.
+\textbf{Situação.} O merge M-004 (01/10/2026) entregou: os Route Handlers de \arq{/api/contents}, \arq{/api/contents/[id]}, \arq{/api/contents/reorder} e \arq{/api/configuration}, todos sobre as funções de \arq{db.js}; o envoltório \texttt{route()} (\arq{src/app/api/_lib/http.js}), que valida a origem e a sessão antes de qualquer ação e converte qualquer erro na resposta padrão; os validadores Zod (\arq{src/lib/validators.js}, D-11), que cuidam do \emph{formato} (RN03, RN09, RN17, D-10); e as regras de revalidação (\arq{src/lib/revalidate.js}), chamadas só pelos Route Handlers, depois da escrita confirmada. O contrato efetivo --- envelope \texttt{\{ data \}}, formato de erro, mapeamento de \texttt{DataError} (Tabela~\ref{tab:dataerror}) e regras comuns de entrada --- está na Seção~\ref{sec:arq-api} e foi aprovado na \adr{ADR-018}. Não há divergência em relação aos códigos de status e de erro previstos. Quanto à revalidação, o layout raiz é revalidado ao criar, excluir, reordenar ou alterar título, \en{slug}, pai, ordem, tipo, estado ou configuração, e só a página (\texttt{/a/b/c}) quando apenas o corpo muda; uma falha de revalidação é registrada e não desfaz a escrita.
 
-\textbf{Critérios de aceite.} Cada rota responde com os códigos de status previstos; conflitos de \en{slug} retornam 409 com \arq{SLUG_CONFLICT}; ciclos retornam \arq{CYCLE_DETECTED}; um \texttt{status} fora de \texttt{DRAFT} e \texttt{PUBLISHED} e um link social com protocolo diferente de \texttt{http} e \texttt{https} retornam 422; uma alteração só de corpo revalida apenas a página, e uma alteração estrutural ou de estado revalida o \en{layout} raiz; nenhuma rota escreve sem sessão.
+\textbf{Pendente.} (i) \textbf{Avisos de contraste no \texttt{PUT /api/configuration}} (M05): o Core os devolve em \texttt{warnings} assim que a UI entregar \texttt{contrastWarnings} em \arq{src/lib/theme.js}, conforme os pares da Tabela~\ref{tab:pares-contraste}; (ii) a verificação da revalidação com o cabeçalho \texttt{x-nextjs-cache} e os casos CT21, CT22, CT31 e CT32, que dependem das páginas públicas com ISR (M07) e do Playwright; (iii) os cabeçalhos de segurança e a imagem Docker (M13).
+
+\textbf{Critérios de aceite (verificados em testes automatizados com o better-auth real).} Cada rota responde com os códigos de status da Seção~\ref{sec:arq-api}; conflitos de \en{slug} retornam 409 com \arq{SLUG_CONFLICT} e sugestão; ciclos retornam \arq{CYCLE_DETECTED}; um \texttt{status} fora de \texttt{DRAFT} e \texttt{PUBLISHED} e um link social com protocolo diferente de \texttt{http} e \texttt{https} retornam 422; uma alteração só de corpo revalida apenas a página, e uma alteração estrutural ou de estado revalida o \en{layout} raiz; nenhuma rota escreve sem sessão, sem cookie válido ou vinda de outra origem, e nada é gravado nem revalidado nesses casos.
 
 \vitrinecodigo{Core}{src/app/api/contents/route.js}{VJS}{Route Handler de coleção de conteúdos (GET e POST)}
 
 \vitrinecodigo{Core}{src/lib/revalidate.js}{VJS}{Regras de revalidação sob demanda (RN10)}
-
-\vitrinependencia{Core}{Relatar o contrato efetivamente implementado, divergências em relação à Tabela~\ref{tab:api} (que exigem aprovação prévia) e o resultado da verificação de revalidação com o cabeçalho x-nextjs-cache.}
 
 \section{M07 e M08 --- Leitura Pública e Renderização}\label{sec:impl-leitura}
 
@@ -253,9 +261,9 @@ O Next.js 16 fornece, em \arq{node_modules/next/dist/docs/}, a documentação da
 
 \textbf{M12 --- SEO e metadados (\agente{Core}).} Gerar \texttt{title} e \texttt{description} por página a partir do conteúdo e da configuração, \arq{robots.txt} e mapa do site (\req{RF25}). Critério de aceite: metadados presentes no HTML pré-renderizado de cada documento.
 
-\textbf{M13 --- Implantação e operação (\agente{Core} e \agente{Dados}).} Criar o \arq{Dockerfile} em dois estágios, o \arq{docker-compose.yml} (um serviço, volume \arq{./data} para o SQLite, porta publicada somente em \arq{127.0.0.1}) e o \arq{.dockerignore} (\decisao{D-04}, \adr{ADR-011}), seguindo os requisitos da Seção~\ref{sec:arq-implantacao} e os esboços do Apêndice~\ref{ap:implantacao}; criar o \arq{.env.example} (e a exceção correspondente no \arq{.gitignore}, pois o padrão \arq{.env*} o ignora); definir como a imagem aplica as migrações (\arq{prisma} e \arq{dotenv} em produção, \adr{ADR-014}); documentar o roteiro de instalação, atualização e \en{backup}; definir os cabeçalhos de segurança em \arq{next.config.mjs}. Critério de aceite: uma instalação limpa em uma VPS com Docker, seguindo apenas o Apêndice~\ref{ap:implantacao}, produz um sistema funcional, e o banco persiste após recriar o contêiner (CT29).
+\textbf{M13 --- Implantação e operação (\agente{Core} e \agente{Dados}).} Criar o \arq{Dockerfile} em dois estágios, o \arq{docker-compose.yml} (um serviço, volume \arq{./data} para o SQLite, porta publicada somente em \arq{127.0.0.1}) e o \arq{.dockerignore} (\decisao{D-04}, \adr{ADR-011}), seguindo os requisitos da Seção~\ref{sec:arq-implantacao} e os esboços do Apêndice~\ref{ap:implantacao}; fazer a imagem aplicar as migrações (\arq{prisma} e \arq{dotenv} já estão em \texttt{dependencies}, \adr{ADR-014}), executar o \en{seed} e o \texttt{npm run admin:create} (o que exige o \texttt{tsx} na imagem) e definir \arq{DATABASE_URL} no estágio de \en{build}, sem segredos (Seção~\ref{sec:arq-implantacao}); documentar o roteiro de instalação, atualização e \en{backup}; definir os cabeçalhos de segurança em \arq{next.config.mjs}. O \arq{.env.example} e a exceção no \arq{.gitignore} já existem (merge M-004). Critério de aceite: uma instalação limpa em uma VPS com Docker, seguindo apenas o Apêndice~\ref{ap:implantacao}, produz um sistema funcional, com administrador criado por \texttt{admin:create}, e o banco persiste após recriar o contêiner (CT29).
 
-\textbf{M14 --- Testes automatizados (todos).} Definir as ferramentas (\decisao{D-12}) e implementar os casos de teste do Capítulo~\ref{cap:testes} no domínio de cada agente.
+\textbf{M14 --- Testes automatizados (todos).} Em andamento. O Vitest foi adotado (\decisao{D-12}, \adr{ADR-017}) e a suíte tem 341 testes (72 do Dados e 269 do Core, verificados na revisão do merge M-004), com banco SQLite isolado (Seção~\ref{sec:testes-banco}). Faltam os testes da UI, a instalação do Playwright e os casos de ponta a ponta do Capítulo~\ref{cap:testes} (CT01, CT03, CT14, CT18 a CT23, CT25 a CT27, CT31 e CT32).
 
 \vitrinecodigo{Core}{.env.example}{VSh}{Variáveis de ambiente necessárias (sem valores)}
 

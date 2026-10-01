@@ -84,10 +84,10 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 - Ao mudar o schema, liste no pedido modelos, colunas, índices e impacto em RF/RN (o Arquiteto atualiza DBML e Apêndice A).
 
 **Core**
-- Toda rota de escrita valida a **sessão no servidor** (RF21); o Proxy (`src/proxy.js`, antigo *middleware*) é só verificação otimista. Valide toda entrada; use o formato de erro e os códigos de status do Cap. 5 §5.10.
+- Toda rota de escrita valida a **sessão no servidor** (RF21) e a **origem** da requisição antes de ler o corpo; o Proxy (`src/proxy.js`, antigo *middleware*) é só verificação otimista. Valide toda entrada (Zod, `src/lib/validators.js`); use o envelope de sucesso `{ "data": ... }`, o formato de erro e os códigos de status do Cap. 5 §5.10 (ADR-018) e traduza `DataError` em um único lugar (`src/app/api/_lib/http.js`).
 - Rotas não escrevem consultas Prisma: chamam funções de `db.js`. Após mutações, aplique as regras de revalidação (RN10) com `revalidatePath` (só em Route Handlers/Server Functions).
 - Next.js 16: `params` de páginas é assíncrono (`await params`); ISR = `generateStaticParams` + `revalidate` alto + revalidação sob demanda. Desvios do contrato da API exigem `[RFC]` antes.
-- Crie `.env.example` (só nomes) e ajuste o `.gitignore` (`!.env.example`), pois `.env*` hoje o ignora. Nunca coloque segredos em variáveis `NEXT_PUBLIC_*`.
+- Mantenha o `.env.example` (só nomes) atualizado ao criar variáveis. Nunca coloque segredos em variáveis `NEXT_PUBLIC_*`. Código compartilhado por rotas de uma área fica em pasta privada `_lib` (ex.: `src/app/api/_lib/`); *scripts* de linha de comando ficam em `scripts/` e rodam com `tsx`; testes do Core ficam em `tests/core/`, reutilizando `tests/setup/`.
 
 **UI**
 - Server Components por padrão; `'use client'` só onde houver estado/eventos. Componentes **não** importam `db.js` nem o cliente gerado do Prisma (`@/generated/prisma`): dados chegam por *props* ou pelas rotas `/api`.

@@ -26,15 +26,21 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, e as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, e as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
-\begin{table}[htb]
-\caption{Resumo das decisões arquiteturais aceitas}\label{tab:resumo-adr}
-\small\renewcommand{\arraystretch}{1.25}
-\begin{tabularx}{\linewidth}{@{}L{2.0cm}L{5.6cm}Y@{}}
+\begingroup\small\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
+\caption{Resumo das decisões arquiteturais aceitas}\label{tab:resumo-adr}\\
 \toprule
 \textbf{ADR} & \textbf{Decisão} & \textbf{Motivo principal}\\
 \midrule
+\endfirsthead
+\toprule
+\textbf{ADR} & \textbf{Decisão} & \textbf{Motivo principal}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
 \adr{ADR-001} & Monólito modular com Next.js (App Router) & Simplicidade operacional; uma unidade de implantação\\
 \adr{ADR-002} & SQLite como banco embutido & Portabilidade; arquivo único; custo zero\\
 \adr{ADR-003} & Prisma ORM 7 como camada de acesso & Modelo declarativo, migrações e cliente tipado\\
@@ -52,10 +58,11 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-015} & Nome Vitrine e licença MIT & Identidade e licença permissiva do código aberto (resolve D-01 e D-02)\\
 \adr{ADR-016} & Documento de Arquitetura e Requisitos de Software, sem formato acadêmico & Documentação a serviço do produto (resolve D-18)\\
 \adr{ADR-017} & Decisões técnicas com valor padrão adotado & Encerra as questões técnicas iniciais, refináveis por RFC (D-03, D-05 a D-08, D-10 a D-14, D-16, D-17)\\
-\bottomrule
-\end{tabularx}
+\adr{ADR-018} & Administrador por \texttt{npm run admin:create} e contrato da API (envelope \texttt{data}, erros de entrada e de origem) & Aprova as nove propostas do Core (RFC P-002; fecha o D-03)\\
+\adr{ADR-019} & Manter o Prisma 7 apesar de quatro alertas do \texttt{npm audit} & A correção automática rebaixaria o Prisma para a versão 6\\
+\end{longtable}
 \fonte{Elaborado pelos autores.}
-\end{table}
+\endgroup
 
 \section{Visões da Arquitetura}\label{sec:arq-visoes}
 
@@ -100,17 +107,26 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação --- o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial, o \en{seed} e a instância de \arq{db.js} (merges M-001 e M-002) e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-004: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelo Core e pelo Dados fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/} e \arq{core/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
-|-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md  MURAL_DE_AGENTES.md
+|-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md  MURAL_DE_AGENTES.md  LICENSE
 |-- doc/                      # documentação (ref/, tex/, diagrams/)
 |-- prisma/                   # schema.prisma, migrations/ (init) e seed.js (Dados)
 |-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
+|-- scripts/create-admin.js   # npm run admin:create (Core)
+|-- tests/                    # setup/ (comum), dados/ e core/ (Vitest)
+|-- vitest.config.mjs         # configuração do Vitest (alias @, banco temporário)
+|-- .env.example              # nomes das variáveis de ambiente, sem valores
 |-- public/                   # ativos estáticos do scaffold
-|-- src/app/                  # favicon.ico, globals.css, layout.js, page.js
-|-- src/lib/db.js             # PrismaClient e funções de dados; content-tree.js (Dados)
+|-- src/proxy.js              # verificação otimista de sessão em /admin (Core)
+|-- src/app/                  # layout.js, page.js, globals.css (scaffold)
+|   |-- login/                # page.js e login-form.js (provisórios)
+|   |-- admin/                # layout.js, page.js (provisória) e _lib/session.js
+|   `-- api/                  # auth/[...all], contents/, configuration/ e _lib/
+|-- src/lib/                  # db.js, content-tree.js (Dados); auth.js, auth-client.js,
+|                             #   validators.js, revalidate.js (Core)
 |-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
 |-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
 |-- package.json  package-lock.json  skills-lock.json
@@ -126,9 +142,11 @@ src/
 |   |-- page.js                   # página inicial
 |   |-- [...slug]/page.js         # leitura de documento/coleção (ISR)
 |   |-- not-found.js
-|   |-- login/page.js
+|   |-- login/page.js             # + login-form.js provisório, até o LoginForm da UI
 |   |-- admin/                    # painel (dinâmico): layout, page, conteudo/, configuracoes/
+|   |   `-- _lib/session.js       # requireAdminSession (pasta privada, Core)
 |   `-- api/
+|       |-- _lib/                 # http.js (envelope, erros, sessão, origem) e contents.js
 |       |-- auth/[...all]/route.js
 |       |-- contents/route.js
 |       |-- contents/[id]/route.js
@@ -145,11 +163,14 @@ src/
 src/generated/prisma/             # cliente gerado por "prisma generate" (não versionado)
 prisma/                           # schema.prisma, migrations/, seed.js (Dados)
 prisma.config.ts                  # CLI do Prisma: schema, migrations, seed, DATABASE_URL
+scripts/create-admin.js           # npm run admin:create: administrador inicial (Core)
+tests/                            # setup/ (comum), dados/, core/ e ui/ (Vitest)
+vitest.config.mjs                 # configuração dos testes
 Dockerfile  docker-compose.yml  .dockerignore   # implantação (M13)
 .env.example                      # nomes das variáveis de ambiente, sem valores
 \end{lstlisting}
 
-Convenções: identificadores em inglês; comentários e textos de interface em português; módulos ES (\texttt{import}/\texttt{export}); funções públicas de \arq{src/lib} documentadas com JSDoc (\adr{ADR-008}); um arquivo \arq{.env.example} lista os nomes das variáveis de ambiente, sem valores. O \arq{.gitignore} atual ignora \arq{.env*}, o que alcançaria também o \arq{.env.example}; é preciso acrescentar a exceção \arq{!.env.example} ao criá-lo. O cliente do Prisma é gerado em \arq{src/generated/prisma}, diretório ignorado pelo Git, e importado de \arq{@/generated/prisma/client} somente por \arq{db.js}; por isso \texttt{prisma generate} deve rodar depois de \texttt{npm install} e antes de \texttt{next build} (\adr{ADR-014}).
+Convenções: identificadores em inglês; comentários e textos de interface em português; módulos ES (\texttt{import}/\texttt{export}); funções públicas de \arq{src/lib} documentadas com JSDoc (\adr{ADR-008}); o arquivo \arq{.env.example} lista os nomes das variáveis de ambiente, sem valores (o \arq{.gitignore} ignora \arq{.env*} e traz a exceção \arq{!.env.example}). Código compartilhado por Route Handlers ou páginas de uma mesma área fica em uma pasta privada \arq{_lib} dessa área, e não em \arq{src/lib}, que é reservado aos módulos de uso geral. Scripts de linha de comando ficam em \arq{scripts/} e são executados com o \texttt{tsx}, pois os módulos de \arq{src/} usam o alias \arq{@/} e o cliente gerado do Prisma é TypeScript. O cliente do Prisma é gerado em \arq{src/generated/prisma}, diretório ignorado pelo Git, e importado de \arq{@/generated/prisma/client} somente por \arq{db.js}; por isso \texttt{prisma generate} deve rodar depois de \texttt{npm install} e antes de \texttt{next build} (\adr{ADR-014}).
 
 \section{Modelo de Dados}\label{sec:arq-dados}
 
@@ -262,32 +283,67 @@ Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma
 
 \subsection{Migrações e Dados Iniciais}
 
-As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados foram integradas pelo merge M-003; o administrador inicial ainda não existe e depende do mecanismo do Core (\decisao{D-03}; tarefa A-008). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados foram integradas pelo merge M-003; o administrador inicial não passa pelo \en{seed}: é criado pelo comando \texttt{npm run admin:create} do Core, integrado no merge M-004 (\decisao{D-03}, \adr{ADR-018}). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
 
 \section{Autenticação e Autorização}\label{sec:arq-auth}
 
 \subsection{Configuração}
 
-O better-auth é configurado em \arq{src/lib/auth.js} com o adaptador do Prisma para SQLite, autenticação por e-mail e senha habilitada, cadastro público desabilitado após o \en{bootstrap} (\decisao{D-03}) e o \en{plugin} de integração de \en{cookies} para o Next.js. As rotas são expostas por um único Route Handler em \arq{src/app/api/auth/[...all]/route.js}. O cliente React (\arq{src/lib/auth-client.js}) é usado pelo formulário de login e pelo botão de sair. Variáveis de ambiente: a URL do banco (\arq{DATABASE_URL}) e as variáveis do better-auth para o segredo e a URL base (nomes a confirmar pelo agente Core na documentação da versão instalada).
+O better-auth 1.7.6 é configurado em \arq{src/lib/auth.js} (merge M-004) com o adaptador do Prisma para SQLite, autenticação por e-mail e senha, sessão persistida no banco, cadastro público desabilitado e o \en{plugin} de integração de \en{cookies} para o Next.js. As rotas são expostas por um único Route Handler em \arq{src/app/api/auth/[...all]/route.js}. A sessão no servidor é obtida por \texttt{getSession(headers)}, usada pelos Route Handlers e pelas páginas do painel. O cliente React (\arq{src/lib/auth-client.js}) usa a mesma origem da página e dispensa variáveis \texttt{NEXT\_PUBLIC\_*}. Variáveis de ambiente: \arq{DATABASE_URL}, \arq{BETTER_AUTH_SECRET} e \arq{BETTER_AUTH_URL} (nomes confirmados na versão instalada, que as lê sozinha) e, lidas somente pelo comando do administrador inicial, \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e \arq{ADMIN_NAME}. A Tabela~\ref{tab:auth-config} resume a configuração efetiva, aprovada na \adr{ADR-018}.
 
-\begin{lstlisting}[language=VJS, caption={Esboço: servidor de autenticação (conferir a API na versão 1.7.6)}, label={lst:auth-esboco}]
-// src/lib/auth.js  (esboço não vinculante)
-import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import { nextCookies } from "better-auth/next-js";
-import { prisma } from "@/lib/db";
+\begingroup\small
+\begin{longtable}{@{}L{3.0cm}L{9.6cm}L{1.9cm}@{}}
+\caption{Configuração efetiva do better-auth}\label{tab:auth-config}\\
+\toprule
+\textbf{Aspecto} & \textbf{Configuração} & \textbf{Origem}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Aspecto} & \textbf{Configuração} & \textbf{Origem}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Cadastro & Desabilitado (\texttt{disableSignUp}); \texttt{POST /api/auth/sign-up/email} responde 400 & RF22\\
+\addlinespace
+Senha & De 8 a 128 caracteres; o \en{hash} é do próprio better-auth, o mesmo no login e no comando do administrador & RNF03\\
+\addlinespace
+Sessão & Persistida no banco; expira em 7 dias e, em uso, é renovada no máximo uma vez por dia & RN12\\
+\addlinespace
+\en{Cookie} & \arq{better-auth.session_token}, \texttt{HttpOnly} e \texttt{SameSite=Lax}; com \arq{BETTER_AUTH_URL} em \texttt{https}, ganha \texttt{Secure} e o prefixo \texttt{\_\_Secure-} & RNF03\\
+\addlinespace
+Limitação de tentativas & Ligada em todos os ambientes, com contadores em memória por endereço IP (cabeçalho \texttt{x-forwarded-for}) e por rota: 100 requisições por 60 s no geral e \textbf{5 por 60 s em \texttt{/sign-in/email}} (resposta 429) & RNF03\\
+\addlinespace
+Telemetria & Desligada & RNF15\\
+\addlinespace
+Segredo & \arq{BETTER_AUTH_SECRET} obrigatório em produção; sem ele, as rotas de autenticação e de API respondem 500 (falha fechada: nenhuma rota protegida é servida) e o \en{build} registra o erro do segredo padrão sem falhar & RNF03\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{src/lib/auth.js} e da verificação do Arquiteto no merge M-004.}
+\endgroup
 
+\begin{lstlisting}[language=VJS, caption={Configuração efetiva do servidor de autenticação (resumo de src/lib/auth.js)}, label={lst:auth-esboco}]
 export const auth = betterAuth({
+  appName: "Vitrine",
   database: prismaAdapter(prisma, { provider: "sqlite" }),
-  emailAndPassword: { enabled: true /* cadastro público: ver D-03 */ },
-  plugins: [nextCookies()],
+  emailAndPassword: {
+    enabled: true,
+    disableSignUp: true,            // RF22
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  },
+  session: { expiresIn: 7 * 86400, updateAge: 86400 },   // RN12
+  rateLimit: {
+    enabled: true, window: 60, max: 100,
+    customRules: { "/sign-in/email": { window: 60, max: 5 } },
+  },
+  telemetry: { enabled: false },    // RNF15
+  plugins: [nextCookies()],         // deve ser o último
 });
-
 // src/app/api/auth/[...all]/route.js
-import { toNextJsHandler } from "better-auth/next-js";
-import { auth } from "@/lib/auth";
 export const { GET, POST } = toNextJsHandler(auth);
 \end{lstlisting}
+
+A limitação de tentativas identifica o cliente pelo cabeçalho \texttt{x-forwarded-for}, que o better-auth 1.7.6 só aceita quando contém um \emph{único} endereço (um valor com vários endereços pode ter sido forjado pelo cliente). Quando o endereço não pode ser determinado, todos os clientes passam a compartilhar um único contador por rota --- por exemplo, apenas cinco tentativas de login por minuto no total ---, o que mantém a proteção, mas deixa um atacante bloquear momentaneamente o login do administrador. Por isso o \en{proxy} reverso deve \emph{definir} esse cabeçalho com o endereço real do cliente, substituindo o valor recebido, e não acrescentar-lhe um segundo endereço (Apêndice~\ref{ap:implantacao}).
 
 \subsection{Fluxo e Proteção em Camadas}
 
@@ -300,11 +356,11 @@ O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:se
 \toprule
 \textbf{Camada} & \textbf{Mecanismo} & \textbf{Finalidade}\\
 \midrule
-1. Proxy & \arq{src/proxy.js} lê o \en{cookie} de sessão e redireciona para \arq{/login} se ausente & Melhor experiência: evita renderizar a página para quem não tem sessão\\
+1. Proxy & \arq{src/proxy.js} (casador \arq{/admin/:path*}) lê o \en{cookie} de sessão, sem consultar o banco, e redireciona para \arq{/login?redirectTo=...} se ausente & Melhor experiência: evita renderizar a página para quem não tem sessão\\
 \addlinespace
-2. Layout/página do painel & Server Component valida a sessão no servidor e redireciona se inválida & Barreira real para páginas\\
+2. Layout/página do painel & Server Component valida a sessão no servidor e redireciona se inválida; a página repete a validação, pois layouts não são renderizados de novo a cada navegação & Barreira real para páginas\\
 \addlinespace
-3. Route Handlers de escrita & Cada handler valida a sessão antes de qualquer ação (RF21) & Barreira real para a API\\
+3. Route Handlers & Cada handler valida a sessão no banco antes de qualquer ação (RF21) e, nas mutações, antes disso, a origem da requisição; só então lê o corpo & Barreira real para a API\\
 \addlinespace
 4. Validação de entrada & Esquemas de entrada rejeitam dados inválidos antes da camada de dados & Integridade e segurança\\
 \bottomrule
@@ -319,7 +375,7 @@ O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:se
 
 \subsection{Política de Cadastro e Papéis}
 
-Na versão inicial há um único perfil, o administrador. O primeiro usuário é criado por procedimento controlado na instalação (RF22) e o cadastro público é desabilitado; o mecanismo exato (\en{script} de \en{seed}, comando de linha de comando ou variável de ambiente de instalação) é decisão do agente Core (\decisao{D-03}). O \en{plugin} \texttt{admin} do better-auth, presente no pacote instalado, é o caminho previsto para papéis e permissões futuros (\decisao{D-13}).
+Na versão inicial há um único perfil, o administrador. O primeiro usuário é criado pelo comando \texttt{npm run admin:create} (\decisao{D-03}, \adr{ADR-018}), executado por quem instala o sistema: ele lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e, opcionalmente, \arq{ADMIN_NAME}, valida o formato e chama \texttt{ensureInitialAdmin} (\arq{src/lib/auth.js}), que usa o adaptador interno do better-auth --- com o mesmo \en{hash} de senha do login --- porque a rota de cadastro está desabilitada. O comando é \textbf{idempotente}: com o mesmo e-mail, nada muda (nem a senha) e a saída é 0; recusa um segundo usuário com outro e-mail, pois há um único administrador (\decisao{D-13}; saída 1); completa a credencial de um usuário que ficou sem ela por uma execução interrompida; e nunca imprime a senha. Não há página aberta de primeiro acesso, para evitar o sequestro da instalação. As credenciais não passam pelo \arq{prisma/seed.js}, que cria apenas a configuração padrão (RF23); o comando roda com o \texttt{tsx}, como o \en{seed}. Na imagem Docker: \texttt{docker compose run -{}-rm vitrine npm run admin:create} (Apêndice~\ref{ap:implantacao}). O \en{plugin} \texttt{admin} do better-auth, presente no pacote instalado, é o caminho previsto para papéis e permissões futuros (\decisao{D-13}).
 
 \section{Renderização, Cache e ISR}\label{sec:arq-isr}
 
@@ -357,7 +413,7 @@ A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16. A invalidação
 \toprule
 \textbf{Evento} & \textbf{Ação de revalidação}\\
 \midrule
-Criar ou excluir conteúdo; alterar título, \en{slug}, pai ou ordem; mover/reordenar & \texttt{revalidatePath("/", "layout")}: invalida todas as páginas, pois a árvore de navegação mudou\\
+Criar ou excluir conteúdo; alterar título, \en{slug}, pai, ordem ou tipo; mover/reordenar &\texttt{revalidatePath("/", "layout")}: invalida todas as páginas, pois a árvore de navegação mudou\\
 \addlinespace
 Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó & \texttt{revalidatePath("/", "layout")}: a visibilidade do nó e de seus descendentes altera a árvore de navegação e o conjunto de páginas (RN16)\\
 \addlinespace
@@ -427,7 +483,30 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
 }
 \end{lstlisting}
 
-O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (links, botões, item ativo da \en{sidebar}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos); e \textbf{destaque} para realce interativo (\en{hover}, foco e marcadores). O painel calcula a razão de contraste entre as combinações de texto e fundo e emite aviso, sem bloquear, quando ela é inferior a 4,5:1 (RN09 e \req{RNF05}). Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}).
+O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (links, botões, item ativo da \en{sidebar}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos); e \textbf{destaque} para realce interativo (\en{hover}, foco e marcadores). Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}); por isso o fundo da página e o texto sobre cores preenchidas são fixos e brancos (\texttt{\#FFFFFF}), e só as três cores do tema são verificadas.
+
+\subsection{Avisos de Contraste}\label{sec:arq-contraste}
+
+Ao salvar a configuração, o sistema calcula a razão de contraste da WCAG 2.1 (luminância relativa do sRGB, razão $(L_1 + 0{,}05)/(L_2 + 0{,}05)$) entre cada cor do tema e o branco, conforme a Tabela~\ref{tab:pares-contraste}, e emite um aviso, sem bloquear o salvamento, quando a razão é inferior ao mínimo do par (RN09, \req{RNF05}). A razão é simétrica: o par ``primária e branco'' cobre tanto a cor primária como texto sobre o fundo da página quanto o texto branco sobre a cor primária.
+
+\begin{table}[htb]
+\caption{Pares de contraste verificados na configuração}\label{tab:pares-contraste}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.8cm}L{3.6cm}L{1.7cm}Y@{}}
+\toprule
+\textbf{Campo avisado} & \textbf{Par (cor e branco)} & \textbf{Mínimo} & \textbf{Uso que a razão protege}\\
+\midrule
+\texttt{primaryColor} & primária $\times$ \texttt{\#FFFFFF} & 4,5:1 & Links, botões e item ativo da \en{sidebar}: texto da cor primária sobre a página e texto branco sobre a cor primária\\
+\addlinespace
+\texttt{secondaryColor} & secundária $\times$ \texttt{\#FFFFFF} & 4,5:1 & Texto branco sobre a barra superior e os cabeçalhos\\
+\addlinespace
+\texttt{accentColor} & destaque $\times$ \texttt{\#FFFFFF} & 3:1 & Realce interativo (\en{hover}, foco e marcadores), que não é texto: contraste de componentes de interface (WCAG 1.4.11)\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da resposta ao pedido P-002 (item 5).}
+\end{table}
+
+A função de cálculo, \texttt{contrastWarnings}, pertence à UI (\arq{src/lib/theme.js}): recebe as três cores e devolve uma lista de avisos \texttt{\{ code, field, ratio, minimum, message \}}, com o código \texttt{LOW\_CONTRAST}. O formulário a usa na pré-visualização local, e o Route Handler de \texttt{PUT /api/configuration} (Core) a chama com as cores já gravadas e devolve a lista no campo \texttt{warnings} da resposta (Seção~\ref{sec:arq-api}). Cores inválidas não chegam à função: já foram recusadas pela validação de formato (RN09).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-personalizacao-tema, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
@@ -438,31 +517,49 @@ O mapeamento semântico proposto é: \textbf{primária} para ações e ênfase (
 
 \subsection{Convenções}
 
-As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). Toda rota de escrita exige sessão válida. Entradas e saídas são JSON em UTF-8. Códigos de status: \texttt{200}/\texttt{201}/\texttt{204} para sucesso; \texttt{400} para JSON malformado; \texttt{401} sem sessão; \texttt{404} recurso inexistente; \texttt{409} conflito (por exemplo, \en{slug} duplicado); \texttt{422} falha de validação; \texttt{500} erro interno. Os erros têm formato único:
+As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). Toda rota de conteúdo e de configuração exige sessão válida, verificada no servidor antes de qualquer outra ação. Entradas e saídas são JSON em UTF-8; as rotas de escrita aceitam apenas \texttt{Content-Type: application/json}, e todas as respostas levam \texttt{Cache-Control: no-store}. Códigos de status: \texttt{200}/\texttt{201}/\texttt{204} para sucesso; \texttt{400} para JSON malformado ou \texttt{Content-Type} diferente de JSON (código \arq{VALIDATION_ERROR}); \texttt{401} sem sessão válida ou com mutação vinda de outra origem; \texttt{404} recurso inexistente; \texttt{409} conflito (por exemplo, \en{slug} duplicado); \texttt{422} falha de validação; \texttt{429} excesso de tentativas de login (resposta do better-auth); \texttt{500} erro interno. Essas convenções foram aprovadas na \adr{ADR-018}.
+
+\textbf{Resposta de sucesso.} Toda resposta de sucesso com corpo usa o envelope \texttt{\{ "data": ... \}}, que deixa espaço para campos adicionais ao lado de \texttt{data}, como \texttt{warnings} (Seção~\ref{sec:arq-contraste}). O \texttt{POST} de criação responde \texttt{201} e o cabeçalho \texttt{Location} com o caminho do novo recurso; o \texttt{DELETE} responde \texttt{204} sem corpo; e a reordenação devolve em \texttt{data} a árvore atualizada.
+
+\begin{lstlisting}[language=VJSON, caption={Formato padrão de sucesso}, label={lst:sucesso-json}]
+{
+  "data": { "id": "cm...", "title": "Introdução", "slug": "introducao", "status": "PUBLISHED" }
+}
+\end{lstlisting}
+
+\textbf{Resposta de erro.} Os erros têm formato único; \texttt{details} é uma lista com um item por campo, no formato \texttt{\{ field, message \}} (validação) ou \texttt{\{ field, value \}} (valor recusado). Um \texttt{409} de \en{slug} traz em \texttt{details[0].suggestion} um \en{slug} livre entre os irmãos de destino (UC05, fluxo A1).
 
 \begin{lstlisting}[language=VJSON, caption={Formato padrão de erro}, label={lst:erro-json}]
 {
   "error": {
     "code": "SLUG_CONFLICT",
     "message": "Já existe um conteúdo com este slug na mesma coleção.",
-    "details": [{ "field": "slug", "value": "introducao" }]
+    "details": [{ "field": "slug", "value": "introducao", "suggestion": "introducao-2" }]
   }
 }
 \end{lstlisting}
 
 Códigos de erro previstos: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{NOT_FOUND}, \arq{SLUG_CONFLICT}, \arq{INVALID_PARENT}, \arq{CYCLE_DETECTED} e \arq{INTERNAL_ERROR}.
 
+\textbf{Regras comuns de entrada.} Campos desconhecidos são descartados, inclusive \texttt{authorId}, que vem sempre da sessão (RN13). Um \texttt{PATCH} ou \texttt{PUT} sem nenhum campo conhecido responde \texttt{422}. O \en{slug} reservado também é conferido ao mover um conteúdo para a raiz (por \texttt{PATCH} ou em lote). A mutação cujo cabeçalho \texttt{Origin} indica outro site é recusada com \texttt{401} (\arq{UNAUTHENTICATED}), pois o cookie de sessão não é aceito em requisições de outra origem e o contrato não prevê \texttt{403} (Seção~\ref{sec:arq-seguranca}).
+
 \subsubsection{Erros da Camada de Dados}\label{sec:arq-dataerror}
 
 As funções de \arq{src/lib/db.js} lançam a classe \texttt{DataError} (com os campos \texttt{code}, \texttt{message} e \texttt{details}) quando uma regra que depende do estado do banco é violada: existência, unicidade, tipo do pai, ciclo e domínio de \texttt{type}, \texttt{status} e \texttt{order}. A validação de \emph{formato} (expressão regular e \en{slugs} reservados da RN03, URL \texttt{http}/\texttt{https} da RN17, cor \texttt{\#RRGGBB} da RN09) permanece nos validadores do Core (\arq{validators.js}). Cada Route Handler captura o \texttt{DataError} e o traduz conforme a Tabela~\ref{tab:dataerror}; qualquer outro erro vira \texttt{500} com o código \arq{INTERNAL_ERROR} e mensagem genérica, sem expor detalhes internos. As funções de escrita não chamam \arq{revalidatePath} (RN10): a revalidação é da camada de rota.
 
-\begin{table}[htb]
-\caption{Mapeamento dos códigos de \texttt{DataError} para a resposta HTTP}\label{tab:dataerror}
-\small
-\begin{tabularx}{\linewidth}{@{}L{3.7cm}L{1.3cm}L{3.3cm}Y@{}}
+\begingroup\small
+\begin{longtable}{@{}L{3.9cm}L{1.2cm}L{3.3cm}L{5.8cm}@{}}
+\caption{Mapeamento dos códigos de \texttt{DataError} para a resposta HTTP}\label{tab:dataerror}\\
 \toprule
 \textbf{Código do \texttt{DataError}} & \textbf{HTTP} & \textbf{Código da API} & \textbf{Situação}\\
 \midrule
+\endfirsthead
+\toprule
+\textbf{Código do \texttt{DataError}} & \textbf{HTTP} & \textbf{Código da API} & \textbf{Situação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
 \arq{NOT_FOUND} & 404 & \arq{NOT_FOUND} & Conteúdo (ou, ao reordenar, algum item do lote) inexistente\\
 \addlinespace
 \arq{SLUG_CONFLICT} & 409 & \arq{SLUG_CONFLICT} & \en{Slug} repetido entre irmãos ou na raiz (RN03)\\
@@ -480,10 +577,9 @@ As funções de \arq{src/lib/db.js} lançam a classe \texttt{DataError} (com os 
 \arq{INVALID_INPUT} & 422 & \arq{VALIDATION_ERROR} & Campo obrigatório ausente ou fora do domínio (\texttt{type}, \texttt{status}, \texttt{order}, lote de reordenação)\\
 \addlinespace
 (outro erro) & 500 & \arq{INTERNAL_ERROR} & Falha não prevista; registrar no servidor, resposta genérica\\
-\bottomrule
-\end{tabularx}
+\end{longtable}
 \fonte{Elaborado pelos autores, a partir dos códigos de \arq{src/lib/db.js} e da sugestão do agente Dados (merge M-003).}
-\end{table}
+\endgroup
 
 Duas observações de implementação. Em \texttt{reorderContents}, os itens do lote são aplicados em sequência e validados contra o estado resultante dos anteriores, de modo que a ordem dos itens importa quando há ciclo intermediário. E o redirecionamento de uma coleção ao primeiro documento publicado (RN14) não tem função própria: o Core usa \texttt{getContentTree} com \texttt{onlyPublished} e \texttt{resolvePath}.
 
@@ -502,22 +598,23 @@ Duas observações de implementação. Em \texttt{reorderContents}, os itens do 
 \bottomrule
 \endfoot
 \texttt{GET} & \arq{/api/contents} & Sim & Árvore completa, inclusive rascunhos, sem o corpo dos documentos e com o \texttt{status} de cada nó & 200\\[1pt]
-\texttt{POST} & \arq{/api/contents} & Sim & Cria conteúdo (\texttt{title}, \texttt{slug}, \texttt{type}, \texttt{parentId}, \texttt{body}, \texttt{order}, \texttt{status}; este, se omitido, assume \texttt{PUBLISHED}) & 201\\[1pt]
+\texttt{POST} & \arq{/api/contents} & Sim & Cria conteúdo (\texttt{title}, \texttt{slug}, \texttt{type}, \texttt{parentId}, \texttt{body}, \texttt{order}, \texttt{status}; este, se omitido, assume \texttt{PUBLISHED}); o autor vem da sessão & 201 e \texttt{Location}\\[1pt]
 \texttt{GET} & \arq{/api/contents/:id} & Sim & Detalhe, incluindo o corpo e o \texttt{status} & 200\\[1pt]
 \texttt{PATCH} & \arq{/api/contents/:id} & Sim & Atualização parcial, inclusive de \texttt{status}; dispara revalidação (RN10, RN16) & 200\\[1pt]
 \texttt{DELETE} & \arq{/api/contents/:id} & Sim & Exclui o nó e seus descendentes (RN07) & 204\\[1pt]
-\texttt{PATCH} & \arq{/api/contents/reorder} & Sim & Lote \texttt{[\{id, parentId, order\}]}, em transação (RN05, RN06) & 200\\[1pt]
+\texttt{PATCH} & \arq{/api/contents/reorder} & Sim & Lote \texttt{[\{id, parentId, order\}]}, em transação (RN05, RN06); devolve a árvore atualizada & 200\\[1pt]
 \texttt{GET} & \arq{/api/configuration} & Sim & Configuração vigente & 200\\[1pt]
-\texttt{PUT} & \arq{/api/configuration} & Sim & Atualiza identidade, cores e os seis links sociais (RN17); devolve avisos de contraste & 200\\[1pt]
-\texttt{POST} & \arq{/api/auth/sign-in/email} & Não & Login (rota do better-auth) & 200\\[1pt]
+\texttt{PUT} & \arq{/api/configuration} & Sim & Atualização \emph{parcial} (campos ausentes não mudam) de identidade, cores e dos seis links sociais (RN17); logotipo e \en{favicon} aceitam URL \texttt{http(s)} ou caminho de \arq{public/} iniciado por uma única barra (D-10); devolve \texttt{warnings} de contraste & 200\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-in/email} & Não & Login (rota do better-auth), com limite de 5 tentativas por minuto por IP & 200 (429 acima do limite)\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-up/email} & Não & Recusado: cadastro público desabilitado (RF22) & 400 (\arq{EMAIL_PASSWORD_SIGN_UP_DISABLED})\\[1pt]
 \texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20) & 200\\[1pt]
 \texttt{GET} & \arq{/api/auth/get-session} & Não & Sessão corrente ou nula & 200\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth e devem ser conferidas na versão instalada.}
+\fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth, conferidas na versão 1.7.6 (merge M-004); as demais rotas padrão da biblioteca (por exemplo, troca de senha) também ficam expostas em \arq{/api/auth/*} e exigem sessão.}
 
 A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas e aplica o filtro de publicação (RN15). As rotas de conteúdo e de configuração servem ao painel administrativo.
 
-Os campos de entrada têm as seguintes regras de validação no servidor (\texttt{422} em caso de falha): \texttt{status} deve ser \texttt{DRAFT} ou \texttt{PUBLISHED}; cada link social, quando preenchido, deve ser uma URL absoluta com protocolo \texttt{http} ou \texttt{https}, e a cadeia vazia equivale a \texttt{null} (RN17); as cores devem ser \texttt{\#RRGGBB} (RN09).
+Os campos de entrada têm as seguintes regras de validação no servidor (\texttt{422} em caso de falha): \texttt{status} deve ser \texttt{DRAFT} ou \texttt{PUBLISHED}; cada link social, quando preenchido, deve ser uma URL absoluta com protocolo \texttt{http} ou \texttt{https}, e a cadeia vazia equivale a \texttt{null} (RN17); as cores devem ser \texttt{\#RRGGBB} (RN09); o \en{slug} segue a RN03 (1 a 80 caracteres, sem \en{slugs} reservados na raiz). A resposta de \texttt{422} traz um item de \texttt{details} por campo inválido.
 
 \section{Roteamento e Navegação}\label{sec:arq-rotas}
 
@@ -573,15 +670,16 @@ A Tabela~\ref{tab:ameacas} relaciona as ameaças consideradas aos controles prev
 \bottomrule
 \endfoot
 XSS armazenado & Markdown com HTML ou URL \texttt{javascript:} & Sem HTML bruto (RN11); manter a transformação de URL do \arq{react-markdown}; revisar qualquer \en{plugin} novo\\[1pt]
-CSRF & Requisição de outro site com o \en{cookie} do administrador & \texttt{SameSite}; verificação de origem nas mutações; rotas de escrita aceitam apenas JSON\\[1pt]
+CSRF & Requisição de outro site com o \en{cookie} do administrador & \en{Cookie} \texttt{SameSite=Lax}; verificação de origem nas mutações (um \texttt{Origin} diferente do próprio site, ou \texttt{null}, responde \texttt{401} \arq{UNAUTHENTICATED} e nada é gravado; \adr{ADR-018}); rotas de escrita aceitam apenas JSON\\[1pt]
 Injeção de SQL & Entradas em consultas & Prisma parametriza; proibido \texttt{\$queryRawUnsafe}\\[1pt]
-Força bruta e enumeração & Tentativas repetidas de login & Limitação de tentativas; mensagem genérica de erro (UC08)\\[1pt]
-Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21); Proxy apenas otimista\\[1pt]
+Força bruta e enumeração & Tentativas repetidas de login & No máximo cinco tentativas por minuto por IP (resposta 429); mensagem genérica de erro, igual para e-mail inexistente e senha errada (UC08, CT02); o \en{proxy} deve definir \texttt{x-forwarded-for} (Seção~\ref{sec:arq-auth})\\[1pt]
+Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21), antes de ler o corpo; Proxy apenas otimista\\[1pt]
+Rotas padrão do better-auth & Rotas de \arq{/api/auth/*} além do login (por exemplo, troca de senha e listagem de sessões) & Exigem sessão e passam pela mesma limitação de requisições; o cadastro público está desabilitado (RF22)\\[1pt]
 Exposição de segredos & \arq{.env} no repositório, na imagem Docker ou variáveis no navegador & \arq{.env} ignorado pelo Git e excluído da imagem por \arq{.dockerignore}, fornecido ao contêiner em tempo de execução; nenhuma variável com prefixo \arq{NEXT_PUBLIC_} para segredos\\[1pt]
 Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou por página em cache & Filtro de publicação na camada de dados (RN15); revalidação do \en{layout} ao alterar o estado (RN16); testes CT31 e CT32\\[1pt]
 Link social malicioso & URL \texttt{javascript:} ou \texttt{data:} em um dos seis campos do rodapé & Validação de protocolo \texttt{http}/\texttt{https} no servidor (RN17); atributos \texttt{noopener} e \texttt{noreferrer}; teste CT33\\[1pt]
 Injeção de CSS & Valor de cor malicioso & Validação \texttt{\#RRGGBB} no servidor (RN09)\\[1pt]
-Dependências vulneráveis & Pacotes desatualizados ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit}; \en{lockfile} versionado\\[1pt]
+Dependências vulneráveis & Pacotes desatualizados, com vulnerabilidade conhecida ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit} a cada entrega; \en{lockfile} versionado; os quatro alertas atuais foram avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019})\\[1pt]
 \en{Clickjacking} & Página incorporada em \texttt{iframe} & Cabeçalho \arq{frame-ancestors}/\arq{X-Frame-Options}\\[1pt]
 Exclusão acidental & Cascata indevida & Confirmação explícita; \en{backup} (RNF10)\\[1pt]
 Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atualização que descarta o volume & Banco em \en{bind mount} fora da imagem; \en{backup} periódico com \texttt{VACUUM INTO} e cópia externa (Apêndice~\ref{ap:implantacao}; risco R12)\\[1pt]
@@ -589,6 +687,34 @@ Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atua
 \fonte{Elaborado pelos autores.}
 
 Além dos controles acima, o \arq{next.config.mjs} deve definir cabeçalhos de segurança (\texttt{X-Content-Type-Options: nosniff}, \arq{Referrer-Policy}, política de enquadramento e \arq{Permissions-Policy} restritiva); HSTS e TLS ficam a cargo do \en{proxy} reverso. Uma política CSP com \en{nonce} é desejável e será avaliada pelo agente Core.
+
+\subsection{Vulnerabilidades Conhecidas em Dependências}\label{sec:arq-npm-audit}
+
+Em 01/10/2026, na revisão do merge M-004, o \texttt{npm audit} acusou \textbf{quatro vulnerabilidades de severidade alta}, todas em dependências transitivas do Prisma 7 (Tabela~\ref{tab:npm-audit}). O npm só as corrige com \texttt{npm audit fix -{}-force}, que instalaria o \texttt{prisma@6.19.3}: um rebaixamento de versão maior, incompatível com o que o projeto adota (\arq{prisma.config.ts}, gerador \texttt{prisma-client} e \en{driver adapter}; \adr{ADR-014}). A \texttt{7.10.0}, instalada, é a última versão 7 publicada, e o \texttt{npm audit} lista como afetada toda a faixa do \arq{prisma} até a \texttt{8.1.0-dev.6}; portanto, não há versão 7 corrigida. Decidiu-se \textbf{manter o Prisma 7 e não aplicar a correção automática}, aceitando os alertas, pelas razões da tabela (\adr{ADR-019}). Como \arq{prisma} agora está em \texttt{dependencies} (para aplicar migrações na imagem), esses pacotes também estão presentes na imagem de produção, embora não sejam exercidos.
+
+\begingroup\small
+\begin{longtable}{@{}L{3.3cm}L{5.4cm}L{5.5cm}@{}}
+\caption{Alertas do \texttt{npm audit} aceitos em 01/10/2026}\label{tab:npm-audit}\\
+\toprule
+\textbf{Pacote} & \textbf{Aviso} & \textbf{Avaliação para o Vitrine}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Pacote} & \textbf{Aviso} & \textbf{Avaliação para o Vitrine}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\arq{deepmerge-ts} (antes da 8.0.0; usado por \arq{@prisma/config}) & Esgotamento de pilha ao mesclar grafos de objetos recursivos (GHSA-ggr8-5vv4-36mx) & Roda na CLI do Prisma, ao mesclar a configuração de \arq{prisma.config.ts}, escrita pela equipe; não recebe entrada de usuário nem é exercido pelo servidor\\
+\addlinespace
+\arq{@prisma/config} e \arq{prisma} & Alertas em cadeia, por dependerem do \arq{deepmerge-ts} e do \arq{mysql2} & O mesmo das linhas vizinhas; sem correção em nenhuma versão 7 disponível\\
+\addlinespace
+\arq{mysql2} (até a 3.23.0; dependência do \arq{prisma} e do \arq{better-auth}) & Rebaixamento do plugin de autenticação para \arq{mysql_clear_password}, com vazamento de credenciais (GHSA-3f6p-5ww8-9rcr), e descompressão (\en{inflate}) sem limite no protocolo comprimido, com negação de serviço (GHSA-rgwj-5xj2-c3m3) & Só é exercido ao conectar a um servidor MySQL; o Vitrine usa SQLite por \arq{better-sqlite3} e nunca abre conexão MySQL\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir da saída do \texttt{npm audit} e de \texttt{npm ls} (merge M-004).}
+\endgroup
+
+A decisão será reavaliada a cada entrega (o \texttt{npm audit} é critério de saída, Seção~\ref{sec:testes-saida}) e sempre que o Prisma publicar uma versão 7 com as dependências corrigidas. Enquanto isso, os alertas aceitos não contam como vulnerabilidade crítica pendente.
 
 \section{Implantação e Operação}\label{sec:arq-implantacao}
 
@@ -605,7 +731,11 @@ Os requisitos normativos sobre a imagem, que o módulo M13 deve atender, são:
   \item \textbf{Módulo nativo.} O \arq{better-sqlite3} é um módulo nativo (\adr{ADR-014}); os estágios de \en{build} e de execução devem usar a mesma versão do Node.js e a mesma distribuição (\en{glibc}, por exemplo \texttt{node:22-bookworm-slim}), e o estágio de \en{build} precisa de compilador (\texttt{python3}, \texttt{make}, \texttt{g++}) caso não haja binário pré-compilado;
   \item \textbf{Cliente gerado.} \texttt{prisma generate} roda antes de \texttt{next build}, pois \arq{src/generated/prisma} não é versionado;
   \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv} estejam na imagem, o que está garantido desde o merge M-002, que os moveu para \texttt{dependencies} (\adr{ADR-014});
-  \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}) e o SQLite tem um escritor por vez;
+  \item \textbf{Administrador inicial.} Depois das migrações e do \en{seed}, o administrador é criado por \texttt{docker compose run -{}-rm vitrine npm run admin:create}, que exige \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD} (e aceita \arq{ADMIN_NAME}) no ambiente da execução. O \en{seed} (\texttt{prisma db seed}) \emph{não} cria o administrador: ele só garante a configuração padrão (\adr{ADR-018});
+  \item \textbf{\texttt{tsx} na imagem.} O \texttt{admin:create} e o \texttt{prisma db seed} rodam com o \texttt{tsx}, hoje em \texttt{devDependencies}; a imagem de produção deve manter as dependências de desenvolvimento (\texttt{npm ci} completo) ou mover o \texttt{tsx} para \texttt{dependencies}, caso contrário esses dois comandos deixam de funcionar;
+  \item \textbf{\texttt{DATABASE\_URL} no \en{build}.} O \texttt{next build} importa as rotas, que importam \arq{db.js}, e este lança erro se \arq{DATABASE_URL} não está definida; o estágio de \en{build} do Dockerfile deve defini-la com qualquer valor bem formado (por exemplo, \texttt{ENV} \arq{DATABASE_URL=file:/data/vitrine.db}), pois nenhuma consulta ocorre no \en{build} e o arquivo não precisa existir. Segredos (\arq{BETTER_AUTH_SECRET}, \arq{ADMIN_PASSWORD}) \emph{não} entram no \en{build}: o aviso do segredo padrão registrado nessa etapa é esperado e inofensivo;
+  \item \textbf{Segredo em execução.} \arq{BETTER_AUTH_SECRET} e \arq{BETTER_AUTH_URL} (em \texttt{https}, para o \en{cookie} \texttt{Secure}) são obrigatórios na execução; sem o segredo, as rotas de autenticação e de API respondem 500;
+  \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}), o SQLite tem um escritor por vez e a limitação de tentativas de login guarda os contadores em memória;
   \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.
 \end{itemize}
 

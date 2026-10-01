@@ -102,6 +102,15 @@ OE5 & Autenticação segura (better-auth) & RF01, RF20 a RF22; CT01 a CT06 & ---
 
 São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação de usabilidade, que envolve poucos participantes e um contexto específico de uso (docentes e pesquisadores). A modelagem da interface partiu de protótipos de baixa fidelidade \cite{reis2026ic}.
 
+Há ainda limitações de segurança e de operação aceitas conscientemente:
+
+\begin{itemize}
+  \item \textbf{Alertas do \texttt{npm audit}.} Mantém-se o Prisma 7 e ignoram-se quatro alertas de severidade alta nas dependências transitivas \arq{mysql2} e \arq{deepmerge-ts}, porque a correção automática rebaixaria o Prisma para a versão 6 (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019}); os pacotes não são exercidos pelo Vitrine, mas continuam na imagem de produção;
+  \item \textbf{Limitação de tentativas em memória.} Os contadores do better-auth ficam na memória de um único processo; isso é coerente com a instância única (\adr{ADR-011}), mas zera a cada reinício e depende de o \en{proxy} definir o cabeçalho \texttt{x-forwarded-for};
+  \item \textbf{Administrador único e sem recuperação de senha.} Não há papéis, envio de e-mail nem redefinição de senha: o comando \texttt{admin:create} nunca altera a senha de um administrador existente, e a exclusão do usuário é bloqueada enquanto ele tiver conteúdo (\texttt{Restrict}); uma senha perdida só se recupera com intervenção direta no banco. Um comando de redefinição da senha é evolução prevista (Seção~\ref{sec:trabalhos-futuros});
+  \item \textbf{Páginas provisórias.} O login e o painel entregues no merge M-004 são funcionais, porém mínimos, até a interface definitiva da UI (M10).
+\end{itemize}
+
 \section{Roteiro de Evolução}\label{sec:trabalhos-futuros}
 
 Do relatório de IC \cite{reis2026ic} permanecem como propostas de continuidade:
@@ -114,7 +123,7 @@ Do relatório de IC \cite{reis2026ic} permanecem como propostas de continuidade:
   \item implementar a renderização nativa de gráficos de funções de uma variável (gráficos 2D).
 \end{itemize}
 
-Da consolidação do monólito surgem novas linhas de evolução: papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
+Da consolidação do monólito surgem novas linhas de evolução: um comando de redefinição da senha do administrador, sem depender de e-mail; papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
 
 \section{Síntese do Capítulo}
 
