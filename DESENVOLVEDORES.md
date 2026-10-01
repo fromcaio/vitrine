@@ -70,7 +70,7 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 ## 5. Critérios de Entrega (o Arquiteto vetará se faltar algum)
 1. Só arquivos do seu domínio (ou exceções declaradas); **não** toca `MURAL_DE_AGENTES.md`, `doc/**` (exceto imagens novas em `doc/tex/figuras/`) nem governança.
 2. Atende aos RF/RN/UC citados e respeita contratos (API, schema, regras de dependência, segurança).
-3. `npm run lint` e `npm run build` passam; testes aplicáveis rodaram e são citados.
+3. `npm run lint`, `npm run build` e `npm test` passam; testes aplicáveis rodaram e são citados.
 4. Sem segredos, bancos, `.next/` ou arquivos gerados no diff.
 5. Mudanças de schema, rotas, variáveis de ambiente e dependências estão **declaradas** no pedido.
 6. Evidências entregues para o que é visível (§7).

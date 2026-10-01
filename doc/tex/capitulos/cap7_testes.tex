@@ -18,15 +18,15 @@ Os objetivos da verificação e validação são: (i) demonstrar que cada requis
 A estratégia segue a proporção clássica entre tipos de teste: muitos testes de unidade, menos testes de integração e poucos testes de ponta a ponta (\emph{E2E}).
 
 \begin{table}[htb]
-\caption{Tipos de teste, alvo e ferramentas candidatas}\label{tab:tipos-teste}
+\caption{Tipos de teste, alvo e ferramentas adotadas}\label{tab:tipos-teste}
 \small
 \begin{tabularx}{\linewidth}{@{}L{2.6cm}YL{4.2cm}@{}}
 \toprule
-\textbf{Tipo} & \textbf{Alvo} & \textbf{Ferramentas candidatas (D-12)}\\
+\textbf{Tipo} & \textbf{Alvo} & \textbf{Ferramentas adotadas (D-12)}\\
 \midrule
 Unidade & Funções puras: montagem da árvore, resolução de caminho, validadores, cálculo de contraste, \en{slug} & Vitest \cite{vitest}\\
 \addlinespace
-Integração & Funções de \arq{db.js} contra um SQLite temporário; Route Handlers com sessão simulada & Vitest com banco de teste\\
+Integração & Funções de \arq{db.js} contra um SQLite temporário e isolado; Route Handlers com sessão simulada & Vitest com banco de teste (Seção~\ref{sec:testes-banco})\\
 \addlinespace
 Ponta a ponta & Fluxos completos no navegador sobre o build de produção (login, publicação, leitura, personalização) & Playwright \cite{playwright}\\
 \addlinespace
@@ -36,9 +36,25 @@ Não funcionais & Desempenho, acessibilidade, segurança e ISR & Lighthouse \cit
 \fonte{Elaborado pelos autores.}
 \end{table}
 
-\textbf{Ambiente de teste.} Cada suíte de integração usa um arquivo SQLite temporário, criado a partir das migrações, com \en{seed} controlado. Os testes de ISR e de desempenho usam \texttt{next build} seguido de \texttt{next start}, porque o comportamento de cache em \texttt{next dev} não representa a produção \cite{nextjsdocs}. Nenhum teste usa o banco de desenvolvimento nem segredos reais. O caso CT29 exige uma máquina com Docker e Compose, de preferência uma VPS limpa, para validar a instalação por imagem (\adr{ADR-011}).
+\textbf{Ambiente de teste.} Cada suíte de integração usa um arquivo SQLite temporário, criado a partir das migrações, com \en{seed} controlado (Seção~\ref{sec:testes-banco}). Os testes de ISR e de desempenho usam \texttt{next build} seguido de \texttt{next start}, porque o comportamento de cache em \texttt{next dev} não representa a produção \cite{nextjsdocs}. Nenhum teste usa o banco de desenvolvimento nem segredos reais. O caso CT29 exige uma máquina com Docker e Compose, de preferência uma VPS limpa, para validar a instalação por imagem (\adr{ADR-011}).
+
+\textbf{Ferramenta oficial.} O Vitest \cite{vitest} (versão 5, dependência de desenvolvimento) é a ferramenta oficial de testes de unidade e de integração, aprovada pelo Engenheiro Chefe (\decisao{D-12}, \adr{ADR-017}). O comando é \texttt{npm test} (\texttt{vitest run}) e a configuração está em \arq{vitest.config.mjs}, na raiz, com o mesmo alias \arq{@/} do \arq{jsconfig.json}. Os testes ficam em \arq{tests/}, por domínio: \arq{tests/setup/} (infraestrutura compartilhada), \arq{tests/dados/} e, quando criadas, \arq{tests/core/} e \arq{tests/ui/}, que reutilizam \arq{tests/setup/}. Os testes de ponta a ponta usam o Playwright \cite{playwright}.
 
 \textbf{Responsabilidades.} Cada agente implementa os testes do seu domínio (Tabela~\ref{tab:casos-teste}); o Arquiteto verifica a cobertura dos requisitos e consolida os resultados no Capítulo~\ref{cap:resultados}.
+
+\section{Testes de Integração com Banco Isolado}\label{sec:testes-banco}
+
+Os testes que exercitam o banco seguem uma estratégia de isolamento, implementada pelo agente Dados em \arq{tests/setup/} (merge M-003), que todo teste de integração deve reutilizar:
+
+\begin{enumerate}
+  \item \textbf{Banco-modelo migrado.} Uma vez por rodada, o \texttt{globalSetup} cria um diretório temporário do sistema e aplica nele as migrações reais com \texttt{prisma migrate deploy}, o mesmo comando da produção. Assim, o esquema testado é exatamente o das migrações, inclusive o índice parcial da raiz (Seção~\ref{sec:arq-indice-parcial}), que o Prisma não modela.
+  \item \textbf{Cópia por arquivo.} Antes de cada arquivo de teste, o \texttt{setupFiles} copia o banco-modelo para um arquivo próprio e define \texttt{DATABASE\_URL} com o caminho absoluto dessa cópia, antes de qualquer \texttt{import} de \arq{db.js} (que lê a variável ao ser carregado). Os arquivos de teste não interferem entre si.
+  \item \textbf{Nunca o banco de desenvolvimento.} O \arq{dev.db} e o \arq{.env} não entram em jogo: a variável é sempre definida pelo \en{setup}, e uma salvaguarda aborta o teste se o banco estiver fora do diretório temporário. Ao final da rodada o diretório é removido.
+  \item \textbf{Velocidade sem perder as constraints.} Nos bancos de teste, e só neles, usa-se \texttt{PRAGMA synchronous = OFF}; isso dispensa o \texttt{fsync} e não altera o comportamento das restrições verificadas.
+  \item \textbf{Ausência de \en{drift}.} Os testes de migração conferem que \texttt{migrate status} e \texttt{migrate diff} não acusam divergência por causa do índice parcial escrito à mão.
+\end{enumerate}
+
+A primeira rodada, no merge M-003, tem 72 testes em cinco arquivos: restrições físicas do banco (8), \arq{content-tree} (14), conteúdo em \arq{db.js} (40), configuração (6) e migração com \en{seed} (4). Cobrem os casos CT11, CT12, CT13 e CT28 e três restrições da migração inicial: \en{slug} único na raiz, \en{slug} único entre irmãos e bloqueio da exclusão de usuário que possui conteúdo. Para validar a eficácia da suíte, o agente Dados introduziu mutações temporárias (remover o índice parcial, remover o índice composto, desativar a checagem de ciclo, desativar o filtro \texttt{PUBLISHED}, executar a reordenação sem transação) e confirmou que, em cada caso, os testes esperados falharam. Testes de Route Handlers devem definir \texttt{DATABASE\_URL} antes do primeiro \texttt{import} de \arq{db.js}, como faz \arq{tests/setup/per-file.js}.
 
 \section{Casos de Teste}\label{sec:casos-teste}
 

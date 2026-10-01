@@ -8,7 +8,7 @@
 **Identificadores:** `A-nnn` avisos/tarefas do Arquiteto · `M-nnn` pedidos de merge · `P-nnn` pedidos entre domínios · `R-nnn` respostas do Arquiteto.
 **Status de um item:** `ABERTO` → `EM REVISÃO` → `VETADO` / `REABERTO` → `ATENDIDO` (o Arquiteto remove os atendidos).
 
-**Fases do planejamento** (Cap. 3 §3.2): F1 Especificação — **concluída em 2026-09-30** · F2 Fundação (dados, autenticação) — **em andamento** (M-001 e M-002 integrados; próxima entrega: A-007) · F3 Conteúdo e leitura · F4 Edição e painel · F5 Personalização · F6 Verificação e validação · F7 Consolidação da documentação.
+**Fases do planejamento** (Cap. 3 §3.2): F1 Especificação — **concluída em 2026-09-30** · F2 Fundação (dados, autenticação) — **em andamento** (M-001 a M-003 integrados; próxima entrega: A-008, Core e autenticação) · F3 Conteúdo e leitura · F4 Edição e painel · F5 Personalização · F6 Verificação e validação · F7 Consolidação da documentação.
 
 ---
 
@@ -29,13 +29,13 @@
 **O que mudou após o merge do M-001 (2026-09-30) — releiam os trechos indicados**
 - **D-01** nome oficial **Vitrine** · **D-04** implantação por **imagem Docker em VPS tradicional**, com volume para o SQLite (ADR-011; Cap. 5 §5.13 e Apêndice D) · **D-09** Prisma 7 com `better-sqlite3` (ADR-014) · **D-15** estado de publicação **`DRAFT`/`PUBLISHED`, padrão `PUBLISHED`** (ADR-012) · **D-19** **seis links sociais** opcionais no rodapé (ADR-013).
 - **Novos requisitos e regras:** **RF26** (estado de publicação), **RN15** (visível ao público só se o nó e **todos os ancestrais** forem `PUBLISHED`; senão 404), **RN16** (padrão `PUBLISHED`; mudar o estado é mudança estrutural para a revalidação), **RN17** (links sociais opcionais, só `http`/`https`). Cap. 4 §4.4 e §4.6; Cap. 5 §5.7.3 (visibilidade por estado).
-- **Novos casos de teste:** **CT31** (rascunho invisível), **CT32** (padrão `PUBLISHED` e alternância revalida o *layout*), **CT33** (validação dos links sociais); CT13, CT29 e CT30 foram ajustados. Cap. 7 §7.3.
+- **Novos casos de teste:** **CT31** (rascunho invisível), **CT32** (padrão `PUBLISHED` e alternância revalida o *layout*), **CT33** (validação dos links sociais); CT13, CT29 e CT30 foram ajustados. Cap. 7 §7.4.
 - Dicionário de dados (Apêndice A), schema (Apêndice B), DBML e diagrama de classes já refletem `status` e os seis `*Url`.
 
 **Como começar (todos)**
 1. Leiam `CLAUDE.md` e `DESENVOLVEDORES.md`, e a **leitura obrigatória do seu agente** (`DESENVOLVEDORES.md` §2). Os `.tex` podem ser lidos direto; o PDF é opcional (`bash doc/tex/build-isolado.sh`).
 2. Vejam o que falta para o seu domínio: `cd doc/tex && make pendentes AGENTE=<Dados|Core|UI>` (ou o Apêndice F). Cada item tem o **arquivo exato** a criar.
-3. Criem a branch **a partir da `main`** com o nome indicado na sua tarefa (A-003, A-004 e A-007) e implementem **conforme a especificação**, citando os IDs (RF, RN, UC, M, CT) nos commits.
+3. Criem a branch **a partir da `main`** com o nome indicado na sua tarefa (A-003, A-004 e A-008) e implementem **conforme a especificação**, citando os IDs (RF, RN, UC, M, CT) nos commits.
 4. O que a documentação não cobrir: `[RFC]` aqui no mural. Não improvisem requisito, rota ou coluna.
 5. Ao terminar, peçam merge com o **modelo** de `DESENVOLVEDORES.md` §4 (na `main`, commit só do mural).
 
@@ -47,28 +47,28 @@
 | 2 | `src/app/layout.js` com `lang="en"` e metadados do *scaffold*; `globals.css` com modo escuro automático do *scaffold* | Core (rota) + UI | Cap. 5 §5.9 · D-17 |
 | 3 | `remark-gfm` e biblioteca de realce de sintaxe não estão instalados (RF10, RF11) | UI | D-07, D-08 · **A-004** |
 
-**Ordem e dependências recomendadas (F2 → F3):** Dados (**A-007**: funções de `db.js` e `content-tree.js`) primeiro → em seguida Core (`M03`–`M06`) e UI (`M07`). Enquanto a A-007 não é integrada: Core faz `.env.example` e validadores/revalidação (independentes do banco) e UI faz `M08`/`M09` (independentes do banco).
+**Ordem e dependências recomendadas (F2 → F3):** a camada de dados está pronta (M01 e M02). Agora: Core (**A-008**: autenticação e rotas de API, depois `M05`/`M06`) e UI (`M08`/`M09`, e `M07` com as funções reais de `db.js`). O Dados fica disponível para `[PEDIDO]` do Core e da UI.
 
 ---
 
-### A-007 · [TAREFA] Arquiteto → @Dados · 2026-10-01 · EM REVISÃO (itens 1 a 4 concluídos em `feat/dados-db-e-arvore`, ver M-003; pendentes: administrador inicial, que é do Core, e a figura de evidência) — **Crie a branch `feat/dados-db-e-arvore`. Implemente as funções nomeadas CRUD em `src/lib/db.js` e a lógica de hierarquia em `src/lib/content-tree.js`, incluindo o filtro de status PUBLISHED (RN15). Adicione testes automatizados básicos para essas funções se possível.** (M02; sucede a A-006)
+### A-008 · [TAREFA] Arquiteto → @Core · 2026-10-01 · ABERTO — **Crie a branch `feat/core-auth-api`. Implemente o `better-auth`, configure as variáveis de ambiente necessárias (`.env.example`), crie o mecanismo para o administrador inicial (RF22) e inicie a exposição das funções de `src/lib/db.js` via rotas de API (Next.js App Router). Garanta que os erros `DataError` sejam mapeados para status HTTP corretos.** (Fase M03: Core e autenticação; M03, M04 e início de M05)
 
-**Contexto.** O **M-002** (`feat/migracao-inicial`) foi aprovado e integrado (merge `14e07ab`): migração inicial com o índice parcial da raiz, *seed* da configuração padrão, instância do cliente em `db.js` e `prisma`/`dotenv` em `dependencies`. A documentação já reflete o schema (DBML, Apêndices A e B, Cap. 5 §5.5.4 e a nova §5.5.5 sobre o índice parcial). Restam as funções de acesso a dados e o administrador inicial.
+**Contexto.** Os merges M-001 a M-003 entregaram o schema, a migração inicial, o *seed* da configuração padrão, as funções de `src/lib/db.js` (com o filtro `PUBLISHED`, RN15), `src/lib/content-tree.js` e 72 testes Vitest. O Core agora tem tudo de que precisa do lado dos dados. Esta tarefa abre a A-003 (que continua valendo para o que não está aqui).
 
-**Leiam:** Cap. 5 §5.5.3 (hierarquia e esboço de `buildTree`/`resolvePath`), §5.5.4, §5.5.5 e §5.7.3 (visibilidade por estado) · Cap. 6 §6.3 · Cap. 4 RF02, RF03, RF05 a RF07, RF14, RF26, RN02 a RN08, RN15 a RN17 · Cap. 7 (CT11, CT12, CT13, CT28) · ADR-017 (D-05, D-06, D-12, D-14).
+**Leiam:** Cap. 5 §5.6 (autenticação, camadas de proteção, política de cadastro), §5.7 (revalidação), §5.10 (contrato da API, **inclusive §5.10.1.1, Tabela de mapeamento de `DataError`**), §5.12 (segurança) · Cap. 4 UC08, RF01, RF20 a RF22, RN01, RN12 · Cap. 6 §6.4 e §6.5 · Cap. 7 (CT01 a CT10 em §7.4; **estratégia de banco isolado** em §7.3) · ADR-004, ADR-017 (D-03, D-10, D-11, D-13) · `node_modules/next/dist/docs/` e a documentação do better-auth 1.7.x instalada.
 
-**Tarefa**
-1. **Branch** `feat/dados-db-e-arvore`, a partir da `main` atualizada.
-2. **`src/lib/db.js`** — funções nomeadas, no mínimo: `getContentTree({ onlyPublished })`, `getContentByPath(slugs, { onlyPublished })`, `getContentById(id)`, `createContent`, `updateContent` (inclui `status`), `deleteContent`, `reorderContents` (transacional), `getConfiguration` e `updateConfiguration` (registro único `default`, *upsert*, seis links sociais). **Proponham as assinaturas no pedido de merge.** Garantam no servidor RN02 (pai deve ser COLLECTION), RN03 (a violação de unicidade do `slug` vira erro tratável), RN05, RN06 (sem ciclos ao mover) e RN08. A árvore não carrega `body`; lógica HTTP não entra aqui.
-3. **`src/lib/content-tree.js`** — `buildTree(rows, { onlyPublished })` e `resolvePath` conforme o esboço do Cap. 5 §5.5.3, com a poda por estado: um nó `DRAFT` oculta toda a sua subárvore. **Filtro de status `PUBLISHED` (RN15)** nas leituras públicas; as leituras do painel devolvem tudo, com `status`.
-4. **Testes automatizados básicos**, se possível (ADR-017: Vitest; peçam a aprovação da dependência no pedido). Rodem contra um **SQLite temporário** criado pelas migrações (nunca o `dev.db`) e cubram, no mínimo: CT11 (reordenar), CT12 (excluir coleção remove os descendentes), CT13 (caminho existente/inexistente/não publicado → nulo), CT28 (*seed* idempotente) e a unicidade do `slug` na raiz e entre irmãos. Se não for viável nesta branch, justifiquem no pedido e abram um `[PEDIDO]`.
-5. **Administrador inicial (RF22, D-03):** continua dependendo do mecanismo do Core; não criem credenciais no repositório.
+**Tarefa (nesta ordem)**
+1. **Branch** `feat/core-auth-api`, a partir da `main` atualizada.
+2. **`.env.example`** só com **nomes** de variáveis (`DATABASE_URL`, segredo e URL base do better-auth — confirmem os nomes na versão instalada, e o e-mail e a senha do administrador inicial, se o mecanismo os usar), com a exceção `!.env.example` no `.gitignore` (mantenham as linhas `*.db*`). `DATABASE_URL`: `file:./dev.db` em desenvolvimento (rodar da raiz) e caminho **absoluto** em produção (`file:/data/vitrine.db`). Declarem `"license": "MIT"` no `package.json` (ADR-015). Nunca versionem valores reais.
+3. **better-auth** (`src/lib/auth.js`, `src/lib/auth-client.js`, *handler* `src/app/api/auth/[...all]/route.js`): adaptador do Prisma/SQLite com o `prisma` de `db.js`, e-mail e senha, **cadastro público desabilitado** e *plugin* de cookies do Next.js; `src/proxy.js` (verificação **otimista**), página `/login` e *logout*. Toda rota de escrita valida a **sessão no servidor** (RF21). Casos **CT01 a CT06**.
+4. **Administrador inicial (RF22, D-03):** enviem antes um `[RFC]` com o mecanismo (padrão da ADR-017: *script* ou comando explícito na instalação, credenciais por variáveis de ambiente, sem página aberta de primeiro acesso). Ele deve ser **idempotente**, funcionar na imagem Docker (`docker compose run --rm vitrine …`) e não deixar segredo no repositório. Se precisar alterar `prisma/seed.js` (domínio do Dados), peçam por `[PEDIDO]`.
+5. **Rotas de API** (início de M04/M05), conforme a Tabela do Cap. 5 §5.10: expor as funções de `src/lib/db.js` (`getContentTree`, `getContentById`, `createContent`, `updateContent`, `deleteContent`, `reorderContents`, `getConfiguration`, `updateConfiguration`) em `src/app/api/contents`, `.../contents/[id]`, `.../contents/reorder` e `.../configuration`, com sessão em cada *handler*, formato de erro padrão e **`validators.js`** (Zod, D-11) para a validação de **formato** (RN03: regex e *slugs* reservados; RN09: cor `#RRGGBB`; RN17: URL `http(s)`), que **não** é feita por `db.js`. O autor (`authorId`) vem da sessão. Chamem `revalidatePath` conforme RN10/RN16 (`db.js` não revalida). Casos **CT07 a CT10**.
+6. **Mapeamento de `DataError` → HTTP** (Cap. 5, Tabela `tab:dataerror`): `NOT_FOUND` → 404 · `SLUG_CONFLICT` → 409 · `PARENT_NOT_FOUND`/`PARENT_NOT_COLLECTION` → 422 `INVALID_PARENT` · `CYCLE` → 422 `CYCLE_DETECTED` · `TYPE_HAS_CHILDREN`, `AUTHOR_NOT_FOUND`, `INVALID_INPUT` → 422 `VALIDATION_ERROR` · erro não previsto → 500 `INTERNAL_ERROR` (mensagem genérica, sem vazar detalhes). Centralizem a tradução em uma função única, usada por todos os *handlers*.
+7. **Testes** com o Vitest, reutilizando `tests/setup/` (criem `tests/core/`): defina `DATABASE_URL` antes do primeiro `import` de `db.js` (veja `tests/setup/per-file.js`). Cubram o mapeamento de erros e a recusa de escrita sem sessão (401).
 
-**Cuidados.** Qualquer migração nova deve **preservar o índice parcial** `contents_root_slug_key` (o Prisma não o modela). `DATABASE_URL` relativa resolve a partir do diretório de trabalho do processo; em testes, usem caminho explícito.
+**Aceite:** `npm run lint`, `npm run build` e `npm test` passam; rotas de escrita sem sessão devolvem 401 mesmo com o Proxy desativado; cada `DataError` produz o status da tabela; o administrador inicial é criado de forma idempotente; nenhum segredo no repositório.
 
-**Aceite:** RN02, RN03, RN05, RN06, RN08 e RN15 garantidas no servidor; `npm run lint` e `npm run build` passam; nenhum arquivo fora de `db.js` (e do *seed*) instancia o cliente. Evidência pendente: `doc/tex/figuras/testes/teste-migracoes.png` (migração e *seed* em banco vazio), que o M-002 deixou para esta branch ou para o Engenheiro Chefe.
-
-**No pedido de merge declarem:** assinaturas de `db.js`, dependências novas (por exemplo, Vitest) e os casos de teste executados.
+**No pedido de merge declarem:** variáveis de ambiente (nomes), dependências novas (por exemplo, Zod), rotas criadas e o mecanismo do administrador.
 
 ---
 
@@ -76,11 +76,13 @@
 
 **Leiam:** Cap. 4 §4.3.3 (UC08, UC05, UC07, UC11) e RF24, RF26, RN15 a RN17 · Cap. 5 §5.6, §5.7 (inclusive §5.7.3), §5.10, §5.12, §5.13 · Cap. 6 §6.4, §6.5, §6.10 · Apêndice D · ADR-011 (D-04) e ADR-017 (D-03, D-10, D-11, D-13) · `node_modules/next/dist/docs/` (**Proxy**, ISR, `revalidatePath`, autenticação).
 
+> **Atualização (2026-10-01):** `.env.example`, better-auth, administrador inicial e as primeiras rotas de API (itens 1, 3 e o início do 4 abaixo) passaram para a **A-008** (`feat/core-auth-api`). Esta tarefa continua valendo para os itens 2, 4 (restante de M04/M05, M06) e 5.
+
 **Ordem das branches**
-1. `feat/core-env-example` *(pequena, pode começar já)*: criar `.env.example` **só com nomes** (`DATABASE_URL`, segredo e URL base do better-auth — confirmem os nomes na documentação da versão 1.7.6) e ajustar o `.gitignore` com `!.env.example`, mantendo as linhas `*.db*` que o M-002 acrescentou. O valor de exemplo de `DATABASE_URL`: `file:./dev.db` em desenvolvimento (rodar a partir da raiz) e caminho **absoluto** em produção (`file:/data/vitrine.db`). Aproveitem para declarar `"license": "MIT"` no `package.json` (ADR-015; o arquivo `LICENSE` já está na `main`).
+1. *(movido para a A-008)*
 2. `feat/core-validators-revalidate` *(independe do banco)*: `src/lib/validators.js` (proponham Zod como dependência direta — D-11), incluindo o `status` (`DRAFT`/`PUBLISHED`) e os seis links sociais (só `http`/`https`; vazio = ausente, RN17), e `src/lib/revalidate.js` com as regras da **RN10** e da **RN16** (a mudança de estado revalida o *layout* raiz) como funções testáveis. Casos **CT24, CT33**.
-3. `feat/core-auth` *(M01 já integrado)*: better-auth com adaptador do Prisma, *handler* `/api/auth/[...all]`, cliente, `src/proxy.js` (verificação otimista), página de login, *logout* e **bootstrap do administrador com cadastro público desabilitado** — enviem um `[RFC]` com o mecanismo escolhido (D-03) antes de implementar. Casos **CT01 a CT06**.
-4. `feat/core-api-conteudo` (M04) e `feat/core-api-configuracao` (M05): rotas do contrato do Cap. 5 §5.10, com sessão em cada *handler* (RF21), formato de erro padrão e chamada a `revalidate.js`; `status` aceito em `POST`/`PATCH` (padrão `PUBLISHED`, com a opção de criar como `DRAFT`) e os seis links em `PUT /api/configuration`. Casos **CT07 a CT10, CT21, CT22, CT32**.
+3. *(movido para a A-008)*
+4. `feat/core-api-conteudo` (M04) e `feat/core-api-configuracao` (M05), no que a A-008 não cobrir: rotas do contrato do Cap. 5 §5.10, com sessão em cada *handler* (RF21), formato de erro padrão e chamada a `revalidate.js`; `status` aceito em `POST`/`PATCH` (padrão `PUBLISHED`, com a opção de criar como `DRAFT`) e os seis links em `PUT /api/configuration`. Casos **CT07 a CT10, CT21, CT22, CT32**.
 5. `feat/core-implantacao` (M13), *depois dos merges de M01/M02 e do auth*: `Dockerfile` em dois estágios, `docker-compose.yml` (um serviço, volume `./data:/data`, porta só em `127.0.0.1`), `.dockerignore` e cabeçalhos de segurança no `next.config.mjs`, conforme Cap. 5 §5.13 e Apêndice D (os esboços do apêndice não são vinculantes). Combinem com o Dados como a imagem aplica as migrações (`prisma` e `dotenv` em produção). Caso **CT29**.
 
 **Lembretes Next.js 16:** `middleware` agora é `proxy`; `params` de páginas é assíncrono (`await params`); `revalidatePath` só em *Route Handlers*/*Server Functions*; a ISR exige *runtime* Node.js e instância única (um contêiner).
@@ -94,7 +96,7 @@
 **Ordem das branches**
 1. `feat/ui-markdown` (M08): `MarkdownRenderer` com `react-markdown` + `remark-math` + `rehype-katex` (já instalados) + **`remark-gfm`** (D-08) + **realce de sintaxe** (D-07). **Peçam no pedido** a aprovação das duas dependências novas. **Sem HTML bruto** (RN11); folha de estilos do KaTeX importada uma vez. Casos **CT15, CT16, CT17, CT18**.
 2. `feat/ui-editor` (M09): editor em painel dividido com barra de ferramentas, **rascunho local** e envio à API (o envio substitui o conteúdo vigente, sem histórico de versões — D-15); a pré-visualização usa o **mesmo** `MarkdownRenderer`; o editor **exibe o estado de publicação** (`DRAFT`/`PUBLISHED`), com destaque para rascunho, e permite alterná-lo (RF26). Casos **CT19, CT20**.
-3. `feat/ui-leitura-publica` (M07), **depois do merge de M02** (Dados): `Navbar`, `Sidebar` (item ativo, recolher níveis, teclado) e `Footer` com os ícones **só das redes que têm link preenchido** (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch; `noopener noreferrer`; RN17) e o texto de direitos gerado do nome do site e do ano. Enquanto isso, construam os componentes em `src/components/layout/` com **dados simulados**, sem importar `db.js`. Casos **CT26, CT27, CT33**.
+3. `feat/ui-leitura-publica` (M07), **M02 já integrado (merge M-003)**: `Navbar`, `Sidebar` (item ativo, recolher níveis, teclado) e `Footer` com os ícones **só das redes que têm link preenchido** (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch; `noopener noreferrer`; RN17) e o texto de direitos gerado do nome do site e do ano. Enquanto isso, construam os componentes em `src/components/layout/` com **dados simulados**, sem importar `db.js`. Casos **CT26, CT27, CT33**.
 4. `globals.css` com os tokens de tema (Cap. 5 §5.9) sem fixar cores. `lang="pt-BR"` e o *layout* raiz são arquivos de rota do Core: combinem por `[PEDIDO]`.
 
 *(O seletor de estado na árvore do painel — M10 — e o formulário dos links sociais — M11 — ficam para as fases F4 e F5.)*
@@ -117,35 +119,7 @@ Se um valor padrão da ADR-017 ou uma regra aprovada se mostrar inadequado na im
 
 ## Solicitações de merge
 
-### M-003 · [MERGE] Dados → @Arquiteto · 2026-10-01 · branch `feat/dados-db-e-arvore` (último commit `2995ba3`) · ABERTO
-- **Módulo(s) / IDs:** M02 e conclusão de M01 · RF02, RF03, RF14, RF23, RF26 · RN02, RN03, RN05, RN06, RN07, RN08, RN15, RN16, RN17 · RNF08 · **CT11, CT12, CT13, CT28**
-- **Resumo (3–5 linhas):** Implementa as funções de acesso a dados em `src/lib/db.js` e a hierarquia em `src/lib/content-tree.js` (módulo puro), com o filtro `PUBLISHED` (RN15) nas leituras públicas. Introduz o **Vitest** (a aprovação da dependência é pedida abaixo) e **72 testes automatizados** contra um SQLite temporário criado pelas migrações reais; entre eles, as três constraints físicas da migração `init` (slug único na raiz, slug único entre irmãos e exclusão de usuário com conteúdo bloqueada).
-- **Seções da documentação consultadas:** Cap. 5 §5.5.3, §5.5.4, §5.5.5, §5.7.3 e §5.10 (contrato da API, para alinhar o formato dos lotes e os campos) · Cap. 4 RN02 a RN08, RN15 a RN17 · Cap. 7 (CT11, CT12, CT13, CT28) · ADR-017 (D-05, D-06, D-12, D-14)
-- **Mudanças que exigem atualizar a documentação:**
-  - **Schema/migrações:** nenhuma (não há migração nova; o índice parcial `contents_root_slug_key` está preservado).
-  - **Dependência nova (aprovação pedida):** `vitest@^5.0.3` em `devDependencies`. Motivo: ferramenta de teste definida em ADR-017 (D-12) e no Cap. 7; licença MIT; alternativa considerada: Jest (mais configuração para ESM e alias); impacto no *bundle* da aplicação: nenhum (só desenvolvimento). Nenhum novo `postinstall` precisou de aprovação em `allowScripts`.
-  - **Arquivos compartilhados/novos:** `package.json` (script `"test": "vitest run"`) e `package-lock.json`; `vitest.config.mjs` (raiz; alias `@` igual ao `jsconfig.json`, `globalSetup` e `setupFiles`); pasta `tests/` (`tests/setup/` e `tests/dados/`). A convenção de pasta não estava definida; sugiro registrá-la no Cap. 7. @Core e @UI podem criar `tests/core/` e `tests/ui/` e reutilizar `tests/setup/`.
-  - **Rotas e variáveis de ambiente:** nenhuma.
-- **Assinaturas de `src/lib/db.js`** (todas assíncronas, exceto onde indicado; os tipos completos estão em JSDoc no arquivo):
-  - `prisma` (instância única) · `class DataError extends Error { code, message, details }` · `CONTENT_TYPES`, `CONTENT_STATUSES`, `CONFIGURATION_ID` (constantes)
-  - `getContentTree({ onlyPublished = false } = {}) → ContentNode[]`: árvore **sem `body`**, com `status`; `true` aplica a poda da RN15.
-  - `getContentByPath(slugs: string[], { onlyPublished = false } = {}) → Content | null`: com o corpo; `null` se o caminho não existe ou (com `onlyPublished`) se o nó ou algum ancestral é rascunho. Resolve o 404 de CT13.
-  - `getContentById(id) → Content | null`: com o corpo, em qualquer estado (painel).
-  - `createContent({ title, slug, type, authorId, parentId = null, body = null, order?, status = "PUBLISHED" }) → Content`: sem `order`, entra no fim do nível.
-  - `updateContent(id, { title?, slug?, body?, type?, status?, parentId?, order? }) → Content`: parcial; `authorId`, `id` e datas são ignorados (RN13); mudar de pai sem `order` coloca o nó no fim do novo nível.
-  - `deleteContent(id) → { id }`: exclusão em cascata no banco (RN07).
-  - `reorderContents([{ id, parentId?, order }]) → [{ id, parentId, order }]`: **uma transação**; itens aplicados em sequência e validados contra o estado resultante dos anteriores; `parentId` omitido mantém o pai.
-  - `getConfiguration() → Configuration` (cria o registro `default` se ausente, RN08) · `updateConfiguration(patch) → Configuration` (*upsert*; identidade, cores e os seis links; campos opcionais com `""` ou `null` viram `null`, RN17).
-  - **Códigos de `DataError`** (sugestão de tradução para o Core): `NOT_FOUND` → 404 · `SLUG_CONFLICT` → 409 · `PARENT_NOT_FOUND`, `PARENT_NOT_COLLECTION`, `CYCLE`, `TYPE_HAS_CHILDREN`, `AUTHOR_NOT_FOUND`, `INVALID_INPUT` → 422.
-  - **`src/lib/content-tree.js`** (puro, sem Prisma): `buildTree(rows, { onlyPublished })`, `resolvePath(roots, slugs)`, `wouldCreateCycle(parentOf, nodeId, newParentId)`.
-- **Desvios da especificação:** nenhum quanto ao contrato do Cap. 5 §5.10. Decisões de projeto a registrar: (1) a **validação de formato** (regex e slugs reservados da RN03, URL `http(s)` da RN17, cor `#RRGGBB` da RN09) **continua sendo do Core** (`validators.js`); `db.js` só garante o que depende do estado do banco (unicidade, tipo do pai, ciclo, existência) e o domínio de `type`, `status` e `order`. (2) Em `reorderContents`, a validação em sequência pode recusar um lote cujo estado final seria válido mas que passa por um ciclo intermediário; a ordem dos itens importa nesse caso. (3) Para o RN14 (coleção redireciona ao primeiro documento descendente publicado), não há função dedicada: use `getContentTree({ onlyPublished: true })` e `resolvePath`.
-- **Verificação:** `npm run lint` ok · `npm run build` ok · `npm test` ok: **72 testes em 5 arquivos** (constraints físicas 8 · `content-tree` 14 · `db.js` conteúdo 40 · configuração 6 · migração e seed 4) · **CT11** (reordenar), **CT12** (excluir coleção remove descendentes), **CT13** (existente, inexistente e não publicado → nulo) e **CT28** (migração em banco vazio; seed executado duas vezes sem duplicar e sem sobrescrever personalização) executados.
-  - **Constraints físicas pedidas:** slug único na raiz (índice parcial manual) · slug único entre irmãos (mesmo `parentId`) · bloqueio da exclusão de usuário que possui conteúdo (`Restrict`); mais o aceite do mesmo slug em pais diferentes e a cascata da hierarquia.
-  - **Isolamento:** o `globalSetup` cria um banco-modelo com `prisma migrate deploy` em diretório temporário do sistema; cada arquivo de teste usa uma cópia própria, com `DATABASE_URL` sempre definida pelo setup (caminho absoluto), e o diretório é removido ao final. O `dev.db` não é aberto nem alterado; os testes rodaram com `DATABASE_URL` ausente do ambiente. Os testes também validam que `migrate status` e `migrate diff` não acusam *drift* por causa do índice parcial.
-  - **Prova de que os testes detectam falhas (mutações temporárias, já revertidas):** remover o índice parcial, remover o índice composto, desativar a checagem de ciclo, desativar o filtro `PUBLISHED` e executar `reorderContents` sem transação fizeram falhar, em cada caso, os testes esperados; com o código restaurado, 72 de 72 passam.
-- **Fora do escopo / pendente:** (a) **administrador inicial (RF22, D-03)**, que depende do mecanismo do Core; (b) a figura `doc/tex/figuras/testes/teste-migracoes.png` (captura do terminal com migração e seed em banco vazio) **não foi gerada** — o agente não captura tela; sugiro que o Engenheiro Chefe a produza com `npm test` (o arquivo `migration-seed.test.js` mostra a migração e o seed em banco vazio) ou com `npx prisma migrate deploy && npx prisma db seed` em um banco novo; (c) nenhuma rota consome as funções ainda (M04 e M05 são do Core).
-- **Observações para o Core:** `db.js` lê `DATABASE_URL` ao ser carregado e lança erro se ausente; em testes de rotas, defina-a antes do primeiro `import` (veja `tests/setup/per-file.js`). As funções de escrita **não** chamam `revalidatePath` (RN10): a revalidação é da camada de rota.
-- **Sugestão de texto para o Arquiteto (opcional):** no Cap. 7, descrever a estratégia de integração (banco-modelo migrado + cópia por arquivo, `synchronous = OFF` só nos testes) e o comando `npm test`; no Cap. 6 §6.3, marcar M01 e M02 como concluídos após o merge.
+_(nenhuma)_
 
 ## Pedidos entre domínios
 

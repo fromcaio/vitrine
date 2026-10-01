@@ -110,7 +110,7 @@ O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório n
 |-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
 |-- public/                   # ativos estáticos do scaffold
 |-- src/app/                  # favicon.ico, globals.css, layout.js, page.js
-|-- src/lib/db.js             # instância do PrismaClient (Dados); funções ainda não implementadas
+|-- src/lib/db.js             # PrismaClient e funções de dados; content-tree.js (Dados)
 |-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
 |-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
 |-- package.json  package-lock.json  skills-lock.json
@@ -220,7 +220,7 @@ A alternativa de gravar o caminho materializado em cada nó foi descartada nesta
 
 \subsection{Observações sobre o Esquema Atual}\label{sec:arq-observacoes-schema}
 
-A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que foram entradas para o agente Dados. O merge M-001, aprovado em 30/09/2026, integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}). O merge M-002, aprovado em 01/10/2026, resolveu as observações 1, 3, 4 e 5 na migração inicial e manteve a 2 como validação na aplicação; a observação 8 depende das funções de acesso a dados (tarefa A-007).
+A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que foram entradas para o agente Dados. O merge M-001, aprovado em 30/09/2026, integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}). O merge M-002, aprovado em 01/10/2026, resolveu as observações 1, 3, 4 e 5 na migração inicial e manteve a 2 como validação na aplicação; o merge M-003 aplicou a observação 8 na camada de dados (filtro \texttt{PUBLISHED} nas leituras públicas, Seção~\ref{sec:arq-visibilidade}).
 
 \begin{longtable}{@{}L{0.8cm}L{5.6cm}L{2.2cm}L{4.8cm}@{}}
 \caption{Observações sobre o esquema atual do Prisma}\label{tab:obs-schema}\\
@@ -262,7 +262,7 @@ Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma
 
 \subsection{Migrações e Dados Iniciais}
 
-As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados e o administrador inicial ainda não existem (tarefa A-007 do agente Dados; \decisao{D-03} para o administrador). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados foram integradas pelo merge M-003; o administrador inicial ainda não existe e depende do mecanismo do Core (\decisao{D-03}; tarefa A-008). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
 
 \section{Autenticação e Autorização}\label{sec:arq-auth}
 
@@ -451,6 +451,41 @@ As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). 
 \end{lstlisting}
 
 Códigos de erro previstos: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{NOT_FOUND}, \arq{SLUG_CONFLICT}, \arq{INVALID_PARENT}, \arq{CYCLE_DETECTED} e \arq{INTERNAL_ERROR}.
+
+\subsubsection{Erros da Camada de Dados}\label{sec:arq-dataerror}
+
+As funções de \arq{src/lib/db.js} lançam a classe \texttt{DataError} (com os campos \texttt{code}, \texttt{message} e \texttt{details}) quando uma regra que depende do estado do banco é violada: existência, unicidade, tipo do pai, ciclo e domínio de \texttt{type}, \texttt{status} e \texttt{order}. A validação de \emph{formato} (expressão regular e \en{slugs} reservados da RN03, URL \texttt{http}/\texttt{https} da RN17, cor \texttt{\#RRGGBB} da RN09) permanece nos validadores do Core (\arq{validators.js}). Cada Route Handler captura o \texttt{DataError} e o traduz conforme a Tabela~\ref{tab:dataerror}; qualquer outro erro vira \texttt{500} com o código \arq{INTERNAL_ERROR} e mensagem genérica, sem expor detalhes internos. As funções de escrita não chamam \arq{revalidatePath} (RN10): a revalidação é da camada de rota.
+
+\begin{table}[htb]
+\caption{Mapeamento dos códigos de \texttt{DataError} para a resposta HTTP}\label{tab:dataerror}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.7cm}L{1.3cm}L{3.3cm}Y@{}}
+\toprule
+\textbf{Código do \texttt{DataError}} & \textbf{HTTP} & \textbf{Código da API} & \textbf{Situação}\\
+\midrule
+\arq{NOT_FOUND} & 404 & \arq{NOT_FOUND} & Conteúdo (ou, ao reordenar, algum item do lote) inexistente\\
+\addlinespace
+\arq{SLUG_CONFLICT} & 409 & \arq{SLUG_CONFLICT} & \en{Slug} repetido entre irmãos ou na raiz (RN03)\\
+\addlinespace
+\arq{PARENT_NOT_FOUND} & 422 & \arq{INVALID_PARENT} & O pai informado não existe\\
+\addlinespace
+\arq{PARENT_NOT_COLLECTION} & 422 & \arq{INVALID_PARENT} & O pai informado é um documento (RN02)\\
+\addlinespace
+\arq{CYCLE} & 422 & \arq{CYCLE_DETECTED} & O destino é o próprio nó ou um descendente (RN06)\\
+\addlinespace
+\arq{TYPE_HAS_CHILDREN} & 422 & \arq{VALIDATION_ERROR} & Coleção com filhos não pode virar documento (\texttt{details.field} = \texttt{type})\\
+\addlinespace
+\arq{AUTHOR_NOT_FOUND} & 422 & \arq{VALIDATION_ERROR} & Autor inexistente; como o autor vem da sessão, indica sessão inconsistente\\
+\addlinespace
+\arq{INVALID_INPUT} & 422 & \arq{VALIDATION_ERROR} & Campo obrigatório ausente ou fora do domínio (\texttt{type}, \texttt{status}, \texttt{order}, lote de reordenação)\\
+\addlinespace
+(outro erro) & 500 & \arq{INTERNAL_ERROR} & Falha não prevista; registrar no servidor, resposta genérica\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir dos códigos de \arq{src/lib/db.js} e da sugestão do agente Dados (merge M-003).}
+\end{table}
+
+Duas observações de implementação. Em \texttt{reorderContents}, os itens do lote são aplicados em sequência e validados contra o estado resultante dos anteriores, de modo que a ordem dos itens importa quando há ciclo intermediário. E o redirecionamento de uma coleção ao primeiro documento publicado (RN14) não tem função própria: o Core usa \texttt{getContentTree} com \texttt{onlyPublished} e \texttt{resolvePath}.
 
 \subsection{Contrato dos \emph{Endpoints}}
 
