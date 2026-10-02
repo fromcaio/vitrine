@@ -240,4 +240,50 @@ describe("tokens de tema em globals.css (RF19, D-17)", () => {
   it("não tem modo escuro automático", () => {
     expect(css).not.toContain("prefers-color-scheme");
   });
+
+  it("define a cor dos links do conteúdo como a do texto, e não a primária", () => {
+    // Com a paleta padrão, a primária teria 3,68:1 sobre o branco (Cap. 5 §5.9.1).
+    expect(css).toContain("--vitrine-link: var(--vitrine-foreground);");
+    expect(contrastRatio(rootVariable("--vitrine-foreground"), rootVariable("--vitrine-background"))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("tokens do realce de código em globals.css (RF10, ADR-025)", () => {
+  const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+  const ROLES = ["foreground", "comment", "keyword", "string", "number", "function", "type", "variable", "deletion"];
+
+  /**
+   * Variáveis --vitrine-code-* declaradas em um bloco do CSS.
+   * @param {string} selector seletor do bloco, como aparece no arquivo
+   * @returns {Record<string, string>}
+   */
+  function codeTokensOf(selector) {
+    const start = css.indexOf(`\n${selector} {`);
+    if (start === -1) throw new Error(`Bloco ${selector} não encontrado em globals.css.`);
+    const block = css.slice(start, css.indexOf("\n}", start));
+    return Object.fromEntries(
+      [...block.matchAll(/--vitrine-code-([a-z]+):\s*(#[0-9a-fA-F]{6});/g)].map(([, role, color]) => [role, color]),
+    );
+  }
+
+  it.each([
+    ["claro", ":root"],
+    ["noturno", ".dark"],
+  ])("o tema %s declara todas as cores, com contraste AA sobre o fundo do bloco", (_name, selector) => {
+    const tokens = codeTokensOf(selector);
+    expect(Object.keys(tokens).sort()).toEqual(["background", ...ROLES].sort());
+    for (const role of ROLES) {
+      expect(contrastRatio(tokens[role], tokens.background), `${selector} ${role}`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("o tema noturno é de fato escuro, e o claro, claro", () => {
+    expect(readableTextOn(codeTokensOf(":root").background)).toBe("#000000");
+    expect(readableTextOn(codeTokensOf(".dark").background)).toBe("#FFFFFF");
+  });
+
+  it("a variante noturna só vale sob a classe .dark", () => {
+    expect(css).toContain("@custom-variant dark (&:where(.dark, .dark *));");
+    expect(css).not.toContain("prefers-color-scheme");
+  });
 });

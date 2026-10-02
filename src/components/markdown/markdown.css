@@ -1,0 +1,274 @@
+/*
+ * Tipografia do conteúdo em Markdown (M08; RF09 a RF11). Importada só por MarkdownRenderer.js,
+ * de modo que a folha acompanha o componente e não pesa nas páginas que não o usam.
+ *
+ * Nenhuma cor é fixada aqui: tudo vem dos tokens de src/app/globals.css (RF19), para que o
+ * conteúdo siga a paleta do dono do espaço e o modo noturno (classe .dark no <html>; ADR-025).
+ */
+
+.vitrine-markdown {
+  color: var(--vitrine-foreground);
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.vitrine-markdown > :first-child {
+  margin-top: 0;
+}
+
+.vitrine-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------------------------------------------------------------- Títulos */
+
+.vitrine-markdown :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.6em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.vitrine-markdown h1 {
+  font-size: 2rem;
+}
+
+.vitrine-markdown h2 {
+  font-size: 1.5rem;
+}
+
+.vitrine-markdown h3 {
+  font-size: 1.25rem;
+}
+
+.vitrine-markdown h4 {
+  font-size: 1.125rem;
+}
+
+.vitrine-markdown h5 {
+  font-size: 1rem;
+}
+
+.vitrine-markdown h6 {
+  font-size: 0.875rem;
+}
+
+/* ---------------------------------------------------------------- Blocos */
+
+.vitrine-markdown :is(p, ul, ol, blockquote, pre, hr),
+.vitrine-markdown-table,
+.vitrine-markdown .katex-display {
+  margin: 1em 0;
+}
+
+.vitrine-markdown ul {
+  padding-left: 1.5em;
+  list-style: disc;
+}
+
+.vitrine-markdown ol {
+  padding-left: 1.5em;
+  list-style: decimal;
+}
+
+.vitrine-markdown li > :is(ul, ol) {
+  margin: 0.25em 0;
+}
+
+.vitrine-markdown li + li {
+  margin-top: 0.25em;
+}
+
+/* Listas de tarefas (GFM): a caixa substitui o marcador. */
+.vitrine-markdown ul.contains-task-list {
+  padding-left: 0.25em;
+  list-style: none;
+}
+
+.vitrine-markdown .task-list-item input {
+  margin-right: 0.5em;
+}
+
+.vitrine-markdown blockquote {
+  padding-left: 1em;
+  border-left: 4px solid var(--vitrine-border-strong);
+  color: var(--vitrine-muted);
+}
+
+.vitrine-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--vitrine-border);
+}
+
+.vitrine-markdown img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------- Texto */
+
+.vitrine-markdown strong {
+  font-weight: 600;
+}
+
+.vitrine-markdown del {
+  text-decoration: line-through;
+}
+
+/*
+ * Links: a cor é a do token --vitrine-link (por padrão, a do texto), e o sublinhado os distingue
+ * do restante. Assim o contraste de 4,5:1 não depende da paleta do dono (Cap. 5 §5.9.1): a cor
+ * primária padrão, por exemplo, tem só 3,68:1 sobre o branco.
+ */
+.vitrine-markdown a {
+  color: var(--vitrine-link);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.vitrine-markdown a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ---------------------------------------------------------------- Tabelas (GFM) */
+
+/* A tabela rola dentro do próprio quadro em telas estreitas (RNF06). */
+.vitrine-markdown-table {
+  overflow-x: auto;
+}
+
+.vitrine-markdown table {
+  border-collapse: collapse;
+}
+
+.vitrine-markdown :is(th, td) {
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--vitrine-border);
+  vertical-align: top;
+}
+
+.vitrine-markdown th {
+  background: var(--vitrine-surface);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- Código */
+
+.vitrine-markdown code {
+  padding: 0.125em 0.375em;
+  border-radius: 0.25rem;
+  background: var(--vitrine-code-background);
+  color: var(--vitrine-code-foreground);
+  font-size: 0.875em;
+}
+
+.vitrine-markdown pre {
+  padding: 1em;
+  overflow-x: auto;
+  border: 1px solid var(--vitrine-border);
+  border-radius: 0.5rem;
+  background: var(--vitrine-code-background);
+  color: var(--vitrine-code-foreground);
+  line-height: 1.55;
+  tab-size: 2;
+}
+
+.vitrine-markdown pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 0.875rem;
+}
+
+/*
+ * Realce de sintaxe (RF10): o rehype-highlight só marca os trechos com classes hljs-*; as cores
+ * são os tokens --vitrine-code-*, que têm um valor claro em :root e outro sob .dark.
+ */
+.vitrine-markdown :is(.hljs-comment, .hljs-quote) {
+  color: var(--vitrine-code-comment);
+  font-style: italic;
+}
+
+.vitrine-markdown :is(.hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-name, .hljs-tag) {
+  color: var(--vitrine-code-keyword);
+}
+
+.vitrine-markdown :is(.hljs-string, .hljs-regexp, .hljs-char, .hljs-addition) {
+  color: var(--vitrine-code-string);
+}
+
+.vitrine-markdown :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet) {
+  color: var(--vitrine-code-number);
+}
+
+.vitrine-markdown :is(.hljs-title, .hljs-section, .hljs-selector-id, .hljs-selector-class) {
+  color: var(--vitrine-code-function);
+}
+
+.vitrine-markdown :is(.hljs-type, .hljs-built_in, .hljs-title.class_, .hljs-selector-attr, .hljs-selector-pseudo) {
+  color: var(--vitrine-code-type);
+}
+
+.vitrine-markdown :is(.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-property, .hljs-link) {
+  color: var(--vitrine-code-variable);
+}
+
+.vitrine-markdown :is(.hljs-meta, .hljs-operator, .hljs-punctuation, .hljs-subst, .hljs-params) {
+  color: var(--vitrine-code-foreground);
+}
+
+.vitrine-markdown .hljs-deletion {
+  color: var(--vitrine-code-deletion);
+}
+
+.vitrine-markdown .hljs-emphasis {
+  font-style: italic;
+}
+
+.vitrine-markdown .hljs-strong {
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- Fórmulas (KaTeX) */
+
+/* Uma fórmula em bloco mais larga que a coluna rola dentro do próprio quadro (RNF06). */
+.vitrine-markdown .katex-display {
+  padding: 0.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Fórmula inválida: o texto-fonte fica visível, com um rótulo, em vez de derrubar a página. */
+.vitrine-markdown .katex-error {
+  color: var(--vitrine-danger);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+}
+
+.vitrine-markdown .vitrine-math-error-label {
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- Notas de rodapé (GFM) */
+
+.vitrine-markdown .footnotes {
+  margin-top: 2em;
+  padding-top: 1em;
+  border-top: 1px solid var(--vitrine-border);
+  font-size: 0.875em;
+}
+
+/* O título da seção de notas é só para leitores de tela. */
+.vitrine-markdown .vitrine-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  border: 0;
+  white-space: nowrap;
+}

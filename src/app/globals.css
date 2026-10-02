@@ -35,7 +35,47 @@
   --vitrine-focus: #171717;
   --vitrine-focus-halo: #ffffff;
 
+  /*
+   * Links do conteúdo (M08): por padrão, a cor do texto, distinguida pelo sublinhado. O
+   * contraste de 4,5:1 fica garantido com qualquer paleta, o que a cor primária não garante
+   * (Cap. 5 §5.9.1). Quem quiser links coloridos sobrescreve esta variável com uma cor já
+   * verificada contra o fundo.
+   */
+  --vitrine-link: var(--vitrine-foreground);
+
+  /*
+   * Realce de código (M08): tema claro. Cada cor tem pelo menos 4,5:1 sobre o fundo do bloco;
+   * a variante noturna está em .dark, logo abaixo.
+   */
+  --vitrine-code-background: #f5f5f5;
+  --vitrine-code-foreground: #171717;
+  --vitrine-code-comment: #525252;
+  --vitrine-code-keyword: #be123c;
+  --vitrine-code-string: #047857;
+  --vitrine-code-number: #92400e;
+  --vitrine-code-function: #6d28d9;
+  --vitrine-code-type: #155e75;
+  --vitrine-code-variable: #1d4ed8;
+  --vitrine-code-deletion: #b91c1c;
+
   color-scheme: light;
+}
+
+/*
+ * Modo noturno (ADR-025): vale sob a classe .dark no <html>. Por ora só o realce de código tem
+ * a variante noturna; os neutros noturnos e a alternância são da próxima entrega.
+ */
+.dark {
+  --vitrine-code-background: #171717;
+  --vitrine-code-foreground: #f5f5f5;
+  --vitrine-code-comment: #a3a3a3;
+  --vitrine-code-keyword: #fda4af;
+  --vitrine-code-string: #6ee7b7;
+  --vitrine-code-number: #fcd34d;
+  --vitrine-code-function: #c4b5fd;
+  --vitrine-code-type: #67e8f9;
+  --vitrine-code-variable: #93c5fd;
+  --vitrine-code-deletion: #fca5a5;
 }
 
 @theme inline {
