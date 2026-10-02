@@ -43,7 +43,7 @@ Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
    `git diff --name-only main...feat/x | grep -E '^(MURAL_DE_AGENTES\.md|CLAUDE\.md|ARQUITETO\.md|DESENVOLVEDORES\.md|doc/(ref/|diagrams/src/|tex/.*\.(tex|sty|bib|cls)))'`
 3. **Conformidade com a especificação:** o comportamento implementado atende aos RF/RN/UC citados; contratos de API (Cap. 5 §5.10), modelo de dados (§5.5), regras de dependência (§5.3.3), segurança (§5.12) e tema/Markdown (§5.8–§5.9) respeitados.
 4. **Mudanças declaradas:** schema, rotas, variáveis de ambiente e dependências novas constam do pedido e são compatíveis com a documentação — ou vieram acompanhadas de `[RFC]` já aceito.
-5. **Qualidade:** `npm run lint` e `npm run build` passam; testes aplicáveis (CT do Cap. 7) executados e citados.
+5. **Qualidade:** `npm run lint` e `npm run build` passam; testes aplicáveis (CT do Cap. 7) executados e citados. Se o pedido tocar `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `next.config.mjs` ou `security-headers.mjs`, construa a imagem na cópia descartável e repita o roteiro do Apêndice D em contêiner (a construção exige 6 GB livres; confira `docker info` antes, não inicie nem reinicie o Docker por conta própria e remova só o que você criou), confira os cabeçalhos por HTTP e verifique a CSP no navegador sobre o *build* de produção (Cap. 5 §5.12).
 6. **Higiene:** nenhum segredo, banco (`*.db`), `.next/`, `node_modules/` ou arquivo gerado versionado (`git diff main...feat/x | grep -i -E "(secret|password|token|api[_-]?key)\s*="`).
 7. **Evidências:** capturas/figuras nos caminhos exatos pedidos pelos *placeholders* quando há mudança visível.
 8. **Commits:** Conventional Commits, com IDs no rodapé; histórico inteligível.

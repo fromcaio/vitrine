@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, e as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, e a ADR-022 em 02/10/2026, após o merge M-008; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begingroup\small\renewcommand{\arraystretch}{1.25}
 \begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
@@ -62,6 +62,7 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-019} & Manter o Prisma 7 apesar de quatro alertas do \texttt{npm audit} & A correção automática rebaixaria o Prisma para a versão 6\\
 \adr{ADR-020} & Texto sobre a cor primária escolhido por \texttt{readableTextOn} e indicador de foco neutro & O branco fixo reprova o nível AA com a paleta padrão, e o foco não pode depender de uma cor configurável\\
 \adr{ADR-021} & Configuração do site lida em execução, nunca no \en{build} & O estágio de \en{build} da imagem não tem banco, e uma consulta ali faz o \texttt{next build} falhar\\
+\adr{ADR-022} & Cabeçalhos de segurança e CSP sem \en{nonce}, só em produção & O \en{nonce} exigiria renderização dinâmica de todas as páginas e desligaria a ISR; os \en{scripts} de hidratação e o tema pedem \texttt{'unsafe-inline'}\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup
@@ -109,7 +110,7 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-007: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-008: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), a imagem Docker e os cabeçalhos de segurança, os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
@@ -120,6 +121,8 @@ O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório n
 |-- scripts/create-admin.js   # npm run admin:create (Core)
 |-- tests/                    # setup/ (comum), dados/, core/ e ui/ (Vitest)
 |-- vitest.config.mjs         # configuração do Vitest (alias @, banco temporário)
+|-- Dockerfile  docker-compose.yml  .dockerignore   # imagem e serviço (M13, Core)
+|-- security-headers.mjs      # cabeçalhos de segurança e CSP (Core; ADR-022)
 |-- .env.example              # nomes das variáveis de ambiente, sem valores
 |-- public/                   # ativos estáticos do scaffold
 |-- src/proxy.js              # verificação otimista de sessão em /admin (Core)
@@ -175,6 +178,7 @@ scripts/create-admin.js           # npm run admin:create: administrador inicial 
 tests/                            # setup/ (comum), dados/, core/ e ui/ (Vitest)
 vitest.config.mjs                 # configuração dos testes
 Dockerfile  docker-compose.yml  .dockerignore   # implantação (M13)
+security-headers.mjs              # cabeçalhos de segurança e CSP, usados por next.config.mjs (Core)
 .env.example                      # nomes das variáveis de ambiente, sem valores
 \end{lstlisting}
 
@@ -569,7 +573,7 @@ A leitura da configuração para o \en{layout} raiz, para os metadados e para o 
 
 \textbf{Páginas estáticas.} O \en{build} não consulta o banco; por isso as páginas pré-renderizadas (hoje, a inicial, que é a do \en{scaffold}, e a página \arq{/_not-found}) saem dele \emph{sem} o atributo \texttt{style} e com o título padrão (``Vitrine''), e valem os padrões do \arq{globals.css}. Elas passam a refletir a configuração do banco na \emph{primeira revalidação}: a primeira mutação pela API que revalida o \en{layout} raiz (alterar a configuração ou mudar a estrutura ou o estado do conteúdo; Tabela~\ref{tab:revalidacao}) ou, nas páginas que declararem \texttt{revalidate}, o vencimento do prazo. As rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração. Foi verificado por HTTP, sobre o \en{build} de produção, em duas rodadas independentes (a do Core e a do Arquiteto): antes de qualquer revalidação, \arq{/} e a página 404 respondem \texttt{HIT} com os padrões do CSS; depois de um \texttt{PUT /api/configuration}, a primeira requisição a cada uma responde \texttt{MISS} (regeneração) e a seguinte, \texttt{HIT}, ambas com a nova paleta e o novo nome, sem novo \en{build}.
 
-\textbf{Consequência para a implantação.} Cada nova imagem traz um \arq{.next} novo, e as páginas regeneradas em execução ficam no sistema de arquivos do contêiner, e não no volume do banco. Portanto, ao recriar o contêiner com uma nova imagem, as páginas estáticas devem voltar aos padrões do CSS até a primeira revalidação (inferência não ensaiada em contêiner). Para a 404 e a página inicial do \en{scaffold}, o efeito é só visual. Para as páginas públicas (M07), a regra é \emph{não pré-renderizá-las com dados no \en{build}}: \texttt{generateStaticParams} devolve apenas o que o banco informar (nada, em um \en{build} sem banco) e as páginas nascem sob demanda, na primeira visita, com os dados e o tema do banco em execução. Um passo posterior à implantação que dispare a revalidação (M13) e o \texttt{revalidate} por tempo nas páginas públicas (M07) são as alternativas para o que restar estático.
+\textbf{Consequência para a implantação (comportamento por projeto).} As páginas regeneradas em execução ficam no sistema de arquivos do contêiner (\arq{.next/server/app/}), e não no volume do banco. Foi medido em contêiner, com a mesma imagem, pelo Core (merge M-008) e, de forma independente, pelo Arquiteto: depois de uma revalidação, um \texttt{docker compose restart} \emph{mantém} as páginas com o tema do banco; já a \emph{recriação} do contêiner --- \texttt{docker compose down} seguido de \texttt{up -d}, uma nova imagem ou \texttt{up -d -{}-force-recreate} --- descarta esse sistema de arquivos, e a página inicial e a 404 voltam a responder \texttt{HIT} com os padrões do CSS e o título ``Vitrine'', enquanto \arq{/login} e \arq{/admin}, dinâmicas, já nascem com a paleta e o nome do banco; a sessão do administrador e a configuração permanecem no volume. Salvar a configuração --- um \texttt{PUT /api/configuration} autenticado, mesmo sem alterar nada, que no painel será o salvamento do formulário de configurações (M11, ainda inexistente) --- revalida o \en{layout} raiz: a primeira requisição seguinte responde \texttt{MISS}, já com a paleta e o nome do banco, e as demais, \texttt{HIT}. Isso é \textbf{comportamento por projeto (\en{by design})} da \adr{ADR-021}, e não um defeito: o \en{build} não tem banco e, portanto, não pode embutir o tema nas páginas estáticas. Um passo automático depois do \texttt{up -d} exigiria as credenciais do administrador na implantação ou uma rota de revalidação nova e protegida, que o contrato da API (\adr{ADR-018}) não prevê; por isso o passo é manual e consta do Apêndice~\ref{ap:implantacao} (``Atualização''). Para a 404 e a página inicial do \en{scaffold}, o efeito é só visual. Para as páginas públicas (M07), a regra é \emph{não pré-renderizá-las com dados no \en{build}}: \texttt{generateStaticParams} devolve apenas o que o banco informar (nada, em um \en{build} sem banco) e as páginas nascem sob demanda, na primeira visita, com os dados e o tema do banco em execução; o \texttt{revalidate} por tempo nas páginas públicas (M07) é a alternativa para o que restar estático.
 
 \section{Interface de Programação HTTP}\label{sec:arq-api}
 
@@ -754,7 +758,7 @@ A Tabela~\ref{tab:ameacas} relaciona as ameaças consideradas aos controles prev
 \endhead
 \bottomrule
 \endfoot
-XSS armazenado & Markdown com HTML ou URL \texttt{javascript:} & Sem HTML bruto (RN11); manter a transformação de URL do \arq{react-markdown}; revisar qualquer \en{plugin} novo\\[1pt]
+XSS armazenado & Markdown com HTML ou URL \texttt{javascript:} & Sem HTML bruto (RN11); manter a transformação de URL do \arq{react-markdown}; revisar qualquer \en{plugin} novo; a CSP é uma segunda camada: barra \en{scripts} de outras origens e \texttt{eval}, mas não um \en{script} inline injetado, por causa do \texttt{'unsafe-inline'} (Seção~\ref{sec:arq-csp}, \adr{ADR-022})\\[1pt]
 CSRF & Requisição de outro site com o \en{cookie} do administrador & \en{Cookie} \texttt{SameSite=Lax}; verificação de origem nas mutações (um \texttt{Origin} diferente do próprio site, ou \texttt{null}, responde \texttt{401} \arq{UNAUTHENTICATED} e nada é gravado; \adr{ADR-018}); rotas de escrita aceitam apenas JSON\\[1pt]
 Injeção de SQL & Entradas em consultas & Prisma parametriza; proibido \texttt{\$queryRawUnsafe}\\[1pt]
 Força bruta e enumeração & Tentativas repetidas de login & No máximo cinco tentativas por minuto por IP (resposta 429); mensagem genérica de erro, igual para e-mail inexistente e senha errada (UC08, CT02); o \en{proxy} deve definir \texttt{x-forwarded-for} (Seção~\ref{sec:arq-auth})\\[1pt]
@@ -765,13 +769,89 @@ Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou p
 Link social malicioso & URL \texttt{javascript:} ou \texttt{data:} em um dos seis campos do rodapé & Validação de protocolo \texttt{http}/\texttt{https} no servidor (RN17); atributos \texttt{noopener} e \texttt{noreferrer}; teste CT33\\[1pt]
 Injeção de CSS & Valor de cor malicioso & Validação \texttt{\#RRGGBB} no servidor (RN09)\\[1pt]
 Dependências vulneráveis & Pacotes desatualizados, com vulnerabilidade conhecida ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit} a cada entrega; \en{lockfile} versionado; os quatro alertas atuais foram avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019})\\[1pt]
-\en{Clickjacking} & Página incorporada em \texttt{iframe} & Cabeçalho \arq{frame-ancestors}/\arq{X-Frame-Options}\\[1pt]
+\en{Clickjacking} & Página incorporada em \texttt{iframe} & CSP \texttt{frame-ancestors 'none'} e \arq{X-Frame-Options: DENY} (Seção~\ref{sec:arq-csp})\\[1pt]
 Exclusão acidental & Cascata indevida & Confirmação explícita; \en{backup} (RNF10)\\[1pt]
 Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atualização que descarta o volume & Banco em \en{bind mount} fora da imagem; \en{backup} periódico com \texttt{VACUUM INTO} e cópia externa (Apêndice~\ref{ap:implantacao}; risco R12)\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
-Além dos controles acima, o \arq{next.config.mjs} deve definir cabeçalhos de segurança (\texttt{X-Content-Type-Options: nosniff}, \arq{Referrer-Policy}, política de enquadramento e \arq{Permissions-Policy} restritiva); HSTS e TLS ficam a cargo do \en{proxy} reverso. Uma política CSP com \en{nonce} é desejável e será avaliada pelo agente Core. Atenção ao tema: ele chega ao navegador no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}), e atributos de estilo não aceitam \en{nonce}; uma CSP estrita precisaria admitir \texttt{style-src-attr 'unsafe-inline'} (ou o mecanismo de injeção teria de mudar).
+\subsection{Cabeçalhos de Segurança e Política de Segurança de Conteúdo}\label{sec:arq-csp}
+
+Além dos controles acima, o Vitrine envia cabeçalhos de segurança em \emph{todas} as respostas --- páginas, API e arquivos estáticos. Eles estão definidos em \arq{security-headers.mjs} (na raiz do repositório; módulo puro, sem imports, testado sem o Next.js) e são aplicados pela função \texttt{headers} do \arq{next.config.mjs}, que também desliga o \texttt{X-Powered-By}. A decisão e as alternativas estão na \adr{ADR-022}. A Tabela~\ref{tab:cabecalhos} lista os cabeçalhos, e a Tabela~\ref{tab:csp-diretivas}, as diretivas da \en{Content Security Policy} (CSP).
+
+\begingroup\small
+\begin{longtable}{@{}L{3.6cm}L{4.4cm}L{5.2cm}@{}}
+\caption{Cabeçalhos de segurança enviados}\label{tab:cabecalhos}\\
+\toprule
+\textbf{Cabeçalho} & \textbf{Valor} & \textbf{Finalidade}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Cabeçalho} & \textbf{Valor} & \textbf{Finalidade}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\arq{X-Content-Type-Options} & \texttt{nosniff} & O navegador não interpreta uma resposta com tipo diferente do declarado\\
+\addlinespace
+\arq{Referrer-Policy} & \texttt{strict-origin-when-\allowbreak cross-origin} & Outros sites recebem só a origem, e não a URL completa\\
+\addlinespace
+\arq{X-Frame-Options} & \texttt{DENY} & Impede o enquadramento (\en{clickjacking}) em navegadores que ignoram \texttt{frame-ancestors}\\
+\addlinespace
+\arq{Permissions-Policy} & \texttt{camera=(), microphone=(), geolocation=(), payment=(), usb=()} & Desliga recursos do navegador que o Vitrine não usa\\
+\addlinespace
+\arq{Content-Security-Policy} & Tabela~\ref{tab:csp-diretivas} & Restringe a origem de cada tipo de recurso; enviado \emph{somente em produção}\\
+\addlinespace
+\emph{Não enviados} & \arq{Strict-Transport-Security} e \texttt{upgrade-insecure-requests} & TLS, HSTS e o redirecionamento para HTTPS são do \en{proxy} reverso (Apêndice~\ref{ap:implantacao})\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{security-headers.mjs} (merge M-008).}
+\endgroup
+
+\begingroup\small
+\begin{longtable}{@{}L{2.8cm}L{3.3cm}L{7.1cm}@{}}
+\caption{Diretivas da CSP adotada e justificativas (ADR-022)}\label{tab:csp-diretivas}\\
+\toprule
+\textbf{Diretiva} & \textbf{Valor} & \textbf{Justificativa}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Diretiva} & \textbf{Valor} & \textbf{Justificativa}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{default-src} & \texttt{'self'} & Ponto de partida restritivo: o que não tem diretiva própria só carrega do próprio site\\
+\addlinespace
+\texttt{script-src} & \texttt{'self' 'unsafe-inline'} & \textbf{Primeiro uso de \texttt{'unsafe-inline'}.} O Next.js emite \en{scripts} inline de hidratação em todas as páginas; sem ele, a página não hidrata e o formulário de login cai no envio nativo do navegador, por GET, com o e-mail e a senha na URL. Sem \texttt{'unsafe-eval'} e sem \en{nonce}\\
+\addlinespace
+\texttt{style-src} & \texttt{'self'} & Folhas de estilo só do próprio site (os arquivos do \en{build}); folhas e elementos \texttt{<style>} inline continuam proibidos\\
+\addlinespace
+\texttt{style-src-attr} & \texttt{'unsafe-inline'} & \textbf{Segundo uso.} Só para atributos \texttt{style}: o tema do banco vai no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}), e as fórmulas do KaTeX também os usam; atributos de estilo não aceitam \en{nonce}. Sem a diretiva, a paleta do banco é ignorada em silêncio\\
+\addlinespace
+\texttt{img-src} & \texttt{'self' data: https:} & O logotipo e as imagens do Markdown são URLs externas (D-10); \texttt{http:} é bloqueado\\
+\addlinespace
+\texttt{font-src} & \texttt{'self'} & As fontes do site e do KaTeX devem vir empacotadas no \en{build}: a folha do KaTeX é importada pelo \en{bundle}, e não de uma CDN\\
+\addlinespace
+\texttt{connect-src} & \texttt{'self'} & A interface só chama a própria API\\
+\addlinespace
+\texttt{object-src} & \texttt{'none'} & Sem plugins (\texttt{object} e \texttt{embed})\\
+\addlinespace
+\texttt{base-uri} & \texttt{'self'} & Impede trocar o \texttt{<base>} para redirecionar URLs relativas\\
+\addlinespace
+\texttt{form-action} & \texttt{'self'} & Formulários só enviam dados ao próprio site\\
+\addlinespace
+\texttt{frame-ancestors} & \texttt{'none'} & Nenhuma página pode ser incorporada em \texttt{iframe} (\en{clickjacking})\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{security-headers.mjs} e do guia de CSP do Next.js 16 \cite{nextjsdocs}.}
+\endgroup
+
+\textbf{Por que não há \en{nonce}.} Segundo o guia de CSP do Next.js 16 \cite{nextjsdocs}, o \en{nonce} é gerado a cada visita e só pode ser aplicado na renderização no servidor: todas as páginas teriam de ser dinâmicas, a otimização estática e a ISR (Seção~\ref{sec:arq-isr}) ficariam desligadas e as páginas públicas deixariam de ser servidas do cache, o que contraria a \adr{ADR-005} e o RNF02. O Vitrine adota, então, a forma que o próprio guia indica para quem mantém a geração estática, porém mais estrita que o exemplo dele: as folhas de estilo continuam restritas a \texttt{'self'}, e apenas os atributos \texttt{style} são liberados, por \texttt{style-src-attr}. Os \emph{hashes} com Subresource Integrity, que dispensariam o \texttt{'unsafe-inline'} dos \en{scripts}, ainda são experimentais no Next.js 16.
+
+\textbf{O que a CSP protege e o risco aceito.} Com \texttt{script-src 'unsafe-inline'}, a CSP \emph{não} detém um \en{script} inline injetado; a defesa primária contra XSS continua sendo a ausência de HTML bruto (RN11), a transformação de URLs do \arq{react-markdown} (que recusa \texttt{javascript:}), o escape do React e a validação dos links sociais (RN17). A CSP é a segunda camada: barra \en{scripts} de outras origens, \texttt{eval}, folhas de estilo inline, imagens em \texttt{http:}, conexões e formulários para outros sites, plugins, troca do \texttt{<base>} e enquadramento em \texttt{iframe}. O risco residual de \texttt{img-src https:} é uma imagem de rastreamento de qualquer domínio, aceito porque o conteúdo referencia imagens externas (D-10).
+
+\textbf{Somente em produção e como verificar.} O \texttt{next dev} precisa de \texttt{'unsafe-eval'} (o React o usa para depuração), que a política não concede; por isso a CSP \emph{não} é enviada fora de produção, e um recurso novo pode funcionar no desenvolvimento e ser bloqueado em produção. Todo recurso novo que carregue \en{script}, estilo, fonte, imagem, quadro ou conexão (o editor e o KaTeX, as páginas públicas, o rodapé) deve ser verificado no navegador sobre \texttt{npm run build} e \texttt{npm run start}, com o console aberto: o formulário de login hidrata, a paleta do banco é aplicada e não aparece nenhuma mensagem de violação de CSP. A verificação do merge M-008 está na Seção~\ref{sec:testes-seguranca}.
+
+\textbf{Alterações.} Uma nova origem ou um novo tipo de recurso é um \texttt{[PEDIDO]} ao Core, exige a verificação acima e muda o teste que confere as onze diretivas uma a uma (\arq{tests/core/infra.test.js}); enfraquecer a política exige uma nova ADR. Vídeos e quadros incorporados, fontes e \en{scripts} de CDN e ferramentas de análise de acesso ficam fora do escopo desta versão. HSTS e TLS ficam a cargo do \en{proxy} reverso, que também não deve substituir nem remover os cabeçalhos da aplicação (Seção~\ref{sec:proxy}).
 
 \subsection{Vulnerabilidades Conhecidas em Dependências}\label{sec:arq-npm-audit}
 
@@ -803,24 +883,29 @@ A decisão será reavaliada a cada entrega (o \texttt{npm audit} é critério de
 
 \section{Implantação e Operação}\label{sec:arq-implantacao}
 
-Por decisão do Engenheiro Chefe (\decisao{D-04}, \adr{ADR-011}), o alvo de implantação é uma VPS tradicional com Docker Engine e Docker Compose. A aplicação é empacotada em uma imagem construída em dois estágios (instalação e \en{build}; execução) que executa o servidor Next.js (\texttt{next start}) como usuário sem privilégios, em um único contêiner. O arquivo do SQLite fica em um \en{bind mount} do hospedeiro (\arq{./data}, montado em \arq{/data}), fora da imagem, e as variáveis de ambiente vêm de um arquivo \arq{.env} também fora da imagem. Um \en{proxy} reverso com TLS (Caddy ou Nginx) encaminha as requisições para a porta 3000 do contêiner, publicada apenas em \arq{127.0.0.1} (Figura~\ref{fig:impl-implantacao}). O passo a passo, com esboços do \arq{Dockerfile} e do \arq{docker-compose.yml}, está no Apêndice~\ref{ap:implantacao}.
+Por decisão do Engenheiro Chefe (\decisao{D-04}, \adr{ADR-011}), o alvo de implantação é uma VPS tradicional com Docker Engine e Docker Compose. A aplicação é empacotada em uma imagem construída em dois estágios (instalação e \en{build}; execução) que executa o servidor Next.js (\texttt{next start}) como usuário sem privilégios, em um único contêiner. O arquivo do SQLite fica em um \en{bind mount} do hospedeiro (\arq{./data}, montado em \arq{/data}), fora da imagem, e as variáveis de ambiente vêm de um arquivo \arq{.env} também fora da imagem. Um \en{proxy} reverso com TLS (Caddy ou Nginx) encaminha as requisições para a porta 3000 do contêiner, publicada apenas em \arq{127.0.0.1} (Figura~\ref{fig:impl-implantacao}). O passo a passo, com o \arq{Dockerfile}, o \arq{docker-compose.yml} e o \arq{.dockerignore} do repositório, está no Apêndice~\ref{ap:implantacao}.
 
 \vitrinefigura[tipo=diagrama, arquivo=impl-implantacao, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/impl-implantacao.puml},
   descricao={Diagrama de implantação: VPS com Docker Engine; proxy reverso com TLS; contêiner vitrine com o build do Next.js, o cliente do Prisma e o adaptador better-sqlite3; volume ./data com o arquivo SQLite (e WAL) e cópias de segurança; arquivo .env fora da imagem.}]
   {Diagrama de implantação}{fig:impl-implantacao}
 
-Os requisitos normativos sobre a imagem, que o módulo M13 deve atender, são:
+Os requisitos normativos sobre a imagem, atendidos pelo módulo M13 (merge M-008) e válidos para qualquer mudança nela, são:
 
 \begin{itemize}
-  \item \textbf{Módulo nativo.} O \arq{better-sqlite3} é um módulo nativo (\adr{ADR-014}); os estágios de \en{build} e de execução devem usar a mesma versão do Node.js e a mesma distribuição (\en{glibc}, por exemplo \texttt{node:22-bookworm-slim}), e o estágio de \en{build} precisa de compilador (\texttt{python3}, \texttt{make}, \texttt{g++}) caso não haja binário pré-compilado;
+  \item \textbf{Módulo nativo e OpenSSL.} O \arq{better-sqlite3} é um módulo nativo (\adr{ADR-014}); os estágios de \en{build} e de execução usam a mesma imagem-base, na mesma versão do Node.js do desenvolvimento (hoje, \texttt{node:24-bookworm-slim}, com \en{glibc}), e o estágio de \en{build} precisa de compilador (\texttt{python3}, \texttt{make}, \texttt{g++}) caso não haja binário pré-compilado. A imagem \texttt{slim} \emph{não} traz a biblioteca OpenSSL de que o motor de migrações do Prisma depende; por isso o \texttt{openssl} é instalado nos dois estágios (com ele, o \texttt{prisma migrate deploy} funcionou no contêiner; a imagem sem ele não foi testada);
   \item \textbf{Cliente gerado.} \texttt{prisma generate} roda antes de \texttt{next build}, pois \arq{src/generated/prisma} não é versionado;
   \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv} estejam na imagem, o que está garantido desde o merge M-002, que os moveu para \texttt{dependencies} (\adr{ADR-014});
   \item \textbf{Administrador inicial.} Depois das migrações e do \en{seed}, o administrador é criado por \texttt{docker compose run -{}-rm vitrine npm run admin:create}, que exige \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD} (e aceita \arq{ADMIN_NAME}) no ambiente da execução. O \en{seed} (\texttt{prisma db seed}) \emph{não} cria o administrador: ele só garante a configuração padrão (\adr{ADR-018});
   \item \textbf{\texttt{tsx} na imagem.} O \texttt{admin:create} e o \texttt{prisma db seed} rodam com o \texttt{tsx}, hoje em \texttt{devDependencies}; a imagem de produção deve manter as dependências de desenvolvimento (\texttt{npm ci} completo) ou mover o \texttt{tsx} para \texttt{dependencies}, caso contrário esses dois comandos deixam de funcionar;
-  \item \textbf{\texttt{DATABASE\_URL} no \en{build}.} O \texttt{next build} importa as rotas, que importam \arq{db.js}, e este lança erro se \arq{DATABASE_URL} não está definida; o estágio de \en{build} do Dockerfile deve defini-la com qualquer valor bem formado (por exemplo, \texttt{ENV} \arq{DATABASE_URL=file:/data/vitrine.db}), pois nenhuma consulta ocorre no \en{build} e o arquivo não precisa existir --- nem o diretório. Isso é \emph{garantido por código}, e não por acaso: \texttt{getSiteConfiguration} (\arq{src/app/_lib/site.js}) devolve \texttt{null} sem consultar quando \arq{NEXT_PHASE} vale \texttt{phase-production-build}, e todo \en{layout} ou página que possa ser pré-renderizado deve ler dados do banco por essa guarda ou por outra equivalente; sem ela, o \texttt{next build} falha ao pré-renderizar \arq{/_not-found} (\adr{ADR-021}; Seção~\ref{sec:arq-tema-estatico}). As páginas estáticas saem do \en{build} com os padrões do CSS e passam à configuração do banco na primeira revalidação. Segredos (\arq{BETTER_AUTH_SECRET}, \arq{ADMIN_PASSWORD}) \emph{não} entram no \en{build}: o aviso do segredo padrão registrado nessa etapa é esperado e inofensivo;
+  \item \textbf{\texttt{DATABASE\_URL} no \en{build}.} O \texttt{next build} importa as rotas, que importam \arq{db.js}, e este lança erro se \arq{DATABASE_URL} não está definida; o estágio de \en{build} do Dockerfile deve defini-la com qualquer valor bem formado (por exemplo, \texttt{ENV} \arq{DATABASE_URL=file:/data/vitrine.db}), pois nenhuma consulta ocorre no \en{build} e o arquivo não precisa existir --- nem o diretório. Isso é \emph{garantido por código}, e não por acaso: \texttt{getSiteConfiguration} (\arq{src/app/_lib/site.js}) devolve \texttt{null} sem consultar quando \arq{NEXT_PHASE} vale \texttt{phase-production-build}, e todo \en{layout} ou página que possa ser pré-renderizado deve ler dados do banco por essa guarda ou por outra equivalente; sem ela, o \texttt{next build} falha ao pré-renderizar \arq{/_not-found} (\adr{ADR-021}; Seção~\ref{sec:arq-tema-estatico}). As páginas estáticas saem do \en{build} com os padrões do CSS e passam à configuração do banco na primeira revalidação, o que se repete a cada recriação do contêiner (comportamento por projeto, \en{by design}; Seção~\ref{sec:arq-tema-estatico}). Segredos (\arq{BETTER_AUTH_SECRET}, \arq{ADMIN_PASSWORD}) \emph{não} entram no \en{build}: o aviso do segredo padrão registrado nessa etapa é esperado e inofensivo;
   \item \textbf{Segredo em execução.} \arq{BETTER_AUTH_SECRET} e \arq{BETTER_AUTH_URL} (em \texttt{https}, para o \en{cookie} \texttt{Secure}) são obrigatórios na execução; sem o segredo, as rotas de autenticação e de API respondem 500;
   \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}), o SQLite tem um escritor por vez e a limitação de tentativas de login guarda os contadores em memória;
+  \item \textbf{Usuário sem privilégios e arquivos graváveis.} O contêiner executa como \texttt{node} (UID 1000), nunca como \texttt{root}. A aplicação copiada para a imagem (\texttt{COPY -{}-chown}) e o diretório \arq{/data} pertencem a esse usuário; a ISR regenera páginas em \arq{.next/server/app/} (e usa \arq{.next/cache}), de modo que todo o \arq{.next} precisa ser gravável. No hospedeiro, o diretório \arq{data/} deve pertencer ao UID 1000;
+  \item \textbf{Partida sem intermediário.} O comando é \texttt{node\_modules/.bin/next start}, sem o npm no meio, e o \texttt{init: true} do \en{compose} (o \texttt{docker-init} como processo 1) repassa os sinais de parada e recolhe processos órfãos;
+  \item \textbf{Rede.} A porta 3000 é publicada somente em \arq{127.0.0.1}; o acesso público é do \en{proxy} reverso;
+  \item \textbf{Cabeçalhos de segurança.} A CSP e os demais cabeçalhos (Seção~\ref{sec:arq-csp}) vêm da própria aplicação e não dependem do \en{proxy}, que não deve alterá-los;
+  \item \textbf{Espaço em disco.} A construção da imagem exige pelo menos 6~GB livres no disco do Docker (Apêndice~\ref{ap:implantacao}, Seção ``Pré-requisitos'');
   \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.
 \end{itemize}
 

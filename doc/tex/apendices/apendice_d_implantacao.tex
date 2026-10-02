@@ -1,17 +1,20 @@
 %% ===================================================================================
 %% Apêndice D -- Guia de Implantação e Operação
 %% Reconciliado após a decisão D-04 (ADR-011): imagem Docker em VPS tradicional, com volume
-%% persistente para o SQLite. ESBOÇO normativo escrito antes do código (Dockerfile e
-%% docker-compose.yml ainda não existem: módulo M13). Os agentes Core e Dados devem validar
-%% cada passo numa VPS limpa (CT29) e pedir ao Arquiteto, pelo mural, as correções.
+%% persistente para o SQLite.
 %% Atualizado após o merge M-004 e o RFC P-002 (ADR-018): o administrador inicial é criado
 %% por `npm run admin:create` (ADMIN_EMAIL e ADMIN_PASSWORD), não pelo seed.
+%% Atualizado após o merge M-008 (M13): o Dockerfile, o docker-compose.yml e o .dockerignore
+%% existem e são incluídos aqui direto do repositório (\vitrinecodigo); o roteiro foi executado
+%% em contêiner (Docker Desktop) pelo Core e pelo Arquiteto. Falta o CT29 em uma VPS Linux
+%% limpa, com HTTPS (a cargo do Engenheiro Chefe). Novos: espaço em disco, medidas de referência,
+%% HSTS no proxy e o efeito de recriar o contêiner sobre as páginas estáticas (por projeto).
 %% ===================================================================================
 \chapter{Guia de Implantação e Operação}\label{ap:implantacao}
 
-Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). O alvo de implantação é a \textbf{imagem Docker em uma VPS (\en{Virtual Private Server}) tradicional, com volume persistente para o arquivo SQLite} (decisão \decisao{D-04}, registrada na \adr{ADR-011}); plataformas \emph{serverless} não são suportadas nesta versão. Os comandos foram redigidos a partir da especificação e da documentação das ferramentas \cite{dockerdocs}; devem ser validados em uma instalação limpa (caso de teste CT29) e corrigidos conforme a implementação real.
+Este apêndice descreve como instalar, executar, atualizar e proteger uma instância do Vitrine. Destina-se ao Implantador (Seção~\ref{sec:atores}). O alvo de implantação é a \textbf{imagem Docker em uma VPS (\en{Virtual Private Server}) tradicional, com volume persistente para o arquivo SQLite} (decisão \decisao{D-04}, registrada na \adr{ADR-011}); plataformas \emph{serverless} não são suportadas nesta versão. Os comandos foram redigidos a partir da especificação e da documentação das ferramentas \cite{dockerdocs} e \textbf{executados em contêiner} na verificação do módulo M13 (merge M-008), pelo Core e, de forma independente, pelo Arquiteto, no Docker Desktop (WSL2): construção da imagem, migrações, \en{seed}, criação do administrador, subida do serviço, verificações por HTTP e persistência após recriar o contêiner. O que ainda não foi validado é a instalação em uma \textbf{VPS Linux limpa}, com HTTPS e \en{proxy} reverso (caso de teste CT29 no ambiente-alvo).
 
-\vitrinependencia{Core}{Criar o Dockerfile e o docker-compose.yml (módulo M13), validar este guia em uma VPS limpa, corrigir comandos, e confirmar com o Arquiteto pelo mural o texto final (caso CT29). Os nomes das variáveis de ambiente e o comando do administrador já foram confirmados no merge M-004.}
+\vitrinependencia{Arquiteto}{Registrar o resultado da instalação em uma VPS Linux limpa, com HTTPS (caso CT29 no ambiente-alvo, a cargo do Engenheiro Chefe), e corrigir este guia conforme ele: o \texttt{chown 1000:1000} do diretório \arq{data/} em um \en{bind mount} Linux, o \en{cookie} \texttt{Secure}, o \texttt{x-forwarded-for} único do Caddy e do Nginx (Seção~\ref{sec:proxy}, trechos ainda não ensaiados) e o HSTS enviado pelo \en{proxy}.}
 
 \section{Pré-requisitos}
 
@@ -19,8 +22,11 @@ Este apêndice descreve como instalar, executar, atualizar e proteger uma instâ
   \item uma \textbf{VPS Linux} com \textbf{Docker Engine} e o plugin \textbf{Docker Compose} (comando \texttt{docker compose}), com acesso por SSH;
   \item um \textbf{nome de domínio} apontando para o endereço da VPS e as portas 80 e 443 liberadas, para o \en{proxy} reverso com HTTPS;
   \item \textbf{disco persistente} no servidor, em sistema de arquivos \textbf{local} (não de rede), para o diretório do volume que guarda o banco;
+  \item \textbf{espaço em disco}: pelo menos \textbf{6~GB livres} no disco em que o Docker guarda as imagens (em geral, \arq{/var/lib/docker}) para \emph{construir} a imagem. Na construção de referência, o cache do \en{build} (as camadas do \texttt{apt}, do \texttt{npm ci} e da compilação do Next.js e do Prisma) ocupou 3,7~GB e a imagem, 1,9~GB, cerca de 5,6~GB no total (Seção~\ref{sec:impl-medidas}); sem espaço, a construção falha com \texttt{no space left on device} (ou \texttt{read-only file system}, em alguns ambientes) e o serviço do Docker pode deixar de responder;
   \item acesso ao repositório Git do projeto e, para as cópias de segurança, a CLI \texttt{sqlite3} no servidor.
 \end{itemize}
+
+Depois da construção, \texttt{docker builder prune} libera o cache (cerca de 3,7~GB), ao custo de uma próxima construção mais lenta; depois de uma atualização, \texttt{docker image prune} remove as imagens antigas. O espaço do banco e o das cópias de segurança são à parte: o arquivo SQLite cresce com o conteúdo, e as cópias devem ficar fora da VPS (Seção~\ref{sec:backup}).
 
 \section{Arquitetura da Implantação}
 
@@ -57,9 +63,9 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 
 \section{Instalação}
 
-O Código~\ref{lst:instalacao} mostra o roteiro previsto. Na primeira execução, a imagem é construída e as migrações, a configuração padrão e o administrador inicial são aplicados com contêineres descartáveis, antes de subir o serviço. O administrador \textbf{não} é criado pelo \en{seed}: o \texttt{prisma db seed} garante apenas a configuração padrão (RF23), e o comando \texttt{npm run admin:create} cria o administrador (RF22) a partir de \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD}, que \textbf{precisam estar definidas no ambiente da instalação} (\adr{ADR-018}).
+O Código~\ref{lst:instalacao} mostra o roteiro, executado em contêiner na verificação do módulo M13. Na primeira execução, a imagem é construída e as migrações, a configuração padrão e o administrador inicial são aplicados com contêineres descartáveis, antes de subir o serviço. O administrador \textbf{não} é criado pelo \en{seed}: o \texttt{prisma db seed} garante apenas a configuração padrão (RF23), e o comando \texttt{npm run admin:create} cria o administrador (RF22) a partir de \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD}, que \textbf{precisam estar definidas no ambiente da instalação} (\adr{ADR-018}).
 
-\begin{lstlisting}[language=VSh, caption={Esboço: instalação em VPS com Docker}, label={lst:instalacao}]
+\begin{lstlisting}[language=VSh, caption={Roteiro de instalação em VPS com Docker}, label={lst:instalacao}]
 # 1. Obter o código
 git clone <url-do-repositorio> vitrine && cd vitrine
 
@@ -68,7 +74,7 @@ cp .env.example .env              # preencher BETTER_AUTH_SECRET, BETTER_AUTH_UR
                                   # ADMIN_EMAIL e ADMIN_PASSWORD (esta, só até o passo 5)
 mkdir -p data && sudo chown 1000:1000 data   # usuário "node" do contêiner
 
-# 3. Construir a imagem
+# 3. Construir a imagem (alguns minutos; exige 6 GB livres, ver Pré-requisitos)
 docker compose build
 
 # 4. Aplicar as migrações e a configuração padrão (uma vez)
@@ -81,65 +87,60 @@ docker compose run --rm vitrine npm run admin:create # lê ADMIN_EMAIL e ADMIN_P
 
 # 6. Subir o serviço
 docker compose up -d
+
+# 7. Conferir (a porta só é acessível pelo próprio servidor)
+curl -sI http://127.0.0.1:3000/login | head -n 1     # HTTP/1.1 200 OK
 \end{lstlisting}
 
 O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (há um único administrador, \decisao{D-13}) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
 
-O Código~\ref{lst:dockerfile}, o Código~\ref{lst:compose} e o Código~\ref{lst:dockerignore} são esboços não vinculantes dos arquivos que o módulo M13 deve produzir; o \arq{.dockerignore} é essencial, pois sem ele o comando \texttt{COPY . .} levaria o \arq{.env}, o banco em \arq{data/} e o \arq{node_modules} do hospedeiro para dentro da imagem. A CLI do Prisma e o \arq{dotenv} (usado por \arq{prisma.config.ts}), necessários para aplicar migrações, estão em \texttt{dependencies} desde o merge M-002. O \arq{tsx}, que executa o \en{seed} e o \texttt{admin:create}, fica em \texttt{devDependencies}; por isso a imagem de produção \textbf{deve manter as dependências de desenvolvimento} (o esboço copia o diretório inteiro do estágio de \en{build}) ou, se o Core otimizar a imagem, mover o \arq{tsx} para \texttt{dependencies}: sem ele, os dois comandos falham com \texttt{tsx: not found}. O \texttt{next build} exige \arq{DATABASE_URL} definida, porque as rotas importam \arq{db.js}; o esboço a define no estágio de \en{build} com um valor bem formado (o arquivo não precisa existir, pois o \en{build} não faz consultas). Nenhum segredo entra no \en{build}: o \arq{BETTER_AUTH_SECRET} só é fornecido na execução (\texttt{env\_file}), e o aviso do segredo padrão registrado no \en{build} é esperado. O módulo nativo \arq{better-sqlite3} é instalado no \en{build}, e a versão do Node.js da imagem deve ser a mesma usada no desenvolvimento.
+\subsection{Arquivos de Implantação}\label{sec:impl-arquivos}
 
-\begin{lstlisting}[language=VSh, caption={Esboço: Dockerfile em dois estágios}, label={lst:dockerfile}]
-# Esboço não vinculante (módulo M13); validar no caso CT29.
-FROM node:22-bookworm-slim AS build
-WORKDIR /app
-# Ferramentas de compilação, caso o better-sqlite3 não tenha binário pré-compilado
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-# O build importa as rotas, que importam db.js: DATABASE_URL precisa existir (o arquivo, não)
-ENV DATABASE_URL=file:/data/vitrine.db
-RUN npx prisma generate && npm run build
+O Código~\ref{lst:dockerfile}, o Código~\ref{lst:compose} e o Código~\ref{lst:dockerignore} reproduzem, direto do repositório, os arquivos do módulo M13 (merge M-008); em caso de divergência, vale o arquivo do repositório. O \arq{.dockerignore} é essencial: sem ele, o comando \texttt{COPY . .} levaria o \arq{.env}, o banco em \arq{data/} e o \arq{node_modules} do hospedeiro para dentro da imagem. Os pontos de atenção são:
 
-FROM node:22-bookworm-slim AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=build /app ./
-RUN mkdir -p /data && chown -R node:node /data /app
-USER node
-EXPOSE 3000
-CMD ["npm", "run", "start"]
-\end{lstlisting}
+\begin{itemize}
+  \item \textbf{Imagem-base.} É um \texttt{ARG} (\texttt{node:24-bookworm-slim}), a mesma nos dois estágios e na versão do Node.js do desenvolvimento, pois o \arq{better-sqlite3} é um módulo nativo. O \texttt{openssl} é instalado nos dois estágios porque a imagem \texttt{slim} não traz a biblioteca de que o motor de migrações do Prisma precisa; as ferramentas de compilação (\arq{python3}, \arq{make} e \arq{g++}) ficam só no estágio de \en{build};
+  \item \textbf{Dependências completas.} O \texttt{npm ci} não omite as de desenvolvimento, porque o \arq{tsx}, que executa o \en{seed} e o \texttt{admin:create}, está em \texttt{devDependencies}; sem ele, os dois comandos falham com \texttt{tsx: not found}. A CLI do Prisma e o \arq{dotenv} (usado por \arq{prisma.config.ts}) estão em \texttt{dependencies} desde o merge M-002;
+  \item \textbf{\texttt{DATABASE\_URL} e segredos no \en{build}.} A variável é definida só no estágio de \en{build}, com um valor bem formado: o \texttt{next build} importa as rotas, que importam \arq{db.js}, mas não consulta o banco (\adr{ADR-021}), de modo que o arquivo nem o diretório precisam existir. Nenhum segredo entra no \en{build}: o \arq{BETTER_AUTH_SECRET} só é fornecido na execução (\texttt{env\_file}), e o aviso do segredo padrão registrado no \en{build} é esperado;
+  \item \textbf{Usuário e permissões.} A cópia para o estágio de execução usa \texttt{-{}-chown=node:node}, o que evita um \texttt{chown -R} que duplicaria as camadas, e o \arq{/data} também pertence ao usuário \texttt{node} (UID 1000). O processo roda como esse usuário, nunca como \texttt{root}; a ISR grava páginas regeneradas em \arq{.next/server/app/}, coberto pela mesma cópia;
+  \item \textbf{Partida.} O comando é \texttt{node\_modules/.bin/next start}, sem o npm como intermediário, e o \texttt{init: true} do \en{compose} repassa os sinais de parada;
+  \item \textbf{Aplicação inteira, e não \en{standalone}.} A imagem leva a aplicação completa, e não a saída mínima do Next.js, porque executa também a CLI do Prisma, o \arq{tsx} e o código-fonte; por isso inclui arquivos de que o servidor não precisa (\arq{tests/} e os documentos de governança). Excluí-los é uma melhoria possível, mas o peso está no \arq{node_modules} (1003~MB).
+\end{itemize}
 
-\begin{lstlisting}[caption={Esboço: docker-compose.yml}, label={lst:compose}]
-services:
-  vitrine:
-    build: .
-    image: vitrine:latest
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      DATABASE_URL: "file:/data/vitrine.db"
-    volumes:
-      - ./data:/data              # volume persistente do SQLite
-    ports:
-      - "127.0.0.1:3000:3000"     # só o proxy reverso do servidor acessa
-\end{lstlisting}
+\vitrinecodigo[label={lst:dockerfile}]{Core}{Dockerfile}{VSh}{Dockerfile em dois estágios (arquivo do repositório)}
 
-\begin{lstlisting}[caption={Esboço: .dockerignore}, label={lst:dockerignore}]
-.git
-.env*
-data
-node_modules
-.next
-src/generated
-doc
-.agents
-.claude
-.windsurf
-\end{lstlisting}
+\vitrinecodigo[label={lst:compose}]{Core}{docker-compose.yml}{VSh}{docker-compose.yml (arquivo do repositório)}
+
+\vitrinecodigo[label={lst:dockerignore}]{Core}{.dockerignore}{VSh}{.dockerignore (arquivo do repositório)}
 
 Deve haver \textbf{uma única instância} do serviço (Seção~\ref{sec:arq-isr}): não use réplicas nem \texttt{docker compose up -{}-scale}.
+
+\subsection{Medidas de Referência}\label{sec:impl-medidas}
+
+A Tabela~\ref{tab:impl-medidas} reúne as medidas da construção e da execução de referência, feitas no Docker Desktop (WSL2, 20 CPUs) com o Node.js 24 e repetidas de forma independente pelo Core e pelo Arquiteto. Em uma VPS, os valores de espaço devem ser parecidos; os de tempo variam com a rede e o processador.
+
+\begin{table}[htb]
+\caption{Medidas da construção e da execução de referência (merge M-008)}\label{tab:impl-medidas}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.7cm}L{3.5cm}Y@{}}
+\toprule
+\textbf{Medida} & \textbf{Valor} & \textbf{Observação}\\
+\midrule
+Construção sem cache & 650 s (Core); 733 s (Arquiteto) & Quase todo o tempo é \en{download}: o \texttt{apt} do estágio de \en{build} levou 324 s e 346 s; o \texttt{npm ci}, 78 s e 82 s; o \texttt{prisma generate} com o \texttt{next build}, 25 s e 24 s; a cópia para o estágio de execução, 33 s e 35 s\\
+\addlinespace
+Imagem \texttt{vitrine:latest} & 1,87~GB (1\,865\,502\,840 bytes) & \arq{node_modules} com 1003~MB e \arq{.next} com 112~MB; as dependências de desenvolvimento ficam por causa do \arq{tsx}\\
+\addlinespace
+Cache de construção & 3,7~GB (20 entradas) & Liberável com \texttt{docker builder prune}\\
+\addlinespace
+Espaço para construir & cerca de 5,6~GB & Cache mais imagem; daí o requisito de 6~GB livres (Seção ``Pré-requisitos'')\\
+\addlinespace
+Partida do servidor & 289 ms (\texttt{Ready in}) & O primeiro \texttt{200} em \arq{/login} sai de 1 a 3 s depois de \texttt{up -d} ou \texttt{restart}\\
+\addlinespace
+Usuário do processo & UID 1000 (\texttt{node}) & O processo 1 é o \texttt{docker-init}; a \arq{ADMIN_PASSWORD}, retirada do \arq{.env} antes do \texttt{up}, não aparece no ambiente do contêiner\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir das verificações do merge M-008 (Core e Arquiteto, 02/10/2026).}
+\end{table}
 
 \section{Proxy Reverso e HTTPS}\label{sec:proxy}
 
@@ -147,6 +148,7 @@ Um \en{proxy} reverso com TLS, instalado no servidor ou executado como outro ser
 
 \begin{lstlisting}[caption={Esboço: Caddyfile para o Vitrine}, label={lst:caddy}]
 meusite.exemplo {
+    header Strict-Transport-Security "max-age=31536000"   # HSTS é do proxy, não da aplicação
     reverse_proxy 127.0.0.1:3000
 }
 \end{lstlisting}
@@ -159,10 +161,13 @@ location / {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $remote_addr;   # substitui; NÃO use $proxy_add_x_forwarded_for
     proxy_set_header X-Forwarded-Proto $scheme;
+    add_header Strict-Transport-Security "max-age=31536000" always;   # HSTS é do proxy
 }
 \end{lstlisting}
 
 Se o cabeçalho chegar com mais de um endereço, todos os visitantes passam a dividir um único contador de tentativas (cinco por minuto no total em \arq{/sign-in/email}); o sintoma é o erro 429 no login do administrador com poucas tentativas.
+
+\textbf{HSTS e cabeçalhos de segurança da aplicação.} A aplicação não envia \texttt{Strict-Transport-Security} nem redireciona para HTTPS (Seção~\ref{sec:arq-csp}); isso é do \en{proxy}, como nos Códigos~\ref{lst:caddy} e~\ref{lst:nginx}. Envie o HSTS só depois de confirmar que o HTTPS funciona, porque o navegador passa a recusar HTTP durante o prazo (\texttt{max-age}). Em contrapartida, o \en{proxy} \textbf{não deve remover nem substituir} os cabeçalhos de segurança da aplicação, em especial a \texttt{Content-Security-Policy}: uma política mais restritiva, que retire o \texttt{'unsafe-inline'} de \texttt{script-src}, impede a hidratação das páginas e faz o formulário de login enviar o e-mail e a senha pela URL (Seção~\ref{sec:arq-csp}). Os trechos do Caddy e do Nginx ainda não foram ensaiados com o contêiner (ver a pendência no início deste apêndice).
 
 \section{Cópia de Segurança e Restauração}\label{sec:backup}
 
@@ -177,7 +182,9 @@ Para restaurar: parar o serviço (\texttt{docker compose down}), substituir o ar
 
 \section{Atualização}
 
-Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). A reconstrução gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação. Como o \en{build} não consulta o banco, as páginas estáticas (a inicial e a de erro 404) voltam aos padrões do CSS até a primeira alteração pela API que revalide o \en{layout} raiz, por exemplo salvar a configuração; as rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração do banco, e as páginas públicas, quando existirem (M07), nascem sob demanda (Seção~\ref{sec:arq-tema-estatico}).
+Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). Por fim, \textbf{salve a configuração do site} (passo descrito abaixo). As imagens anteriores continuam no disco até serem removidas (\texttt{docker image prune}).
+
+\textbf{Páginas estáticas depois de recriar o contêiner (comportamento por projeto, \en{by design}).} O \en{build} não consulta o banco (\adr{ADR-021}). Por isso, sempre que o contêiner é \emph{recriado} --- \texttt{up -d} depois de uma nova imagem, \texttt{down} seguido de \texttt{up -d}, ou \texttt{up -d -{}-force-recreate} ---, a página inicial e a de erro 404 são servidas com o \textbf{tema padrão} (as cores do CSS e o título ``Vitrine'') e só assumem o \textbf{tema personalizado} depois da \textbf{primeira revalidação}, isto é, depois que a configuração do site for salva: no painel, quando o formulário de configurações existir (M11), ou por um \texttt{PUT /api/configuration} autenticado. Salvar sem alterar nada basta: a primeira requisição seguinte regenera as páginas (\texttt{MISS}) e as demais saem do cache (\texttt{HIT}), já com a paleta e o nome do banco. As rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração do banco, e a sessão do administrador e os dados permanecem no volume. Um \texttt{docker compose restart}, ou a reinicialização do servidor, \emph{não} tem esse efeito, porque o contêiner continua o mesmo e conserva as páginas regeneradas. Isso não é um defeito, e não há um passo automático: ele exigiria as credenciais do administrador na implantação ou uma rota de revalidação nova, que o contrato da API não prevê (Seção~\ref{sec:arq-tema-estatico}). As páginas públicas, quando existirem (M07), nascem sob demanda, com o tema do banco.
 
 \section{Alternativa sem Contêiner}
 
@@ -211,6 +218,10 @@ Erro 429 no login com poucas tentativas & O \en{proxy} não define um único \te
 \texttt{admin:create} informa ``Defina ADMIN\_EMAIL'' ou ``Defina ADMIN\_PASSWORD'' & Variáveis ausentes no ambiente da execução (por exemplo, já removidas do \arq{.env}) & Definir as variáveis e repetir; o comando é idempotente\\[1pt]
 \texttt{admin:create} informa que já existe um usuário com outro e-mail & Há um único administrador (\decisao{D-13}) e o e-mail informado difere do existente & Usar o e-mail do administrador existente; não há criação de um segundo usuário\\[1pt]
 \texttt{tsx: not found} ao executar o \en{seed} ou o \texttt{admin:create} & A imagem foi montada sem as dependências de desenvolvimento & Manter as dependências de desenvolvimento na imagem ou mover o \arq{tsx} para \texttt{dependencies}\\[1pt]
+Página inicial e 404 com as cores e o nome padrão logo depois de \texttt{up -d}, enquanto \arq{/login} mostra o tema & O contêiner foi recriado: as páginas regeneradas ficaram no contêiner antigo (comportamento por projeto, \adr{ADR-021}) & Salvar a configuração do site (Seção ``Atualização''); um \texttt{restart} não causa isso\\[1pt]
+A construção da imagem falha com \texttt{no space left on device} ou \texttt{read-only file system}, e o Docker deixa de responder & Menos de 6~GB livres no disco do Docker (Seção ``Pré-requisitos'') & Liberar espaço (\texttt{docker builder prune}, \texttt{docker image prune}) ou ampliar o disco, e reiniciar o serviço do Docker\\[1pt]
+\texttt{prisma migrate deploy} falha com erro sobre a biblioteca OpenSSL (\texttt{libssl}) & A imagem foi montada sem o \texttt{openssl}, que a imagem-base \texttt{slim} não traz & Manter o \texttt{apt-get install openssl} no estágio de execução do Dockerfile\\[1pt]
+O formulário de login recarrega a página e o e-mail e a senha aparecem na URL; o console do navegador acusa violação de CSP & A página não hidratou: uma CSP mais restritiva (da aplicação alterada ou definida pelo \en{proxy}) bloqueou os \en{scripts} inline do Next.js & Remover do \en{proxy} qualquer CSP própria e não restringir \texttt{script-src} (Seção~\ref{sec:arq-csp}); trocar as credenciais, se foram expostas\\[1pt]
 Alteração não aparece no site público & Mais de uma instância (cache por instância) ou falha na revalidação & Manter uma única instância; verificar o cabeçalho \arq{x-nextjs-cache}\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}

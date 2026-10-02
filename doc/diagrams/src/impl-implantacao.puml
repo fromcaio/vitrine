@@ -4,6 +4,8 @@
 ' Figura: fig:impl-implantacao (doc/tex/capitulos/cap5_arquitetura.tex, Apêndice D)
 ' Decisão D-04 (Engenheiro Chefe, 2026-09-30): imagem Docker em VPS tradicional com
 ' volume persistente para o SQLite (ADR-011). Plataformas serverless não são alvo.
+' Atualizado após o merge M-008 (M13): Node.js 24, usuário node, porta publicada só em
+' 127.0.0.1 e HSTS no proxy (a aplicação envia a CSP e os demais cabeçalhos: ADR-022).
 ' ===========================================================================
 skinparam shadowing false
 skinparam defaultFontName Arial
@@ -18,8 +20,8 @@ cloud "Internet" as Net
 
 node "VPS tradicional (Linux)" as Vps {
   node "Docker Engine" as Docker {
-    node "Proxy reverso (opcional)\nTLS/HTTPS: Caddy ou Nginx" as Rp
-    node "Contêiner vitrine\nNode.js 20.9+ - next start (1 instância)" as App {
+    node "Proxy reverso\nTLS/HTTPS e HSTS: Caddy ou Nginx" as Rp
+    node "Contêiner vitrine\nNode.js 24 - next start (1 instância)\nusuário node (UID 1000)" as App {
       artifact "Build do Next.js\n(.next/)" as Build
       artifact "Prisma Client gerado\n+ adapter better-sqlite3" as Client
     }
@@ -33,7 +35,7 @@ node "VPS tradicional (Linux)" as Vps {
 
 User --> Net
 Net --> Rp : HTTPS 443
-Rp --> App : HTTP (rede interna do Docker)
+Rp --> App : HTTP em 127.0.0.1:3000\n(porta publicada só no loopback)
 App --> Db : SQL (arquivo no volume)
 App ..> Env : variáveis de ambiente\n(env_file)
 Db ..> Bkp : rotina periódica

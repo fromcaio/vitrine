@@ -355,6 +355,9 @@
   breaklines=true, breakatwhitespace=false,
   postbreak=\mbox{\textcolor{vitrinecomment}{$\hookrightarrow$}\space},
   showstringspaces=false, tabsize=2, captionpos=t, columns=fullflexible,
+  % keepspaces: com columns=fullflexible, o listings engole o espaco depois de um "é" isolado
+  % (escrito pela tabela literate abaixo) e cola as palavras: "é um" saía "éum".
+  keepspaces=true,
   keywordstyle=\color{vitrinekw}\bfseries,
   keywordstyle=[2]\color{vitrinekwb}\bfseries,
   keywordstyle=[3]\color{vitrinekw},

@@ -49,6 +49,11 @@ cp -ru "$RAIZ/doc/diagrams/src" "$DEST/doc/diagrams/" 2>/dev/null
 # \vitrinecodigo lê trechos de src/ e .env.example: sincroniza o que existir
 [ -d "$RAIZ/src" ] && { mkdir -p "$DEST/src"; cp -ru "$RAIZ/src/." "$DEST/src/"; }
 [ -f "$RAIZ/.env.example" ] && cp -u "$RAIZ/.env.example" "$DEST/"
+[ -d "$RAIZ/scripts" ] && cp -ru "$RAIZ/scripts" "$DEST/"
+# ... e os arquivos de implantação e de segurança da raiz (M13), também incluídos por \vitrinecodigo
+for f in Dockerfile docker-compose.yml .dockerignore security-headers.mjs next.config.mjs; do
+  [ -f "$RAIZ/$f" ] && cp -u "$RAIZ/$f" "$DEST/"
+done
 
 cd "$DEST/doc/tex" || exit 1
 rm -f vitrine-final.flag
