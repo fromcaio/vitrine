@@ -1,10 +1,11 @@
 // Acesso direto ao banco SQLite temporário da rodada, para preparar e limpar o estado dos testes.
 // Usa o better-sqlite3 (já é dependência do projeto) e abre uma conexão curta a cada chamada: o
 // servidor `next start` mantém a dele, e o SQLite serializa as escritas dos dois processos.
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { e2eEnvironment } from "./env.js";
+import { e2eEnvironment, projectRoot } from "./env.js";
 
 /**
  * Esvazia todas as tabelas de dados (usuários, sessões, contas, conteúdos e configuração), na
@@ -34,15 +35,20 @@ export function clearDatabase() {
 }
 
 /**
- * Apaga o diretório temporário da rodada (banco e arquivos auxiliares). Melhor esforço: no Windows,
- * o servidor pode ainda segurar o arquivo; nesse caso avisa e segue, pois o diretório é do sistema
- * operacional (`os.tmpdir()`) e nunca do repositório.
+ * Apaga o diretório temporário da rodada (banco e arquivos auxiliares). O Playwright só encerra o
+ * servidor depois do `globalTeardown`: no Windows, o SQLite aberto impede a remoção (EPERM/EBUSY).
+ * Nesse caso, entrega a tarefa a `remove-later.mjs`, um processo solto que espera o servidor
+ * morrer. O diretório é sempre do sistema operacional (`os.tmpdir()`), nunca do repositório.
  */
 export function removeRunDirectory() {
   const { dir } = e2eEnvironment();
   try {
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
-  } catch (error) {
-    console.warn(`[e2e] Não foi possível apagar ${dir}: ${error?.code ?? error}. Remova-o à mão.`);
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch {
+    const child = spawn(process.execPath, [path.join(projectRoot, "e2e", "support", "remove-later.mjs"), dir], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
   }
 }

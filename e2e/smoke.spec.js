@@ -35,7 +35,7 @@ test.describe("fumaça", () => {
     await page.getByLabel("E-mail").fill("ninguem@exemplo.test");
     await page.getByLabel("Senha").fill("senha-errada-123");
     await page.getByRole("button", { name: "Entrar" }).click();
-    await expect(page.getByRole("alert")).toContainText("E-mail ou senha inválidos.");
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("E-mail ou senha inválidos.");
     await expect(page).toHaveURL(/\/login$/);
   });
 
