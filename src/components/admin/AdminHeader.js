@@ -1,9 +1,9 @@
 // Barra superior do painel (M10, casca): nome do site, usuário autenticado e encerramento da
-// sessão (RF20). A cor secundária é a da estrutura, com texto branco (Cap. 5 §5.9). Em telas
-// estreitas, o nome e o e-mail descem para uma segunda linha (RNF06).
+// sessão (RF20; o botão também apaga os rascunhos locais do editor, em SignOutForm). A cor
+// secundária é a da estrutura, com texto branco (Cap. 5 §5.9). Em telas estreitas, o nome e o
+// e-mail descem para uma segunda linha (RNF06).
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { SignOutIcon } from "@/components/ui/icons";
+import { SignOutForm } from "./SignOutForm";
 
 /**
  * @param {object} props
@@ -22,12 +22,7 @@ export function AdminHeader({ siteName, user, signOutAction }) {
         <p className="truncate font-medium">{user.name}</p>
         <p className="truncate text-xs">{user.email}</p>
       </div>
-      <form action={signOutAction}>
-        <Button type="submit" variant="inverse">
-          <SignOutIcon className="size-4 shrink-0" />
-          Sair
-        </Button>
-      </form>
+      <SignOutForm action={signOutAction} />
     </header>
   );
 }
