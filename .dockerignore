@@ -22,3 +22,10 @@ doc
 .agents
 .claude
 .windsurf
+
+# testes de ponta a ponta (Playwright): rodam no hospedeiro, nao na imagem
+e2e
+playwright.config.js
+test-results
+playwright-report
+blob-report
