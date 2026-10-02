@@ -464,17 +464,27 @@ A documentação do Next.js 16 registra ressalvas que condicionam a implantaçã
 
 \section{Pipeline de Conteúdo Markdown}\label{sec:arq-markdown}
 
-A renderização de um documento usa o componente \arq{MarkdownRenderer} (\arq{src/components/markdown}), compartilhado pela página pública e pela pré-visualização do editor, para garantir que o autor veja o que o leitor verá. A cadeia de processamento é:
+A renderização de um documento usa o componente \arq{MarkdownRenderer} (\arq{src/components/markdown/MarkdownRenderer.js}, merge M-009), compartilhado pela página pública e pela pré-visualização do editor, para garantir que o autor veja o que o leitor verá. Como o Markdown vem de autores que não são de confiança (\adr{ADR-023}), a cadeia é restritiva por construção:
 
 \begin{enumerate}
-  \item \arq{react-markdown} converte o Markdown em elementos React, sem HTML bruto (RN11);
-  \item \arq{remark-math} reconhece \texttt{\$...\$} e \texttt{\$\$...\$\$} (RF09);
-  \item \arq{remark-gfm} acrescenta tabelas, tachado, listas de tarefas e links automáticos (RF11; pacote ainda não instalado, \decisao{D-08});
-  \item \arq{rehype-katex} renderiza as fórmulas; a folha de estilos do KaTeX é importada uma vez no \en{layout};
-  \item um \en{plugin} de realce de sintaxe colore os blocos de código (RF10; biblioteca a definir, \decisao{D-07}).
+  \item \arq{react-markdown} converte o Markdown em elementos React, \emph{sem HTML bruto} (RN11): sem \arq{rehype-raw}, o HTML escrito no texto aparece como texto;
+  \item \arq{remark-gfm} acrescenta tabelas, tachado, listas de tarefas, links automáticos e notas de rodapé (RF11; \decisao{D-08});
+  \item \arq{remark-math} reconhece \texttt{\$...\$}, \texttt{\$\$...\$\$} e o bloco de código de linguagem \texttt{math} (RF09);
+  \item \arq{rehype-katex} renderiza as fórmulas com \texttt{trust} desligado --- \texttt{\textbackslash href}, \texttt{\textbackslash url}, \texttt{\textbackslash include}\allowbreak\texttt{graphics} e \texttt{\textbackslash html*} não geram marcação ---, \texttt{maxSize} de 30~em, \texttt{maxExpand} de 1000 e \texttt{strict} em \texttt{ignore}; uma fórmula que o KaTeX recusa aparece como texto-fonte, na cor de erro, com o rótulo ``Fórmula inválida:'' e a mensagem original no atributo \texttt{title}, sem derrubar a página;
+  \item \arq{rehype-highlight} (sobre o \arq{lowlight} e o \arq{highlight.js}) marca os blocos de código com classes \texttt{hljs-*}, somente quando o bloco declara a linguagem: não há detecção automática, e uma linguagem desconhecida fica sem realce, sem erro (RF10; \decisao{D-07}). Foi escolhido por ser síncrono (o mesmo componente serve ao servidor e à pré-visualização), por emitir só classes (as cores ficam nos tokens) e por não usar WebAssembly nem \texttt{eval}.
 \end{enumerate}
 
-Requisitos de segurança e de comportamento: manter a transformação padrão de URLs do \arq{react-markdown}, que restringe protocolos; não adicionar \arq{rehype-raw} sem sanitização; tratar expressões \LaTeX{} inválidas de forma tolerante (mensagem visível, sem derrubar a página); e mapear links relativos internos para as URLs por \en{slug}.
+\textbf{Segurança.} Vale a transformação padrão de URLs do \arq{react-markdown}, que só admite \texttt{http}, \texttt{https}, \texttt{mailto}, \texttt{irc}, \texttt{ircs}, \texttt{xmpp} e caminhos relativos; \texttt{javascript:}, \texttt{vbscript:}, \texttt{data:} e \texttt{file:} são descartados em links, links de referência, links automáticos e imagens, inclusive com maiúsculas, entidades ou caracteres de controle no esquema. Um link ou uma imagem cuja URL foi descartada \emph{deixa de ser link ou imagem} e vira só o texto. As imagens carregam sob demanda e sem enviar o endereço da página ao servidor da imagem (\texttt{loading} \texttt{lazy} e \texttt{referrerPolicy} \texttt{no-referrer}); uma imagem \texttt{http:} passa pela transformação, mas a CSP a barra (\adr{ADR-022}). O tamanho do corpo (\arq{MAX_BODY_BYTES}, \adr{ADR-023}) é o que limita o número de fórmulas e o tamanho dos blocos de código por documento.
+
+\textbf{Estilo e tema.} A folha do KaTeX é importada uma vez, \emph{pelo próprio} \arq{MarkdownRenderer}, do pacote \arq{katex} (declarado em \texttt{dependencies}), nunca de uma CDN; o Next.js a entrega só às rotas que usam o componente, de modo que o login e o painel não a carregam. Toda cor vem dos tokens de tema (Seção~\ref{sec:arq-tema}): o realce de código usa as variáveis \arq{--vitrine-code-*}, com variante noturna sob a classe \texttt{.dark}, e os links usam \arq{--vitrine-link}, cujo padrão é a cor do texto, sempre sublinhados (Seção~\ref{sec:arq-contraste}).
+
+\textbf{Acessibilidade.} Tabelas e blocos de código rolam dentro do próprio quadro e recebem foco pelo teclado; as caixas das listas de tarefas são só de leitura e dizem o estado por extenso (``Tarefa concluída'' e ``Tarefa pendente''); as fórmulas trazem MathML para leitores de tela; e a seção de notas de rodapé tem os textos em português.
+
+\textbf{Linguagens do realce.} O conjunto é o \texttt{common} do \arq{lowlight}, com 37 linguagens (entre elas C, C++, Java, JavaScript, TypeScript, Python, R, Rust, Go, SQL, Bash, JSON, YAML, HTML e CSS), acrescido de LaTeX, MATLAB, Julia, Haskell e Fortran, que o produto passa a garantir por serem comuns no ensino de ciências e de computação (decisão do Arquiteto no P-007, revogável pelo Engenheiro Chefe). O registro dessas cinco, com a declaração direta do \arq{highlight.js}, é feito pela UI na A-010. Outras linguagens entram sob pedido, sem RFC.
+
+\textbf{Links internos.} O componente não reescreve links. Um link relativo é resolvido pelo navegador contra a URL da página --- \texttt{outro-documento} aponta para um irmão, e \texttt{../outro} sobe um nível ---, e um link absoluto começa no espaço do autor, em \texttt{/\{handle\}/\ldots} (\adr{ADR-024}). Em consequência, renomear um \en{slug} quebra os links que o citam, e não há redirecionamento nesta versão (Seção~\ref{sec:res-limitacoes}).
+
+\textbf{Desempenho.} Importado por um Server Component, o componente não envia JavaScript ao navegador; dentro de um Componente Cliente (a pré-visualização do editor), acrescenta cerca de 172~kB (\en{gzip}) apenas à página do editor, que deve carregá-lo sob demanda e adiar a renderização em textos longos (\texttt{useDeferredValue}).
 
 \section{Tematização Dinâmica}\label{sec:arq-tema}
 
@@ -486,7 +496,7 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
   \item \textbf{Invalidação.} Ao salvar a configuração, o Route Handler invalida o \en{layout} raiz; na próxima requisição, as páginas são regeneradas com as novas variáveis, sem \en{build}, inclusive as estáticas que saíram do \en{build} com os padrões (Seção~\ref{sec:arq-tema-estatico}).
 \end{enumerate}
 
-\begin{lstlisting}[language=VCSS, caption={Tokens de tema em globals.css (resumo do arquivo integrado no merge M-005)}, label={lst:tema-css}]
+\begin{lstlisting}[language=VCSS, caption={Tokens de tema em globals.css (resumo; merges M-005 e M-009)}, label={lst:tema-css}]
 @import "tailwindcss";
 
 :root {
@@ -494,16 +504,29 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
   --vitrine-primary: #3b82f6;
   --vitrine-secondary: #1e293b;
   --vitrine-accent: #f59e0b;
-  /* Texto sobre a primária = readableTextOn(primária); definida no layout raiz */
-  --vitrine-on-primary: #171717;
+  /* Texto sobre a primária = readableTextOn(primária): branco ou preto; definida no layout raiz */
+  --vitrine-on-primary: #000000;
   --vitrine-on-secondary: #ffffff;
 
-  /* Neutros fixos (D-17: sem modo escuro automático) e foco independente */
+  /* Neutros fixos (modo claro) e foco independente */
   --vitrine-background: #ffffff;  --vitrine-foreground: #171717;
   --vitrine-surface: #f5f5f5;     --vitrine-muted: #525252;
   --vitrine-border: #d4d4d4;      --vitrine-border-strong: #737373;
   --vitrine-danger: #b91c1c;
   --vitrine-focus: #171717;       --vitrine-focus-halo: #ffffff;
+
+  /* Links do conteúdo (M08): a cor do texto, distinguidos pelo sublinhado */
+  --vitrine-link: var(--vitrine-foreground);
+  /* Realce de código (M08), tema claro, com 4,5:1 sobre o fundo do bloco: além de
+     background e foreground, comment, keyword, string, number, function, type, variable e deletion */
+  --vitrine-code-background: #f5f5f5;  --vitrine-code-foreground: #171717;
+  --vitrine-code-keyword: #be123c;     --vitrine-code-string: #047857;
+}
+
+/* ADR-025: o modo noturno vale sob a classe .dark; por ora, só o realce de código o define */
+.dark {
+  --vitrine-code-background: #171717;  --vitrine-code-foreground: #f5f5f5;
+  --vitrine-code-keyword: #fda4af;     --vitrine-code-string: #6ee7b7;
 }
 
 @theme inline {
@@ -515,11 +538,11 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
   /* neutros no mesmo padrão: --color-background, -foreground, -surface... */
 }
 
-/* D-17: dark: só vale sob a classe .dark, nunca pela preferência do sistema */
+/* a variante dark: só vale sob a classe .dark, nunca pela preferência do sistema */
 @custom-variant dark (&:where(.dark, .dark *));
 \end{lstlisting}
 
-O mapeamento semântico é: \textbf{primária} para ações e ênfase (botão principal e item ativo da navegação, com o fundo \texttt{bg-primary} e o texto \texttt{text-on-primary}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos, com texto branco, \texttt{text-on-secondary}) e para o \en{hover} dos botões; e \textbf{destaque} para marcadores e realce não textual (marcador do item ativo e \en{hover} da navegação). O \textbf{indicador de foco} não usa a cor de destaque: é neutro e global --- contorno de 2~px em \texttt{\#171717} com halo branco (\arq{--vitrine-focus} e \arq{--vitrine-focus-halo}) ---, de modo que fica visível sobre qualquer fundo, inclusive sobre uma paleta que o administrador troque (RNF05; \adr{ADR-020}). Os demais tons da interface --- fundo, texto, superfícies, bordas e mensagens de erro --- são neutros fixos, não configuráveis. Nesta versão não há modo escuro automático: vale somente a paleta escolhida pelo administrador (\decisao{D-17}, \adr{ADR-017}), e a variante \texttt{dark:} do Tailwind só vale sob a classe \texttt{.dark}, nunca pela preferência do sistema; por isso o fundo da página é fixo e branco, o texto sobre a cor secundária é branco, o texto sobre a cor primária é escolhido por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e só as três cores do tema são verificadas. Os componentes usam apenas os utilitários gerados pelos tokens (por exemplo, \texttt{bg-primary}, \texttt{text-on-primary}, \texttt{bg-surface} e \texttt{text-muted}), nunca as cores fixas do Tailwind (RF19).
+O mapeamento semântico é: \textbf{primária} para ações e ênfase (botão principal e item ativo da navegação, com o fundo \texttt{bg-primary} e o texto \texttt{text-on-primary}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos, com texto branco, \texttt{text-on-secondary}) e para o \en{hover} dos botões; e \textbf{destaque} para marcadores e realce não textual (marcador do item ativo e \en{hover} da navegação). O \textbf{indicador de foco} não usa a cor de destaque: é neutro e global --- contorno de 2~px em \texttt{\#171717} com halo branco (\arq{--vitrine-focus} e \arq{--vitrine-focus-halo}) ---, de modo que fica visível sobre qualquer fundo, inclusive sobre uma paleta que o administrador troque (RNF05; \adr{ADR-020}). Os demais tons da interface --- fundo, texto, superfícies, bordas e mensagens de erro --- são neutros fixos, não configuráveis. Até a implementação da \adr{ADR-025}, que substitui o \decisao{D-17}, vale somente o modo claro, com a paleta escolhida pelo administrador, e a variante \texttt{dark:} do Tailwind só vale sob a classe \texttt{.dark}, nunca pela preferência do sistema; o merge M-009 já define, sob \texttt{.dark}, as cores noturnas do realce de código, mas os neutros noturnos, a alternância e as paletas noturnas por proprietário serão especificados na reconciliação deste capítulo com a \adr{ADR-025}. Por isso, hoje, o fundo da página é fixo e branco, o texto sobre a cor secundária é branco, o texto sobre a cor primária é escolhido por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e só as três cores do tema são verificadas. Os componentes usam apenas os utilitários gerados pelos tokens (por exemplo, \texttt{bg-primary}, \texttt{text-on-primary}, \texttt{bg-surface} e \texttt{text-muted}), nunca as cores fixas do Tailwind (RF19).
 
 \subsection{Avisos de Contraste}\label{sec:arq-contraste}
 
@@ -554,11 +577,9 @@ A comparação com o mínimo usa a razão \emph{sem arredondar}; o campo \texttt
 
 \textbf{Ordem de execução e resiliência do \texttt{PUT}.} O Route Handler executa, nesta ordem: (1) a verificação de sessão e de origem; (2) a leitura e a validação do corpo (\texttt{400} e \texttt{422}, sem gravar nada); (3) a gravação (\texttt{updateConfiguration}); (4) a revalidação do \en{layout} raiz (RN10); (5) o cálculo dos avisos, sobre o registro devolvido pela gravação; e (6) a resposta \texttt{200}, com \texttt{data} e \texttt{warnings}. O cálculo vem por último de propósito: é um resultado derivado e não pode impedir a gravação nem a revalidação, que são os efeitos que importam. Se ele falhar --- o que só ocorreria com uma cor gravada fora do formato \texttt{\#RRGGBB}, que a validação impede ---, a rota responde \texttt{500} \arq{INTERNAL_ERROR}, pela regra geral da Tabela~\ref{tab:dataerror} (``outro erro''), \emph{depois} de a configuração já estar gravada e o \en{layout} já revalidado. A rota não engole o erro devolvendo \texttt{"warnings": []}, pois isso afirmaria que não há avisos sem tê-los calculado. Portanto, um \texttt{500} do \texttt{PUT} não significa que a gravação falhou: o cliente deve reconsultar a configuração com o \texttt{GET} para conferir o estado, e repetir o \texttt{PUT} com o mesmo corpo produz o mesmo estado.
 
-\textbf{Texto sobre a cor primária.} O branco fixo não atende ao nível AA com a paleta padrão: sobre a primária \texttt{\#3b82f6}, ele dá 3,68:1. Por isso o texto sobre um fundo da cor primária (o botão principal e o item ativo da navegação) usa a variável \arq{--vitrine-on-primary}, exposta como o utilitário \texttt{text-on-primary}, cujo valor é \texttt{readableTextOn(primaryColor)}; com a paleta padrão, \texttt{\#171717}, que dá 4,87:1. O \en{layout} raiz define essa variável junto com as três cores no atributo \texttt{style} de \texttt{<html>}, e quem sobrescrever \arq{--vitrine-primary} deve sobrescrever também \arq{--vitrine-on-primary}; do contrário, uma primária escura ficaria com texto escuro. O texto sobre a cor secundária continua branco (\arq{--vitrine-on-secondary}), protegido pelo par da secundária. A decisão, tomada com o Engenheiro Chefe, consta na \adr{ADR-020}.
+\textbf{Texto sobre a cor primária.} O branco fixo não atende ao nível AA com a paleta padrão: sobre a primária \texttt{\#3b82f6}, ele dá 3,68:1. Por isso o texto sobre um fundo da cor primária (o botão principal e o item ativo da navegação) usa a variável \arq{--vitrine-on-primary}, exposta como o utilitário \texttt{text-on-primary}, cujo valor é \texttt{readableTextOn(primaryColor)}, isto é, o branco ou o preto (\texttt{\#000000}), o de maior razão de contraste (no empate, o branco); com a paleta padrão, o preto, que dá 5,71:1. O \en{layout} raiz define essa variável junto com as três cores no atributo \texttt{style} de \texttt{<html>}, e quem sobrescrever \arq{--vitrine-primary} deve sobrescrever também \arq{--vitrine-on-primary}; do contrário, uma primária escura ficaria com texto escuro. O texto sobre a cor secundária continua branco (\arq{--vitrine-on-secondary}), protegido pelo par da secundária. A decisão, tomada com o Engenheiro Chefe, consta na \adr{ADR-020}; o preto puro foi adotado no merge M-009.
 
-\textbf{Limites conhecidos.} (i) Como o texto escuro é \texttt{\#171717}, e não o preto, existe uma faixa de primárias de luminância média (luminância relativa entre 0,183 e 0,214, cerca de 6\% das cores \texttt{\#RRGGBB}; por exemplo, \texttt{\#7b7b7b} e \texttt{\#676fe3}) em que nem o branco nem o escuro chegam a 4,5:1; o pior caso é 4,23:1. Nessa faixa o par da primária também reprova e o aviso da RN09 é emitido, de modo que o administrador é informado. Com o preto puro (\texttt{\#000000}), o pior caso passa a 4,58:1 e a faixa desaparece; essa troca foi decidida na \adr{ADR-020} e está pendente na UI. (ii) A primária padrão tem 3,68:1 também sobre a página, e a de destaque padrão, 2,15:1: com a paleta padrão da RN08, texto na cor primária (links) não atende ao nível AA, e marcadores na cor de destaque ficam abaixo de 3:1; o primeiro \texttt{PUT /api/configuration} com essa paleta devolve, portanto, dois avisos (primária e destaque). Por isso os links do conteúdo (M07 e M08) não podem depender apenas da cor primária para atingir 4,5:1 com uma paleta qualquer.
-
-\vitrinependencia{UI}{Trocar o texto escuro de \texttt{readableTextOn}, e o valor padrão de \arq{--vitrine-on-primary}, de \texttt{\#171717} para \texttt{\#000000}, ajustando \arq{tests/ui/theme.test.js}; e propor, no pedido do M07 ou do M08, o mecanismo de cor dos links do conteúdo, que atenda a 4,5:1 com uma paleta qualquer.}
+\textbf{Limites conhecidos.} (i) Com o preto puro como texto escuro (merge M-009), toda cor \texttt{\#RRGGBB} tem um texto, o branco ou o preto, com pelo menos 4,58:1 --- o pior caso, verificado por varredura dos cinzas e de uma grade de 4.096 cores ---; antes, com \texttt{\#171717}, cerca de 6\% das cores ficavam abaixo de 4,5:1. O par da primária, portanto, deixa de proteger o texto sobre ela e protege só o texto na cor primária sobre a página. (ii) A primária padrão tem 3,68:1 também sobre a página, e a de destaque padrão, 2,15:1: com a paleta padrão da RN08, texto na cor primária não atenderia ao nível AA, e marcadores na cor de destaque ficam abaixo de 3:1; o primeiro \texttt{PUT /api/configuration} com essa paleta devolve, portanto, dois avisos (primária e destaque). Por isso os links do conteúdo não usam a cor primária: o token \arq{--vitrine-link} tem como padrão a cor do texto (4,5:1 com qualquer paleta) e os links são sempre sublinhados, distinguindo-se sem depender da cor (WCAG 1.4.1); quem quiser links coloridos sobrescreve o token com uma cor já verificada contra o fundo, o que seria um \texttt{[PEDIDO]} ao Core, depois da especificação do modo noturno (\adr{ADR-025}).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-personalizacao-tema, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
@@ -694,7 +715,7 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 
 \begingroup\small
 \begin{longtable}{@{}L{3.3cm}L{2.9cm}L{6.0cm}L{2.2cm}@{}}
-\caption{Inventário de componentes de interface e situação após o merge M-005}\label{tab:componentes-ui}\\
+\caption{Inventário de componentes de interface e situação após o merge M-009}\label{tab:componentes-ui}\\
 \toprule
 \textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade} & \textbf{Situação}\\
 \midrule
@@ -708,7 +729,7 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 Navbar & \arq{components/layout} & Logotipo, nome do site e coleções raiz (RF13) & Planejado\\
 Sidebar & \arq{components/layout} & Árvore da coleção corrente, item ativo, recolher níveis (RF12) & Planejado\\
 Footer, SocialLinks & \arq{components/layout} & Rodapé: direitos gerados a partir do nome do site e do ano, e ícones apenas das redes com link preenchido, com os atributos \texttt{noopener} e \texttt{noreferrer} (RF24, RN17) & Planejado\\
-MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11) & Planejado\\
+MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11) & Implementado (M-009)\\
 Editor, Toolbar, Preview & \arq{components/editor} & Edição com painel dividido, rascunho local e publicação (RF08, RF15, RF16) & Planejado\\
 AdminShell & \arq{components/admin} & Casca do painel: atalho para o conteúdo, barra superior, navegação e área principal; \en{Server Component} de apresentação, que não valida a sessão (M10) & Implementado\\
 AdminHeader & \arq{components/admin} & Barra superior: nome do site, nome e e-mail do usuário e botão ``Sair'', que recebe a \en{Server Function} \texttt{signOut} por \en{prop} (RF20) & Implementado\\

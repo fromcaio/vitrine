@@ -189,7 +189,9 @@ Vitest & 5.0.3 (desenvolvimento) & Testes de unidade e de integração com banco
 better-auth & 1.7.6 & Autenticação e sessões (e-mail e senha, cadastro público desabilitado, limitação de tentativas)\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
 remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\
-KaTeX & 0.16.47 & Composição de fórmulas (dependência do \arq{rehype-katex})\\
+remark-gfm & 4.0.1 & Tabelas, tachado, listas de tarefas, links automáticos e notas de rodapé (RF11; \decisao{D-08}; merge M-009)\\
+rehype-highlight, \arq{lowlight} e \arq{highlight.js} & 7.0.2, 3.3.0 e 11.11.2 & Realce de sintaxe por classes, no servidor e no cliente (RF10; \decisao{D-07}; merge M-009; o \arq{highlight.js} é BSD-3-Clause, os demais são MIT)\\
+KaTeX & 0.16.47 & Composição de fórmulas; declarado diretamente no merge M-009, pois o \arq{MarkdownRenderer} importa a folha de estilos do pacote\\
 Zod & 4.6.5 (\texttt{dependencies}) & Validação de entrada da API e do comando do administrador (\decisao{D-11}); declarado diretamente no merge M-004 (já era dependência do better-auth)\\
 ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
 \LaTeX{} (MiKTeX) e \texttt{latexmk} & pdfTeX 4.19 & Composição desta documentação\\

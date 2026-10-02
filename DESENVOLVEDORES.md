@@ -93,7 +93,7 @@ O arquivo `MURAL_DE_AGENTES.md` atua como o sistema de *Pull Requests* e comunic
 
 **UI**
 - Server Components por padrão; `'use client'` só onde houver estado/eventos. Componentes **não** importam `db.js` nem o cliente gerado do Prisma (`@/generated/prisma`): dados chegam por *props* ou pelas rotas `/api`.
-- Markdown: **sem HTML bruto**, mantendo a transformação padrão de URLs; importar a folha de estilos do KaTeX; a pré-visualização do editor usa o **mesmo** `MarkdownRenderer` da página pública.
+- Markdown: **sem HTML bruto**, mantendo a transformação padrão de URLs; a folha de estilos do KaTeX já é importada pelo `MarkdownRenderer` (M-009), não a importe de novo; a pré-visualização do editor usa o **mesmo** `MarkdownRenderer` da página pública, que recebe só o texto (nunca dono nem tema).
 - CSP (ADR-022; Cap. 5 §5.12): em produção, só valem *scripts* e folhas de estilo do próprio site, atributos `style`, fontes do próprio site e imagens `https:`. Importe a folha e as fontes do KaTeX pelo *bundle* (nunca por CDN), não use `<style>` inline nem `eval`, e verifique cada tela nova sobre `npm run build` e `npm run start`, com o console aberto e sem violações (o `next dev` não envia a CSP). Precisa de uma origem nova? `[PEDIDO]` ao Core.
 - Tema: cores só por tokens/variáveis CSS (Cap. 5 §5.9), nunca fixas: o texto sobre a primária é `text-on-primary` (nunca `text-white`) e sobre a secundária, `text-on-secondary`; o foco é o indicador neutro global, não a cor de destaque. O aviso de contraste (WCAG 2.1 AA) vem de `contrastWarnings` de `@/lib/theme`, e o texto de links deve atingir 4,5:1 com qualquer paleta (Cap. 5 §5.9.1). Acessibilidade: teclado, foco visível, rótulos. `lang="pt-BR"` (arquivo de rota: combine com o Core).
 
