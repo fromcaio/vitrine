@@ -1,6 +1,6 @@
 // Primeiro passo do servidor dos testes e2e: aplica as migrações reais (`prisma migrate deploy`, o
-// mesmo comando da produção) ao banco temporário. Precisa vir ANTES do `next build`, porque o
-// layout raiz lê a configuração do banco ao pré-renderizar. Roda com as variáveis da rodada
+// mesmo comando da produção) ao banco temporário. Vem antes do `next build` para que uma falha de
+// migração apareça cedo (o build em si não consulta o banco, ADR-021). Roda com as variáveis da rodada
 // (`webServer.env` do playwright.config.js); sem DATABASE_URL, recusa-se a rodar.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";

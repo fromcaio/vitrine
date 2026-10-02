@@ -32,7 +32,8 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    // 1) migrações no banco temporário (o build pré-renderiza páginas que leem o banco);
+    // 1) migrações no banco temporário (o build não consulta o banco, ADR-021, mas o servidor
+    //    precisa dele; aplicá-las antes faz uma falha de migração aparecer cedo);
     // 2) build de produção; 3) servidor, preso a 127.0.0.1 (mesma origem de BETTER_AUTH_URL).
     command: [
       "node e2e/support/prepare-database.mjs",
