@@ -1,0 +1,28 @@
+# Serviço do Vitrine (M13; Apêndice D). Uma única instância: o cache do ISR é por instância, o
+# SQLite tem um escritor por vez e a limitação de tentativas de login guarda os contadores em
+# memória. Não use réplicas nem `docker compose up --scale`.
+#
+# Instalação (na ordem):
+#   docker compose build
+#   docker compose run --rm vitrine npx prisma migrate deploy
+#   docker compose run --rm vitrine npx prisma db seed
+#   docker compose run --rm vitrine npm run admin:create
+#   docker compose up -d
+services:
+  vitrine:
+    build: .
+    image: vitrine:latest
+    restart: unless-stopped
+    # Processo init do Docker: repassa os sinais e recolhe processos órfãos.
+    init: true
+    # Segredos e URL pública ficam fora da imagem e do Git (nomes em .env.example).
+    env_file: .env
+    environment:
+      # Caminho absoluto, dentro do volume.
+      DATABASE_URL: "file:/data/vitrine.db"
+    volumes:
+      # Volume persistente do SQLite; o diretório precisa pertencer ao UID 1000 (usuário node).
+      - ./data:/data
+    ports:
+      # Só o proxy reverso do próprio servidor acessa a aplicação.
+      - "127.0.0.1:3000:3000"

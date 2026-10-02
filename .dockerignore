@@ -1,0 +1,24 @@
+# O que NÃO entra no contexto de build da imagem (M13). Essencial: sem este arquivo, o
+# `COPY . .` do Dockerfile levaria o .env e o banco para dentro da imagem.
+
+# histórico do Git
+.git
+
+# segredos: o .env chega ao contêiner só na execução (env_file do docker-compose.yml)
+**/.env*
+
+# dados: o volume do SQLite e qualquer banco local
+data
+**/*.db*
+
+# gerados: são recriados dentro da imagem (npm ci, prisma generate, next build)
+node_modules
+.next
+src/generated
+coverage
+
+# documentação e ferramentas dos agentes: não fazem parte da aplicação
+doc
+.agents
+.claude
+.windsurf

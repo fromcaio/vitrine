@@ -49,3 +49,6 @@ next-env.d.ts
 *.db-journal
 *.db-wal
 *.db-shm
+
+# volume do SQLite da implantação com Docker (docker-compose.yml)
+/data/
