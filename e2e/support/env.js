@@ -5,7 +5,7 @@
 //
 // Todos os valores aqui são FICTÍCIOS: nenhum `.env*` é lido e nenhum segredo real é usado.
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -14,6 +14,7 @@ export const projectRoot = process.cwd();
 
 const RUN_DIR = "VITRINE_E2E_DIR";
 const RUN_PORT = "VITRINE_E2E_PORT";
+const RUN_SECRET = "VITRINE_E2E_SECRET";
 
 /** Credenciais do administrador de teste (fictícias, criadas por `npm run admin:create`). */
 export const ADMIN = Object.freeze({
@@ -44,6 +45,8 @@ export function e2eEnvironment() {
     // Só o nome: o diretório é criado por prepare-database.mjs, e listar os testes não deixa lixo.
     process.env[RUN_DIR] = path.join(os.tmpdir(), `vitrine-e2e-${randomUUID().slice(0, 8)}`);
     process.env[RUN_PORT] = String(findFreePort());
+    // Aleatório a cada rodada (e nunca gravado): evita os avisos de segredo fraco do better-auth.
+    process.env[RUN_SECRET] = randomBytes(32).toString("base64");
   }
   const dir = /** @type {string} */ (process.env[RUN_DIR]);
   const port = Number(process.env[RUN_PORT]);
@@ -69,7 +72,7 @@ export function e2eEnvironment() {
       NODE_ENV: "production",
       NEXT_TELEMETRY_DISABLED: "1",
       DATABASE_URL: toFileUrl(dbFile),
-      BETTER_AUTH_SECRET: "segredo-ficticio-e2e-somente-para-testes-0001",
+      BETTER_AUTH_SECRET: process.env[RUN_SECRET],
       BETTER_AUTH_URL: baseURL,
       ADMIN_EMAIL: ADMIN.email,
       ADMIN_PASSWORD: ADMIN.password,
