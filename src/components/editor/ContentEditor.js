@@ -26,18 +26,26 @@ const Editor = dynamic(() => import("./Editor").then((module) => module.Editor),
  * @param {string} props.userId identificador do usuário autenticado (chave do rascunho local)
  * @param {string | null} props.contentId identificador do conteúdo; `null` para um conteúdo novo
  * @param {string | null} [props.parentId] coleção pai de um conteúdo novo; `null` na raiz
+ * @param {string | null} [props.editPath] caminho da página de edição, com `{id}` no lugar do
+ *   identificador (por exemplo, `/admin/conteudo/{id}`). Depois de CRIAR o conteúdo, a URL da
+ *   página passa a ser essa, sem navegar: recarregar a página abre o conteúdo criado, em vez de
+ *   um formulário vazio que tentaria criar um duplicado
  * @param {{ title?: string, slug?: string, body?: string | null, status?: "DRAFT" | "PUBLISHED" }} props.initialValue
  *   valores iniciais: os do servidor, ou os padrões de um conteúdo novo (estado `PUBLISHED`, RN16)
  * @param {string | null} [props.version] versão do conteúdo no servidor (o `updatedAt`)
  */
-export function ContentEditor({ userId, contentId, parentId = null, initialValue, version = null }) {
+export function ContentEditor({ userId, contentId, parentId = null, editPath = null, initialValue, version = null }) {
   // Depois de criar o conteúdo, os envios seguintes o atualizam.
   const [id, setId] = useState(contentId);
 
   /** @param {import("./draft").EditorValues} values */
   async function submit(values) {
     const result = await saveContent({ id, parentId, values });
-    if (result.ok) setId(result.id);
+    if (result.ok) {
+      // history.replaceState é a forma que o Next.js oferece para trocar a URL sem navegar.
+      if (id === null && editPath) window.history.replaceState(null, "", editPath.replace("{id}", encodeURIComponent(result.id)));
+      setId(result.id);
+    }
     return result;
   }
 

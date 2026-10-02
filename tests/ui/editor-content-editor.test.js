@@ -100,6 +100,60 @@ describe("ContentEditor", () => {
     expect(localStorage.getItem("vitrine:rascunho:u1:novo")).toBeNull();
   });
 
+  describe("editPath: a URL da página depois de criar", () => {
+    const NEW = { userId: "u1", contentId: null, initialValue: { title: "Aula", slug: "aula", status: /** @type {const} */ ("PUBLISHED") } };
+
+    it("troca a URL para a de edição, sem navegar, quando o conteúdo é criado", async () => {
+      const replaceState = vi.spyOn(window.history, "replaceState");
+      stubFetch(jsonResponse(201, { data: { id: "criado-1" } }), jsonResponse(200, { data: { id: "criado-1" } }));
+      render(<ContentEditor {...NEW} editPath="/admin/conteudo/{id}" />);
+      fireEvent.click(await screen.findByRole("button", { name: /Enviar nova versão/ }));
+      await screen.findByText(/Nova versão enviada/);
+
+      expect(replaceState).toHaveBeenCalledTimes(1);
+      expect(replaceState.mock.calls[0][0]).toBeNull();
+      expect(replaceState.mock.calls[0][2]).toBe("/admin/conteudo/criado-1");
+
+      // O segundo envio é uma atualização: a URL não muda de novo.
+      fireEvent.change(screen.getByLabelText("Texto do documento (Markdown)"), { target: { value: "mais" } });
+      fireEvent.click(screen.getByRole("button", { name: /Enviar nova versão/ }));
+      await waitFor(() => expect(screen.getAllByText(/Nova versão enviada/).length).toBeGreaterThan(0));
+      expect(replaceState).toHaveBeenCalledTimes(1);
+    });
+
+    it("codifica o identificador na URL", async () => {
+      const replaceState = vi.spyOn(window.history, "replaceState");
+      stubFetch(jsonResponse(201, { data: { id: "a/b c" } }));
+      render(<ContentEditor {...NEW} editPath="/admin/conteudo/{id}/editar" />);
+      fireEvent.click(await screen.findByRole("button", { name: /Enviar nova versão/ }));
+      await screen.findByText(/Nova versão enviada/);
+      expect(replaceState.mock.calls[0][2]).toBe("/admin/conteudo/a%2Fb%20c/editar");
+    });
+
+    it("não troca a URL sem editPath, ao atualizar um conteúdo que já existe, nem quando o envio falha", async () => {
+      const replaceState = vi.spyOn(window.history, "replaceState");
+
+      stubFetch(jsonResponse(201, { data: { id: "criado-1" } }));
+      const withoutPath = render(<ContentEditor {...NEW} />);
+      fireEvent.click(await screen.findByRole("button", { name: /Enviar nova versão/ }));
+      await screen.findByText(/Nova versão enviada/);
+      withoutPath.unmount();
+
+      stubFetch(jsonResponse(200, { data: { id: "c1" } }));
+      const existing = render(<ContentEditor {...NEW} contentId="c1" version="v1" editPath="/admin/conteudo/{id}" />);
+      fireEvent.click(await screen.findByRole("button", { name: /Enviar nova versão/ }));
+      await screen.findByText(/Nova versão enviada/);
+      existing.unmount();
+
+      stubFetch(jsonResponse(500, { error: { code: "INTERNAL_ERROR", message: "x", details: [] } }));
+      render(<ContentEditor {...NEW} editPath="/admin/conteudo/{id}" />);
+      fireEvent.click(await screen.findByRole("button", { name: /Enviar nova versão/ }));
+      await screen.findByText(/O servidor não conseguiu salvar agora/);
+
+      expect(replaceState).not.toHaveBeenCalled();
+    });
+  });
+
   it("slug em conflito: mostra o erro e a sugestão da API", async () => {
     stubFetch(jsonResponse(409, { error: { code: "SLUG_CONFLICT", message: "Já existe um conteúdo com este slug na mesma coleção.", details: [{ field: "slug", value: "aula", suggestion: "aula-2" }] } }));
     render(<ContentEditor userId="u1" contentId={null} initialValue={{ title: "Aula", slug: "aula", status: "PUBLISHED" }} />);
