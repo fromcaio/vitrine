@@ -144,18 +144,18 @@ describe("contrastWarnings (RN09)", () => {
 });
 
 describe("readableTextOn", () => {
-  it("escolhe o texto escuro sobre a primária padrão, em que o branco reprova o nível AA", () => {
+  it("escolhe o preto sobre a primária padrão, em que o branco reprova o nível AA", () => {
     expect(contrastRatio("#3b82f6", "#ffffff")).toBeLessThan(4.5);
-    expect(readableTextOn("#3b82f6")).toBe("#171717");
-    expect(contrastRatio("#3b82f6", "#171717")).toBeGreaterThanOrEqual(4.5);
+    expect(readableTextOn("#3b82f6")).toBe("#000000");
+    expect(contrastRatio("#3b82f6", "#000000")).toBeCloseTo(5.71, 2);
   });
 
-  it("escolhe o branco sobre cores escuras e o escuro sobre cores claras", () => {
+  it("escolhe o branco sobre cores escuras e o preto sobre cores claras", () => {
     expect(readableTextOn("#1e293b")).toBe("#FFFFFF");
     expect(readableTextOn("#000000")).toBe("#FFFFFF");
     expect(readableTextOn("#171717")).toBe("#FFFFFF");
-    expect(readableTextOn("#f59e0b")).toBe("#171717");
-    expect(readableTextOn("#ffffff")).toBe("#171717");
+    expect(readableTextOn("#f59e0b")).toBe("#000000");
+    expect(readableTextOn("#ffffff")).toBe("#000000");
   });
 
   it("aceita maiúsculas e minúsculas", () => {
@@ -165,9 +165,32 @@ describe("readableTextOn", () => {
   it("devolve sempre a opção de maior contraste", () => {
     for (const color of ["#000000", "#404040", "#6b7280", "#808080", "#3b82f6", "#f59e0b", "#ffffff"]) {
       const chosen = readableTextOn(color);
-      const other = chosen === "#FFFFFF" ? "#171717" : "#FFFFFF";
+      const other = chosen === "#FFFFFF" ? "#000000" : "#FFFFFF";
       expect(contrastRatio(color, chosen)).toBeGreaterThanOrEqual(contrastRatio(color, other));
     }
+  });
+
+  it("garante pelo menos 4,5:1 sobre qualquer cor (ADR-020)", () => {
+    // Com #171717 como texto escuro, estas cores ficavam abaixo de 4,5:1 (pior caso, 4,23:1).
+    for (const color of ["#7b7b7b", "#676fe3"]) {
+      expect(contrastRatio(color, readableTextOn(color))).toBeGreaterThanOrEqual(4.5);
+    }
+    // Varredura dos cinzas e de uma grade de 4.096 cores: o pior caso é 4,58:1.
+    let worst = Infinity;
+    const hex = (/** @type {number} */ value) => value.toString(16).padStart(2, "0");
+    for (let gray = 0; gray < 256; gray++) {
+      const color = `#${hex(gray).repeat(3)}`;
+      worst = Math.min(worst, contrastRatio(color, readableTextOn(color)));
+    }
+    for (let red = 0; red < 256; red += 17) {
+      for (let green = 0; green < 256; green += 17) {
+        for (let blue = 0; blue < 256; blue += 17) {
+          const color = `#${hex(red)}${hex(green)}${hex(blue)}`;
+          worst = Math.min(worst, contrastRatio(color, readableTextOn(color)));
+        }
+      }
+    }
+    expect(worst).toBeGreaterThanOrEqual(4.58);
   });
 
   it("recusa cor fora do formato", () => {

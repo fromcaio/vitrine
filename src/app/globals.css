@@ -15,10 +15,10 @@
 
   /*
    * Texto sobre a cor primária: o valor de readableTextOn(primária), de src/lib/theme.js. Com a
-   * primária padrão, o texto branco teria 3,68:1 e reprovaria o nível AA; o escuro dá 4,87:1.
+   * primária padrão, o texto branco teria 3,68:1 e reprovaria o nível AA; o preto dá 5,71:1.
    * Quem sobrescrever --vitrine-primary deve sobrescrever também esta variável.
    */
-  --vitrine-on-primary: #171717;
+  --vitrine-on-primary: #000000;
   /* Texto sobre a cor secundária: branco fixo (Cap. 5 §5.9), coberto pelo aviso da RN09. */
   --vitrine-on-secondary: #ffffff;
 

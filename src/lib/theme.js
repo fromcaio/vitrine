@@ -4,8 +4,11 @@
 // compartilham. As cores chegam já validadas no formato #RRGGBB (`hexColorSchema`, RN09).
 
 const WHITE = "#FFFFFF";
-/** Texto escuro: o mesmo valor de --vitrine-foreground em src/app/globals.css. */
-const DARK_TEXT = "#171717";
+/**
+ * Texto escuro: o preto puro (ADR-020). Entre ele e o branco, sempre há uma opção com pelo
+ * menos 4,58:1 sobre qualquer cor; com #171717, uma faixa de tons médios ficava abaixo de 4,5:1.
+ */
+const DARK_TEXT = "#000000";
 const HEX_COLOR = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 
 /** Pares verificados, sempre contra o branco (Tabela de pares do Cap. 5 §5.9.1). */
@@ -108,12 +111,12 @@ export function contrastWarnings(colors) {
 }
 
 /**
- * Cor do texto a usar sobre um fundo preenchido: o branco ou o texto escuro padrão, o que tiver
- * a maior razão de contraste com o fundo (no empate, o branco). É a origem do token
- * --vitrine-on-primary: com a primária padrão (#3b82f6), o branco teria 3,68:1 e reprovaria o
- * nível AA, enquanto o escuro alcança 4,87:1.
+ * Cor do texto a usar sobre um fundo preenchido: o branco ou o preto, o que tiver a maior razão
+ * de contraste com o fundo (no empate, o branco); a escolhida tem sempre pelo menos 4,58:1. É a
+ * origem do token --vitrine-on-primary: com a primária padrão (#3b82f6), o branco teria 3,68:1 e
+ * reprovaria o nível AA, enquanto o preto alcança 5,71:1.
  * @param {string} color cor de fundo no formato #RRGGBB
- * @returns {"#FFFFFF" | "#171717"}
+ * @returns {"#FFFFFF" | "#000000"}
  * @throws {TypeError} se a cor não estiver no formato #RRGGBB
  */
 export function readableTextOn(color) {

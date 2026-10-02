@@ -52,7 +52,9 @@ export function LoginForm({ redirectTo }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} aria-busy={pending} className="flex flex-col">
+    // method="post": se a hidratação falhar, o envio nativo do navegador não pode ir por GET, que
+    // poria o e-mail e a senha na URL. Com o JavaScript ativo, quem envia é handleSubmit.
+    <form method="post" onSubmit={handleSubmit} aria-busy={pending} className="flex flex-col">
       <div className="mb-4 flex flex-col gap-1.5">
         <label htmlFor={emailId} className="text-sm font-medium">
           E-mail
