@@ -381,7 +381,8 @@ export function diffRange(before, after) {
 export function slugFromTitle(title) {
   const slug = String(title)
     .normalize("NFD")
-    .replaceAll(/[̀-ͯ]/g, "")
+    // Depois da decomposição, o acento é um caractere à parte (uma marca combinante, categoria M).
+    .replaceAll(/\p{M}/gu, "")
     .toLowerCase()
     .replaceAll(/[^a-z0-9]+/g, "-")
     .replaceAll(/^-+|-+$/g, "")
