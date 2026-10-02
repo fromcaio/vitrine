@@ -53,7 +53,7 @@ Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
 - **Aprovação:** se estiver correto, faça o merge na `main`, sempre com commit de merge:
   `git merge --no-ff feat/x -m "merge(dados): schema inicial (M01) [M-001]"`.
   Conflito em `package-lock.json`: aceite o `package.json` mesclado e rode `npm install` para regenerar o lockfile; confirme com `npm run build`.
-- Após o merge: apague a branch local (`git branch -d feat/x`) e siga para a **reconciliação** (§3.3).
+- Após o merge: remova o *worktree* do agente (`git worktree remove ../vitrine-<agente>`), apague a branch local (`git branch -d feat/x`) e siga para a **reconciliação** (§3.3). Se um commit de código aparecer na `main` ou na branch de outro agente, **não reescreva a `main`**: revise o commit, mantenha-o e registre a exceção no merge (precedente: R-001, 2026-10-02).
 
 ### 2.3 RFCs e pedidos de mudança de especificação
 Desenvolvedores não alteram a especificação; eles pedem. Ao receber um `[RFC]`: (1) aceite, ajuste ou rejeite, com justificativa, no mural; (2) se aceito, **atualize primeiro a documentação na `main`** (commit `docs(...)`) e avise o autor para sincronizar a branch (`git merge main`); (3) só então a implementação pode ser integrada. Toda decisão de projeto gera uma ADR (Apêndice E); uma ADR nova que substitua uma anterior a marca como "Substituída".

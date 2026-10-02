@@ -61,8 +61,8 @@ O processo segue sete princípios, que também constam dos arquivos de governan�
   \item \textbf{A especificação precede a implementação.} Nenhuma funcionalidade nova é implementada sem que exista, na documentação, o requisito, o contrato e o critério de aceite correspondentes.
   \item \textbf{Escritor único da documentação.} Somente o agente Arquiteto edita a documentação (\arq{doc/}) e os arquivos de governança; os demais agentes propõem mudanças por meio do mural.
   \item \textbf{Domínios com dono.} Cada diretório do código pertence a um agente; alterações fora do domínio são solicitadas ao dono.
-  \item \textbf{Código apenas em ramificações.} É vedado alterar código ou configuração diretamente na \texttt{main}; a integração ocorre por \en{merge} autorizado pelo Arquiteto.
-  \item \textbf{O mural é o único canal de coordenação e só é editado na \texttt{main}.} Isso serializa a comunicação e evita conflitos de fusão.
+  \item \textbf{Código apenas em ramificações.} É vedado alterar código ou configuração diretamente na \texttt{main}; a integração ocorre por \en{merge} autorizado pelo Arquiteto. Cada agente trabalha em um \en{worktree} próprio, e a cópia principal permanece na \texttt{main}.
+  \item \textbf{O mural é o único canal de coordenação e só é editado na \texttt{main}} (na cópia principal). Isso serializa a comunicação e evita conflitos de fusão.
   \item \textbf{Rastreabilidade por identificadores.} Requisitos, casos de uso, regras, decisões e módulos possuem identificadores estáveis, citados nos \en{commits}, nos pedidos de integração e nos testes.
 \end{enumerate}
 
@@ -120,7 +120,7 @@ Comunicação e pedidos de integração & \arq{MURAL_DE_AGENTES.md} (somente na 
 
 \subsection{Fluxo de Git e Uso do Mural}\label{sec:fluxo-git}
 
-O ciclo completo está na Figura~\ref{fig:fluxo-ddd-agentes}. Em resumo: o Arquiteto especifica e publica avisos no mural; cada desenvolvedor cria uma ramificação a partir da \texttt{main}, implementa conforme a especificação, e, ao terminar, volta à \texttt{main} apenas para registrar o pedido de integração no mural; o Arquiteto compara a ramificação com a \texttt{main}, autoriza ou veta, e após o \en{merge} atualiza a documentação e limpa o mural.
+O ciclo completo está na Figura~\ref{fig:fluxo-ddd-agentes}. Em resumo: o Arquiteto especifica e publica avisos no mural; cada desenvolvedor cria, no primeiro passo, um \en{worktree} próprio com uma ramificação a partir da \texttt{main} e implementa nele, conforme a especificação; ao terminar, vai à cópia principal, que permanece na \texttt{main}, apenas para registrar o pedido de integração no mural; o Arquiteto compara a ramificação com a \texttt{main}, autoriza ou veta, e após o \en{merge} atualiza a documentação e limpa o mural.
 
 \vitrinefigura[tipo=diagrama, arquivo=fluxo-ddd-agentes, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/fluxo-ddd-agentes.puml},
@@ -128,6 +128,8 @@ O ciclo completo está na Figura~\ref{fig:fluxo-ddd-agentes}. Em resumo: o Arqui
   {Ciclo de \en{Documentation-Driven Development} com agentes}{fig:fluxo-ddd-agentes}
 
 O mecanismo de fusão assíncrona por ramificações e a regra de que o mural só é editado na \texttt{main} formam um protocolo simples: como cada pedido é um \en{commit} na \texttt{main}, o histórico do Git registra quem pediu o quê e quando (Figura~\ref{fig:fluxo-git-mural}).
+
+\textbf{Cópia de trabalho própria.} Os agentes executam ao mesmo tempo e não se veem. Se dividissem a mesma pasta, a troca de ramificação de um deslocaria a ramificação ativa do outro, e um \en{commit} cairia na ramificação errada --- o que ocorreu em 02/10/2026, quando um \en{commit} de código foi parar na \texttt{main} e outro, na ramificação de um colega (risco R15). Por isso cada agente cria, como primeiro passo, um \en{worktree} (\texttt{git worktree add ../vitrine-<agente> -b <ramificação> main}); a pasta principal fica sempre na \texttt{main}, serve só ao mural e ao Arquiteto, e ninguém troca a ramificação dela; confere-se \texttt{git branch -{}-show-current} antes de cada \en{commit}; e o Arquiteto remove o \en{worktree} depois do \en{merge}. Um \en{commit} de código que chegue à \texttt{main} por engano não é apagado do histórico: é revisado, mantido e registrado como exceção no \en{merge} correspondente.
 
 \vitrinefigura[tipo=diagrama, arquivo=fluxo-git-mural, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/fluxo-git-mural.puml},
@@ -233,5 +235,6 @@ R11 & Vazamento de rascunhos (\texttt{DRAFT}) por consulta pública sem filtro d
 R12 & Perda do volume do SQLite na VPS (falha de disco ou do provedor) & M & A & Rotina de cópia de segurança com \texttt{VACUUM INTO} e cópias fora da VPS (Apêndice~\ref{ap:implantacao}); teste de restauração (CT30)\\
 R13 & Alertas de vulnerabilidade do \texttt{npm audit} em dependências transitivas do Prisma 7 (\arq{mysql2} e \arq{deepmerge-ts}), cuja correção automática rebaixaria o Prisma para a versão 6 & B & M & Alertas avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019}): os pacotes não são exercidos pelo Vitrine; \texttt{npm audit} a cada entrega e nova avaliação quando o Prisma publicar versão corrigida\\
 R14 & Perda do acesso ao painel por senha esquecida do administrador único, sem envio de e-mail nem redefinição & B & A & Guardar a senha com segurança; evolução prevista de um comando de redefinição (Seção~\ref{sec:trabalhos-futuros}); \en{backup} do banco (Apêndice~\ref{ap:implantacao})\\
+R15 & Agentes simultâneos na mesma cópia de trabalho: a troca de ramificação de um desloca a do outro, e \en{commits} caem na ramificação errada (ocorrido em 02/10/2026, com um \en{commit} de código na \texttt{main}) & A & M & \en{Worktree} próprio por agente desde o primeiro passo (PR5; Seção~\ref{sec:fluxo-git}); cópia principal sempre na \texttt{main}; conferir a ramificação antes de cada \en{commit}; o Arquiteto remove o \en{worktree} após o \en{merge}\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}

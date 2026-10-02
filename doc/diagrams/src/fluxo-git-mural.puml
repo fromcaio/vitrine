@@ -2,7 +2,8 @@
 ' ===========================================================================
 ' Vitrine - Fluxo Git e uso do mural (solicitação de merge)
 ' Figura: fig:fluxo-git-mural (doc/tex/capitulos/cap3_metodologia.tex)
-' Regra de ouro: MURAL_DE_AGENTES.md só é editado na branch main.
+' Regra de ouro: MURAL_DE_AGENTES.md só é editado na branch main (cópia principal).
+' Atualizado em 2026-10-02: cada agente trabalha em um worktree próprio (R15, R-001).
 ' ===========================================================================
 skinparam shadowing false
 skinparam defaultFontName Arial
@@ -16,21 +17,19 @@ participant "branch main" as Main
 participant "MURAL_DE_AGENTES.md" as Mural
 actor "Arquiteto\n(Merge Master)" as Arq
 
-Dev -> Main : git switch main && git pull (se houver remoto)
-Dev -> Feat : git switch -c feat/<dominio>-<tema>
+Dev -> Feat : git worktree add ../vitrine-<agente> -b feat/<dominio>-<tema> main (1º passo, sempre)
 loop até concluir a tarefa
-  Dev -> Feat : commits (nunca na main)
+  Dev -> Feat : git branch --show-current e commits no worktree (nunca na main)
 end
 Dev -> Feat : commit final (árvore limpa)
-Dev -> Main : git switch main
-Dev -> Mural : adiciona solicitação "@Arquiteto: ... Solicito merge. Ass: <domínio>"
+Dev -> Mural : na cópia principal (sempre na main), adiciona a solicitação "@Arquiteto: ... Solicito merge. Ass: <domínio>"
 Dev -> Main : commit apenas do mural
-Dev -> Feat : git switch feat/<dominio>-<tema>
 
 Arq -> Mural : lê pendências na main
 Arq -> Feat : git diff main...feat/<dominio>-<tema>
 alt conforme à documentação
   Arq -> Main : git merge (sem fast-forward)
+  Arq -> Feat : git worktree remove e git branch -d
   Arq -> Main : atualiza .tex/diagramas e commita
   Arq -> Mural : remove a solicitação resolvida
 else violação ou divergência
