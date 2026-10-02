@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, e a ADR-022 em 02/10/2026, após o merge M-008; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, a ADR-022 em 02/10/2026, após o merge M-008, e as ADR-023 a ADR-027 em 02/10/2026, quando o Engenheiro Chefe ampliou o escopo para vários usuários (decisões D-20 a D-28); os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begingroup\small\renewcommand{\arraystretch}{1.25}
 \begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
@@ -63,6 +63,11 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-020} & Texto sobre a cor primária escolhido por \texttt{readableTextOn} e indicador de foco neutro & O branco fixo reprova o nível AA com a paleta padrão, e o foco não pode depender de uma cor configurável\\
 \adr{ADR-021} & Configuração do site lida em execução, nunca no \en{build} & O estágio de \en{build} da imagem não tem banco, e uma consulta ali faz o \texttt{next build} falhar\\
 \adr{ADR-022} & Cabeçalhos de segurança e CSP sem \en{nonce}, só em produção & O \en{nonce} exigiria renderização dinâmica de todas as páginas e desligaria a ISR; os \en{scripts} de hidratação e o tema pedem \texttt{'unsafe-inline'}\\
+\adr{ADR-023} & Papéis \texttt{admin} e \texttt{user}, contas criadas só pelo administrador, autorização por dono e limites por usuário & O produto passa a ter vários autores, e hoje a API só exige uma sessão (substitui o D-13)\\
+\adr{ADR-024} & Um espaço por usuário em \texttt{/\{handle\}} e a página \texttt{/} como portal do administrador & Evita colisão de \en{slugs} e permite aparência e revalidação por autor (ajusta o D-16)\\
+\adr{ADR-025} & Aparência por proprietário, com paleta clara e noturna & Cada autor controla a própria identidade, e o modo noturno precisa de contraste verificável (substitui o D-17)\\
+\adr{ADR-026} & Notificações internas, geradas pelo servidor & O aviso de contraste se perdia ao recarregar, e a plataforma não envia e-mail\\
+\adr{ADR-027} & Moderação pelo administrador, com notificação ao dono & Autores não confiáveis exigem retirar conteúdo e suspender contas sem perder dados\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup
