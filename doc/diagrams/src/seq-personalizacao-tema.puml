@@ -44,7 +44,8 @@ Form --> Admin : confirmação e avisos de contraste
 == Próxima visita de um leitor ==
 
 Leitor -> Layout : GET qualquer página
-Layout -> DB : getConfiguration()
+Layout -> DB : getSiteConfiguration() (uma consulta\npor requisição; nenhuma no next build)
 DB -> Sql : SELECT
-Layout --> Leitor : HTML com variáveis CSS no elemento raiz\n(--vitrine-primary etc.), nome, logotipo\ne favicon atualizados
+Layout --> Leitor : HTML com as variáveis CSS no elemento raiz\n(--vitrine-primary etc.) e o nome do site\nnos metadados
+note right of Layout : páginas estáticas (/ e a 404) saem do build\nsem style (padrões do CSS) e assumem o banco\nna primeira revalidação do layout raiz
 @enduml

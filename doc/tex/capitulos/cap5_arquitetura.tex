@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, e a ADR-020 em 01/10/2026, após o merge M-005; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, e as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begingroup\small\renewcommand{\arraystretch}{1.25}
 \begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
@@ -61,6 +61,7 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-018} & Administrador por \texttt{npm run admin:create} e contrato da API (envelope \texttt{data}, erros de entrada e de origem) & Aprova as nove propostas do Core (RFC P-002; fecha o D-03)\\
 \adr{ADR-019} & Manter o Prisma 7 apesar de quatro alertas do \texttt{npm audit} & A correção automática rebaixaria o Prisma para a versão 6\\
 \adr{ADR-020} & Texto sobre a cor primária escolhido por \texttt{readableTextOn} e indicador de foco neutro & O branco fixo reprova o nível AA com a paleta padrão, e o foco não pode depender de uma cor configurável\\
+\adr{ADR-021} & Configuração do site lida em execução, nunca no \en{build} & O estágio de \en{build} da imagem não tem banco, e uma consulta ali faz o \texttt{next build} falhar\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup
@@ -108,7 +109,7 @@ A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agen
 
 \section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
 
-O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-006: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-007: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
 
 \begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
 .
@@ -122,7 +123,8 @@ O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório n
 |-- .env.example              # nomes das variáveis de ambiente, sem valores
 |-- public/                   # ativos estáticos do scaffold
 |-- src/proxy.js              # verificação otimista de sessão em /admin (Core)
-|-- src/app/                  # layout.js (lang, metadados), globals.css (tema, UI)
+|-- src/app/                  # layout.js (tema, metadados), not-found.js, globals.css (UI)
+|   |-- _lib/site.js          # configuração do site e variáveis do tema (Core)
 |   |-- page.js               # página inicial (scaffold, até o M07)
 |   |-- login/                # page.js (cartão de login; usa o LoginForm)
 |   |-- admin/                # layout.js, page.js e _lib/ (session, actions)
@@ -141,6 +143,7 @@ src/
 |-- proxy.js                      # verificação otimista de sessão (Core)
 |-- app/
 |   |-- layout.js                 # RootLayout: fontes, lang="pt-BR", tema (Core+UI)
+|   |-- _lib/site.js              # leitura da configuração e variáveis do tema (Core)
 |   |-- globals.css               # Tailwind 4 + tokens de tema (UI)
 |   |-- page.js                   # página inicial
 |   |-- [...slug]/page.js         # leitura de documento/coleção (ISR)
@@ -164,7 +167,7 @@ src/
     |-- auth.js  auth-client.js   # better-auth servidor e cliente (Core)
     |-- validators.js             # esquemas de entrada (Core)
     |-- revalidate.js             # regras de revalidação (Core)
-    `-- theme.js                  # variáveis CSS e contraste (UI)
+    `-- theme.js                  # contraste e cor do texto (UI)
 src/generated/prisma/             # cliente gerado por "prisma generate" (não versionado)
 prisma/                           # schema.prisma, migrations/, seed.js (Dados)
 prisma.config.ts                  # CLI do Prisma: schema, migrations, seed, DATABASE_URL
@@ -470,8 +473,8 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
 
 \begin{enumerate}
   \item \textbf{Tokens.} Em \arq{globals.css}, o bloco \texttt{@theme inline} do Tailwind mapeia os tokens de cor (por exemplo, \arq{--color-primary}) para variáveis (por exemplo, \arq{var(--vitrine-primary)}); os utilitários compilados referenciam a variável, não o valor;
-  \item \textbf{Injeção.} O \en{layout} raiz, um Server Component, lê a configuração e define as variáveis no atributo \texttt{style} do elemento \texttt{<html>} --- as três cores e a cor do texto sobre a primária, \arq{--vitrine-on-primary}, calculada por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) ---, além do nome do site, do logotipo e do \en{favicon}; os valores são validados como \texttt{\#RRGGBB} antes de persistir, o que impede a injeção de CSS;
-  \item \textbf{Invalidação.} Ao salvar a configuração, o Route Handler invalida o \en{layout} raiz; na próxima requisição, as páginas são regeneradas com as novas variáveis, sem \en{build}.
+  \item \textbf{Injeção.} O \en{layout} raiz, um Server Component, lê a configuração e define as variáveis no atributo \texttt{style} do elemento \texttt{<html>} --- as três cores e a cor do texto sobre a primária, \arq{--vitrine-on-primary}, calculada por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) ---, além do nome e da descrição do site nos metadados (o logotipo e o \en{favicon} entram quando houver componente que os exiba, nos módulos M07 e M11); os valores são validados como \texttt{\#RRGGBB} antes de persistir e, por desconfiança do dado lido, de novo na leitura, o que impede a injeção de CSS (Seção~\ref{sec:arq-tema-estatico});
+  \item \textbf{Invalidação.} Ao salvar a configuração, o Route Handler invalida o \en{layout} raiz; na próxima requisição, as páginas são regeneradas com as novas variáveis, sem \en{build}, inclusive as estáticas que saíram do \en{build} com os padrões (Seção~\ref{sec:arq-tema-estatico}).
 \end{enumerate}
 
 \begin{lstlisting}[language=VCSS, caption={Tokens de tema em globals.css (resumo do arquivo integrado no merge M-005)}, label={lst:tema-css}]
@@ -552,6 +555,21 @@ A comparação com o mínimo usa a razão \emph{sem arredondar}; o campo \texttt
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
   descricao={Sequência de personalização: formulário, PUT na API, validação do formato hexadecimal, atualização no banco, revalidação do layout, cálculo dos avisos de contraste sobre as cores gravadas e leitura da configuração pelo RootLayout na próxima visita.}]
   {Sequência de personalização visual}{fig:seq-personalizacao-tema}
+
+\subsection{Leitura da Configuração e o \en{Build}}\label{sec:arq-tema-estatico}
+
+A leitura da configuração para o \en{layout} raiz, para os metadados e para o painel está em \arq{src/app/_lib/site.js} (pasta privada do Core, merge M-007) e segue quatro regras (\adr{ADR-021}):
+
+\begin{itemize}
+  \item \textbf{Nenhuma consulta no \en{build}.} \texttt{getSiteConfiguration()} devolve \texttt{null}, sem consultar o banco, quando \arq{NEXT_PHASE} vale \texttt{phase-production-build}. É o que sustenta a afirmação de que ``nenhuma consulta ocorre no \en{build}'' (Seção~\ref{sec:arq-implantacao}): o estágio de \en{build} da imagem Docker só define \arq{DATABASE_URL}, de modo que o arquivo, ou até o diretório, pode não existir. Sem a guarda, o \texttt{next build} \emph{falha} ao pré-renderizar \arq{/_not-found} (``Cannot open database because the directory does not exist''; com um banco sem tabelas, ``Invalid \texttt{prisma.configuration.upsert()} invocation''), o que foi medido na revisão do merge M-007;
+  \item \textbf{Falha tolerada em execução.} Se a consulta lançar (banco indisponível ou sem as tabelas), o erro é registrado no servidor e valem os padrões do \arq{globals.css}: o site nunca cai por causa da configuração;
+  \item \textbf{Uma consulta por requisição.} A função usa o \texttt{cache} do React, de modo que o \en{layout} raiz, o \texttt{generateMetadata} e o \en{layout} do painel compartilham o resultado (fora do servidor do Next.js, como nos testes, cada chamada consulta);
+  \item \textbf{Só cores válidas.} \texttt{buildThemeStyle(configuração)}, função pura e sem imports do Next.js no mesmo módulo, inclui no \texttt{style} somente os valores que casam com \texttt{\^{}\#[0-9a-fA-F]\{6\}\$}. \arq{--vitrine-primary} e \arq{--vitrine-on-primary} entram juntas ou nenhuma, e sem nenhuma cor válida o atributo \texttt{style} é omitido. A verificação é necessária porque o valor lido do banco vai para um atributo HTML e porque \texttt{readableTextOn} lança \texttt{TypeError} com cor inválida. A função fica no Core, e não em \arq{src/lib/theme.js}, por decisão do merge M-007: é pura, e a UI pode movê-la se preferir.
+\end{itemize}
+
+\textbf{Páginas estáticas.} O \en{build} não consulta o banco; por isso as páginas pré-renderizadas (hoje, a inicial, que é a do \en{scaffold}, e a página \arq{/_not-found}) saem dele \emph{sem} o atributo \texttt{style} e com o título padrão (``Vitrine''), e valem os padrões do \arq{globals.css}. Elas passam a refletir a configuração do banco na \emph{primeira revalidação}: a primeira mutação pela API que revalida o \en{layout} raiz (alterar a configuração ou mudar a estrutura ou o estado do conteúdo; Tabela~\ref{tab:revalidacao}) ou, nas páginas que declararem \texttt{revalidate}, o vencimento do prazo. As rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração. Foi verificado por HTTP, sobre o \en{build} de produção, em duas rodadas independentes (a do Core e a do Arquiteto): antes de qualquer revalidação, \arq{/} e a página 404 respondem \texttt{HIT} com os padrões do CSS; depois de um \texttt{PUT /api/configuration}, a primeira requisição a cada uma responde \texttt{MISS} (regeneração) e a seguinte, \texttt{HIT}, ambas com a nova paleta e o novo nome, sem novo \en{build}.
+
+\textbf{Consequência para a implantação.} Cada nova imagem traz um \arq{.next} novo, e as páginas regeneradas em execução ficam no sistema de arquivos do contêiner, e não no volume do banco. Portanto, ao recriar o contêiner com uma nova imagem, as páginas estáticas devem voltar aos padrões do CSS até a primeira revalidação (inferência não ensaiada em contêiner). Para a 404 e a página inicial do \en{scaffold}, o efeito é só visual. Para as páginas públicas (M07), a regra é \emph{não pré-renderizá-las com dados no \en{build}}: \texttt{generateStaticParams} devolve apenas o que o banco informar (nada, em um \en{build} sem banco) e as páginas nascem sob demanda, na primeira visita, com os dados e o tema do banco em execução. Um passo posterior à implantação que dispare a revalidação (M13) e o \texttt{revalidate} por tempo nas páginas públicas (M07) são as alternativas para o que restar estático.
 
 \section{Interface de Programação HTTP}\label{sec:arq-api}
 
@@ -703,17 +721,22 @@ Demais primitivos & \arq{components/ui} & Diálogo de confirmação, \en{toast},
   descricao={Sequência de reordenação e movimentação na árvore: atualização otimista, PATCH em lote, validação de pai, ciclos e slugs, transação e revalidação do layout.}]
   {Sequência de reordenação e movimentação de conteúdos}{fig:seq-reordenacao-arvore}
 
-\subsection{Layout Raiz: Idioma e Metadados}\label{sec:arq-layout-raiz}
+\subsection{Layout Raiz: Tema, Metadados e Página 404}\label{sec:arq-layout-raiz}
 
-O \en{layout} raiz (\arq{src/app/layout.js}, arquivo de rota do Core) envolve todas as páginas. Desde o merge M-006, ele define:
+O \en{layout} raiz (\arq{src/app/layout.js}, arquivo de rota do Core) envolve todas as páginas. Desde os merges M-006 e M-007, ele define:
 
 \begin{itemize}
   \item \textbf{o idioma do documento}, \texttt{<html lang="pt-BR">} (RNF05): é por esse atributo que os leitores de tela escolhem a pronúncia e os navegadores, o corretor ortográfico e a hifenização. É apenas o atributo de idioma: o sistema tem uma única língua de interface, e a internacionalização (\req{RNF12}) é evolução futura, sem biblioteca nem dicionários;
-  \item \textbf{os metadados estáticos do site}, em \texttt{export const metadata}: \texttt{title} com \texttt{default} ``Vitrine'' (o nome padrão da RN08) e \texttt{template} \texttt{"\%s | Vitrine"}, que vale para os segmentos filhos que definem o próprio título --- \arq{/login} aparece como ``Entrar | Vitrine'' e \arq{/admin} como ``Painel administrativo | Vitrine'' ---, e uma \texttt{description} em português, derivada da definição do produto (Capítulo~\ref{cap:intro}): ``Plataforma de código aberto para blogs e portfólios acadêmicos, com editor Markdown, fórmulas em LaTeX e estrutura hierárquica de conteúdo.'';
+  \item \textbf{o tema}, no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}): as variáveis \arq{--vitrine-primary}, \arq{--vitrine-on-primary}, \arq{--vitrine-secondary} e \arq{--vitrine-accent}, lidas da configuração; o atributo é omitido quando não há cor válida a injetar;
+  \item \textbf{os metadados do site}, por \texttt{generateMetadata}: \texttt{title} com \texttt{default} igual ao nome do site e \texttt{template} \texttt{"\%s | <nome>"}, que vale para os segmentos filhos que definem o próprio título --- \arq{/login} aparece como ``Entrar | <nome>'', \arq{/admin} como ``Painel administrativo | <nome>'' e a página 404 como ``Página não encontrada | <nome>'' ---, e \texttt{description} igual à descrição configurada. Sem configuração, valem o nome ``Vitrine'' (RN08) e uma descrição em português, derivada da definição do produto (Capítulo~\ref{cap:intro}): ``Plataforma de código aberto para blogs e portfólios acadêmicos, com editor Markdown, fórmulas em LaTeX e estrutura hierárquica de conteúdo.'' O modelo do Next.js substitui todo \texttt{\%s}: um nome de site que contenha literalmente \texttt{\%s} seria alterado nos títulos (caso desprezível, sem tratamento);
   \item \textbf{as fontes e as classes de estrutura}: as variáveis das fontes Geist e as classes do \texttt{<html>} (\texttt{h-full antialiased}) e do \texttt{<body>} (\texttt{min-h-full flex flex-col}), de que a casca do painel e o cartão de login dependem para ocupar a altura da janela.
 \end{itemize}
 
-Os metadados são estáticos nesta versão. O nome do site e a descrição vindos da configuração (RF18, RF25), e as quatro variáveis de tema no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema}), entram quando o \en{layout} raiz passar a ler a configuração (M11 e M12). A verificação é feita no HTML pré-renderizado da página inicial: depois de \texttt{npm run build}, o arquivo \arq{.next/server/app/index.html} traz o \texttt{lang} e o \texttt{<title>}. Ainda estão em inglês a página inicial do \en{scaffold} e a página 404 padrão do Next.js (``404: This page could not be found.''); ambas serão substituídas no M07, esta pelo \arq{not-found.js} da estrutura-alvo.
+O \en{layout} do painel (\arq{src/app/admin/layout.js}) lê a mesma configuração, na mesma consulta, e entrega ao \texttt{AdminShell} apenas o nome do site, depois de validar a sessão; o componente nunca recebe o registro. O logotipo, o \en{favicon} e os links sociais ainda não são lidos: entram quando houver componente que os exiba (M07 e M11), e os metadados por página são do M12.
+
+A página 404 é o arquivo \arq{src/app/not-found.js} (RF14), que substitui a página padrão do Next.js, em inglês, e vale para as URLs sem rota e para toda chamada a \texttt{notFound()}. Em português, tem título próprio e uma mensagem \emph{única} --- ``O endereço que você abriu não existe ou não está disponível.'' ---, que não distingue uma página que nunca existiu de um conteúdo em rascunho ou com ancestral em rascunho, que também responde 404 (RN15), além do link ``Voltar ao início''. O Next.js responde o status 404 e acrescenta o \texttt{noindex} sozinho. A marcação do Core é mínima e usa só os tokens de tema; a aparência definitiva é da UI (M07). A página inicial (\arq{src/app/page.js}) ainda é a do \en{scaffold}, em inglês, até o M07.
+
+A verificação é feita no HTML pré-renderizado: depois de \texttt{npm run build}, \arq{.next/server/app/index.html} e \arq{_not-found.html} trazem o \texttt{lang} e o \texttt{<title>} padrão, e nenhum \texttt{style} (Seção~\ref{sec:arq-tema-estatico}).
 
 \section{Segurança}\label{sec:arq-seguranca}
 
@@ -748,7 +771,7 @@ Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atua
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
-Além dos controles acima, o \arq{next.config.mjs} deve definir cabeçalhos de segurança (\texttt{X-Content-Type-Options: nosniff}, \arq{Referrer-Policy}, política de enquadramento e \arq{Permissions-Policy} restritiva); HSTS e TLS ficam a cargo do \en{proxy} reverso. Uma política CSP com \en{nonce} é desejável e será avaliada pelo agente Core.
+Além dos controles acima, o \arq{next.config.mjs} deve definir cabeçalhos de segurança (\texttt{X-Content-Type-Options: nosniff}, \arq{Referrer-Policy}, política de enquadramento e \arq{Permissions-Policy} restritiva); HSTS e TLS ficam a cargo do \en{proxy} reverso. Uma política CSP com \en{nonce} é desejável e será avaliada pelo agente Core. Atenção ao tema: ele chega ao navegador no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}), e atributos de estilo não aceitam \en{nonce}; uma CSP estrita precisaria admitir \texttt{style-src-attr 'unsafe-inline'} (ou o mecanismo de injeção teria de mudar).
 
 \subsection{Vulnerabilidades Conhecidas em Dependências}\label{sec:arq-npm-audit}
 
@@ -795,7 +818,7 @@ Os requisitos normativos sobre a imagem, que o módulo M13 deve atender, são:
   \item \textbf{Migrações como passo explícito.} \texttt{prisma migrate deploy} é executado por um comando próprio antes de subir a nova versão (por exemplo, \texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}), e não pelo comando de partida da aplicação; isso exige que a CLI do Prisma e o \arq{dotenv} estejam na imagem, o que está garantido desde o merge M-002, que os moveu para \texttt{dependencies} (\adr{ADR-014});
   \item \textbf{Administrador inicial.} Depois das migrações e do \en{seed}, o administrador é criado por \texttt{docker compose run -{}-rm vitrine npm run admin:create}, que exige \arq{ADMIN_EMAIL} e \arq{ADMIN_PASSWORD} (e aceita \arq{ADMIN_NAME}) no ambiente da execução. O \en{seed} (\texttt{prisma db seed}) \emph{não} cria o administrador: ele só garante a configuração padrão (\adr{ADR-018});
   \item \textbf{\texttt{tsx} na imagem.} O \texttt{admin:create} e o \texttt{prisma db seed} rodam com o \texttt{tsx}, hoje em \texttt{devDependencies}; a imagem de produção deve manter as dependências de desenvolvimento (\texttt{npm ci} completo) ou mover o \texttt{tsx} para \texttt{dependencies}, caso contrário esses dois comandos deixam de funcionar;
-  \item \textbf{\texttt{DATABASE\_URL} no \en{build}.} O \texttt{next build} importa as rotas, que importam \arq{db.js}, e este lança erro se \arq{DATABASE_URL} não está definida; o estágio de \en{build} do Dockerfile deve defini-la com qualquer valor bem formado (por exemplo, \texttt{ENV} \arq{DATABASE_URL=file:/data/vitrine.db}), pois nenhuma consulta ocorre no \en{build} e o arquivo não precisa existir. Segredos (\arq{BETTER_AUTH_SECRET}, \arq{ADMIN_PASSWORD}) \emph{não} entram no \en{build}: o aviso do segredo padrão registrado nessa etapa é esperado e inofensivo;
+  \item \textbf{\texttt{DATABASE\_URL} no \en{build}.} O \texttt{next build} importa as rotas, que importam \arq{db.js}, e este lança erro se \arq{DATABASE_URL} não está definida; o estágio de \en{build} do Dockerfile deve defini-la com qualquer valor bem formado (por exemplo, \texttt{ENV} \arq{DATABASE_URL=file:/data/vitrine.db}), pois nenhuma consulta ocorre no \en{build} e o arquivo não precisa existir --- nem o diretório. Isso é \emph{garantido por código}, e não por acaso: \texttt{getSiteConfiguration} (\arq{src/app/_lib/site.js}) devolve \texttt{null} sem consultar quando \arq{NEXT_PHASE} vale \texttt{phase-production-build}, e todo \en{layout} ou página que possa ser pré-renderizado deve ler dados do banco por essa guarda ou por outra equivalente; sem ela, o \texttt{next build} falha ao pré-renderizar \arq{/_not-found} (\adr{ADR-021}; Seção~\ref{sec:arq-tema-estatico}). As páginas estáticas saem do \en{build} com os padrões do CSS e passam à configuração do banco na primeira revalidação. Segredos (\arq{BETTER_AUTH_SECRET}, \arq{ADMIN_PASSWORD}) \emph{não} entram no \en{build}: o aviso do segredo padrão registrado nessa etapa é esperado e inofensivo;
   \item \textbf{Segredo em execução.} \arq{BETTER_AUTH_SECRET} e \arq{BETTER_AUTH_URL} (em \texttt{https}, para o \en{cookie} \texttt{Secure}) são obrigatórios na execução; sem o segredo, as rotas de autenticação e de API respondem 500;
   \item \textbf{Instância única.} Um único contêiner, pois o cache de ISR é por instância (Seção~\ref{sec:arq-isr}), o SQLite tem um escritor por vez e a limitação de tentativas de login guarda os contadores em memória;
   \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.

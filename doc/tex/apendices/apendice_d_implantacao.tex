@@ -177,7 +177,7 @@ Para restaurar: parar o serviço (\texttt{docker compose down}), substituir o ar
 
 \section{Atualização}
 
-Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). A reconstrução gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação.
+Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). A reconstrução gera um novo conjunto de páginas pré-renderizadas, o que renova as páginas servidas pelo cache da aplicação. Como o \en{build} não consulta o banco, as páginas estáticas (a inicial e a de erro 404) voltam aos padrões do CSS até a primeira alteração pela API que revalide o \en{layout} raiz, por exemplo salvar a configuração; as rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração do banco, e as páginas públicas, quando existirem (M07), nascem sob demanda (Seção~\ref{sec:arq-tema-estatico}).
 
 \section{Alternativa sem Contêiner}
 
