@@ -1,6 +1,6 @@
 import path from "node:path";
 import { transformWithOxc } from "vite";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 /**
  * O projeto escreve JSX em arquivos .js (ADR-008), que o Vite só transforma em .jsx: sem este
@@ -28,6 +28,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.js"],
+    // Os specs do Playwright (e2e/**/*.spec.js, `npm run test:e2e`) não são testes do Vitest.
+    exclude: [...configDefaults.exclude, "e2e/**"],
     // Cria um SQLite temporário com as migrações reais; os testes nunca usam o dev.db.
     globalSetup: ["./tests/setup/global-setup.js"],
     setupFiles: ["./tests/setup/per-file.js"],
