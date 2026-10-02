@@ -29,7 +29,8 @@ const victim = await auth.api.createUser({ body: { email: "autor@exemplo.test", 
 const v = await signIn(auth, "autor@exemplo.test");
 await prisma.content.create({ data: { title: "T", slug: "t", type: "DOCUMENT", authorId: victim.user.id } });
 const sessionsBefore = await prisma.session.count({ where: { userId: victim.user.id } });
+const accountsBefore = await prisma.account.count({ where: { userId: victim.user.id } });
 const rm = await request(auth, "/admin/remove-user", { cookie: a2b.cookie, body: { userId: victim.user.id } });
-log("6. remove-user de quem tem conteúdo (FK Restrict)", { ...(await brief(rm)), sessoesAntes: sessionsBefore, sessoesDepois: await prisma.session.count({ where: { userId: victim.user.id } }), usuarioAindaExiste: !!(await prisma.user.findUnique({ where: { id: victim.user.id } })) });
+log("6. remove-user de quem tem conteúdo (FK Restrict)", { ...(await brief(rm)), sessoesAntes: sessionsBefore, sessoesDepois: await prisma.session.count({ where: { userId: victim.user.id } }), contasAntes: accountsBefore, contasDepois: await prisma.account.count({ where: { userId: victim.user.id } }), usuarioAindaExiste: !!(await prisma.user.findUnique({ where: { id: victim.user.id } })) });
 log("6b. o cookie antigo do autor ainda vale (sessões foram apagadas ANTES da falha)?", await (await request(auth, "/get-session", { method: "GET", cookie: v.cookie })).json());
 process.exit(0);

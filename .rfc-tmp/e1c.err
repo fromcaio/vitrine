@@ -1,4 +1,4 @@
-[2m2026-10-02T18:17:35.744Z[0m [31mERROR[0m [1m[Better Auth]:[0m PrismaClientKnownRequestError PrismaClientKnownRequestError: 
+[2m2026-10-02T18:23:25.189Z[0m [31mERROR[0m [1m[Better Auth]:[0m PrismaClientKnownRequestError PrismaClientKnownRequestError: 
 Invalid `prisma.user.delete()` invocation:
 
 

@@ -50,6 +50,8 @@ false
   "message": "",
   "sessoesAntes": 1,
   "sessoesDepois": 0,
+  "contasAntes": 1,
+  "contasDepois": 0,
   "usuarioAindaExiste": true
 }
 
