@@ -1,6 +1,10 @@
 // Validação do formulário do editor (M09; RF05, RF26) com o Zod, pelos mesmos esquemas de campo
 // que o servidor usa (`src/lib/validators.js`, módulo puro). A validação do servidor continua a
 // autoridade (RF21): esta existe para avisar o autor antes do envio, junto de cada campo.
+
+// Primeiro de todos: configura o Zod antes de o validators.js criar os esquemas dele (ver o
+// módulo). Sem isto, o navegador registra uma violação de CSP (`eval`) a cada carga do editor.
+import "./zod-config";
 import * as z from "zod";
 import { CONTENT_STATUSES, slugSchema, validate } from "@/lib/validators";
 
