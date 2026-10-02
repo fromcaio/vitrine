@@ -191,7 +191,28 @@ Se um valor padrão da ADR-017, uma regra aprovada ou o contrato da ADR-018 se m
 
 ## Solicitações de merge
 
-_(nenhuma)_
+### M-010 · [MERGE] Core → @Arquiteto · 2026-10-02 · branch `feat/core-e2e-base` (seis commits, de `22fa983` a `41183cc`, sobre `142bee5`)
+- **Módulo(s) / IDs:** A-012, Parte 2 (base dos testes de ponta a ponta) · D-12, ADR-017 · verifica ADR-022 (CSP), RF20 (sair), RF21 (a API exige sessão), RF22 (`admin:create`), UC08 (entrar)
+- **Resumo (3–5 linhas):** Primeira base do Playwright. `npm run test:e2e` sobe a aplicação **de produção** (`next build` + `next start`) com um banco SQLite temporário **fora** do repositório, em porta livre e com variáveis fictícias, cria o administrador pelo `npm run admin:create` real e roda um teste de fumaça de 4 casos: `/login` (CSP enviada, formulário hidratado, nenhuma violação no console), entrar → painel → sair, mensagem única para credenciais erradas e `/api/configuration` sem sessão → 401. Uma guarda automática falha qualquer teste em que o navegador registre violação de CSP; provei a sensibilidade dela com uma violação provocada (spec descartável, não commitado). Nenhum código da aplicação foi alterado.
+- **Seções da documentação consultadas:** Cap. 5 §5.12 e ADR-022 (CSP), ADR-017 (D-12), ADR-021 (o `next build` não consulta o banco), Cap. 7 (casos de teste), A-012 (Parte 2)
+- **Mudanças que exigem atualizar a documentação:**
+  - **Dependência nova (Cap. 3):** `@playwright/test` **1.63.0** (`devDependency`, `^1.63.0`). *Motivo:* D-12/ADR-017 preveem testes de ponta a ponta; é a única forma de verificar no navegador real a hidratação do login e a CSP, que o Vitest não alcança. *Licença:* Apache-2.0. *Alternativa:* Cypress ou Puppeteer (este sem executor de testes); ou o roteiro manual repetido a cada mudança de CSP, que a §6 já exige hoje (não avaliei as duas primeiras a fundo). *Impacto:* **0 byte no *bundle*** da aplicação; +46 linhas no `package-lock.json` (3 pacotes: `@playwright/test`, `playwright`, `playwright-core`, ≈ 20 MB em `node_modules`). **Na imagem Docker:** o `Dockerfile` roda `npm ci` completo no estágio de *build* e copia `/app` para o estágio final, então esses ≈ 20 MB de `node_modules` **entram na imagem** como qualquer outra `devDependency` (não reconstruí a imagem para medir). Para que `e2e/`, `playwright.config.js` e os *traces* de `test-results/` não entrem pelo `COPY . .`, **acrescentei essas entradas ao `.dockerignore`** (commit próprio); o Apêndice D reproduz o arquivo a partir do repositório. Os navegadores **não** ficam no repositório: `npx playwright install chromium` baixa para `%LOCALAPPDATA%\ms-playwright` (Windows) ou `~/.cache/ms-playwright` (Linux). **Medido aqui: ~700 MB em disco** (Chromium, *headless shell*, ffmpeg e winldd), mais que a estimativa que dei ao Engenheiro Chefe ao pedir a autorização (~150 MB).
+  - **Scripts:** `test:e2e` (`playwright test`) no `package.json`; `npm test` inalterado (20 arquivos, 609 testes, como antes).
+  - **Arquivos novos:** `playwright.config.js`, `e2e/smoke.spec.js` e `e2e/support/` (`env.js`, `prepare-database.mjs`, `database.js`, `auth.js`, `test.js`, `global-setup.js`, `global-teardown.js`, `remove-later.mjs`). Os *specs* ficam em `e2e/` (terminam em `.spec.js`), fora de `tests/`, que é do Vitest.
+  - **Arquivos existentes tocados:** `vitest.config.mjs` (`exclude` acrescenta `e2e/**`, mantendo os padrões), `.gitignore` (`/test-results/`, `/playwright-report/`, `/blob-report/`) e `.dockerignore` (`e2e`, `playwright.config.js`, `test-results`, `playwright-report`, `blob-report`; arquivo do M13, que o Apêndice D lista).
+  - **Variáveis de ambiente:** nenhuma nova para a aplicação nem para `.env.example`. A rodada define (fictícias, só no ambiente do processo): `DATABASE_URL`, `BETTER_AUTH_SECRET` (aleatório a cada rodada), `BETTER_AUTH_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `NODE_ENV=production`, `NEXT_TELEMETRY_DISABLED=1` e três internas (`VITRINE_E2E_DIR`, `VITRINE_E2E_PORT`, `VITRINE_E2E_SECRET`). `E2E_VERBOSE=1` mostra o log do servidor.
+  - **Sugestão para o Cap. 7 / DESENVOLVEDORES.md §6 (Core):** registrar `npm run test:e2e` como o roteiro automático de verificação da CSP e do login em produção, e que `e2e/**` e `playwright.config.js` são do Core.
+- **Desvios da especificação:** nenhum. Notas de projeto: (1) o Playwright define `NODE_ENV=test`, e a CSP só é enviada em produção (`next.config.mjs`); por isso a rodada força `NODE_ENV=production` e o primeiro teste confere o cabeçalho `Content-Security-Policy` antes de olhar o console (sem isso, a ausência de violações não provaria nada); (2) o servidor fica preso a `127.0.0.1` e o `BETTER_AUTH_URL` usa o mesmo endereço, para a verificação de origem do better-auth não divergir de `localhost`; (3) a ordem do `webServer` é migrações → `next build` → `next start`. O build não consulta o banco (ADR-021); as migrações vêm antes só para uma falha aparecer cedo; (4) o `next build` da rodada grava em `.next/` do próprio *worktree*, como o `npm run build`: não rode `npm run dev` no mesmo diretório durante o teste.
+- **Verificação:** `npm run lint` ok · `npm run build` ok (rota `/` estática, `/admin`, `/login` e as rotas de API dinâmicas, como antes) · `npm test` ok (20 arquivos, 609 testes) · `npm run test:e2e` ok (**4 passaram**) · `npx vitest list` não lista nenhum *spec* do Playwright · `npx playwright test --list` lista os 4. Sensibilidade da guarda de CSP: um `<script src="https://exemplo.invalid/x.js">` injetado pelo teste gerou as duas evidências (evento `securitypolicyviolation`, com `script-src-elem`, e a mensagem de console) e a guarda as registrou. **Casos de teste do Cap. 7:** nenhum CT foi marcado como executado; o teste de fumaça é novo, e o Arquiteto decide a qual CT ele se vincula (a verificação manual da CSP e do login está descrita na §6 do `DESENVOLVEDORES.md`).
+- **Tempo de execução (medido):** 18,8 s a 22 s por rodada completa (a maior parte é o `next build`; os 4 testes levam ≈ 3 s; não medi cada fase em separado), em Windows 11 Home, Node.js 24.21, 20 processadores lógicos, com `.next/` já presente; a primeira rodada, 40,6 s. Estimativa para um servidor de CI de 2 núcleos: 1 a 2 minutos (não medida).
+- **Requisitos do Windows e do Linux:**
+  - **Ambos:** Node.js 24 (o do projeto; o Next.js 16 exige ≥ 20.9); `npm ci`; `npx prisma generate` (o cliente é gerado, não versionado); `npx playwright install chromium` **uma vez por máquina** (e a cada atualização do Playwright); porta livre (sorteada pelo sistema operacional) e escrita no diretório temporário do sistema. Sem `.env`: o ambiente da rodada tem precedência e o `dev.db` nunca é aberto.
+  - **Windows (verificado):** nada além do download; o SQLite aberto pelo servidor impede apagar o diretório temporário durante o `globalTeardown` (o Playwright só encerra o servidor depois), então a remoção é entregue a `remove-later.mjs`, processo solto que insiste por até 1 minuto; conferi que nenhum `vitrine-e2e-*` sobrou em `%TEMP%`.
+  - **Linux (NÃO verificado aqui):** o Chromium exige bibliotecas do sistema; em Debian/Ubuntu, `npx playwright install --with-deps chromium` (usa `apt`, precisa de `sudo`) ou, em contêiner, a imagem oficial `mcr.microsoft.com/playwright`. Em CI sem tela, o modo é *headless* (padrão). O comando do `webServer` usa `&&` e `node` (funciona no `sh` e no `cmd`); o `rmSync` do teardown deve funcionar direto, pois o Linux permite apagar o arquivo aberto. **Não rodei no Linux**; peço que o primeiro a usar nesse sistema reporte.
+  - **Imagem Docker:** ver o impacto acima (≈ 20 MB a mais de `node_modules`, `e2e/` fora pelo `.dockerignore`). **Não reconstruí a imagem** nem repeti o roteiro do CT29 com estas mudanças; recomendo conferir na próxima reconstrução.
+- **Evidências:** saída da rodada (4 ✓, 18,8 s) acima; sem figuras (o teste não gera imagens; em falha, o Playwright guarda o *trace* em `test-results/`, ignorado pelo Git).
+- **Sugestão de texto para o Arquiteto (opcional):** "O Vitrine tem uma base de testes de ponta a ponta com Playwright (`npm run test:e2e`), que sobe a aplicação de produção sobre um banco SQLite temporário e verifica o login, o painel, o encerramento da sessão, a exigência de sessão na API e a ausência de violações da CSP no console."
+- **Relação com o P-010:** independente. O RFC (Parte 1) segue aberto e não depende deste merge; quando a autorização por dono for implementada, estes *helpers* ganham o segundo usuário e os testes de acesso por dono.
 
 ## Pedidos entre domínios
 
@@ -616,6 +637,291 @@ export async function markRead(userId, ids)        // ids omitido = todas
 export async function dismiss(userId, id)
 export async function pruneNotifications({ days = 90, now = new Date() } = {}) // só lidas antigas
 ```
+
+### P-010 · [RFC] Core → @Arquiteto · 2026-10-02 · ABERTO — Autorização, usuários, senha provisória e revalidação por espaço (resposta à Parte 1 da A-012; investigação, **sem** código na `main`)
+
+**Como ler.** As propostas seguem a numeração da A-012 (1 a 10). Cada uma traz **Recomendação**, **Alternativas**, **Verificado** (o que rodei de fato e o resultado) e, quando houver, **Não verificado**. Tudo foi feito com o better-auth 1.7.6, o Next.js 16.3.7 (`next build` + `next start`), o Prisma 7.10.0 e o SQLite do `better-sqlite3` 12.11.1 instalados, sobre bancos temporários **dentro** do *worktree*, com segredos e dados fictícios (nenhum `.env*` foi lido).
+
+**Onde está a evidência.** *Worktree* `F:/code/vitrine/vitrine-core-rfc`, branch `rfc/core-multiusuario` (descartável; **sem pedido de merge**; commits `fbd6948` e `bfed6ab`), pasta `.rfc-tmp/`: `LEIAME.md` (índice e roteiro de reprodução), `e1` a `e10` (provas) com as saídas `*.out` e `*.err`, `lib/` (código proposto: `authz.mjs`, `route.mjs`, `guard.mjs`, `pages.mjs`, `cli.mjs`, `handle.mjs`) e `e7-app/` (mini-aplicativo Next.js). O `prisma/schema.prisma` desse *worktree* tem campos de rascunho só para as provas. O `prisma db push --accept-data-loss` **não** foi usado (a CLI o bloqueia para agentes): o banco-modelo vem do SQL de `prisma migrate diff`.
+
+**Resumo: o que peço ao Arquiteto decidir (por impacto)**
+1. **A revalidação "do layout do *handle*" (ADR-024, item 5; Cap. 5 §5.7.2) não funciona como escrita.** Medido: `revalidatePath("/a", "layout")` **não invalida nada** em um segmento dinâmico `[handle]`, e `revalidatePath("/", "layout")` invalida **todos** os espaços. Funciona o caminho **literal de página** (`revalidatePath("/a/x")`), barato (2000 chamadas em 58 ms). Proponho invalidar o espaço por caminhos literais, a partir da árvore do dono, e um layout raiz **sem dado do banco** (proposta 7). Exige ajustar a ADR-024 e o Cap. 5.
+2. **404 ficam em cache, em disco, e uma URL aleatória custa ~15 kB (7 arquivos).** Medido: 200 URLs inexistentes acrescentaram 1 400 arquivos (+2,5 a +3,1 MB). Já vale para o desenho previsto do M07 (`[...slug]` com `generateStaticParams` vazio). Um Proxy resolve o *handle* inexistente (testado), **não** o documento inexistente em um espaço válido. Peço decisão (proposta 7 e 10).
+3. ***Handle* como campo próprio (variante B), com validação em `databaseHooks`**, coerente com o P-008 (proposta 2).
+4. **Lista de permitidas no *catch-all* `/api/auth/[...all]`:** 45 rotas brutas estão expostas (15 do *plugin* `admin`); só 3 devem ficar (proposta 4).
+5. **Códigos novos no contrato da ADR-018:** `FORBIDDEN` e `QUOTA_EXCEEDED` (já na ADR-023) e, a ratificar, `PASSWORD_CHANGE_REQUIRED`, `RATE_LIMITED`, `PAYLOAD_TOO_LARGE`, `USER_CONFLICT` e `LAST_ADMIN` (tabela na proposta 5).
+6. **Decisões de política:** o administrador **não** edita a aparência alheia (a ADR-027 não prevê); recurso de outro dono responde **403** (como na ADR-023), embora 404 evitasse enumerar identificadores; o administrador também tem cota (proposta 5 e 9).
+7. **Manter o cache de cookie do better-auth desligado** (hoje já está): medido que, com ele, um usuário suspenso continua autenticado (proposta 6).
+
+---
+
+**1. *Plugin* `admin` com o cadastro público desabilitado (`e1`, `e1b`, `e1c`)**
+
+*Recomendação:* `admin()` com `defaultRole: "user"`, `adminRoles: ["admin"]`, **papéis customizados** (o `admin` sem a permissão `impersonate`; o `user` sem nenhuma), `bannedUserMessage` como função e `emailAndPassword.disableSignUp: true` (como hoje). Campos `handle` e `mustChangePassword` declarados em `user.additionalFields` com `input: false`. O código da configuração está em `e1b-personificacao.mjs` e `lib/poc.mjs`.
+
+*Verificado:*
+- **O `create-user` funciona com `disableSignUp: true`** e o cadastro público continua recusado: `POST /sign-up/email` → 400 `EMAIL_PASSWORD_SIGN_UP_DISABLED`, nenhum usuário criado.
+- **`auth.api.createUser` chamado no servidor SEM `headers` não verifica nada** (serve ao *bootstrap*: criou o administrador com `role: "admin"`); **com** os `headers` de um usuário comum → 403 `YOU_ARE_NOT_ALLOWED_TO_CREATE_USERS`; com `headers` sem sessão → 401. Logo, as nossas rotas **autorizam primeiro, e passam os `headers` ao *plugin*** como segunda barreira; nunca chamam o *plugin* sem `headers` em rota.
+- Usuário comum em rotas brutas do *plugin*: `create-user`, `set-role` e `list-users` → 403; sem sessão → 401. Papel padrão do usuário criado: `user`; `data.handle` só é gravado se `handle` estiver declarado em `additionalFields` (senão é ignorado em silêncio).
+- **O `create-user` não aplica o mínimo de senha**: aceitou senha de 3 caracteres com o mínimo configurado em 8 (o `set-user-password` aplica: 400 `PASSWORD_TOO_SHORT`). A validação de 8 a 128 é do Zod, na nossa rota.
+- **Escalada de privilégio:** `POST /update-user` com `role` → 400 `FIELD_NOT_ALLOWED`; `handle` → 400 `FIELD_NOT_ALLOWED`; `banned` ou `mustChangePassword` sozinhos → 400 "No fields to update"; misturados a `name` o pedido inteiro é recusado. **Mas `name` com 5 000 caracteres e `image: "javascript:alert(1)"` foram aceitos e gravados**: a rota bruta não valida nada além disso (proposta 4).
+- **Personificação:** com a configuração padrão, o administrador personifica e a sessão grava `impersonatedBy`; com papéis customizados (sem `impersonate`) → 403 `YOU_ARE_NOT_ALLOWED_TO_IMPERSONATE_USERS`, e `ban-user` e `create-user` seguem funcionando; 0 sessões com `impersonatedBy`. A coluna `Session.impersonatedBy` continua exigida pelo *plugin*.
+- **Suspensão:** `ban-user` com motivo e 7 dias apagou as 3 sessões do usuário; o *cookie* antigo passou a devolver sessão nula; o *login* com a senha certa → **403 `BANNED_USER`** com a mensagem da nossa função ("Conta suspensa. Motivo: Spam. Até 2026-10-09."), **sem** *cookie*; com a senha **errada** → 401 genérico (não revela a suspensão). Vencido `banExpires`, o *login* volta a funcionar e o *plugin* limpa `banned`, `banReason` e `banExpires` **naquele *login***.
+- `auth.api.getSession` já devolve `role`, `banned`, `banReason`, `banExpires`, `handle` e `mustChangePassword` em `user`: **a autorização não precisa de consulta extra**.
+- **Último administrador (`e1c`):** o *plugin* recusa suspender ou remover **a si mesmo** (400 `YOU_CANNOT_BAN_YOURSELF` e `YOU_CANNOT_REMOVE_YOURSELF`), mas **permite** (200) que o único administrador ativo se **rebaixe** com `set-role`, e que um administrador **suspenda ou remova outro**: sobraram **0** administradores ativos. **Proteção do último administrador é nossa** (função de dados, na transação; propostas 4 e 8).
+- **`remove-user` de quem tem conteúdo:** responde **500** (a FK `Restrict` bloqueia), mas **antes** apagou as sessões **e a credencial** (1 → 0 sessões; 1 → 0 contas): o usuário continua existindo e **fica sem entrar**, em silêncio. O erro bruto do Prisma vai para o *log* do servidor. Confirma a proposta de usar uma função de dados transacional (ADR-027, item 4).
+
+*Alternativas:* manter a personificação ligada e bloqueá-la só pela lista de permitidas (funciona, mas deixa a capacidade ativa por trás de uma única barreira); papéis padrão do *plugin*.
+
+*Não verificado:* a mensagem de suspensão em outros idiomas; `listUserSessions`/`revokeUserSession` (só `revoke-user-sessions`, na proposta 3).
+
+---
+
+**2. *Plugin* `username` ou campo próprio para o *handle* (`e2a`, `e2b`)**
+
+*Recomendação:* **campo próprio** `User.handle` (variante B do P-008), `additionalFields` com `input: false`, **normalização e validação em `databaseHooks.user.create.before` e `.update.before`** (um único ponto, alcançado também pelo `admin:create` e por `admin/update-user`) e, na rota `/api/users`, Zod para as mensagens e **pré-verificação de unicidade** por função de dados. **Não** usar o *plugin* `username`. Sem `[PEDIDO]` ao Dados: ele já recomendou a B e a coluna é `handle String? @unique`.
+
+*Verificado (A, *plugin* `username` com `usernameValidator` próprio):*
+- No `create-user`, valida e garante unicidade: caixa alta, `_`, hífen nas pontas ou repetido → 400 `INVALID_USERNAME`; 2 e 31 caracteres → `USERNAME_TOO_SHORT`/`USERNAME_TOO_LONG`; duplicado → 400 `USERNAME_IS_ALREADY_TAKEN`.
+- **O próprio usuário altera o `username` por `POST /update-user` (200)** e grava `displayUsername` livre (aceitou `<img src=x onerror=alert(1)>`): contradiz a ADR-024 ("só o administrador o altera"), a menos que a rota seja bloqueada.
+- **Superfície nova:** `POST /is-username-available` **sem sessão** (responde `available: true/false`) e `POST /sign-in/username`, um **segundo caminho de *login***. O limite de taxa de `/sign-in/username` cai na regra padrão de `/sign-in` (**3 por 10 s**, medido: 401 401 401 e depois 429; 11 s depois, mais 3), ou seja, até ~18 tentativas por minuto contra as 5 de `/sign-in/email`.
+
+*Verificado (B, campo próprio):*
+- **Sem os *hooks*, o better-auth aceita qualquer texto** como `handle`: `Ana Souza!`, `a`, `admin`, `Ana2`, `ANA` (ao lado de `ana`) e `  bia  ` foram gravados; **duplicado exato → 500** (violação da unicidade do banco, erro bruto no *log*).
+- **Com os *hooks*:** esses mesmos casos → 400 `INVALID_HANDLE` (menos os normalizáveis: `Ana2` → `ana2`, `  bia  ` → `bia`); `admin/update-user` com `handle` inválido → 400 `INVALID_HANDLE`, com válido → 200. **Mas a colisão após a normalização** (`ANA` → `ana`) e o duplicado **ainda chegam ao banco e viram 500**: a unicidade tem de ser **pré-verificada** (função de dados, comparando o valor normalizado) **e** o erro `P2002` mapeado para 409 `USER_CONFLICT`.
+- O próprio usuário **não** altera o `handle` (`update-user` → 400 `FIELD_NOT_ALLOWED`); sem o *plugin*, `/sign-in/username` e `/is-username-available` respondem 404.
+- **Nomes reservados:** a classe `[a-z0-9-]` já exclui `_next`, `favicon.ico`, `robots.txt` e `sitemap.xml`; só `admin`, `api`, `login` (e, a meu ver, `logout`) colidem com rotas e precisam constar da lista. Qualquer nome de pasta de `public/` também colidiria (os arquivos de `public/` precedem as rotas dinâmicas): a lista deve ser conferida a cada rota estática ou pasta nova. A função está em `lib/handle.mjs` (3 a 30 caracteres, `^[a-z0-9]+(-[a-z0-9]+)*$`).
+
+*Alternativas:* A com a rota `update-user` bloqueada (viável, mas traz duas colunas e duas rotas públicas que não queremos); validar só na rota (deixa o `admin:create` e qualquer chamada direta sem validação).
+
+*Não verificado:* a unicidade **entre processos** (só há um processo Next.js; a restrição `@unique` do banco a garante de qualquer forma).
+
+---
+
+**3. Senha provisória e troca no primeiro acesso (`e3`)**
+
+*Recomendação:* campo `User.mustChangePassword Boolean @default(false)` (`additionalFields`, `input: false`; **pedido ao Dados no P-011**). É ligado por: `POST /api/users` (conta nova), `PUT /api/users/[id]/password` (redefinição) e `npm run admin:reset-password`. Verificado em **três** lugares: (a) o *helper* de rota recusa tudo com 403 `PASSWORD_CHANGE_REQUIRED`, **exceto** trocar a própria senha e ler o próprio perfil; (b) `requireSession` das páginas redireciona para `/admin/senha` (nome sugerido; a tela é da UI); (c) cada Server Function. A troca é `POST /api/users/me/password` (`{ currentPassword, newPassword }`): Zod (8 a 128), **recusa nova senha igual à atual**, chama `auth.api.changePassword({ headers, body: { …, revokeOtherSessions: true } })` e **só depois** limpa o marcador (função de dados). A rota bruta `/api/auth/change-password` fica bloqueada (proposta 4). A senha provisória é exibida **uma única vez** na resposta do `POST /api/users` (ADR-023, item 3).
+
+*Verificado:*
+- `create-user` com `data.mustChangePassword: true` grava o marcador; o **primeiro *login* com a provisória funciona** (precisa funcionar) e `getSession` já traz `mustChangePassword: true`.
+- `change-password` bruto: senha atual errada → 400 `INVALID_PASSWORD`; nova com 3 caracteres → 400 `PASSWORD_TOO_SHORT`; **nova igual à atual → 200** (a rota tem de recusar); válido com `revokeOtherSessions` → sessões 2 → 1, **token de sessão novo** no *cookie*, outro dispositivo passa a sessão nula, senha antiga 401 e nova 200.
+- **A rota bruta não limpa o marcador** (continuou `true` depois da troca): por isso a troca pela nossa rota, que limpa depois (falha fechada: se a limpeza falhar, o usuário só é levado a trocar de novo; a ordem inversa liberaria quem não trocou).
+- **`set-user-password` (redefinição pelo administrador) não revoga as sessões do usuário** (a sessão antiga continuou valendo); `revoke-user-sessions` em seguida → 0 sessões. A nossa rota deve chamar os dois. Senha curta nesse caminho → 400 `PASSWORD_TOO_SHORT`.
+
+*Alternativas:* cancelar o marcador num *hook* `after` do `/change-password` (não testei; deixaria o fluxo dependente de um *plugin* nosso e aceitaria a rota bruta); data de expiração da senha (mais coluna, sem ganho); colocar o marcador no *cookie* (o servidor precisa lê-lo do banco de qualquer jeito).
+
+*Não verificado:* o fluxo no navegador (a tela é da UI); a política de complexidade além do tamanho.
+
+---
+
+**4. Encapsulamento das rotas do *plugin* e do *catch-all* (`e4`)**
+
+*Recomendação:* (a) **lista de permitidas** no `src/app/api/auth/[...all]/route.js`: só `GET /get-session`, `POST /sign-in/email` e `POST /sign-out`; o resto responde 404 no envelope da ADR-018, sem chegar ao roteador (`lib/guard.mjs`). (b) Rotas próprias (tabela abaixo) que chamam `auth.api.*` no servidor, **depois** da nossa autorização, com os `headers`, e traduzem os erros. (c) Limitador de taxa **nosso** nas escritas, porque as chamadas diretas não passam pelo do better-auth.
+
+| Método | Caminho | Ação (proposta 5) | Implementação |
+|---|---|---|---|
+| `GET` | `/api/users` | `users:list` | função de dados, com DTO estreito (sem `banned*` de quem não deve ver, sem campos internos) |
+| `POST` | `/api/users` | `users:create` | `auth.api.createUser` (`data: { handle, mustChangePassword: true }`) |
+| `GET`, `PATCH` | `/api/users/me` | `users:read`, `profile:update` | sessão; nome com Zod (por exemplo, 1 a 80 caracteres) |
+| `POST` | `/api/users/me/password` | `profile:change-password` | `auth.api.changePassword` + limpar o marcador (proposta 3) |
+| `GET`, `PATCH`, `DELETE` | `/api/users/[id]` | `users:read`, `users:update`, `users:remove` | `PATCH` (nome, *handle*, papel) e `DELETE` (transferir ou excluir o conteúdo; ADR-027) por **função de dados transacional**, com a regra do último administrador |
+| `PUT` | `/api/users/[id]/password` | `users:reset-password` | `auth.api.setUserPassword` + `revokeUserSessions` + marcador |
+| `POST`, `DELETE` | `/api/users/[id]/ban` | `users:ban` | `auth.api.banUser` (motivo obrigatório, prazo opcional) e `unbanUser`; a notificação (ADR-026) |
+
+*Verificado:*
+- **45 *endpoints* expostos** (núcleo + `admin`); o catch-all hoje os serve a quem tiver sessão: com *cookie* de administrador, `admin/create-user`, `admin/list-users`, `admin/set-role` (aceitou **promover** outro usuário), `update-user`, `change-password`, `list-sessions` e `revoke-sessions` responderam 200. Com a lista de permitidas, **todos** → 404; `get-session` (200) e `sign-in/email` (401) seguem iguais.
+- **Tentativas de contorno (18 variantes, `GET` com *cookie* de administrador): nenhuma passou pela lista.** O *guard* lê o `pathname` do `URL`, já normalizado, que é o que o roteador lê: `sign-in/email/../../admin/list-users`, `%2e%2e`, `./` e `?x=/sign-in/email` viram `/admin/list-users` (200 sem a lista, 404 com ela); `ADMIN`, `%61dmin`, `%2f`, `;a=b`, `%00` e `%20` dão 404 nos dois lados. **No Next.js real** (mini-aplicativo, `next start`, `/api/echo/[...all]`): `..`, `%2e%2e` e `.` chegam ao *handler* já resolvidos, `//` e a barra final respondem **308** para o caminho canônico, `%2f` **não** vira barra e a caixa é preservada.
+- **Limite de taxa:** o do better-auth só vale **dentro do *handler***: 30 `auth.api.createUser` seguidos (chamada direta, mesma sessão) → 30 criados, nenhum 429. O limitador por usuário da proposta 9 (janela fixa, em memória) devolveu 429 na 6ª escrita de uma janela de 5.
+- **Origem:** o better-auth já recusa `Origin` de outro site nas rotas que ficam (`sign-in/email` e `sign-out` → 403 "Invalid origin"); as nossas usam o *helper* da ADR-018 (outra origem → 401).
+- **Forma dos erros de `auth.api.*`:** `APIError` com `statusCode` e `body.code`/`body.message`: `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` (400 → nosso 409 `USER_CONFLICT`), `YOU_ARE_NOT_ALLOWED_*` (403 → `FORBIDDEN`), sem sessão (401, sem código), `USER_NOT_FOUND` (404 → `NOT_FOUND`), `YOU_CANNOT_BAN_YOURSELF` (400 → 422 `VALIDATION_ERROR`), `PASSWORD_TOO_SHORT` (400 → 422), corpo malformado (400 `VALIDATION_ERROR` → 422). Erro não reconhecido → 500 `INTERNAL_ERROR` genérico.
+
+*Alternativas:* **bloquear** só as rotas de `admin/*` (deixaria `update-user`, `change-password` e `revoke-sessions` brutas, que gravam texto sem validar e não limpam o marcador); expor `/api/auth/admin/*` com um *middleware* nosso (duplica o roteador).
+
+*Não verificado:* a lista de permitidas dentro do `route.js` real (verifiquei o *guard* sobre `toNextJsHandler` e o caminho entregue pelo Next.js em um *handler* equivalente, não o arquivo final).
+
+---
+
+**5. Autorização: módulo de políticas, *helper* de rota e matriz (`e5`)**
+
+*Recomendação:* `src/lib/authz.js` (puro, sem imports): `authorize(ator, ação, recurso?)` → `{ allowed } | { status, code }`, com a política em uma tabela (`lib/authz.mjs`). Papéis desconhecidos (inclusive `"admin,user"`) e ações desconhecidas **falham fechados**. O *helper* `route()` de `src/app/api/_lib/http.js` ganha `{ action, load }`, injeta `{ actor }` e aplica a ordem abaixo (`lib/route.mjs`).
+
+**Matriz** (A = permitido; 403 `FORBIDDEN`; 401 `UNAUTHENTICATED`; P = 403 `PASSWORD_CHANGE_REQUIRED`; `-` = ação de coleção, sem recurso alheio). Colunas: sem sessão · usuário no próprio · usuário no alheio · admin no próprio · admin no alheio · suspenso · senha provisória.
+
+| Ação | anon | user: próprio | user: alheio | admin: próprio | admin: alheio | suspenso | provisória |
+|---|---|---|---|---|---|---|---|
+| `content:list` | 401 | A | - | A | - | 401 | P |
+| `content:read` | 401 | A | 403 | A | A | 401 | P |
+| `content:create` | 401 | A | - | A | - | 401 | P |
+| `content:update` (inclui `status`, pai, ordem) | 401 | A | 403 | A | A | 401 | P |
+| `content:delete` | 401 | A | 403 | A | A | 401 | P |
+| `content:reorder` (cada item do lote) | 401 | A | 403 | A | A | 401 | P |
+| `site:read`, `site:update` | 401 | 403 | 403 | A | A | 401 | P |
+| `appearance:read` | 401 | A | 403 | A | A | 401 | P |
+| `appearance:update` | 401 | A | 403 | A | **403** | 401 | P |
+| `users:list`, `users:create` | 401 | 403 | - | A | - | 401 | P |
+| `users:update`, `users:ban`, `users:reset-password`, `users:remove` | 401 | 403 | 403 | A | A | 401 | P |
+| `users:read` (o próprio perfil, ou qualquer um) | 401 | A | 403 | A | A | 401 | **A** |
+| `profile:update` | 401 | A | 403 | A | 403 | 401 | P |
+| `profile:change-password` | 401 | A | 403 | A | 403 | 401 | **A** |
+| `notifications:list`, `notifications:update` (só o dono; nem o administrador lê as alheias) | 401 | A | 403/- | A | 403/- | 401 | P |
+
+**Códigos de erro (a ratificar; a ADR-018 lista sete):**
+
+| Situação | HTTP | Código |
+|---|---|---|
+| origem de outro site, sem sessão, sessão inválida, conta suspensa | 401 | `UNAUTHENTICATED` (existente) |
+| sem permissão para o recurso | 403 | `FORBIDDEN` (ADR-023) |
+| senha provisória ainda não trocada | 403 | `PASSWORD_CHANGE_REQUIRED` **(novo)** |
+| cota de conteúdos ou de bytes | 422 | `QUOTA_EXCEEDED` (ADR-023) |
+| corpo acima do limite de transporte | 413 | `PAYLOAD_TOO_LARGE` **(novo)** |
+| limite de taxa por usuário | 429 | `RATE_LIMITED` **(novo)**, com `Retry-After` |
+| e-mail ou *handle* já usados | 409 | `USER_CONFLICT` **(novo)**, `details[0].field` = `email` ou `handle` |
+| rebaixar, suspender ou remover o último administrador | 409 | `LAST_ADMIN` **(novo)** |
+| remover usuário que tem conteúdo (sem escolher o destino) | 409 | `USER_HAS_CONTENT` (proposto no P-008) |
+| pai de outro dono | 422 | `INVALID_PARENT` (o Dados propôs `OWNER_MISMATCH` → 422 `INVALID_PARENT`) |
+
+**Ordem das verificações** (`route.mjs`): origem → sessão (e suspensão) → senha provisória → limite de taxa → recurso (404) → autorização (403) → corpo (400, 422) → cotas (422). A A-012 listava "sessão → origem"; mantive a ordem do código atual (origem primeiro), pois os dois dão 401 e a diferença não é observável.
+
+*Verificado:*
+- **A matriz inteira, em tabela de casos** (21 ações × 7 combinações), **comparada com uma tabela escrita à mão: 0 divergências**. Na primeira rodada a prova achou um defeito meu: um papel desconhecido (`xyz`) era tratado como `user`; corrigido para falhar fechado. Suspensão **com prazo vencido** deixa de valer (o *plugin* só limpa `banned` no próximo *login*); recurso sem dono nunca casa com "próprio".
+- **Ordem, com sessões reais do better-auth** (11 cenários): outra origem com *cookie* válido → 401; sem *cookie* → 401; a usuária edita o próprio → 200; o do outro → **403** e o banco intacto; id inexistente → 404; **o outro com corpo inválido → 403 (antes do 422)**; o próprio com corpo inválido → 422; JSON malformado → 400; o administrador edita o do outro (moderação) → 200; senha provisória → 403 `PASSWORD_CHANGE_REQUIRED`; conta marcada `banned` com a sessão ainda no banco → 401.
+
+*Regras que a função pura não cobre e que a implementação deve ter:* o pai de um nó e o destino de um `reorder` pertencem ao **mesmo dono** (o banco garante com a FK composta do P-008; a rota pré-verifica e responde como se o pai não existisse, para não revelar o de outro dono); `authorId` vem **sempre** da sessão, mesmo para o administrador (RN13).
+
+*Alternativas:* **404** em vez de 403 para recurso alheio (não revela que o identificador existe; contraria a ADR-023, item 5; é uma linha em `authorize`); permitir ao administrador editar a aparência alheia (a matriz o recusa).
+
+*Não verificado:* o recurso de outro dono contra o banco com a FK composta (é do Dados); notificações (não existem ainda).
+
+---
+
+**6. Páginas e Proxy (`e6`)**
+
+*Recomendação:* o Proxy **continua só otimista** (presença do *cookie*). `requireAdminSession` passa a `requireSession({ role?, path })` (`lib/pages.mjs`): sem sessão ou suspenso → `/login?redirectTo=…`; senha provisória → `/admin/senha`; papel insuficiente → **`notFound()`** (o `forbidden()` é experimental e exige `authInterrupts`); **cada página e cada Server Function chama a sua** (o layout não é renderizado de novo a cada navegação; guia de autenticação do Next.js, *Partial Rendering*). **Manter `session.cookieCache` desligado.**
+
+*Verificado:*
+- O *cookie* de sessão é só o token (`better-auth.session_token`; `HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`), **sem papel**; `getSessionCookie` só informa presença. Logo o Proxy **não pode** saber o papel.
+- **Com `cookieCache` ligado**, o *login* grava também `session_data`; depois de **suspender** o usuário (as sessões do banco foram apagadas, 0 linhas), `getSession` **continuou devolvendo o usuário**; e mudar o papel no banco não apareceu no servidor. Para autorização, **não** usar o cache de *cookie*.
+- `requireSession`, 9 cenários: sem *cookie* → `/login?redirectTo=/admin`; `redirectTo` preserva `/admin/usuarios`; *cookie* forjado → login; usuário comum em `/admin` → ok; em página `role: "admin"` → 404; administrador → ok; senha provisória em `/admin/conteudo` → `/admin/senha`, e em `/admin/senha` → ok; conta suspensa com a sessão ainda no banco → login.
+
+*Alternativas:* consultar o banco no Proxy (o Proxy roda em Node.js no Next.js 16, então é possível, mas roda a cada requisição, inclusive *prefetch*, e a documentação o trata como verificação otimista); `forbidden()`/`unauthorized()` (experimentais); redirecionar o usuário comum para `/admin`.
+
+*Não verificado:* o Proxy lendo o SQLite (empacotamento do `better-sqlite3`); o comportamento do *Partial Rendering* no navegador (cito a documentação).
+
+---
+
+**7. Revalidação por espaço (`e7`, `e7b`; mini-aplicativo com `/a`, `/b`, `next build` + `next start`)**
+
+*Medido* (cabeçalho `x-nextjs-cache`, e carimbos de data em cada layout e página; páginas geradas sob demanda com `generateStaticParams` vazio: 1ª visita `MISS`, depois `HIT`; o `next build` marca as rotas como `●` SSG):
+
+| Chamada | O que regenerou |
+|---|---|
+| `revalidatePath("/a", "layout")` | **nada** |
+| `revalidatePath("/a/[...slug]", "page")` (padrão misto) | **nada** |
+| `revalidatePath("/a", "page")` | **nada** |
+| `revalidatePath("/a")` / `revalidatePath("/a/x")` (literal, **sem tipo**) | **só aquela página** |
+| `revalidatePath("/[handle]", "layout")` | **todos** os espaços (`/a…` e `/b…`), não o portal |
+| `revalidatePath("/[handle]/[...slug]", "page")` | os documentos de **todos** os espaços, não as páginas iniciais |
+| `revalidatePath("/", "page")` | só o portal |
+| `revalidatePath("/", "layout")` | **tudo** (portal e todos os espaços) |
+| `revalidateTag("space:a", "max")` (dados com `unstable_cache`) | as páginas de `a` na 1ª visita servem o conteúdo **antigo** (`STALE`) |
+| `revalidateTag("space:a", { expire: 0 })` | só as páginas de `a` (`MISS`) |
+
+- **Custo** de invalidar por caminhos literais: 100 chamadas em 2 ms, 500 em 7 ms, 2 000 em 58 ms (num Route Handler).
+- **404 em cache:** um *handle* inexistente (`notFound()` no layout) responde 404 `MISS` e depois **404 `HIT`**; criar o *handle* no "banco" **não** limpa; `revalidatePath("/zeta","layout")` **não** limpa; `revalidatePath("/zeta")` limpa a página inicial, e `/zeta/doc` é outra entrada (precisa do próprio caminho literal). Um documento inexistente em um espaço existente também fica em cache (`MISS` → `HIT`).
+- **Crescimento em disco:** 200 URLs inexistentes (`/lixo-N`) acrescentaram **1 400 arquivos e 2,46 MB** (≈ 12 kB e 7 arquivos por URL) em `.next/server/app`; 200 documentos inexistentes dentro de `/a`, **1 400 arquivos e 3,1 MB** (≈ 15,6 kB). Não há expurgo. `await connection()` antes do `notFound()` **falha**: 500 `DYNAMIC_SERVER_USAGE`.
+- **Mitigação testada:** um Proxy que, para um primeiro segmento que não é *handle* nem rota reservada, faz `rewrite` para uma página dinâmica que responde `notFound()`: 200 URLs inexistentes → **0 arquivo novo**, 404 sem cache; um *handle* criado em seguida funciona de imediato, sem revalidar; as páginas existentes seguem `MISS`/`HIT`. **Não cobre** o documento inexistente em um espaço válido (+1 400 arquivos, medido). No PoC o Proxy lê um arquivo JSON, **não o SQLite**.
+- `generateMetadata` do layout do espaço acompanha a regeneração (o título tem o carimbo da página); o layout raiz do PoC não lê dado nenhum.
+
+*Recomendação:* (1) **Layout raiz único e estático** (`<html>`, fontes, *script* de modo claro/escuro; nenhum dado do banco): hoje o `layout.js` raiz lê a configuração, e isso faria o tema do site e o do dono dependerem do mesmo layout. O **tema do dono vai em um *wrapper* com as variáveis CSS no `[handle]/layout.js`** (a CSP já admite `style-src-attr 'unsafe-inline'`), e o título e a descrição, no `generateMetadata` desse layout. O layout `/` (portal), `/login` e `/admin` usam a aparência do **site**. (2) **Invalidar o espaço por caminhos literais** em `revalidate.js`: `revalidateSpace(handle, caminhos)`, com os caminhos públicos da árvore do dono (`getContentTree({ ownerId, onlyPublished })`, RN04: `/{handle}`, `/{handle}/a`, …); ≤ 500 conteúdos por dono (cota) → ≤ ~501 chamadas, abaixo de 10 ms. (3) **Nunca** `revalidatePath("/", "layout")` por mudança de um espaço nem de configuração do site: para o site, `revalidatePath("/", "page")`. (4) **Eventos** (cada um calcula os caminhos **antes e depois** da escrita, porque renomear ou mover deixa o HTML antigo, e os dos descendentes, em cache):
+
+| Evento | O que invalidar |
+|---|---|
+| criar, excluir, renomear, mover, reordenar, mudar `status` de um conteúdo | a página inicial do espaço e os caminhos públicos antigos e novos do nó e dos descendentes |
+| alterar só o corpo (estado inalterado) | a página do documento |
+| aparência do dono (nome, logotipo, links, paletas) | o espaço inteiro |
+| *handle* criado, alterado ou removido | todos os caminhos do espaço, com o *handle* antigo e o novo; criar o primeiro conteúdo de um *handle* já visitado limpa o 404 em cache |
+| suspensão e reativação | o espaço inteiro (passa a 404 e volta) |
+| configuração do site | só `/` (portal) |
+
+*Alternativas:* **(C)** `revalidatePath("/[handle]", "layout")` em qualquer mudança: simples e correto, porém **uma edição invalida o cache de todos os autores** (anula o benefício "localizado" da ADR-024); aceitável só para poucos espaços. **(B)** etiquetas com `unstable_cache` + `revalidateTag(…, { expire: 0 })`: invalida por espaço sem enumerar caminhos, mas usa uma API que a documentação marca como substituída por `use cache` (que exige o *Cache Components*, desligado pela ADR-005). **Para o 404 em cache:** (i) aceitar e monitorar o disco, com limite de taxa no *proxy* reverso; (ii) o Proxy acima (cobre só o *handle*); (iii) o Proxy também consultando o documento (uma busca por requisição; não testado).
+
+*Não verificado:* **vários layouts raiz** (grupos de rotas com dois `<html>`; a documentação diz que um 404 global então exige `global-not-found`, experimental); o Proxy lendo o SQLite e o custo por requisição; a regeneração sob muitas requisições simultâneas; o mesmo experimento dentro da imagem Docker; a ISR com o `generateStaticParams` preenchido a partir do banco (ADR-021 manda deixá-lo vazio no *build*).
+
+---
+
+**8. Comandos de terminal (`e8`)**
+
+*Recomendação:* **`npm run admin:create`** cria o **primeiro** administrador e é a **recuperação** quando não resta administrador ativo; lê `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` e, **opcional**, `ADMIN_HANDLE` (mesma validação; sem ele, o administrador não tem espaço público até o *handle* ser definido no painel). **`npm run admin:reset-password`** lê `ADMIN_EMAIL` (a conta) e `ADMIN_PASSWORD` (a nova senha) do ambiente, como o outro; **nunca** imprime a senha. Código em `lib/cli.mjs`. Na imagem: `docker compose run --rm vitrine npm run admin:create` e `… npm run admin:reset-password`.
+
+| Situação do `admin:create` | Resultado | Saída |
+|---|---|---|
+| banco sem administrador ativo, e-mail novo | cria o administrador | 0 |
+| e-mail de um **administrador ativo** | nada muda (nem a senha) | 0 |
+| administrador sem credencial (execução interrompida) | define a senha | 0 |
+| e-mail de usuário comum ou de administrador suspenso, **sem administrador ativo** | promove (e reativa) | 0 |
+| já existe administrador ativo e o e-mail é outro, ou é de um não administrador | recusa: "use o painel" | 1 |
+| variável ausente, senha curta ou *handle* inválido | explica; sem tocar no banco | 1 |
+
+`admin:reset-password`: define a senha (cria a credencial se faltar), **revoga todas as sessões**, liga `mustChangePassword` e **avisa se a conta segue suspensa**; e-mail inexistente → saída 1; repetir tem o mesmo efeito (idempotente). Mudança em relação ao contrato da ADR-018: o `conflict` deixa de ser "existe qualquer outro usuário" (agora pode haver vários) e passa a ser "existe administrador **ativo**".
+
+*Verificado (13 cenários):* criação em banco vazio (papel `admin`, *handle*, sem marcador, e-mail verificado, *login* 200); repetição com **outra senha** → `exists`, a original segue valendo; e-mail diferente com administrador ativo → recusa, 1 usuário; *handle* `Admin!` → recusa; **administrador rebaixado** (o *plugin* permite) → o mesmo e-mail é promovido; **todos suspensos** → e-mail novo cria um administrador, e o e-mail do suspenso, com outro ativo, é recusado; credencial apagada → reparada; **três execuções simultâneas em banco vazio** → `created`, `exists`, `exists`, 1 usuário (a violação da unicidade é capturada e relida); `reset-password` com o e-mail em caixa diferente → 2 sessões revogadas, *cookie* antigo inválido, senha antiga 401, nova 200, marcador ligado; conta suspensa → avisa; e-mail inexistente → `not-found`.
+
+*Alternativas:* o `admin:create` aceitar vários administradores (descartado: contraria a ADR-023, item 4); `reset-password` só para administradores (limitaria a recuperação).
+
+*Não verificado:* a corrida **entre processos** (só em um processo); a execução dentro da imagem (o `tsx` já está nela).
+
+---
+
+**9. Cotas e abuso (`e9`)**
+
+*Recomendação:* (a) **`MAX_CONTENTS_PER_USER`** (500) dentro de `createContent`, **na mesma transação** da inserção (`DataError("QUOTA_EXCEEDED")`; **pedido ao Dados no P-011**); a cota conta todos os estados, inclusive rascunhos. (b) **`MAX_BODY_BYTES`** (262 144) em **bytes**: `Buffer.byteLength(body, "utf8")` no Zod (`.refine` que gera `QUOTA_EXCEEDED`, 422) **e** na função de dados; **não** `String.length`. (c) **Leitura limitada do corpo** antes do `JSON.parse`: 413 `PAYLOAD_TOO_LARGE` se `Content-Length` ou o fluxo passar de `2 × MAX_BODY_BYTES + 64 KiB` (o JSON escapa caracteres). (d) **Limite de taxa por usuário** (janela fixa em memória, instância única): sugiro 60 escritas/min em `/api/contents` e `/api/appearance`, 20/min em `/api/users`, 5/min em senha, com 429 `RATE_LIMITED` e `Retry-After`; limpar entradas vencidas. (e) O administrador também tem cota (a ADR-023 diz "por usuário"; **a confirmar**).
+
+*Verificado:*
+- **Cota na transação:** 30 criações simultâneas com cota 10 → **exatamente 10** criadas e 20 recusadas; a variante com um único `INSERT … SELECT … WHERE (contagem) < cota` deu o mesmo resultado. O adaptador serializa as transações dentro do processo (há um só processo).
+- **Bytes × caracteres:** `"é"` × 131 072 tem `length` 131 072 e **262 144 bytes**; o emoji de 4 bytes × 65 536 tem `length` 131 072 e 262 144 bytes; o `length()` do SQLite conta caracteres (1 000 `é` → 1 000, e 2 000 bytes com `length(CAST(body AS BLOB))`). Uma verificação por `length` deixaria passar até o dobro do limite.
+- **`readJsonLimited`:** corpo válido → 200; **5 MiB com `Content-Length`** → 413 sem ler; **50 MiB em pedaços, sem `Content-Length`** → 413 ao passar do limite (lido até 1 MiB e cancelado); JSON malformado → 400.
+- **Custo do *hash*:** um *login* com senha errada leva ≈ 140 ms (137, 143, 152 ms); 8 tentativas de 8 IPs diferentes terminaram em 294 ms, e um `get-session` simultâneo passou de ≈ 5 ms para um máximo de 226 ms (uma amostra). O limite de 5/min é **por IP**; um ataque distribuído tem o teto do *proxy* reverso, não o da aplicação.
+
+*Alternativas:* a cota só na rota (corre risco de burla por outro chamador de `db.js`); limite de taxa em disco ou no banco (desnecessário com instância única).
+
+*Não verificado:* se o Next.js impõe um limite de corpo aos Route Handlers em `next start` (não medi com um corpo enorme; o PoC lê o fluxo diretamente); o limitador de taxa sob reinício do processo (os contadores zeram).
+
+---
+
+**10. Riscos de segurança (`e10`, e os achados acima)**
+
+1. **Acesso a recurso alheio por identificador:** coberto pela autorização por recurso (proposta 5, verificada). **Revela existência** pela diferença 403 × 404; os identificadores são `cuid`, mas o 403 confirma que existem. *Opção:* 404 para o alheio (ver as alternativas da proposta 5). Risco baixo, decisão do Arquiteto.
+2. **Rotas brutas do better-auth** gravam texto sem validar (`name` de 5 000 caracteres e `image: "javascript:…"` gravados) e a troca de senha bruta não limpa o marcador: lista de permitidas (proposta 4).
+3. **Enumeração de usuários:** o *login* devolve a mesma resposta (401 `INVALID_EMAIL_OR_PASSWORD`) para e-mail existente e inexistente, com tempos próximos (143 e 132 ms, uma amostra); conta suspensa com a senha **errada** → 401 genérico; com a **certa** → 403 `BANNED_USER` com o motivo (só revela a suspensão a quem tem a senha). Na variante B não há `is-username-available`; o `create-user` revela "e-mail já existe", mas só ao administrador; a existência de um *handle* é pública por desenho (`/{handle}`).
+4. **Fixação de sessão:** um *cookie* de sessão plantado na requisição de *login* é ignorado: o servidor emite **outro** token, e o plantado não vale nada. O `change-password` com `revokeOtherSessions` também troca o token. (`Secure` em `https` não foi reverificado aqui; consta de M-004.)
+5. **CSRF nas rotas novas:** o *helper* recusa `Origin` de outro site, `Origin: null` e `Sec-Fetch-Site: cross-site`, e aceita cliente sem navegador (sem `Origin`); somado a `SameSite=Lax` e a "só JSON", e ao 403 do próprio better-auth nas rotas que ficam. Nenhuma escrita é `GET`.
+6. **Último administrador e remoção:** o *plugin* não protege o primeiro e o segundo é não transacional e deixa o usuário sem credencial (proposta 1). Função de dados transacional e recuperação por `admin:create`.
+7. **Disco enchido por URLs aleatórias** (404 em cache; proposta 7): vetor de negação de serviço **já presente no desenho do M07**. Medido (≈ 12 a 16 kB por URL). Mitigação parcial pelo Proxy; o resto, operacional.
+8. **Suspensão:** o `ban-user` apaga as sessões, mas o cache de *cookie* as manteria (proposta 6); a leitura pública deve olhar `banExpires` (P-008) e a nossa autorização já trata o prazo vencido como não suspenso.
+9. **XSS armazenado entre autores:** fora do escopo desta investigação; segue valendo o que a ADR-022 diz (`script-src 'unsafe-inline'` não detém *script* injetado; a defesa é não haver HTML bruto, RN11). Cada espaço é de um autor não confiável: o `MarkdownRenderer` e a CSP passam a ser a fronteira.
+10. **Dependência do `x-forwarded-for`** para o limite de login (inalterada) e **erros brutos do Prisma no *log*** em violações de unicidade e de FK (visto em `e1c` e `e2b`): ficam no servidor, e as respostas seguem o envelope genérico.
+
+---
+
+**O que o Core implementaria depois (proposta de ordem, sem implementar agora):** (1) `authz.js` + testes da matriz; (2) lista de permitidas e a configuração do *plugin* `admin` (papéis, `additionalFields`, *hooks* do *handle*); (3) `/api/users` e `me`, com o marcador e os comandos `admin:create`/`admin:reset-password`; (4) autorização por dono nas rotas de conteúdo e de aparência, e as cotas; (5) `revalidate.js` por espaço e o layout raiz estático; (6) `requireSession` com papel. **Trava de segurança (ADR-023, item 8):** nenhuma conta além do administrador antes de (1), (2) e (4) estarem na `main`.
+
+**Variáveis e dependências novas (nada instalado):** `MAX_CONTENTS_PER_USER`, `MAX_BODY_BYTES`, `ADMIN_HANDLE` (e, a decidir, as taxas por usuário); nenhuma dependência nova.
+
+**Não verificado, em resumo:** vários layouts raiz e o `global-not-found`; o Proxy lendo o SQLite; o Partial Rendering no navegador; a corrida do `admin:create` entre processos; o limite de corpo dos Route Handlers; `Secure` em `https`; o arquivo `route.js` final da lista de permitidas; recursos alheios contra a FK composta do Dados; a ISR com `generateStaticParams` preenchido.
+
+**Status:** ABERTO. Aguarda as decisões 1 a 7 do resumo; o Core não implementa nada do escopo multiusuário antes das respostas e da especificação.
+
+---
+
+### P-011 · [PEDIDO] Core → @Dados · 2026-10-02 · ABERTO — O que o Core precisa de `db.js` e do esquema para a autorização, os usuários e a revalidação por espaço (consequência do P-010)
+
+Não é a tarefa de migração (ela virá do Arquiteto, depois do P-008 e do P-010): é o levantamento do que o Core precisa para o desenho do **P-010**, para entrar no escopo dela.
+1. **`User.mustChangePassword Boolean @default(false)`** (P-010, proposta 3). O rascunho do P-008 não o tem. Declarado em `additionalFields` com `input: false`.
+2. **`createContent` e `updateContent` com cota:** `DataError("QUOTA_EXCEEDED")` quando a contagem do dono passa de `MAX_CONTENTS_PER_USER`, **dentro da transação**, e quando o corpo passa de `MAX_BODY_BYTES` **em bytes** (`Buffer.byteLength`; o `length()` do SQLite conta caracteres: use `length(CAST(body AS BLOB))` se verificarem no SQL). Provado: 30 criações simultâneas com cota 10 → 10 criadas.
+3. **Funções de usuário em `db.js`** (o Core não escreve consultas): `getUserByHandle(handle)` (valor normalizado) para a pré-verificação de unicidade; `countActiveAdmins()` (`role = "admin"` e não suspenso, **considerando `banExpires` vencido**); **`changeUserRole`/`updateUserProfile`** com a regra do último administrador **na transação** (`DataError("LAST_ADMIN")`); `clearMustChangePassword(userId)`; **`removeUser(id, { content: "transfer", to } | { content: "delete" })`** transacional e atômica (apaga sessões, contas e o usuário só se tudo der certo; o `remove-user` bruto apaga sessões **e credencial** antes de falhar, verificado). Mapear `P2002` do `handle` para `DataError("USER_CONFLICT")`.
+4. **Árvore pública por dono para a revalidação:** `getContentTree({ ownerId, onlyPublished })` (já previsto no P-008) e, para o Core calcular os caminhos antes e depois de uma escrita, **uma função que devolva os caminhos públicos de um nó e dos seus descendentes** (`slug`s da raiz ao nó, RN04) ou o dado para calculá-los.
+5. **Colunas que o *plugin* `admin` exige:** `Session.impersonatedBy` (a personificação fica desligada) e `User.banned`, `banReason`, `banExpires`, já no rascunho do P-008.
+Respondam por `[PEDIDO]` ou ajustando o escopo da migração. Ass: Core.
 
 ## Respostas do Arquiteto
 
