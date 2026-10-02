@@ -1,0 +1,84 @@
+
+### 9.1 30 criações simultâneas, cota 10, contagem + criação na MESMA transação interativa
+{
+  "criados": 10,
+  "recusados": 20,
+  "outros": 0,
+  "linhasNoBanco": 10
+}
+
+### 9.1b o mesmo, com INSERT ... SELECT ... WHERE (contagem) < cota, em um único comando
+{
+  "criados": 10,
+  "recusados": 20,
+  "linhasNoBanco": 10
+}
+
+### 9.2 tamanho do corpo: String.length × Buffer.byteLength (limite 256 KiB)
+{
+  "ASCII 256 KiB": {
+    "caracteres": 262144,
+    "codePoints": 262144,
+    "bytes": 262144,
+    "excede": false
+  },
+  "'é' 131072 vezes (256 KiB em UTF-8, 131072 caracteres)": {
+    "caracteres": 131072,
+    "codePoints": 131072,
+    "bytes": 262144,
+    "excede": false
+  },
+  "emoji de 4 bytes 65536 vezes": {
+    "caracteres": 131072,
+    "codePoints": 65536,
+    "bytes": 262144,
+    "excede": false
+  },
+  "ASCII 256 KiB + 1": {
+    "caracteres": 262145,
+    "codePoints": 262145,
+    "bytes": 262145,
+    "excede": true
+  }
+}
+
+### 9.2b SQLite length() × bytes
+[
+  {
+    "caracteres": 1000,
+    "bytes": 2000
+  }
+]
+
+### 9.3 readJsonLimited (limite de transporte ≈ 2×256 KiB + 64 KiB)
+{
+  "corpo pequeno válido": 200,
+  "5 MiB com Content-Length (recusado sem ler)": "{\"status\":413,\"motivo\":\"Content-Length acima do limite\"}",
+  "50 MiB em pedaços, SEM Content-Length (recusado ao passar do limite)": "{\"status\":413,\"motivo\":\"corpo acima do limite (lido até 1048576 bytes)\"}",
+  "JSON malformado pequeno": 400
+}
+
+### 9.4 uma tentativa de login com senha errada (ms; cada IP distinto)
+[
+  153,
+  121,
+  136
+]
+
+### 9.4b get-session (ms) com o servidor ocioso × durante 8 tentativas de login de IPs diferentes
+{
+  "ocioso": [
+    10,
+    6,
+    11
+  ],
+  "durante": [
+    24,
+    203,
+    3,
+    4,
+    3,
+    3
+  ],
+  "totalDasOitoTentativasMs": 280
+}

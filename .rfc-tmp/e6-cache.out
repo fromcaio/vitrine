@@ -1,0 +1,24 @@
+
+### 6.1 cookies gravados no login (cookieCache LIGADO)
+[
+  "better-auth.session_token",
+  "better-auth.session_data"
+]
+
+### 6.1b o que o Proxy enxerga pelo cookie (getSessionCookie): só o token, sem papel
+{
+  "temToken": true,
+  "valorContemPapel": false
+}
+
+### 6.2 rebaixar/promover no banco com cookieCache: o papel que o servidor enxerga
+{
+  "antes": "user",
+  "depoisDeMudarNoBanco": "user"
+}
+
+### 6.2b depois de SUSPENDER a Ana (as sessões do banco foram apagadas): a sessão ainda vale?
+{
+  "sessoesNoBanco": 0,
+  "getSessionDevolve": "usuário ana@exemplo.test"
+}

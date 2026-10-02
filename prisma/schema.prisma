@@ -21,6 +21,19 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // RFC Core (descartável): plugin admin (ADR-023)
+  role       String    @default("user")
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+  // handle (ADR-024), variante B do Dados: campo próprio, só o administrador escreve
+  handle String? @unique
+  // variante A (plugin username), só para a comparação da proposta 2
+  username        String? @unique
+  displayUsername String?
+  // senha provisória: o usuário deve trocá-la no primeiro acesso (proposta 3)
+  mustChangePassword Boolean @default(false)
+
   sessions Session[]
   accounts Account[]
 
@@ -38,6 +51,7 @@ model Session {
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
+  impersonatedBy String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

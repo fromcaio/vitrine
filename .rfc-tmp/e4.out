@@ -1,0 +1,202 @@
+
+### 4.1 total de endpoints expostos pelo better-auth (núcleo + admin)
+45
+
+### 4.1b caminhos
+[
+  "GET /account-info",
+  "POST /admin/ban-user",
+  "POST /admin/create-user",
+  "GET /admin/get-user",
+  "POST /admin/has-permission",
+  "POST /admin/impersonate-user",
+  "POST /admin/list-user-sessions",
+  "GET /admin/list-users",
+  "POST /admin/remove-user",
+  "POST /admin/revoke-user-session",
+  "POST /admin/revoke-user-sessions",
+  "POST /admin/set-role",
+  "POST /admin/set-user-password",
+  "POST /admin/stop-impersonating",
+  "POST /admin/unban-user",
+  "POST /admin/update-user",
+  "GET|POST /callback/:id",
+  "POST /change-email",
+  "POST /change-password",
+  "POST /delete-user",
+  "GET /delete-user/callback",
+  "GET /error",
+  "POST /get-access-token",
+  "GET|POST /get-session",
+  "POST /link-social",
+  "GET /list-accounts",
+  "GET /list-sessions",
+  "GET /ok",
+  "POST /refresh-token",
+  "POST /request-password-reset",
+  "POST /reset-password",
+  "GET /reset-password/:token",
+  "POST /revoke-other-sessions",
+  "POST /revoke-session",
+  "POST /revoke-sessions",
+  "POST /send-verification-email",
+  "POST /sign-in/email",
+  "POST /sign-in/social",
+  "POST /sign-out",
+  "POST /sign-up/email",
+  "POST /unlink-account",
+  "POST /update-session",
+  "POST /update-user",
+  "GET /verify-email",
+  "POST /verify-password"
+]
+
+### 4.1c os que a lista de permitidas mantém
+[
+  "GET /get-session",
+  "POST /sign-in/email",
+  "POST /sign-out"
+]
+
+### 4.2 status por rota: catch-all sem a lista × com a lista
+{
+  "POST /admin/create-user": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "GET /admin/list-users": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /admin/set-role": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /admin/impersonate-user": {
+    "sem lista": 403,
+    "com lista": 404
+  },
+  "POST /update-user": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /change-password": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /delete-user": {
+    "sem lista": 404,
+    "com lista": 404
+  },
+  "GET /list-sessions": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /revoke-sessions": {
+    "sem lista": 200,
+    "com lista": 404
+  },
+  "POST /sign-up/email": {
+    "sem lista": 400,
+    "com lista": 404
+  },
+  "GET /get-session": {
+    "sem lista": 200,
+    "com lista": 200
+  },
+  "POST /sign-in/email": {
+    "sem lista": 401,
+    "com lista": 401
+  }
+}
+
+### 4.3 caminhos adulterados (GET, cookie de admin): quem responde 200 por rota de admin?
+[
+  "   /api/auth/admin/create-user/   sem lista=404  com lista=404",
+  "   /api/auth//admin/create-user   sem lista=404  com lista=404",
+  "   /api/auth/ADMIN/create-user   sem lista=404  com lista=404",
+  "   /api/auth/Admin/list-users   sem lista=404  com lista=404",
+  "   /api/auth/sign-in/email/../../admin/list-users   sem lista=200  com lista=404",
+  "   /api/auth/sign-in/email/%2e%2e/%2e%2e/admin/list-users   sem lista=200  com lista=404",
+  "   /api/auth/sign-in/email%2f..%2f..%2fadmin%2flist-users   sem lista=404  com lista=404",
+  "   /api/auth/admin%2Flist-users   sem lista=404  com lista=404",
+  "   /api/auth/admin/list-users?x=/sign-in/email   sem lista=200  com lista=404",
+  "   /api/auth/admin/list-users#/sign-in/email   sem lista=200  com lista=404",
+  "   /api/auth/get-session/   sem lista=404  com lista=404",
+  "   /api/auth/./admin/list-users   sem lista=200  com lista=404",
+  "   /api/auth/admin/./list-users   sem lista=200  com lista=404",
+  "   /api/auth/%61dmin/list-users   sem lista=404  com lista=404",
+  "   /api/auth;/admin/list-users   sem lista=404  com lista=404",
+  "   /api/auth/admin/list-users;a=b   sem lista=404  com lista=404",
+  "   /api/auth/admin/list-users%00   sem lista=404  com lista=404",
+  "   /api/auth/admin/list-users%20   sem lista=404  com lista=404"
+]
+
+### 4.4 30 auth.api.createUser seguidos (chamada direta de servidor, mesma sessão)
+{
+  "criados": 30,
+  "ms": 26387,
+  "limiteDoBetterAuthAplicado": false
+}
+
+### 4.4b 6 POST /admin/create-user pela rota bruta
+[
+  200,
+  200,
+  200,
+  200,
+  200,
+  200
+]
+
+### 4.5 Origin de outro site nas rotas permitidas (status)
+{
+  "loginOutraOrigem": 403,
+  "loginSemOrigem": 401,
+  "signOutOutraOrigem": 403
+}
+
+### 4.6 erros de auth.api.* (status, code, message)
+{
+  "e-mail já existe": {
+    "ok": false,
+    "status": 400,
+    "code": "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
+    "message": "User already exists. Use another email."
+  },
+  "usuário comum cria": {
+    "ok": false,
+    "status": 403,
+    "code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_USERS",
+    "message": "You are not allowed to create users"
+  },
+  "sem sessão": {
+    "ok": false,
+    "status": 401,
+    "message": ""
+  },
+  "usuário inexistente": {
+    "ok": false,
+    "status": 404,
+    "code": "USER_NOT_FOUND",
+    "message": "User not found"
+  },
+  "suspender a si mesmo": {
+    "ok": false,
+    "status": 400,
+    "code": "YOU_CANNOT_BAN_YOURSELF",
+    "message": "You cannot ban yourself"
+  },
+  "senha curta no set-user-password": {
+    "ok": false,
+    "status": 400,
+    "code": "PASSWORD_TOO_SHORT",
+    "message": "Password too short"
+  },
+  "corpo malformado (sem email)": {
+    "ok": false,
+    "status": 400,
+    "code": "VALIDATION_ERROR",
+    "message": "[body.email] Invalid input: expected string, received undefined"
+  }
+}

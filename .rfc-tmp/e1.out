@@ -1,0 +1,220 @@
+
+### 1.1 auth.api.createUser sem headers (servidor, sem sessão), role admin
+{
+  "ok": true,
+  "role": "admin"
+}
+
+### 1.2 POST /sign-up/email com o plugin admin carregado
+{
+  "status": 400,
+  "code": "EMAIL_PASSWORD_SIGN_UP_DISABLED",
+  "message": "Email and password sign up is not enabled"
+}
+
+### 1.2b usuários no banco
+1
+
+### 1.3 login do admin
+{
+  "status": 200
+}
+
+### 1.3 POST /admin/create-user (admin) -> role padrão e handle via data
+{
+  "status": 200,
+  "role": "user",
+  "handle": "ana",
+  "banned": false,
+  "chaves": [
+    "name",
+    "email",
+    "emailVerified",
+    "image",
+    "createdAt",
+    "updatedAt",
+    "role",
+    "banned",
+    "banReason",
+    "banExpires",
+    "handle",
+    "mustChangePassword",
+    "id"
+  ]
+}
+
+### 1.3b create-user com senha de 3 caracteres (mínimo configurado: 8)
+{
+  "aceita": true
+}
+
+### 1.4 login da usuária comum
+{
+  "status": 200
+}
+
+### 1.4 rotas brutas do plugin por papel
+{
+  "usuário comum cria usuário": {
+    "status": 403,
+    "code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_USERS",
+    "message": "You are not allowed to create users"
+  },
+  "usuário comum define o próprio papel": {
+    "status": 403,
+    "code": "YOU_ARE_NOT_ALLOWED_TO_CHANGE_USERS_ROLE",
+    "message": "You are not allowed to change users role"
+  },
+  "usuário comum lista usuários": {
+    "status": 403,
+    "code": "YOU_ARE_NOT_ALLOWED_TO_LIST_USERS",
+    "message": "You are not allowed to list users"
+  },
+  "sem sessão cria usuário": {
+    "status": 401,
+    "code": null,
+    "message": ""
+  },
+  "admin cria usuário com role admin": {
+    "status": 200,
+    "code": null
+  }
+}
+
+### 1.5 POST /update-user da usuária comum
+{
+  "{\"role\":\"admin\"}": {
+    "status": 400,
+    "code": "FIELD_NOT_ALLOWED",
+    "message": "role is not allowed to be set"
+  },
+  "{\"banned\":false}": {
+    "status": 400,
+    "code": null,
+    "message": "No fields to update"
+  },
+  "{\"handle\":\"ana-2\"}": {
+    "status": 400,
+    "code": "FIELD_NOT_ALLOWED",
+    "message": "handle is not allowed to be set"
+  },
+  "{\"mustChangePassword\":false}": {
+    "status": 400,
+    "code": null,
+    "message": "No fields to update"
+  },
+  "{\"name\":\"Ana Souza\",\"role\":\"admin\"}": {
+    "status": 400,
+    "code": "FIELD_NOT_ALLOWED",
+    "message": "role is not allowed to be set"
+  },
+  "{\"name\":\"Ana Souza\",\"banned\":false,\"handle\":\"ana-2\"}": {
+    "status": 400,
+    "code": "FIELD_NOT_ALLOWED",
+    "message": "handle is not allowed to be set"
+  },
+  "{\"name\":\"Ana Souza\"}": {
+    "status": 200,
+    "code": null
+  },
+  "{\"image\":\"https://exemplo.test/a.png\"}": {
+    "status": 200,
+    "code": null
+  },
+  "{\"image\":\"javascript:alert(1)\"}": {
+    "status": 200,
+    "code": null
+  },
+  "{\"name\":\"xxxxxxxxxx…(5000 caracteres)\"}": {
+    "status": 200,
+    "code": null
+  }
+}
+
+### 1.5b estado de ana depois
+{
+  "role": "user",
+  "handle": "ana",
+  "tamanhoDoNome": 5000,
+  "image": "javascript:alert(1)",
+  "mustChangePassword": false
+}
+
+### 1.5c auth.api.createUser com os cabeçalhos de um usuário comum
+{
+  "ok": false,
+  "status": 403,
+  "code": "YOU_ARE_NOT_ALLOWED_TO_CREATE_USERS",
+  "message": "You are not allowed to create users"
+}
+
+### 1.5d auth.api.createUser SEM cabeçalhos (sem verificação nenhuma)
+ACEITA: a rota que chama sem headers pula a autorização do plugin
+
+### 1.6 impersonate-user com a configuração padrão (admin)
+{
+  "status": 200,
+  "impersonatedBy": "NLHHyPVwJrusZdtKg4hKdoJyYYHJimuK"
+}
+
+### 1.7 ban-user (motivo e 7 dias)
+{
+  "status": 200,
+  "code": null,
+  "sessoesAntes": 3,
+  "sessoesDepois": 0
+}
+
+### 1.7b get-session com o cookie anterior à suspensão
+{
+  "status": 200,
+  "corpo": null
+}
+
+### 1.7c login do suspenso
+{
+  "status": 403,
+  "json": {
+    "message": "Conta suspensa. Motivo: Spam. Até 2026-10-09.",
+    "code": "BANNED_USER"
+  },
+  "setCookie": 0
+}
+
+### 1.7d login do suspenso com senha ERRADA (enumeração de estado da conta?)
+{
+  "status": 401,
+  "code": "INVALID_EMAIL_OR_PASSWORD"
+}
+
+### 1.7e login depois de vencido o prazo
+{
+  "status": 200,
+  "banned": false,
+  "banReason": null,
+  "banExpires": null
+}
+
+### 1.8 auth.api.getSession: campos de user
+[
+  "banExpires",
+  "banReason",
+  "banned",
+  "createdAt",
+  "email",
+  "emailVerified",
+  "handle",
+  "id",
+  "image",
+  "mustChangePassword",
+  "name",
+  "role",
+  "updatedAt"
+]
+
+### 1.8b valores
+{
+  "role": "user",
+  "banned": false,
+  "handle": "ana"
+}

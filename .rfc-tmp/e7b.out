@@ -1,0 +1,13 @@
+### 7b.1 com o Proxy: 200 URLs /lixo-N (handle inexistente)
+  respostas: 200× 404 -
+  disco antes {"files":86,"kB":188} | depois {"files":86,"kB":188}
+### 7b.2 o que continua funcionando
+  /              {"status":200,"cache":"HIT"} {"status":200,"cache":"HIT"}
+  /a             {"status":200,"cache":"MISS"} {"status":200,"cache":"HIT"}
+  /a/x           {"status":200,"cache":"MISS"} {"status":200,"cache":"HIT"}
+  /b/x           {"status":200,"cache":"MISS"} {"status":200,"cache":"HIT"}
+  /api/rv?x=1    {"status":200,"cache":"-"} {"status":200,"cache":"-"}
+### 7b.3 handle criado depois de visitado como inexistente (sem revalidar nada)
+  /novo {"status":200,"cache":"MISS"} {"status":200,"cache":"HIT"}
+### 7b.4 200 documentos inexistentes dentro de /a (handle existente): o Proxy não os impede
+  disco antes {"files":114,"kB":247} | depois {"files":1514,"kB":3369}

@@ -1,0 +1,78 @@
+
+### 5.A matriz (anon | user:próprio | user:alheio | admin:próprio | admin:alheio | suspenso | senha provisória)
+[
+  "   content:list               401  A    -    A    -    401  P   ",
+  "   content:read               401  A    403  A    A    401  P   ",
+  "   content:create             401  A    -    A    -    401  P   ",
+  "   content:update             401  A    403  A    A    401  P   ",
+  "   content:delete             401  A    403  A    A    401  P   ",
+  "   content:reorder            401  A    403  A    A    401  P   ",
+  "   site:read                  401  403  403  A    A    401  P   ",
+  "   site:update                401  403  403  A    A    401  P   ",
+  "   appearance:read            401  A    403  A    A    401  P   ",
+  "   appearance:update          401  A    403  A    403  401  P   ",
+  "   users:list                 401  403  -    A    -    401  P   ",
+  "   users:create               401  403  -    A    -    401  P   ",
+  "   users:read                 401  A    403  A    A    401  A   ",
+  "   users:update               401  403  403  A    A    401  P   ",
+  "   users:ban                  401  403  403  A    A    401  P   ",
+  "   users:reset-password       401  403  403  A    A    401  P   ",
+  "   users:remove               401  403  403  A    A    401  P   ",
+  "   profile:update             401  A    403  A    403  401  P   ",
+  "   profile:change-password    401  A    403  A    403  401  A   ",
+  "   notifications:list         401  A    -    A    -    401  P   ",
+  "   notifications:update       401  A    403  A    403  401  P   "
+]
+
+### 5.A divergências em relação à tabela escrita à mão
+0
+
+### 5.A suspensão com prazo vencido deixa de valer (o plugin só limpa 'banned' no próximo login)
+{
+  "vencida": true,
+  "vigente": false
+}
+
+### 5.A papel desconhecido e ação desconhecida (falham fechado)
+{
+  "papelXyz": false,
+  "acaoInventada": false
+}
+
+### 5.A recurso sem dono nunca casa com 'own' (ownerId indefinido e objeto vazio)
+{
+  "semOwnerId": false,
+  "objetoVazio": false
+}
+
+### 5.B resultados por cenário (status código)
+{
+  "origem de outro site + cookie válido": "401 UNAUTHENTICATED",
+  "sem cookie": "401 UNAUTHENTICATED",
+  "ana edita o conteúdo da ana": "200 ok",
+  "ana edita o conteúdo do beto": "403 FORBIDDEN",
+  "ana edita id inexistente": "404 NOT_FOUND",
+  "beto edita o da ana com corpo INVÁLIDO (403 antes de 422)": "403 FORBIDDEN",
+  "ana edita o seu com corpo inválido": "422 VALIDATION_ERROR",
+  "ana edita o seu com JSON malformado": "400 VALIDATION_ERROR",
+  "admin edita o do beto (moderação)": "200 ok",
+  "ana com senha provisória edita o seu": "403 PASSWORD_CHANGE_REQUIRED",
+  "ana suspensa (banned=true) com a sessão ainda no banco": "401 UNAUTHENTICATED"
+}
+
+### 5.B o conteúdo do beto só mudou pelo admin; o da ana, só pela ana
+{
+  "ana": "novo",
+  "beto": "novo"
+}
+
+### 5.B limite por usuário (5 escritas por janela; o admin já fez 1): as 7 escritas seguintes
+[
+  "200",
+  "200",
+  "200",
+  "200",
+  "429",
+  "429",
+  "429"
+]

@@ -1,0 +1,68 @@
+[2m2026-10-02T18:17:35.744Z[0m [31mERROR[0m [1m[Better Auth]:[0m PrismaClientKnownRequestError PrismaClientKnownRequestError: 
+Invalid `prisma.user.delete()` invocation:
+
+
+Foreign key constraint violated on the foreign key
+    at vn.handleRequestError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:238:13)
+    at vn.handleAndLogRequestError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:184:12)
+    at vn.request (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:153:12)
+    at async a (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:1014:24)
+    at async Object.delete (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/prisma-adapter/dist/index.mjs:344:6)
+    at async Object.delete (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/core/dist/db/adapter/factory.mjs:670:4)
+    at async deleteWithHooks (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/db/with-hooks.mjs:137:89)
+    at async Object.deleteUser (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/db/internal-adapter.mjs:242:8)
+    at async file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/plugins/admin/routes.mjs:782:2
+    at async file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/core/dist/api/index.mjs:56:11 {
+  code: 'P2003',
+  meta: {
+    modelName: 'User',
+    driverAdapterError: DriverAdapterError: ForeignKeyConstraintViolation
+        at PrismaBetterSqlite3Adapter.onError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:590:11)
+        at PrismaBetterSqlite3Adapter.performIO (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:585:12)
+        at PrismaBetterSqlite3Adapter.queryRaw (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:526:63)
+        at callback (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:202:18)
+        at withQuerySpanAndEvent (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\tracing.ts:80:12)
+        at e.#withQuerySpanAndEvent (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:592:12)
+        at fn (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:200:39)
+        at e.#withChunkTransaction (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:515:14)
+        at e.interpretNode (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:196:21)
+        at e.interpretNode (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:228:52) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.10.0'
+}
+# SERVER_ERROR:  PrismaClientKnownRequestError: 
+Invalid `prisma.user.delete()` invocation:
+
+
+Foreign key constraint violated on the foreign key
+    at vn.handleRequestError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:238:13)
+    at vn.handleAndLogRequestError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:184:12)
+    at vn.request (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\RequestHandler.ts:153:12)
+    at async a (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client\src\runtime\getPrismaClient.ts:1014:24)
+    at async Object.delete (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/prisma-adapter/dist/index.mjs:344:6)
+    at async Object.delete (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/core/dist/db/adapter/factory.mjs:670:4)
+    at async deleteWithHooks (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/db/with-hooks.mjs:137:89)
+    at async Object.deleteUser (file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/db/internal-adapter.mjs:242:8)
+    at async file:///F:/code/vitrine/vitrine-core-rfc/node_modules/better-auth/dist/plugins/admin/routes.mjs:782:2
+    at async file:///F:/code/vitrine/vitrine-core-rfc/node_modules/@better-auth/core/dist/api/index.mjs:56:11 {
+  code: 'P2003',
+  meta: {
+    modelName: 'User',
+    driverAdapterError: DriverAdapterError: ForeignKeyConstraintViolation
+        at PrismaBetterSqlite3Adapter.onError (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:590:11)
+        at PrismaBetterSqlite3Adapter.performIO (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:585:12)
+        at PrismaBetterSqlite3Adapter.queryRaw (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\adapter-better-sqlite3\dist\index.js:526:63)
+        at callback (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:202:18)
+        at withQuerySpanAndEvent (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\tracing.ts:80:12)
+        at e.#withQuerySpanAndEvent (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:592:12)
+        at fn (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:200:39)
+        at e.#withChunkTransaction (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:515:14)
+        at e.interpretNode (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:196:21)
+        at e.interpretNode (F:\code\vitrine\vitrine-core-rfc\node_modules\@prisma\client-engine-runtime\src\interpreter\query-interpreter.ts:228:52) {
+      cause: [Object]
+    }
+  },
+  clientVersion: '7.10.0'
+}

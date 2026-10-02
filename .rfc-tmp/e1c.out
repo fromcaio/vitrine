@@ -1,0 +1,57 @@
+
+### administradores ativos no começo
+2
+
+### 1. admin1 suspende a si mesmo
+{
+  "status": 400,
+  "code": "YOU_CANNOT_BAN_YOURSELF",
+  "message": "You cannot ban yourself"
+}
+
+### 2. admin1 remove a si mesmo
+{
+  "status": 400,
+  "code": "YOU_CANNOT_REMOVE_YOURSELF",
+  "message": "You cannot remove yourself"
+}
+
+### 3. admin1 suspende admin2 (outro administrador)
+{
+  "status": 200,
+  "code": null
+}
+
+### 3b. administradores ativos
+1
+
+### 4. admin1 (único ativo) rebaixa a si mesmo para user (set-role)
+{
+  "status": 200,
+  "code": null
+}
+
+### 4b. administradores ativos: nenhum sobra
+0
+
+### 5. admin2 remove o admin3 (outro admin)
+{
+  "status": 200,
+  "code": null
+}
+
+### 5b. usuário existe depois?
+false
+
+### 6. remove-user de quem tem conteúdo (FK Restrict)
+{
+  "status": 500,
+  "code": null,
+  "message": "",
+  "sessoesAntes": 1,
+  "sessoesDepois": 0,
+  "usuarioAindaExiste": true
+}
+
+### 6b. o cookie antigo do autor ainda vale (sessões foram apagadas ANTES da falha)?
+null

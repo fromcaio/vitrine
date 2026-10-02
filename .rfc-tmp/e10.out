@@ -1,0 +1,71 @@
+
+### 10.1 login com um cookie de sessão plantado na requisição
+{
+  "status": 200,
+  "tokenEmitidoEhOutro": true,
+  "cookiePlantadoValeAlgo": false
+}
+
+### 10.2 Set-Cookie da sessão (valor omitido)
+better-auth.session_token=<valor>; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax
+
+### 10.3 respostas do login por estado da conta
+{
+  "existente, senha errada": {
+    "status": 401,
+    "code": "INVALID_EMAIL_OR_PASSWORD",
+    "ms": 136
+  },
+  "inexistente": {
+    "status": 401,
+    "code": "INVALID_EMAIL_OR_PASSWORD",
+    "ms": 121
+  },
+  "suspensa, senha CERTA": {
+    "status": 403,
+    "code": "BANNED_USER"
+  },
+  "suspensa, senha errada": {
+    "status": 401
+  }
+}
+
+### 10.4 campos de cada usuário em /admin/list-users
+[
+  "banExpires",
+  "banReason",
+  "banned",
+  "createdAt",
+  "email",
+  "emailVerified",
+  "handle",
+  "id",
+  "image",
+  "mustChangePassword",
+  "name",
+  "role",
+  "updatedAt"
+]
+
+### 10.4b list-accounts (rota bruta do próprio usuário): inclui o hash da senha?
+{
+  "campos": [
+    "accountId",
+    "providerId",
+    "userId",
+    "createdAt",
+    "updatedAt",
+    "id",
+    "scopes"
+  ],
+  "temPassword": false
+}
+
+### 10.5 isSameOrigin do helper proposto
+{
+  "origemDoSite": true,
+  "outroSite": false,
+  "origemNula": false,
+  "semOriginMasCrossSite": false,
+  "clienteSemNavegador": true
+}

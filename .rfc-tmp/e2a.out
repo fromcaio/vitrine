@@ -1,0 +1,115 @@
+
+### 2A.1 create-user (admin) com data.username: validação e unicidade pelo plugin
+{
+  "válido": {
+    "status": 200,
+    "code": null
+  },
+  "com maiúscula": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  },
+  "com sublinhado": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  },
+  "hífen na ponta": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  },
+  "hífen repetido": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  },
+  "curto": {
+    "status": 400,
+    "code": "USERNAME_TOO_SHORT",
+    "message": "Username is too short"
+  },
+  "longo (31)": {
+    "status": 400,
+    "code": "USERNAME_TOO_LONG",
+    "message": "Username is too long"
+  },
+  "reservado": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  },
+  "duplicado": {
+    "status": 400,
+    "code": "USERNAME_IS_ALREADY_TAKEN",
+    "message": "Username is already taken. Please try another."
+  },
+  "duplicado só na caixa": {
+    "status": 400,
+    "code": "INVALID_USERNAME",
+    "message": "Username is invalid"
+  }
+}
+
+### 2A.1b linhas gravadas
+[
+  {
+    "email": "admin@exemplo.test",
+    "username": "portal",
+    "displayUsername": "portal"
+  },
+  {
+    "email": "ana@exemplo.test",
+    "username": "ana",
+    "displayUsername": "ana"
+  }
+]
+
+### 2A.2 login da usuária ana
+{
+  "status": 200
+}
+
+### 2A.2b ana altera o PRÓPRIO username (POST /update-user)
+{
+  "resposta": {
+    "status": 200,
+    "code": null
+  },
+  "depois": {
+    "username": "ana-nova",
+    "displayUsername": "ana"
+  }
+}
+
+### 2A.2c ana altera o displayUsername (texto livre)
+{
+  "status": 200,
+  "code": null
+}
+
+### 2A.3 is-username-available (sem sessão)
+{
+  "livre": {
+    "available": true
+  },
+  "ocupado": {
+    "available": false
+  }
+}
+
+### 2A.4 12 tentativas seguidas, mesmo IP (401 = tentativa processada; 429 = bloqueada)
+{
+  "sign-in/email": "401 401 401 401 401 429 429 429 429 429 429 429",
+  "sign-in/username": "401 401 401 429 429 429 429 429 429 429 429 429"
+}
+
+### 2A.4b depois de 11 s, mais 5 tentativas em /sign-in/username
+401 401 401 429 429
+
+### 2A.5 sign-in/username com a senha provisória correta
+{
+  "status": 200,
+  "code": null
+}

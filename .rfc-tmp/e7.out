@@ -1,0 +1,87 @@
+### 7.0 primeira visita a cada página (geradas sob demanda; generateStaticParams devolve [])
+  /        200 cache=HIT
+  /a       200 cache=MISS
+  /a/x     200 cache=MISS
+  /a/y/z   200 cache=MISS
+  /b       200 cache=MISS
+  /b/x     200 cache=MISS
+
+### 7.1 revalidatePath("/a", "layout")
+  regeneradas: (nenhuma)
+  intactas:    / /a /a/x /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=HIT /a/x=HIT /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.1b revalidatePath("/a/[...slug]", "page")  [padrão misto]
+  regeneradas: (nenhuma)
+  intactas:    / /a /a/x /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=HIT /a/x=HIT /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.1c revalidatePath("/[handle]/[...slug]", "page")  [documentos de TODOS os espaços]
+  regeneradas: /a/x /a/y/z /b/x
+  intactas:    / /a /b
+  cabeçalho:   /=HIT /a=HIT /a/x=MISS /a/y/z=MISS /b=HIT /b/x=MISS
+
+### 7.2 revalidatePath("/a/x")  [caminho literal, sem tipo]
+  regeneradas: /a/x
+  intactas:    / /a /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=HIT /a/x=MISS /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.3 revalidatePath("/a", "page")  [literal com tipo page]
+  regeneradas: (nenhuma)
+  intactas:    / /a /a/x /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=HIT /a/x=HIT /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.3b revalidatePath("/a")  [literal sem tipo]
+  regeneradas: /a
+  intactas:    / /a/x /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=MISS /a/x=HIT /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.4 revalidatePath("/[handle]", "layout")  [padrão dinâmico: todos os espaços]
+  regeneradas: /a /a/x /a/y/z /b /b/x
+  intactas:    /
+  cabeçalho:   /=HIT /a=MISS /a/x=MISS /a/y/z=MISS /b=MISS /b/x=MISS
+
+### 7.5 revalidatePath("/", "page")  [só o portal]
+  regeneradas: /
+  intactas:    /a /a/x /a/y/z /b /b/x
+  cabeçalho:   /=MISS /a=HIT /a/x=HIT /a/y/z=HIT /b=HIT /b/x=HIT
+
+### 7.6 revalidatePath("/", "layout")  [layout raiz]
+  regeneradas: / /a /a/x /a/y/z /b /b/x
+  intactas:    (nenhuma)
+  cabeçalho:   /=MISS /a=MISS /a/x=MISS /a/y/z=MISS /b=MISS /b/x=MISS
+
+### 7.8 revalidateTag("space:a", "max")  [dados com etiqueta via unstable_cache]
+  regeneradas: (nenhuma)
+  intactas:    / /a /a/x /a/y/z /b /b/x
+  cabeçalho:   /=HIT /a=STALE /a/x=STALE /a/y/z=STALE /b=HIT /b/x=HIT
+
+### 7.8b revalidateTag("space:a", { expire: 0 })
+  regeneradas: /a /a/x /a/y/z
+  intactas:    / /b /b/x
+  cabeçalho:   /=HIT /a=MISS /a/x=MISS /a/y/z=MISS /b=HIT /b/x=HIT
+
+### 7.7 handle inexistente /zeta: 1ª=404 MISS | 2ª=404 HIT | /zeta/doc=404 MISS
+  criado no "banco", SEM revalidar: /zeta=404 (HIT)
+  revalidatePath("/zeta","layout"): /zeta=404 (HIT)
+  revalidatePath("/zeta")  [literal]: /zeta=200 MISS -> 200 HIT | /zeta/doc ainda 404 HIT
+  revalidatePath("/zeta/doc")  [literal]: /zeta/doc=200 HIT
+
+### 7.11 custo de N chamadas de revalidatePath literal (num Route Handler) {"100 chamadas":"2 ms","500 chamadas":"7 ms","2000 chamadas":"58 ms"}
+
+### 7.12 200 URLs inexistentes em /lixo-N (404 com notFound() no layout) e 200 em /dyn-N (connection() antes do notFound)
+  antes {"files":126,"kB":273} | depois dos /lixo-N {"files":1526,"kB":2734} | depois dos /dyn-N {"files":1526,"kB":2734}
+  cabeçalhos vistos: MISS, dyn:-
+  /lixo-5 de novo: 404 HIT | /dyn-5 de novo: 500 -
+
+### 7.9 títulos (generateMetadata em [handle]/layout) {"/a":"Espaço a @1790964726529","/b":"Espaço b @1790964726354"}
+
+### 7.10 caminho entregue ao Route Handler /api/echo/[...all]
+  /api/echo/a/b              -> 200 "/api/echo/a/b"
+  /api/echo/a/../b           -> 200 "/api/echo/b"
+  /api/echo/a/%2e%2e/b       -> 200 "/api/echo/b"
+  /api/echo//a//b            -> 308 redireciona para /api/echo/a/b
+  /api/echo/a%2fb            -> 200 "/api/echo/a%2fb"
+  /api/echo/A/B              -> 200 "/api/echo/A/B"
+  /api/echo/a/b/             -> 308 redireciona para /api/echo/a/b
+  /api/echo/a/./b            -> 200 "/api/echo/a/b"

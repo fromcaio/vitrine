@@ -1,0 +1,82 @@
+
+### 2B.1 create-user com data.handle (COM hooks de validação)
+{
+  "válido": {
+    "status": 200,
+    "code": null
+  },
+  "com maiúscula": {
+    "status": 200,
+    "code": null
+  },
+  "com espaço e símbolo": {
+    "status": 400,
+    "code": "INVALID_HANDLE",
+    "message": "O handle aceita só letras minúsculas, dígitos e hífens (sem hífen nas pontas nem repetido)."
+  },
+  "muito curto": {
+    "status": 400,
+    "code": "INVALID_HANDLE",
+    "message": "O handle deve ter de 3 a 30 caracteres."
+  },
+  "reservado": {
+    "status": 400,
+    "code": "INVALID_HANDLE",
+    "message": "Este handle é reservado."
+  },
+  "hífen repetido": {
+    "status": 400,
+    "code": "INVALID_HANDLE",
+    "message": "O handle aceita só letras minúsculas, dígitos e hífens (sem hífen nas pontas nem repetido)."
+  },
+  "duplicado exato": {
+    "status": 500,
+    "code": null,
+    "message": ""
+  },
+  "caixa diferente do existente": {
+    "status": 500,
+    "code": null,
+    "message": ""
+  },
+  "só espaços nas pontas": {
+    "status": 200,
+    "code": null
+  }
+}
+
+### 2B.1b handles gravados
+[
+  "ana@exemplo.test → \"ana\"",
+  "u1@exemplo.test → \"ana2\"",
+  "u8@exemplo.test → \"bia\""
+]
+
+### 2B.2 admin altera o handle de ana para um válido
+{
+  "status": 200,
+  "code": null
+}
+
+### 2B.2b admin altera para inválido ('Ana Nova!')
+{
+  "status": 400,
+  "code": "INVALID_HANDLE",
+  "message": "O handle aceita só letras minúsculas, dígitos e hífens (sem hífen nas pontas nem repetido)."
+}
+
+### 2B.2c ana tenta alterar o próprio handle (POST /update-user)
+{
+  "status": 400,
+  "code": "FIELD_NOT_ALLOWED",
+  "message": "handle is not allowed to be set"
+}
+
+### 2B.2d handle final de ana
+ana-souza
+
+### 2B.3 POST /sign-in/username e /is-username-available (plugin ausente)
+{
+  "signIn": 404,
+  "available": 404
+}

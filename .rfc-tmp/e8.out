@@ -1,0 +1,118 @@
+
+### 8.1 admin:create em banco vazio
+{
+  "resultado": "created",
+  "linha": {
+    "role": "admin",
+    "handle": "portal",
+    "banned": false,
+    "mustChangePassword": false,
+    "emailVerified": true
+  },
+  "login": 200
+}
+
+### 8.2 repetir (mesmo e-mail, OUTRA senha): nada muda, nem a senha
+{
+  "resultado": "exists",
+  "loginComASenhaOriginal": 200,
+  "loginComANova": 401,
+  "usuarios": 1
+}
+
+### 8.3 e-mail diferente com administrador ativo: recusa (saída 1)
+{
+  "resultado": {
+    "status": "conflict",
+    "reason": "admin-exists"
+  },
+  "usuarios": 1
+}
+
+### 8.4 handle inválido no bootstrap
+{
+  "status": "invalid",
+  "message": "O handle aceita só letras minúsculas, dígitos e hífens (sem hífen nas pontas nem repetido)."
+}
+
+### 8.5 sem administrador ativo (rebaixado): admin:create com o mesmo e-mail promove
+{
+  "resultado": "recovered",
+  "linha": {
+    "role": "admin",
+    "handle": "portal",
+    "banned": false,
+    "mustChangePassword": false,
+    "emailVerified": true
+  }
+}
+
+### 8.6 todos os administradores suspensos: e-mail novo cria um administrador
+{
+  "resultado": "created",
+  "administradoresAtivos": 1
+}
+
+### 8.6b e o mesmo e-mail do administrador suspenso, com outro ativo existindo: recusa
+conflict
+
+### 8.7 administrador sem credencial: reparado
+{
+  "resultado": "repaired",
+  "login": 200
+}
+
+### 8.8 três execuções simultâneas em banco vazio
+{
+  "resultados": [
+    "created",
+    "exists",
+    "exists"
+  ],
+  "usuarios": 1
+}
+
+### 8.9 admin:reset-password (e-mail com caixa diferente)
+{
+  "r": {
+    "status": "reset",
+    "user": {
+      "id": "DPgCqmADLkVLqpOQg2J9mtoqLkmOFzaT",
+      "email": "ana@exemplo.test"
+    },
+    "sessionsRevoked": 2,
+    "suspended": false
+  },
+  "sessoesDepois": 0,
+  "cookieAntigoValeAinda": false,
+  "loginAntiga": 401,
+  "loginNova": 200,
+  "mustChangePassword": true
+}
+
+### 8.9b repetir (idempotente: mesmo efeito)
+{
+  "status": "reset",
+  "user": {
+    "id": "DPgCqmADLkVLqpOQg2J9mtoqLkmOFzaT",
+    "email": "ana@exemplo.test"
+  },
+  "sessionsRevoked": 1,
+  "suspended": false
+}
+
+### 8.9c e-mail inexistente
+{
+  "status": "not-found"
+}
+
+### 8.9d conta suspensa: a senha muda, e o comando avisa que ela segue suspensa
+{
+  "status": "reset",
+  "user": {
+    "id": "DPgCqmADLkVLqpOQg2J9mtoqLkmOFzaT",
+    "email": "ana@exemplo.test"
+  },
+  "sessionsRevoked": 0,
+  "suspended": true
+}

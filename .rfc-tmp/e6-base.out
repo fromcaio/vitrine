@@ -1,0 +1,24 @@
+
+### 6.1 cookies gravados no login (cookieCache desligado, como hoje)
+[
+  "better-auth.session_token"
+]
+
+### 6.1b o que o Proxy enxerga pelo cookie (getSessionCookie): só o token, sem papel
+{
+  "temToken": true,
+  "valorContemPapel": false
+}
+
+### 6.3 requireSession por cenário
+{
+  "sem cookie em /admin": "redirect /login?redirectTo=/admin",
+  "sem cookie em /admin/usuarios (redirectTo)": "redirect /login?redirectTo=/admin/usuarios",
+  "cookie forjado": "redirect /login?redirectTo=/admin",
+  "usuário comum em /admin": "ok",
+  "usuário comum em /admin/usuarios (role admin)": "notFound (404)",
+  "admin em /admin/usuarios": "ok",
+  "senha provisória em /admin/conteudo": "redirect /admin/senha",
+  "senha provisória em /admin/senha": "ok",
+  "suspensa, sessão ainda no banco": "redirect /login?redirectTo=/admin"
+}

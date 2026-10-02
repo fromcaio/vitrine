@@ -1,0 +1,100 @@
+
+### 3.1 create-user com data.mustChangePassword = true
+{
+  "status": 200,
+  "mustChangePassword": true,
+  "naTabela": true
+}
+
+### 3.2 login com a provisória e getSession
+{
+  "login": 200,
+  "session.user.mustChangePassword": true,
+  "cookies": [
+    "better-auth.session_token"
+  ]
+}
+
+### 3.3 change-password com a senha atual errada
+{
+  "status": 400,
+  "code": "INVALID_PASSWORD",
+  "message": "Invalid password"
+}
+
+### 3.3b nova senha curta (3)
+{
+  "status": 400,
+  "code": "PASSWORD_TOO_SHORT",
+  "message": "Password too short"
+}
+
+### 3.3c nova senha igual à provisória
+{
+  "status": 200,
+  "code": null
+}
+
+### 3.3d change-password válido com revokeOtherSessions
+{
+  "status": 200,
+  "code": null,
+  "sessoesAntes": 2,
+  "sessoesDepois": 1,
+  "novoCookie": [
+    "better-auth.session_token"
+  ],
+  "tokenMudou": true
+}
+
+### 3.3e a segunda sessão (outro dispositivo) ainda vale?
+null
+
+### 3.3f login com a senha antiga e com a nova
+{
+  "antiga": 401,
+  "nova": 200
+}
+
+### 3.3g o marcador depois de trocar a senha pela rota BRUTA (não é limpo sozinho)
+true
+
+### 3.4 auth.api.changePassword (servidor) + limpeza do marcador
+{
+  "resultado": {
+    "ok": true
+  },
+  "marcador": false
+}
+
+### 3.5 set-user-password pelo administrador
+{
+  "status": 200,
+  "code": null
+}
+
+### 3.5b a sessão que a Ana já tinha continua valendo depois da redefinição?
+{
+  "sessaoAnterior": true,
+  "sessoesDaAna": 2
+}
+
+### 3.5c admin/set-user-password com senha curta (mínimo configurado 8)
+{
+  "status": 400,
+  "code": "PASSWORD_TOO_SHORT",
+  "message": "Password too short"
+}
+
+### 3.5d revoke-user-sessions (a nossa rota deve chamar depois do set-user-password)
+{
+  "status": 200,
+  "code": null,
+  "sessoesDaAna": 0
+}
+
+### 3.5e login com a senha redefinida e marcador
+{
+  "login": 200,
+  "marcador": true
+}

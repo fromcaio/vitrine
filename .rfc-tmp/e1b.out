@@ -1,0 +1,22 @@
+
+### 1.6b impersonate-user com papéis customizados (admin sem 'impersonate')
+{
+  "status": 403,
+  "code": "YOU_ARE_NOT_ALLOWED_TO_IMPERSONATE_USERS",
+  "message": "You are not allowed to impersonate users"
+}
+
+### 1.6c ban-user continua funcionando
+{
+  "status": 200,
+  "code": null
+}
+
+### 1.6d create-user continua funcionando
+{
+  "status": 200,
+  "code": null
+}
+
+### 1.6e sessões com impersonatedBy
+0

@@ -1,0 +1,81 @@
+
+### 2B.1 create-user com data.handle (SEM hooks de validação)
+{
+  "válido": {
+    "status": 200,
+    "code": null
+  },
+  "com maiúscula": {
+    "status": 200,
+    "code": null
+  },
+  "com espaço e símbolo": {
+    "status": 200,
+    "code": null
+  },
+  "muito curto": {
+    "status": 200,
+    "code": null
+  },
+  "reservado": {
+    "status": 200,
+    "code": null
+  },
+  "hífen repetido": {
+    "status": 200,
+    "code": null
+  },
+  "duplicado exato": {
+    "status": 500,
+    "code": null,
+    "message": ""
+  },
+  "caixa diferente do existente": {
+    "status": 200,
+    "code": null
+  },
+  "só espaços nas pontas": {
+    "status": 200,
+    "code": null
+  }
+}
+
+### 2B.1b handles gravados
+[
+  "ana@exemplo.test → \"ana\"",
+  "u1@exemplo.test → \"Ana2\"",
+  "u2@exemplo.test → \"Ana Souza!\"",
+  "u3@exemplo.test → \"a\"",
+  "u4@exemplo.test → \"admin\"",
+  "u5@exemplo.test → \"ana--b\"",
+  "u7@exemplo.test → \"ANA\"",
+  "u8@exemplo.test → \"  bia  \""
+]
+
+### 2B.2 admin altera o handle de ana para um válido
+{
+  "status": 200,
+  "code": null
+}
+
+### 2B.2b admin altera para inválido ('Ana Nova!')
+{
+  "status": 200,
+  "code": null
+}
+
+### 2B.2c ana tenta alterar o próprio handle (POST /update-user)
+{
+  "status": 400,
+  "code": "FIELD_NOT_ALLOWED",
+  "message": "handle is not allowed to be set"
+}
+
+### 2B.2d handle final de ana
+Ana Nova!
+
+### 2B.3 POST /sign-in/username e /is-username-available (plugin ausente)
+{
+  "signIn": 404,
+  "available": 404
+}
