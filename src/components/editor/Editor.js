@@ -16,7 +16,7 @@ import { StatusToggle } from "@/components/admin/StatusToggle";
 import { Button } from "@/components/ui/Button";
 import { Field, describedBy } from "@/components/ui/Field";
 import { AlertIcon } from "@/components/ui/icons";
-import { draftStorageKey, readDraft, removeDraft, writeDraft } from "./draft";
+import { autosaveDraft, draftStorageKey, readDraft, removeDraft, resumeAutosave, writeDraft } from "./draft";
 import { applyFormat, diffRange, findInsecureImages, slugFromTitle } from "./format";
 import { Preview } from "./Preview";
 import { EDITOR_FIELDS, editorResolver, valuesEqual } from "./schema";
@@ -178,6 +178,26 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [warnOnLeave]);
+
+  // O aviso acima só vale para recarregar ou fechar a página. Ao sair do editor por uma navegação
+  // interna (um link do painel, o botão Voltar), o componente é desmontado sem aviso: o texto que
+  // não está em lugar nenhum além dele é guardado como rascunho local, e a próxima abertura o
+  // restaura. O estado mais recente fica em uma ref, porque a limpeza roda uma só vez.
+  const leaving = useRef({ unsaved: false, key: draftKey, baseVersion: serverVersion });
+  useEffect(() => {
+    // Quem abre o editor está com a sessão ativa (ver `clearAllDrafts`).
+    resumeAutosave();
+  }, []);
+  useEffect(() => {
+    leaving.current = { unsaved: warnOnLeave && !blocked, key: draftKey, baseVersion: serverVersion };
+  });
+  useEffect(
+    () => () => {
+      const { unsaved, key, baseVersion } = leaving.current;
+      if (unsaved) autosaveDraft(key, { values: pickValues(getValues()), baseVersion });
+    },
+    [getValues],
+  );
 
   // -------------------------------------------------------------------------------------------
   // Campos

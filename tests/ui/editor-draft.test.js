@@ -4,17 +4,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DRAFT_KEY_PREFIX,
+  autosaveDraft,
   clearAllDrafts,
   draftStorageKey,
   parseDraft,
   readDraft,
   removeDraft,
+  resumeAutosave,
   writeDraft,
 } from "@/components/editor/draft";
 
 const VALUES = { title: "Cálculo I", slug: "calculo-1", body: "# Limites\n\n$\\lim_{x \\to 0} x$", status: /** @type {const} */ ("DRAFT") };
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  // A suspensão do autosave (clearAllDrafts) vale para o módulo todo: cada teste começa liberado.
+  resumeAutosave();
+});
 afterEach(() => vi.restoreAllMocks());
 
 describe("draftStorageKey", () => {
@@ -158,6 +164,55 @@ describe("clearAllDrafts (ao sair)", () => {
 
   it("não falha sem rascunhos", () => {
     expect(clearAllDrafts()).toBe(0);
+  });
+});
+
+describe("autosaveDraft: a gravação ao sair do editor e a suspensão ao encerrar a sessão", () => {
+  it("grava como writeDraft", () => {
+    const key = draftStorageKey("u1", "c1");
+    const stored = autosaveDraft(key, { values: VALUES, baseVersion: "v1" });
+    expect(stored).toMatchObject({ values: VALUES, baseVersion: "v1" });
+    expect(readDraft(key)).toEqual(stored);
+  });
+
+  it("clearAllDrafts a suspende: depois de sair, nada é gravado sozinho (nem por uma desmontagem tardia)", () => {
+    clearAllDrafts();
+    const key = draftStorageKey("u1", "c1");
+    expect(autosaveDraft(key, { values: VALUES, baseVersion: null })).toBeNull();
+    expect(readDraft(key)).toBeNull();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("mesmo sem rascunhos para apagar, clearAllDrafts suspende a gravação", () => {
+    expect(clearAllDrafts()).toBe(0);
+    expect(autosaveDraft(draftStorageKey("u1", "c1"), { values: VALUES, baseVersion: null })).toBeNull();
+  });
+
+  it("mesmo com o armazenamento bloqueado, clearAllDrafts suspende a gravação", () => {
+    vi.spyOn(Storage.prototype, "key").mockImplementation(() => {
+      throw new DOMException("bloqueado", "SecurityError");
+    });
+    clearAllDrafts();
+    vi.restoreAllMocks();
+    expect(autosaveDraft(draftStorageKey("u1", "c1"), { values: VALUES, baseVersion: null })).toBeNull();
+  });
+
+  it("resumeAutosave a libera de novo (um editor aberto é de uma sessão ativa)", () => {
+    clearAllDrafts();
+    resumeAutosave();
+    expect(autosaveDraft(draftStorageKey("u1", "c1"), { values: VALUES, baseVersion: null })).not.toBeNull();
+  });
+
+  it("a gravação que o autor pede (writeDraft) não depende da suspensão", () => {
+    clearAllDrafts();
+    expect(writeDraft(draftStorageKey("u1", "c1"), { values: VALUES, baseVersion: null })).not.toBeNull();
+  });
+
+  it("armazenamento indisponível: devolve nulo, sem lançar", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("cheio", "QuotaExceededError");
+    });
+    expect(autosaveDraft(draftStorageKey("u1", "c1"), { values: VALUES, baseVersion: null })).toBeNull();
   });
 });
 

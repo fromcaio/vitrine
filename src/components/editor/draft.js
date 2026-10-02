@@ -106,6 +106,30 @@ export function writeDraft(key, { values, baseVersion }) {
   }
 }
 
+/**
+ * Verdadeiro depois de `clearAllDrafts` (o usuário saiu): nada mais deve ser gravado sozinho. O
+ * editor guarda o texto ao ser fechado por uma navegação interna, e essa gravação acontece
+ * DEPOIS do clique em "Sair": sem isto, o texto reapareceria no navegador logo após a limpeza.
+ */
+let autosaveSuspended = false;
+
+/**
+ * Grava um rascunho por conta própria (ao sair do editor por uma navegação interna), a não ser
+ * que a sessão tenha sido encerrada. A gravação que o autor pede ("Salvar localmente") é
+ * `writeDraft`, que não depende disto.
+ * @param {string} key
+ * @param {{ values: EditorValues, baseVersion: string | null }} draft
+ * @returns {Draft | null}
+ */
+export function autosaveDraft(key, draft) {
+  return autosaveSuspended ? null : writeDraft(key, draft);
+}
+
+/** Libera a gravação automática. O editor a chama ao ser montado: quem o abre está com a sessão ativa. */
+export function resumeAutosave() {
+  autosaveSuspended = false;
+}
+
 /** @param {string} key */
 export function removeDraft(key) {
   try {
@@ -117,10 +141,12 @@ export function removeDraft(key) {
 
 /**
  * Apaga todos os rascunhos do editor, de qualquer usuário e conteúdo. É chamada ao encerrar a
- * sessão, para que o texto de um usuário não fique em um navegador compartilhado.
+ * sessão, para que o texto de um usuário não fique em um navegador compartilhado, e suspende a
+ * gravação automática (`autosaveDraft`) até o editor ser montado de novo.
  * @returns {number} quantos rascunhos foram apagados
  */
 export function clearAllDrafts() {
+  autosaveSuspended = true;
   try {
     const area = storage();
     if (!area) return 0;

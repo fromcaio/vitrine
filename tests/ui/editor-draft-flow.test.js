@@ -3,8 +3,10 @@
 // por usuário e por conteúdo, rascunho defasado (conflito com a versão do servidor), aviso ao sair
 // da página e armazenamento indisponível.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Editor } from "@/components/editor/Editor";
+import { clearAllDrafts } from "@/components/editor/draft";
 import { OK, RendererStub, body, renderEditor, saveLocal, select, send, slug, title, type } from "./editor-helpers";
 
 vi.mock("@/components/markdown/MarkdownRenderer", () => ({ MarkdownRenderer: RendererStub }));
@@ -393,6 +395,130 @@ describe("Aviso ao sair da página com texto que não está em lugar nenhum alé
     seed(KEY);
     renderEditor();
     expect(leavePageIsBlocked()).toBe(false);
+  });
+});
+
+describe("Sair do editor sem recarregar a página (link do painel, botão Voltar)", () => {
+  // Uma navegação interna desmonta o componente sem o aviso do navegador (beforeunload só vale ao
+  // recarregar ou fechar): o texto que não está em lugar nenhum além do editor é guardado.
+  it("guarda como rascunho local o texto que não foi enviado nem salvo", () => {
+    const { unmount } = renderEditor();
+    type(title(), "Título editado");
+    type(body(), "texto ainda não salvo");
+    expect(localStorage.getItem(KEY)).toBeNull();
+    unmount();
+
+    expect(stored()).toMatchObject({ values: { title: "Título editado", slug: "calculo", body: "texto ainda não salvo", status: "PUBLISHED" }, baseVersion: "v1" });
+  });
+
+  it("e o editor o restaura na próxima abertura, com o aviso", () => {
+    const first = renderEditor();
+    type(body(), "texto que sobrevive à navegação");
+    first.unmount();
+
+    renderEditor();
+    expect(body().value).toBe("texto que sobrevive à navegação");
+    expect(screen.getByText(/Rascunho local restaurado/)).toBeTruthy();
+  });
+
+  it("guarda também um conteúdo novo, sob a chave :novo", () => {
+    const { unmount } = renderEditor({ contentId: null, version: null, initialValue: { title: "", slug: "", body: "", status: "PUBLISHED" } });
+    type(title(), "Aula nova");
+    unmount();
+    expect(stored("vitrine:rascunho:u1:novo")).toMatchObject({ values: { title: "Aula nova", slug: "aula-nova" }, baseVersion: null });
+  });
+
+  it("não grava nada se não houve alterações", () => {
+    const { unmount } = renderEditor();
+    unmount();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("não grava em modo estrito (montagem dupla) sem alterações", () => {
+    const { unmount } = render(<StrictMode><Editor userId="u1" contentId="c1" initialValue={{ title: "Cálculo", slug: "calculo", body: "# Olá", status: "PUBLISHED" }} version="v1" onSubmit={vi.fn()} /></StrictMode>);
+    expect(localStorage.length).toBe(0);
+    unmount();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("não regrava o que já está salvo (a data do rascunho não muda)", () => {
+    const { unmount } = renderEditor();
+    type(body(), "salvo antes de sair");
+    fireEvent.click(saveLocal());
+    const before = localStorage.getItem(KEY);
+    unmount();
+    expect(localStorage.getItem(KEY)).toBe(before);
+  });
+
+  it("regrava se o texto mudou depois de salvar", () => {
+    const { unmount } = renderEditor();
+    type(body(), "primeira versão");
+    fireEvent.click(saveLocal());
+    type(body(), "primeira versão e mais um trecho");
+    unmount();
+    expect(stored().values.body).toBe("primeira versão e mais um trecho");
+  });
+
+  it("não grava depois de enviar (o servidor já tem o texto)", async () => {
+    const { unmount } = renderEditor();
+    type(body(), "enviado");
+    fireEvent.click(send());
+    await screen.findByText(/Nova versão enviada/);
+    unmount();
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("não mexe em um rascunho em conflito que o autor ainda não decidiu", () => {
+    seed(KEY, DRAFT, "v0");
+    const { unmount } = renderEditor();
+    type(body(), "texto novo digitado com o conflito pendente");
+    unmount();
+    expect(stored().values.title).toBe("Rascunho do autor");
+    expect(stored().baseVersion).toBe("v0");
+  });
+
+  it("não grava depois de sair da sessão: o Sair apaga os rascunhos e o fechamento do editor não os recria", () => {
+    const { unmount } = renderEditor();
+    type(body(), "texto que o usuário deixou para trás ao sair");
+    clearAllDrafts(); // o que o botão Sair faz, antes de a página navegar
+    unmount(); // a navegação para /login desmonta o editor
+    expect(localStorage.length).toBe(0);
+  });
+
+  it("um editor aberto depois de sair volta a guardar (a sessão é outra)", () => {
+    clearAllDrafts();
+    const { unmount } = renderEditor();
+    type(body(), "texto da nova sessão");
+    unmount();
+    expect(stored().values.body).toBe("texto da nova sessão");
+  });
+
+  it("armazenamento bloqueado: sair não lança", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("cheio", "QuotaExceededError");
+    });
+    const { unmount } = renderEditor();
+    type(body(), "texto");
+    expect(() => unmount()).not.toThrow();
+  });
+
+  it("depois de uma falha de envio, cujo texto já foi guardado, sair não o regrava", async () => {
+    const { unmount } = renderEditor({ onSubmit: vi.fn(async () => ({ ok: false, kind: "network", message: "Sem rede.", fieldErrors: [] })) });
+    type(body(), "texto guardado pela falha de rede");
+    fireEvent.click(send());
+    await screen.findByText(/O texto foi salvo neste navegador/);
+    const before = localStorage.getItem(KEY);
+    unmount();
+    expect(localStorage.getItem(KEY)).toBe(before);
+  });
+
+  it("depois de remover a cópia salva, o texto ainda não enviado é guardado de novo ao sair", () => {
+    const { unmount } = renderEditor();
+    type(body(), "texto");
+    fireEvent.click(saveLocal());
+    fireEvent.click(screen.getByRole("button", { name: "Remover a cópia salva neste navegador" }));
+    unmount();
+    expect(stored().values.body).toBe("texto");
   });
 });
 
