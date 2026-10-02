@@ -13,27 +13,35 @@
 /**
  * Resultado de um envio.
  * - `unauthenticated`: 401, sessão ausente ou expirada
+ * - `forbidden`: 403, sem permissão para este conteúdo (ADR-023)
  * - `not-found`: 404, o conteúdo não existe mais
  * - `conflict`: 409, slug já usado entre irmãos
+ * - `quota`: 422 com o código QUOTA_EXCEEDED (ADR-023) ou 413, conteúdo ou texto acima do limite
  * - `validation`: 422 ou 400, dado recusado pelo servidor
+ * - `rate-limited`: 429, envios demais em pouco tempo
  * - `server`: 5xx
  * - `network`: sem resposta (rede fora do ar)
+ * @typedef {"unauthenticated" | "forbidden" | "not-found" | "conflict" | "quota" | "validation" | "rate-limited" | "server" | "network"} FailureKind
  * @typedef {{ ok: true, id: string, version: string | null }
- *   | { ok: false, kind: "unauthenticated" | "not-found" | "conflict" | "validation" | "server" | "network", message: string, fieldErrors: FieldError[] }} SaveResult
+ *   | { ok: false, kind: FailureKind, message: string, fieldErrors: FieldError[] }} SaveResult
  */
 
 // Textos neutros: quem sabe se o rascunho foi salvo neste navegador é o editor, que os completa.
+// Quando o servidor manda uma mensagem própria (já em português), ela vale mais que estes textos.
 const MESSAGES = {
   unauthenticated: "Sua sessão expirou. Entre de novo e envie outra vez.",
+  forbidden: "Você não tem permissão para alterar este conteúdo.",
   "not-found": "Este conteúdo não existe mais; talvez tenha sido excluído.",
   conflict: "Já existe um conteúdo com este endereço (slug) na mesma coleção.",
+  quota: "O limite de conteúdos ou o tamanho máximo do texto foi atingido.",
   validation: "O servidor recusou alguns dados. Corrija os campos indicados e envie de novo.",
+  "rate-limited": "Muitos envios em pouco tempo. Aguarde um instante e tente de novo.",
   server: "O servidor não conseguiu salvar agora. Tente de novo em instantes.",
   network: "Não foi possível conectar ao servidor. Confira a conexão e tente de novo.",
 };
 
 /**
- * @param {"unauthenticated" | "not-found" | "conflict" | "validation" | "server" | "network"} kind
+ * @param {FailureKind} kind
  * @param {Partial<{ message: string, fieldErrors: FieldError[] }>} [extra]
  * @returns {SaveResult}
  */
@@ -89,7 +97,10 @@ export async function interpretResponse(response) {
   const fieldErrors = fieldErrorsOf(error?.details);
 
   if (response.status === 401) return failure("unauthenticated");
+  if (response.status === 403) return failure("forbidden", { message });
   if (response.status === 404) return failure("not-found");
+  if (response.status === 413 || (response.status === 422 && error?.code === "QUOTA_EXCEEDED")) return failure("quota", { message });
+  if (response.status === 429) return failure("rate-limited");
   if (response.status === 409) {
     // O servidor informa o slug recusado e, se houver, uma sugestão livre.
     const slugError = fieldErrors.find((item) => item.field === "slug");

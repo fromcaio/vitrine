@@ -259,6 +259,9 @@ describe("Editor: erros da API", () => {
 
   it.each([
     ["not-found", "Este conteúdo não existe mais; talvez tenha sido excluído."],
+    ["forbidden", "Você não tem permissão para alterar este conteúdo."],
+    ["quota", "O limite de conteúdos ou o tamanho máximo do texto foi atingido."],
+    ["rate-limited", "Muitos envios em pouco tempo. Aguarde um instante e tente de novo."],
     ["server", "O servidor não conseguiu salvar agora. Tente de novo em instantes."],
     ["network", "Não foi possível conectar ao servidor. Confira a conexão e tente de novo."],
   ])("%s: mostra o aviso e guarda o texto neste navegador", async (kind, message) => {

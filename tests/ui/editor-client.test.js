@@ -37,6 +37,30 @@ describe("interpretResponse", () => {
     expect(/** @type {any} */ (result).message).toMatch(/sessão expirou/i);
   });
 
+  it("403: sem permissão para o conteúdo (ADR-023), com a mensagem do servidor quando ela vem", async () => {
+    const withMessage = await interpretResponse(json(403, { error: { code: "FORBIDDEN", message: "Você só pode alterar o seu próprio conteúdo.", details: [] } }));
+    expect(withMessage).toEqual({ ok: false, kind: "forbidden", message: "Você só pode alterar o seu próprio conteúdo.", fieldErrors: [] });
+    const without = await interpretResponse(json(403, {}));
+    expect(without).toMatchObject({ ok: false, kind: "forbidden", message: "Você não tem permissão para alterar este conteúdo." });
+    // Um 403 de outro motivo (senha provisória) também mostra o texto do servidor.
+    const password = await interpretResponse(json(403, { error: { code: "PASSWORD_CHANGE_REQUIRED", message: "Troque a senha provisória para continuar.", details: [] } }));
+    expect(password).toMatchObject({ kind: "forbidden", message: "Troque a senha provisória para continuar." });
+  });
+
+  it("422 QUOTA_EXCEEDED e 413: o limite de conteúdos ou de tamanho, não um erro de campo", async () => {
+    const quota = await interpretResponse(json(422, { error: { code: "QUOTA_EXCEEDED", message: "O texto passa de 256 KiB.", details: [{ field: "body", message: "Texto grande demais." }] } }));
+    expect(quota).toMatchObject({ ok: false, kind: "quota", message: "O texto passa de 256 KiB." });
+    expect(await interpretResponse(json(422, { error: { code: "QUOTA_EXCEEDED", details: [] } }))).toMatchObject({ kind: "quota", message: "O limite de conteúdos ou o tamanho máximo do texto foi atingido." });
+    expect(await interpretResponse(json(413, { error: { code: "PAYLOAD_TOO_LARGE", message: "Corpo grande demais.", details: [] } }))).toMatchObject({ kind: "quota", message: "Corpo grande demais." });
+    expect(await interpretResponse(text(413, "<html>Request Entity Too Large</html>"))).toMatchObject({ kind: "quota" });
+    // Um 422 comum continua sendo validação.
+    expect(await interpretResponse(json(422, { error: { code: "VALIDATION_ERROR", message: "x", details: [] } }))).toMatchObject({ kind: "validation" });
+  });
+
+  it("429: envios demais em pouco tempo", async () => {
+    expect(await interpretResponse(json(429, { error: { code: "RATE_LIMITED", message: "Limite.", details: [] } }))).toMatchObject({ ok: false, kind: "rate-limited", message: "Muitos envios em pouco tempo. Aguarde um instante e tente de novo." });
+  });
+
   it("404: o conteúdo não existe mais", async () => {
     const result = await interpretResponse(json(404, { error: { code: "NOT_FOUND", message: "Conteúdo não encontrado.", details: [{ field: "id", value: "c1" }] } }));
     expect(result).toMatchObject({ ok: false, kind: "not-found", fieldErrors: [] });

@@ -96,8 +96,12 @@ const UNEXPECTED_FAILURE = {
   fieldErrors: [],
 };
 
-/** Falhas depois das quais o texto é guardado no navegador, para não se perder. */
-const KEEP_LOCALLY = new Set(["unauthenticated", "not-found", "server", "network"]);
+/**
+ * Falhas depois das quais o texto é guardado no navegador, para não se perder: as que o autor não
+ * resolve só corrigindo um campo. As de validação e de slug em conflito ficam de fora, porque ele
+ * as corrige na hora.
+ */
+const KEEP_LOCALLY = new Set(["unauthenticated", "forbidden", "not-found", "quota", "rate-limited", "server", "network"]);
 
 /**
  * @param {object} props
