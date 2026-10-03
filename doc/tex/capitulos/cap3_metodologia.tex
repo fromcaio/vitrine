@@ -185,6 +185,7 @@ Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações; confi
 \arq{@prisma/adapter-better-sqlite3} e \arq{better-sqlite3} & 7.10.0 e 12.11.1 & \en{Driver adapter} do Prisma para SQLite (módulo nativo) e o próprio SQLite em arquivo (\adr{ADR-014})\\
 \arq{prisma} (CLI) e \arq{dotenv} & 7.10.0 e 18.0.5 (\texttt{dependencies}) & Migrações e carregamento do \arq{.env} pela CLI; necessários na imagem de produção (\texttt{prisma migrate deploy})\\
 Vitest & 5.0.3 (desenvolvimento) & Testes de unidade e de integração com banco SQLite isolado (\texttt{npm test}; Seção~\ref{sec:testes-banco})\\
+\arq{@playwright/test} & 1.63.0 (desenvolvimento; Apache-2.0) & Testes de ponta a ponta no navegador, sobre o \en{build} de produção (\texttt{npm run test:e2e}; \decisao{D-12}; merge M-010). Os navegadores ficam fora do repositório e da imagem; os três pacotes (\texttt{@playwright/test}, \texttt{playwright} e \texttt{playwright-core}) entram na imagem como qualquer dependência de desenvolvimento, cerca de 18~MiB em \arq{node_modules}\\
 \arq{tsx} & 4.23.15 (desenvolvimento) & Execução do \en{seed} (\arq{prisma/seed.js}) com o cliente gerado em TypeScript\\
 better-auth & 1.7.6 & Autenticação e sessões (e-mail e senha, cadastro público desabilitado, limitação de tentativas)\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
