@@ -167,7 +167,7 @@ Os agentes de inteligência artificial são ferramentas de apoio sob supervisão
 
 \section{Ambiente e Ferramentas}\label{sec:ambiente}
 
-A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declaradas no repositório, conferidas em \arq{package.json} e em \arq{node_modules}; os valores foram atualizados após o merge M-001 (30/09/2026).
+A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declaradas no repositório, conferidas em \arq{package.json} e em \arq{node_modules}; os valores foram atualizados após o merge M-001 (30/09/2026) e revistos até o merge M-011 (03/10/2026).
 
 \begin{table}[htb]
 \caption{Tecnologias e versões do projeto}\label{tab:stack}
@@ -176,7 +176,7 @@ A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declara
 \toprule
 \textbf{Tecnologia} & \textbf{Versão} & \textbf{Papel}\\
 \midrule
-Node.js & $\geq$ 20.9 & \en{Runtime} exigido pelo Next.js 16\\
+Node.js & $\geq$ 20.9 (24 no desenvolvimento e na imagem) & \en{Runtime} exigido pelo Next.js 16. O \arq{jsdom} dos testes de interação (merge M-011) exige 22.22.2, 24.15 ou superior: com o 22.22.0 o npm só avisa (\texttt{EBADENGINE}) e os testes passam\\
 Next.js & 16.3.7 & \en{Framework} web (App Router, ISR, Route Handlers, Proxy)\\
 React e React DOM & 19.2.8 & Biblioteca de interface\\
 React Compiler (plugin Babel) & 1.0.0 & Memoização automática (\texttt{reactCompiler: true})\\
@@ -185,13 +185,15 @@ Prisma ORM e \arq{@prisma/client} & 7.10.0 & Acesso a dados e migrações; confi
 \arq{@prisma/adapter-better-sqlite3} e \arq{better-sqlite3} & 7.10.0 e 12.11.1 & \en{Driver adapter} do Prisma para SQLite (módulo nativo) e o próprio SQLite em arquivo (\adr{ADR-014})\\
 \arq{prisma} (CLI) e \arq{dotenv} & 7.10.0 e 18.0.5 (\texttt{dependencies}) & Migrações e carregamento do \arq{.env} pela CLI; necessários na imagem de produção (\texttt{prisma migrate deploy})\\
 Vitest & 5.0.3 (desenvolvimento) & Testes de unidade e de integração com banco SQLite isolado (\texttt{npm test}; Seção~\ref{sec:testes-banco})\\
+\arq{jsdom}, \arq{@testing-library/react} e \arq{@testing-library/dom} & 30.1.1, 16.3.3 e 10.4.2 (desenvolvimento; MIT) & Testes de interação dos Componentes Cliente (cliques, estado, \texttt{localStorage}): cada arquivo de teste escolhe o ambiente com \texttt{// @vitest-environment jsdom}, sem mudar a configuração do Vitest; 0~byte no \en{bundle} (merge M-011)\\
 \arq{@playwright/test} & 1.63.0 (desenvolvimento; Apache-2.0) & Testes de ponta a ponta no navegador, sobre o \en{build} de produção (\texttt{npm run test:e2e}; \decisao{D-12}; merge M-010). Os navegadores ficam fora do repositório e da imagem; os três pacotes (\texttt{@playwright/test}, \texttt{playwright} e \texttt{playwright-core}) entram na imagem como qualquer dependência de desenvolvimento, cerca de 18~MiB em \arq{node_modules}\\
 \arq{tsx} & 4.23.15 (desenvolvimento) & Execução do \en{seed} (\arq{prisma/seed.js}) com o cliente gerado em TypeScript\\
 better-auth & 1.7.6 & Autenticação e sessões (e-mail e senha, cadastro público desabilitado, limitação de tentativas)\\
 react-markdown & 10.1.0 & Renderização de Markdown em React\\
 remark-math e rehype-katex & 6.0.0 e 7.0.1 & Delimitadores e renderização de fórmulas\\
 remark-gfm & 4.0.1 & Tabelas, tachado, listas de tarefas, links automáticos e notas de rodapé (RF11; \decisao{D-08}; merge M-009)\\
-rehype-highlight, \arq{lowlight} e \arq{highlight.js} & 7.0.2, 3.3.0 e 11.11.2 & Realce de sintaxe por classes, no servidor e no cliente (RF10; \decisao{D-07}; merge M-009; o \arq{highlight.js} é BSD-3-Clause, os demais são MIT)\\
+rehype-highlight, \arq{lowlight} e \arq{highlight.js} & 7.0.2, 3.3.0 e 11.11.2 & Realce de sintaxe por classes, no servidor e no cliente (RF10; \decisao{D-07}; merge M-009; o \arq{highlight.js} é BSD-3-Clause, os demais são MIT). No merge M-011, o \arq{highlight.js} (fixado em \texttt{\~{}11.11.2}) e o \arq{lowlight} passaram a dependências diretas, com LaTeX, MATLAB, Julia, Haskell e Fortran (42 linguagens; mais 6,3~kB comprimidos)\\
+react-hook-form & 7.89.0 (MIT) & Formulário do editor, com validação por campo e foco no primeiro erro, sobre os esquemas do Zod por um resolvedor próprio (M09; merge M-011). Só entra no código do editor, carregado sob demanda (12,4~kB comprimidos)\\
 KaTeX & 0.16.47 & Composição de fórmulas; declarado diretamente no merge M-009, pois o \arq{MarkdownRenderer} importa a folha de estilos do pacote\\
 Zod & 4.6.5 (\texttt{dependencies}) & Validação de entrada da API e do comando do administrador (\decisao{D-11}); declarado diretamente no merge M-004 (já era dependência do better-auth)\\
 ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
