@@ -52,3 +52,8 @@ next-env.d.ts
 
 # volume do SQLite da implantação com Docker (docker-compose.yml)
 /data/
+
+# testes e2e (Playwright)
+/test-results/
+/playwright-report/
+/blob-report/
