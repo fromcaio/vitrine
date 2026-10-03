@@ -465,7 +465,7 @@ Leitura pública (\arq{/\{handle\}/\ldots}) & permitido, só o publicado e de es
 
 \textbf{Operações que o pacote não protege e o Vitrine protege.} O último administrador ativo (RN22) e a exclusão de usuário com conteúdo (RN24) passam por funções transacionais: o \texttt{remove-user} do pacote apaga as sessões e a credencial \emph{antes} de falhar quando o usuário tem conteúdo; a redefinição de senha (\texttt{set-user-password}) não revoga as sessões, e a rota própria o faz (RN12, RN21); a suspensão revoga as sessões e a conta volta sozinha quando o prazo vence (RN23).
 
-\textbf{Limite de taxa e cotas.} As escritas têm limite por usuário, em memória (zera a cada reinício e vale por instância; aceito); o corpo muito acima de \texttt{MAX\_BODY\_BYTES} é recusado antes de ser lido (413) e as cotas respondem 422 \arq{QUOTA\_EXCEEDED} (RN25). Um recurso de outro dono responde 403, que confirma a existência do identificador (\texttt{cuid}, de baixo risco; trocar por 404 é uma linha em \texttt{authorize}).
+\textbf{Limite de taxa e cotas.} As escritas têm limite por usuário, em memória (zera a cada reinício e vale por instância; aceito): 60 por minuto em conteúdo e aparência, 20 em usuários e 5 na troca de senha, constantes de um módulo (e não variáveis de ambiente); o corpo muito acima de \texttt{MAX\_BODY\_BYTES} é recusado antes de ser lido (413) e as cotas respondem 422 \arq{QUOTA\_EXCEEDED} (RN25). Um recurso de outro dono responde 403, que confirma a existência do identificador (\texttt{cuid}, de baixo risco; trocar por 404 é uma linha em \texttt{authorize}).
 
 \subsection{Política de Cadastro e Papéis}
 
@@ -925,7 +925,9 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 \addlinespace
 \arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, links e as duas paletas\\
 \addlinespace
-\arq{/admin/perfil} & Sessão & Nome e troca de senha; alvo do redirecionamento com senha provisória\\
+\arq{/admin/senha} & Sessão & Troca de senha (UC14); alvo do redirecionamento com senha provisória (R-006)\\
+\addlinespace
+\arq{/admin/perfil} & Sessão & Nome de exibição do próprio usuário\\
 \addlinespace
 \arq{/admin/notificacoes} & Dono & Lista de notificações\\
 \addlinespace
@@ -975,7 +977,7 @@ AppearanceForm (substitui o ThemeForm) & \arq{components/admin} & Identidade, li
 NotificationBell, NotificationList & \arq{components/admin} & Contador de não lidas no cabeçalho e lista com marcar e dispensar (RF33; M19) & Planejado\\
 UserTable, UserForm, ProvisionalPassword & \arq{components/admin} & Lista e formulário de usuários e exibição única da senha provisória (RF27; M20) & Planejado\\
 ModerationDialog & \arq{components/admin} & Confirmação com o motivo obrigatório, para as ações sobre conteúdo e conta de outro usuário (RF34; M20) & Planejado\\
-PasswordChangeForm & \arq{components/admin} & Troca de senha, inclusive a obrigatória (RF28; M20) & Planejado\\
+PasswordChangeForm & \arq{components/admin} & Troca de senha, inclusive a obrigatória, na rota \arq{/admin/senha} (RF28; M20) & Planejado\\
 PortalDirectory & \arq{components/layout} & Diretório de espaços do portal (RF30, RN28; M17) & Planejado\\
 \end{longtable}
 \fonte{Elaborado pelos autores. O inventário nasceu como proposta para o agente UI; os componentes ``Implementado'' vieram do merge M-005.}
