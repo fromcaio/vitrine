@@ -3,9 +3,13 @@
 ' Vitrine - Diagrama de casos de uso (visão geral)
 ' Figura: fig:uc-visao-geral  (doc/tex/capitulos/cap4_requisitos.tex)
 ' Base:   doc/ref/use-case-diagram.plantuml (Relatório de IC) -- mantido intacto.
-' Alteração em relação ao relatório de IC:
+' Alterações em relação ao relatório de IC:
 '   - "Gerenciar Conteúdo" passa a incluir "Invalidar Cache (ISR)": toda
 '     mutação de conteúdo dispara a revalidação das páginas afetadas.
+'   - Escopo multiusuário (ADR-023 a ADR-027, 2026-10-02): o ator Autor
+'     (usuário autenticado) faz o que era do Administrador sobre o que é seu;
+'     o Administrador é um Autor que também gere contas, modera e cuida do
+'     portal. Casos novos: UC13 a UC19.
 ' Renderizar: ver doc/diagrams/README.md (usar -charset UTF-8).
 ' ===========================================================================
 left to right direction
@@ -19,14 +23,19 @@ skinparam usecase {
 }
 
 actor "Leitor" as Leitor
+actor "Autor" as Autor
 actor "Administrador" as Admin
 actor "Sistema" as Sistema
+
+Admin --|> Autor
 
 rectangle "Vitrine" {
   rectangle "Navegação e Leitura" {
     usecase "Explorar Sidebar Hierárquica" as UC_Nav
     usecase "Visualizar Página Única" as UC_Single
     usecase "Ler Conteúdo (Markdown)" as UC_Read
+    usecase "Ver o Portal e o Diretório (UC17)" as UC_Portal
+    usecase "Escolher o Modo de Cor (UC18)" as UC_Mode
   }
   rectangle "Gestão de Estrutura" {
     usecase "Gerenciar Conteúdo" as UC_Manage
@@ -34,12 +43,19 @@ rectangle "Vitrine" {
     usecase "Criar Coleção/Pasta" as UC_CreateColl
     usecase "Aninhar Conteúdos (Path/Order)" as UC_Nest
     usecase "Autenticar-se" as UC_Login
+    usecase "Trocar a Senha e Editar o Perfil (UC14)" as UC_Profile
+    usecase "Ver e Tratar Notificações (UC16)" as UC_Notif
   }
-  rectangle "Configurações e Performance" {
+  rectangle "Aparência e Performance" {
     usecase "Personalizar UI" as UC_UI
     usecase "Definir Identidade (Nome/Branding)" as UC_Brand
-    usecase "Configurar Paleta de Cores" as UC_Colors
+    usecase "Configurar Paletas Clara e Noturna" as UC_Colors
     usecase "Invalidar Cache (ISR)" as UC_ISR
+  }
+  rectangle "Administração do Site" {
+    usecase "Gerir Usuários (UC13)" as UC_Users
+    usecase "Moderar Conteúdo e Contas (UC15)" as UC_Moderate
+    usecase "Editar o Portal (UC19)" as UC_EditPortal
   }
 }
 
@@ -56,11 +72,26 @@ UC_UI <.. UC_Brand : <<extend>>
 UC_UI <.. UC_Colors : <<extend>>
 UC_UI ..> UC_Login : <<include>>
 UC_UI ..> UC_ISR : <<include>>
+UC_Colors ..> UC_Notif : <<extend>>
+
+UC_Users ..> UC_Login : <<include>>
+UC_Users ..> UC_ISR : <<include>>
+UC_Moderate ..> UC_Login : <<include>>
+UC_Moderate ..> UC_ISR : <<include>>
+UC_Moderate ..> UC_Notif : <<include>>
+UC_EditPortal ..> UC_Manage : <<include>>
 
 Leitor --> UC_Nav
 Leitor --> UC_Single
-Admin --> UC_Login
-Admin --> UC_Manage
-Admin --> UC_UI
+Leitor --> UC_Portal
+Leitor --> UC_Mode
+Autor --> UC_Login
+Autor --> UC_Manage
+Autor --> UC_UI
+Autor --> UC_Profile
+Autor --> UC_Notif
+Admin --> UC_Users
+Admin --> UC_Moderate
+Admin --> UC_EditPortal
 Sistema --> UC_ISR
 @enduml

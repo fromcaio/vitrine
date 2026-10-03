@@ -11,7 +11,7 @@ A \emph{verificação} responde se o sistema foi construído corretamente, isto 
 
 \section{Objetivos e Escopo}\label{sec:testes-objetivos}
 
-Os objetivos da verificação e validação são: (i) demonstrar que cada requisito essencial e importante é atendido (\req{RF01} a \req{RF26}); (ii) comprovar as regras de negócio invariantes (RN01 a RN17) no servidor; (iii) medir as qualidades declaradas como metas (\req{RNF02}, \req{RNF04}, \req{RNF05}); e (iv) verificar o comportamento do cache ISR em modo de produção. Ficam fora do escopo testes de carga em grande escala, pois o perfil de uso esperado é de um único administrador e tráfego de leitura moderado.
+Os objetivos da verificação e validação são: (i) demonstrar que cada requisito essencial e importante é atendido (\req{RF01} a \req{RF34}); (ii) comprovar as regras de negócio invariantes (RN01 a RN28) no servidor, em particular a autorização por dono (RN19); (iii) medir as qualidades declaradas como metas (\req{RNF02}, \req{RNF04}, \req{RNF05}); e (iv) verificar o comportamento do cache ISR em modo de produção, por espaço (\adr{ADR-030}). Ficam fora do escopo testes de carga em grande escala, pois o perfil de uso esperado é de poucos usuários (até algumas dezenas de espaços) e tráfego de leitura moderado.
 
 \section{Estratégia de Testes}\label{sec:testes-estrategia}
 
@@ -109,17 +109,17 @@ A Tabela~\ref{tab:casos-teste} relaciona cada caso de teste aos requisitos e reg
 CT01 & Login com credenciais válidas redireciona ao painel e cria a sessão & RF01 & E2E & Core\\[2pt]
 CT02 & Login inválido retorna mensagem genérica, sem indicar o campo incorreto & RF01; RNF03 & API & Core\\[2pt]
 CT03 & Acesso a \arq{/admin} sem sessão redireciona a \arq{/login} & RF01; RF21 & E2E & Core\\[2pt]
-CT04 & Qualquer rota de escrita sem sessão retorna 401 & RF21; RN01 & API & Core\\[2pt]
+CT04 & Qualquer rota de escrita sem sessão retorna 401; com sessão de outro dono, 403 (\arq{FORBIDDEN}), sem alterar nada & RF21; RN01; RN19 & API & Core\\[2pt]
 CT05 & Encerrar sessão invalida a sessão no banco e remove o \en{cookie} & RF20 & API & Core\\[2pt]
-CT06 & O cadastro público está desabilitado após o \en{bootstrap} & RF22 & API & Core\\[2pt]
+CT06 & O cadastro público está desabilitado após o \en{bootstrap}; só o administrador cria contas, por \arq{/api/users} & RF22; RF27; RN21 & API & Core\\[2pt]
 CT07 & Criar documento válido retorna 201 e o item aparece na árvore & RF05; RF02 & API & Core\\[2pt]
 CT08 & \en{Slug} duplicado entre irmãos retorna 409 (\arq{SLUG_CONFLICT}) & RN03 & API & Core\\[2pt]
 CT09 & Pai que não é coleção retorna 422 (\arq{INVALID_PARENT}) & RN02 & API & Core\\[2pt]
 CT10 & Mover um nó para dentro de um descendente é rejeitado (\arq{CYCLE_DETECTED}) & RN06 & API & Core\\[2pt]
 CT11 & Reordenar irmãos persiste a nova ordem e a listagem a respeita & RF03; RN05 & Integração & Dados\\[2pt]
 CT12 & Excluir uma coleção remove todos os descendentes & RF07; RN07 & Integração & Dados\\[2pt]
-CT13 & Resolver caminho existente e publicado retorna o nó; inexistente, ou não publicado (RN15), retorna nulo (404) & RF14; RN04; RN15 & Unidade & Dados\\[2pt]
-CT14 & Abrir uma coleção redireciona ao primeiro documento descendente & RN14 & E2E & UI\\[2pt]
+CT13 & Resolver o \en{handle} e a cadeia de \en{slugs} existentes e publicados retorna o nó; inexistente, não publicado (RN15), de outro dono ou de espaço suspenso retorna nulo (404) & RF14; RN04; RN15; RN23 & Unidade & Dados\\[2pt]
+CT14 & Abrir uma coleção de um espaço redireciona ao primeiro documento descendente publicado do mesmo espaço & RN14; RF29 & E2E & UI\\[2pt]
 CT15 & Fórmulas em linha e em bloco são renderizadas pelo KaTeX & RF09 & Unidade & UI\\[2pt]
 CT16 & HTML bruto no Markdown é exibido como texto e não é executado; URLs \texttt{javascript:}, comandos do KaTeX e expansões recursivas não executam nem geram marcação & RN11; RNF03 & Unidade & UI\\[2pt]
 CT17 & Tabelas, tachado e listas de tarefas (GFM) são renderizados & RF11 & Unidade & UI\\[2pt]
@@ -127,9 +127,9 @@ CT18 & Blocos de código recebem realce conforme a linguagem & RF10 & Unidade & 
 CT19 & A pré-visualização do editor é idêntica à página pública & RF08 & E2E & UI\\[2pt]
 CT20 & O rascunho local sobrevive ao recarregamento da página & RF15 & E2E & UI\\[2pt]
 CT21 & Publicar nova versão atualiza a página pública (revalidação da página) & RF16; RF17; RN10 & E2E & Core\\[2pt]
-CT22 & Mudança estrutural (título, \en{slug}, pai, ordem) revalida o \en{layout} raiz & RF17; RN10 & E2E & Core\\[2pt]
+CT22 & Mudança estrutural (título, \en{slug}, pai, ordem, estado) revalida, por caminhos literais, a página inicial do espaço do dono e os caminhos públicos antigos e novos do nó e dos descendentes (ver CT44) & RF17; RN10 & E2E & Core\\[2pt]
 CT23 & Alterar cores reflete-se nas páginas sem novo \en{build} & RF19 & E2E & UI\\[2pt]
-CT24 & Cor fora do formato é recusada; contraste insuficiente gera aviso & RN09 & API/Unid. & Core, UI\\[2pt]
+CT24 & Cor fora do formato é recusada; contraste insuficiente gera aviso, calculado por modo (a paleta clara contra o branco, a noturna contra o fundo noturno); as paletas padrão não geram aviso & RN09; RN27; \adr{ADR-031} & API/Unid. & Core, UI\\[2pt]
 CT25 & Metadados de SEO presentes no HTML pré-renderizado & RF25; RNF07 & E2E & Core\\[2pt]
 CT26 & A \en{sidebar} é navegável por teclado e destaca o item ativo & RF12; RNF05 & E2E & UI\\[2pt]
 CT27 & O layout permanece utilizável em largura de 320 px & RNF06 & E2E & UI\\[2pt]
@@ -137,8 +137,27 @@ CT28 & A migração aplica-se em banco vazio e o \en{seed} é idempotente & RF23
 CT29 & Uma instalação limpa em VPS com Docker, seguindo o Apêndice~\ref{ap:implantacao}, produz sistema funcional, e o banco persiste após recriar o contêiner & RNF01; D-04 & Manual & Core\\[2pt]
 CT30 & O \en{backup} do banco (\texttt{VACUUM INTO}) pode ser restaurado com os dados íntegros & RNF10 & Manual & Dados\\[2pt]
 CT31 & Um conteúdo \texttt{DRAFT}, e toda a sua subárvore, responde 404 por URL direta e não aparece na \en{sidebar}, na barra superior nem no mapa do site; o painel continua listando todos os conteúdos & RF26; RN15; RF25 & E2E & Core\\[2pt]
-CT32 & A criação sem estado explícito resulta em \texttt{PUBLISHED}; alternar o estado revalida o \en{layout} raiz e o conteúdo passa a aparecer ou a desaparecer na visita seguinte, sem novo \en{build} & RN16; RF17; RF26 & E2E & Core\\[2pt]
+CT32 & A criação sem estado explícito resulta em \texttt{PUBLISHED}; alternar o estado revalida as páginas do espaço do dono (RN10) e o conteúdo passa a aparecer ou a desaparecer na visita seguinte, sem novo \en{build} & RN16; RF17; RF26 & E2E & Core\\[2pt]
 CT33 & Link social com protocolo diferente de \texttt{http} e \texttt{https} é recusado (422); campo vazio é aceito e o ícone não é exibido; links válidos recebem \texttt{noopener} e \texttt{noreferrer} & RF24; RN17; RNF03 & API/Unid. & Core, UI\\[2pt]
+CT34 & A migração multiusuário aplica-se em banco vazio e sobre cópias de bancos legados populados, sem perder dado; o índice parcial da raiz continua existindo; a linha do site só troca as cores que ainda valem o padrão antigo (\adr{ADR-031}), nunca as personalizadas & RF23; RN08; \adr{ADR-028} & Integração & Dados\\[2pt]
+CT35 & O banco recusa um filho com \texttt{authorId} diferente do pai; a raiz com o mesmo \en{slug} é recusada para o mesmo dono e aceita para donos diferentes; entre irmãos, o \en{slug} segue único & RN03; RN13; \adr{ADR-028} & Integração & Dados\\[2pt]
+CT36 & A transferência de conteúdo entre donos leva a árvore inteira ou falha inteira (conflito de \en{slug} na raiz do destino); excluir usuário com conteúdo é recusado pelo banco (\texttt{Restrict}) & RN24; \adr{ADR-027} & Integração & Dados\\[2pt]
+CT37 & A matriz de autorização é exercida inteira (cada ação contra cada situação: anônimo, usuário dono, usuário não dono, administrador, suspenso, senha provisória); papel ou ação desconhecidos falham fechados & RF21; RN19; \adr{ADR-029} & Unidade & Core\\[2pt]
+CT38 & As rotas do \en{catch-all} do better-auth fora da lista de permitidas (todas, menos \texttt{get-session}, \texttt{sign-in/email} e \texttt{sign-out}) respondem 404 no envelope, e um \texttt{name} ou uma \texttt{image} inválidos não chegam ao banco por elas & RNF03; \adr{ADR-029} & API & Core\\[2pt]
+CT39 & O \texttt{authorId} gravado vem sempre da sessão, mesmo quando o administrador cria o conteúdo; um corpo com \texttt{authorId} é ignorado ou recusado; as cotas (500 conteúdos, 256~KiB em \emph{bytes}) respondem 422 \arq{QUOTA\_EXCEEDED}, e um corpo muito acima do limite, 413, sem ser lido & RN13; RN25 & API & Core\\[2pt]
+CT40 & Com a senha provisória, qualquer rota, exceto a troca de senha e a leitura do perfil, responde 403 \arq{PASSWORD\_CHANGE\_REQUIRED}; a troca recusa a senha igual à atual, revoga as outras sessões e libera as demais rotas & RF28; RN21 & API & Core\\[2pt]
+CT41 & Suspender revoga as sessões, impede o \en{login} (com o motivo), faz o espaço responder 404 e preserva o conteúdo; o prazo vencido reativa a conta sozinho, inclusive com o \en{cache} de \en{cookie} & RN12; RN23; RF27 & API & Core\\[2pt]
+CT42 & O último administrador ativo não pode ser rebaixado, suspenso nem excluído, e ninguém suspende ou exclui a si mesmo (409 \arq{LAST\_ADMIN}); excluir usuário com conteúdo exige escolher entre transferir e apagar, e é atômico & RN22; RN24; RF27 & API & Core\\[2pt]
+CT43 & O espaço de usuário suspenso, removido ou sem \en{handle} responde 404, e o de um \en{handle} reservado nunca existe; o 404 é o mesmo de qualquer caminho inexistente & RF29; RN20; RN23 & E2E & Core\\[2pt]
+CT44 & Editar um autor não invalida o \en{cache} das páginas de outro (cabeçalho \texttt{x-nextjs-cache}); renomear ou mover revalida o caminho antigo e o novo, do nó e dos descendentes; alterar a aparência, o \en{handle} ou a suspensão revalida o espaço inteiro; mudar o site revalida só \texttt{/} & RF17; RN10; \adr{ADR-030} & E2E & Core\\[2pt]
+CT45 & Primeiros segmentos que não são \en{handle} nem rota reservada não deixam arquivo em \arq{.next/} (200 URLs aleatórias); um \en{handle} criado em seguida funciona sem revalidar; o \texttt{next build} não consulta o banco & RNF08; \adr{ADR-030}; \adr{ADR-021} & E2E & Core\\[2pt]
+CT46 & A página do editor exige sessão e dono (o de outro dono responde 403 ou 404); \texttt{?pai=} só aceita coleção do próprio usuário; o portal \texttt{/} mostra o texto do administrador e, com o diretório ligado, só espaços ativos com ao menos um conteúdo raiz publicado, em ordem alfabética & RF30; RN15; RN19; RN28 & E2E & Core, UI\\[2pt]
+CT47 & O modo de cor (Claro, Escuro, Automático) é aplicado antes da primeira pintura, sem piscar e sem \en{cookie} no servidor; a escolha persiste no navegador; as páginas continuam estáticas (\texttt{HIT}) & RF32; RN27; \adr{ADR-025} & E2E & UI\\[2pt]
+CT48 & Todos os pares de contraste passam nos dois modos com as paletas padrão (Tabela~\ref{tab:pares-contraste}); o texto sobre a secundária é calculado por modo; o foco é visível nos dois modos & RN09; RN27; RNF05 & Unidade & UI\\[2pt]
+CT49 & Salvar a aparência do usuário revalida só o espaço dele; ler a aparência de quem nunca a salvou devolve os padrões sem escrever; o usuário não edita a aparência de outro, nem o administrador (403) & RF31; RN08; RN19 & API & Core, Dados\\[2pt]
+CT50 & Cada usuário vê, marca e dispensa só as suas notificações; a mesma paleta ruim, salva duas vezes, gera uma só notificação por modo (reaberta a cada ocorrência); a paleta corrigida a resolve; a retenção remove na ordem da RN26 & RF33; RN26 & API/Integração & Core, Dados\\[2pt]
+CT51 & Despublicar, editar ou excluir conteúdo alheio, e suspender conta, exigem o motivo (422 sem ele), aplicam-se em transação, invalidam o espaço e geram a notificação ao dono com o motivo; o administrador vê os rascunhos de qualquer usuário só no painel & RF34; RN19; RN26 & E2E & Core, UI\\[2pt]
+CT52 & A criação de conta exibe a senha provisória uma única vez; editar, redefinir, suspender, reativar e excluir funcionam pela interface, sem oferecer ação que a matriz recusaria; o perfil troca a própria senha e o nome & RF27; RF28; RN21 & E2E & UI\\[2pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -158,7 +177,7 @@ O desempenho será medido com o Lighthouse \cite{lighthouse} sobre o \en{build} 
 
 \subsection{Segurança}\label{sec:testes-seguranca}
 
-A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, CT16, CT31 e CT33; conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas (os quatro alertas altos já avaliados e aceitos constam na Seção~\ref{sec:arq-npm-audit} e na \adr{ADR-019}; qualquer alerta novo exige nova avaliação); e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
+A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, CT16, CT31, CT33 e CT37 a CT42 (autorização, contas e suspensão); conferir os cabeçalhos de segurança da resposta; executar \texttt{npm audit} e registrar as vulnerabilidades encontradas (os quatro alertas altos já avaliados e aceitos constam na Seção~\ref{sec:arq-npm-audit} e na \adr{ADR-019}; qualquer alerta novo exige nova avaliação); e percorrer a lista da Tabela~\ref{tab:ameacas}, confirmando cada controle. Como referência de itens de verificação utiliza-se o ASVS do OWASP \cite{owaspasvs}.
 
 \textbf{Cabeçalhos e CSP (merge M-008).} Os cabeçalhos foram conferidos por HTTP em um contêiner com a imagem de produção, em uma página (\arq{/login}), na API (resposta 401) e em um arquivo estático: os cinco cabeçalhos da Tabela~\ref{tab:cabecalhos} estavam presentes nos três, sem \texttt{X-Powered-By} e sem HSTS. A CSP foi verificada em um navegador (o Core, no Edge sem interface; o Arquiteto, no navegador embutido do Claude Desktop), sobre o \en{build} de produção: em \arq{/login}, o formulário \emph{hidratou}, a paleta do banco foi aplicada (\arq{--vitrine-primary} igual à salva, e o botão com \texttt{rgb(15, 118, 110)} para \texttt{\#0f766e}) e o console não registrou nenhuma violação. Como \emph{controle negativo}, para provar que a detecção funciona, uma folha \texttt{<style>} inserida na página, uma imagem em \texttt{http:} e um \texttt{eval} foram bloqueados e registrados como violação, e um atributo \texttt{style} em marcação foi aplicado, como a política prevê. O \texttt{eval} deve ser chamado por um \en{script} da página, em uma tarefa posterior: chamado direto pelo console de depuração, ele é liberado pela própria ferramenta e não prova nada sobre a política.
 
@@ -200,4 +219,4 @@ A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos 
 
 \section{Síntese do Capítulo}
 
-O capítulo definiu a estratégia de verificação e validação, trinta e três casos de teste rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.
+O capítulo definiu a estratégia de verificação e validação, cinquenta e dois casos de teste (CT01 a CT52; os CT34 a CT52 cobrem o escopo multiusuário e ainda não têm código) rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.

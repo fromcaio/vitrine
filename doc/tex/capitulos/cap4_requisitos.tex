@@ -8,7 +8,7 @@
 %% ===================================================================================
 \chapter{Levantamento e Análise de Requisitos}\label{cap:requisitos}
 
-Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restrições. Os requisitos RF01 a RF04 foram definidos no relatório de IC \cite{reis2026ic}; os demais requisitos funcionais, os requisitos não funcionais e as regras de negócio foram derivados dos casos de uso, dos protótipos e dos objetivos (Seção~\ref{sec:objetivos-especificos}) durante a consolidação do monólito, e estão marcados com a sua origem. Todos os requisitos e regras deste capítulo, inclusive RF26 e RN15 a RN17, foram aprovados pelo Engenheiro Chefe e são oficiais. A especificação segue as recomendações de identificação única, verificabilidade e rastreabilidade da ISO/IEC/IEEE 29148 \cite{iso29148}.
+Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restrições. Os requisitos RF01 a RF04 foram definidos no relatório de IC \cite{reis2026ic}; os demais requisitos funcionais, os requisitos não funcionais e as regras de negócio foram derivados dos casos de uso, dos protótipos e dos objetivos (Seção~\ref{sec:objetivos-especificos}) durante a consolidação do monólito, e estão marcados com a sua origem. Os requisitos e as regras até RF26 e RN17 foram aprovados pelo Engenheiro Chefe e são oficiais. O escopo multiusuário (atores Autor e Administrador, UC13 a UC19, RF27 a RF34 e RN19 a RN28) deriva das decisões aprovadas em 02/10/2026 (\adr{ADR-023} a \adr{ADR-027}) e das decisões técnicas das \adr{ADR-028} a \adr{ADR-030}; a RN18 e os pontos marcados ``a confirmar'' aguardam o Engenheiro Chefe. Onde um requisito antigo fala em ``administrador'' ou em ``site'', vale a redação desta versão. A especificação segue as recomendações de identificação única, verificabilidade e rastreabilidade da ISO/IEC/IEEE 29148 \cite{iso29148}.
 
 \section{Visão Geral do Produto}\label{sec:visao-produto}
 
@@ -20,7 +20,7 @@ Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restriçõ
 
 \textbf{Restrições.} (i) A pilha tecnológica é Next.js, Prisma, SQLite e better-auth; (ii) a interface é em português do Brasil; (iii) o código é aberto, sob licença MIT (\adr{ADR-015}); (iv) a capacidade de entrega do time é limitada, o que exige priorização (\emph{risco} R10, Tabela~\ref{tab:riscos}).
 
-\textbf{Premissas e dependências.} Assume-se a disponibilidade de uma VPS com Docker e armazenamento persistente local (\decisao{D-04}); a estabilidade das interfaces de programação das versões fixadas (Tabela~\ref{tab:stack}); e a existência de um único administrador na versão inicial (\decisao{D-13}).
+\textbf{Premissas e dependências.} Assume-se a disponibilidade de uma VPS com Docker e armazenamento persistente local (\decisao{D-04}); a estabilidade das interfaces de programação das versões fixadas (Tabela~\ref{tab:stack}); e a existência de ao menos um administrador, que cria as demais contas (\adr{ADR-023}, que substitui o \decisao{D-13}); não há cadastro público nem envio de e-mail.
 
 \section{Atores e Partes Interessadas}\label{sec:atores}
 
@@ -31,11 +31,13 @@ Este capítulo especifica \emph{o que} o Vitrine deve fazer e sob que restriçõ
 \toprule
 \textbf{Ator ou parte} & \textbf{Tipo} & \textbf{Descrição e interesse}\\
 \midrule
-Leitor & Ator primário & Visitante --- estudante, colega, pesquisador --- que navega e lê o conteúdo publicado; quer encontrar e ler rápido, em qualquer dispositivo. Não se autentica.\\
+Leitor & Ator primário & Visitante --- estudante, colega, pesquisador --- que navega e lê o conteúdo publicado nos espaços e no portal; quer encontrar e ler rápido, em qualquer dispositivo, e pode escolher o modo de cor. Não se autentica.\\
 \addlinespace
-Administrador & Ator primário & Docente-autor que cria, organiza e publica conteúdo e define a identidade visual do site. Tem conhecimentos básicos de informática e não deseja administrar infraestrutura.\\
+Autor & Ator primário & Usuário autenticado, com conta criada pelo administrador, que cria, organiza e publica o \emph{próprio} conteúdo e define a \emph{própria} aparência no seu espaço (\texttt{/\{handle\}}); troca a própria senha e recebe notificações. É a generalização de Usuário e Administrador nos casos de uso de conteúdo e de aparência. Tem conhecimentos básicos de informática e não deseja administrar infraestrutura.\\
 \addlinespace
-Sistema & Ator secundário & Automação interna que dispara a invalidação do cache ISR após mutações (caso de uso UC12).\\
+Administrador & Ator primário & Autor com o papel \texttt{admin}: além do próprio espaço, gerencia o site (o portal \texttt{/}, o login e o painel), as contas dos usuários e a moderação do conteúdo de qualquer usuário (\adr{ADR-023}, \adr{ADR-027}). Pode haver mais de um; o último ativo é protegido (RN22).\\
+\addlinespace
+Sistema & Ator secundário & Automação interna que dispara a invalidação do cache ISR após mutações (caso de uso UC12) e gera as notificações por eventos (RF33).\\
 \addlinespace
 Implantador & Parte interessada & Quem instala e opera o sistema --- em geral o próprio docente com apoio técnico ou um desenvolvedor. Interessa-se por simplicidade de instalação, configuração e \en{backup}.\\
 \addlinespace
@@ -51,7 +53,7 @@ Agentes de desenvolvimento & Parte interessada & Dados, Core e UI; consomem esta
 
 \subsection{Diagrama de Casos de Uso}
 
-A Figura~\ref{fig:uc-visao-geral} apresenta o diagrama de casos de uso do Vitrine. Ele parte do diagrama do relatório de IC (Figura~\ref{fig:ic-uc}), com uma alteração: \emph{Gerenciar Conteúdo} passa a incluir \emph{Invalidar Cache (ISR)}, porque toda mutação de conteúdo --- e não apenas a personalização --- deve refletir-se nas páginas públicas (\req{RF17}).
+A Figura~\ref{fig:uc-visao-geral} apresenta o diagrama de casos de uso do Vitrine. Ele parte do diagrama do relatório de IC (Figura~\ref{fig:ic-uc}), com uma alteração: \emph{Gerenciar Conteúdo} passa a incluir \emph{Invalidar Cache (ISR)}, porque toda mutação de conteúdo --- e não apenas a personalização --- deve refletir-se nas páginas públicas (\req{RF17}). Com a ampliação de escopo de 02/10/2026, o ator Administrador cede os casos de conteúdo e de aparência ao Autor (de que o Administrador é um caso particular) e ganha os casos UC13, UC15 e UC19; o Leitor ganha UC17 e UC18, e o Autor, UC14 e UC16. A fonte do diagrama (\arq{doc/diagrams/src/uc-visao-geral.puml}, Apêndice~\ref{ap:diagramas}) acompanha o catálogo; a figura é gerada a partir dela quando for renderizada.
 
 \vitrinefigura[tipo=diagrama, arquivo=uc-visao-geral, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/uc-visao-geral.puml},
@@ -76,18 +78,25 @@ A Figura~\ref{fig:uc-visao-geral} apresenta o diagrama de casos de uso do Vitrin
 \endhead
 \bottomrule
 \endfoot
-UC01 & Explorar \en{sidebar} hierárquica & Leitor & Navegar pela árvore de coleções e documentos e pelas coleções raiz na barra superior.\\
-UC02 & Visualizar página única & Leitor & Abrir um documento por sua URL amigável.\\
+UC01 & Explorar \en{sidebar} hierárquica & Leitor & Navegar pela árvore de coleções e documentos do espaço e pelas coleções raiz do espaço na barra superior.\\
+UC02 & Visualizar página única & Leitor & Abrir um documento por sua URL amigável, \texttt{/\{handle\}/\ldots}.\\
 UC03 & Ler conteúdo (Markdown) & Leitor & Ler o documento renderizado, com fórmulas, tabelas e código. Incluído por UC01 e UC02.\\
-UC04 & Gerenciar conteúdo & Administrador & Criar, editar, definir o estado de publicação (rascunho ou publicado), mover, ordenar e excluir conteúdos no painel. Inclui UC07, UC08 e UC12.\\
-UC05 & Criar documento & Administrador & Criar conteúdo do tipo DOCUMENT. Estende UC04.\\
-UC06 & Criar coleção/pasta & Administrador & Criar conteúdo do tipo COLLECTION. Estende UC04.\\
-UC07 & Aninhar e ordenar conteúdos & Administrador & Definir pai e ordem de um conteúdo. Incluído por UC04.\\
-UC08 & Autenticar-se & Administrador & Entrar e sair da área administrativa. Incluído por UC04 e UC09.\\
-UC09 & Personalizar UI & Administrador & Alterar a aparência do site. Inclui UC08 e UC12.\\
-UC10 & Definir identidade (nome e \en{branding}) & Administrador & Definir nome, descrição, logotipo, \en{favicon} e links sociais do rodapé. Estende UC09.\\
-UC11 & Configurar paleta de cores & Administrador & Escolher as cores do tema. Estende UC09.\\
+UC04 & Gerenciar conteúdo & Autor & Criar, editar, definir o estado de publicação (rascunho ou publicado), mover, ordenar e excluir os \emph{próprios} conteúdos no painel. Inclui UC07, UC08 e UC12.\\
+UC05 & Criar documento & Autor & Criar conteúdo do tipo DOCUMENT. Estende UC04.\\
+UC06 & Criar coleção/pasta & Autor & Criar conteúdo do tipo COLLECTION. Estende UC04.\\
+UC07 & Aninhar e ordenar conteúdos & Autor & Definir pai e ordem de um conteúdo. Incluído por UC04.\\
+UC08 & Autenticar-se & Autor & Entrar e sair do painel. Incluído por UC04, UC09 e UC13 a UC16.\\
+UC09 & Personalizar UI & Autor & Alterar a aparência do próprio espaço (e, no caso do administrador, a do site), nos modos claro e noturno. Inclui UC08 e UC12.\\
+UC10 & Definir identidade (nome e \en{branding}) & Autor & Definir nome, descrição, logotipo, \en{favicon} e links sociais do rodapé do proprietário. Estende UC09.\\
+UC11 & Configurar paleta de cores & Autor & Escolher as cores do tema, claras e noturnas, com aviso de contraste por modo. Estende UC09.\\
 UC12 & Invalidar cache (ISR) & Sistema & Invalidar as páginas afetadas após uma mutação.\\
+UC13 & Gerenciar usuários & Administrador & Criar contas com senha provisória, definir o \en{handle} e o papel, redefinir senhas, suspender e reativar e excluir, transferindo ou apagando o conteúdo. Inclui UC08.\\
+UC14 & Trocar senha e editar perfil & Autor & Trocar a própria senha (obrigatória no primeiro acesso) e editar o próprio nome. Inclui UC08.\\
+UC15 & Moderar conteúdo & Administrador & Ver, despublicar, editar e excluir o conteúdo de qualquer usuário, com notificação ao dono. Inclui UC08 e UC12.\\
+UC16 & Consultar notificações & Autor & Ver o contador de não lidas, abrir a lista, marcar como lida e dispensar. Inclui UC08.\\
+UC17 & Explorar espaços & Leitor & Abrir o portal (\texttt{/}), ver o diretório de espaços e entrar em um espaço.\\
+UC18 & Escolher o modo de cor & Leitor & Alternar entre Claro, Escuro e Automático; a escolha fica no navegador.\\
+UC19 & Editar o portal & Administrador & Editar o texto do portal e ligar ou desligar o diretório de espaços. Inclui UC08 e UC12.\\
 \end{longtable}
 \fonte{Elaborado pelos autores, a partir da Figura~\ref{fig:uc-visao-geral}.}
 
@@ -100,13 +109,13 @@ Os casos de uso com maior impacto sobre a arquitetura são especificados a segui
 \small
 \begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
 \toprule
-\textbf{Ator} & Administrador\\
-\textbf{Pré-condição} & Existe ao menos um usuário cadastrado (bootstrap, \req{RF22}).\\
+\textbf{Ator} & Autor (administrador ou usuário)\\
+\textbf{Pré-condição} & Existe a conta: o primeiro administrador (bootstrap, \req{RF22}) ou uma conta criada pelo administrador (UC13).\\
 \textbf{Gatilho} & Acesso a uma rota protegida sem sessão válida, ou acesso direto a \arq{/login}.\\
 \textbf{Fluxo principal} & (1) O sistema exibe o formulário de e-mail e senha. (2) O administrador informa as credenciais. (3) O sistema verifica as credenciais e cria uma sessão persistida no banco. (4) O sistema grava o \en{cookie} de sessão (\en{HttpOnly}) e redireciona ao destino original ou a \arq{/admin}.\\
-\textbf{Fluxos alternativos} & A1: credenciais inválidas --- mensagem genérica, que não revela qual campo falhou; limitação de tentativas (\req{RNF03}). A2: sessão expirada --- retorno ao formulário preservando o destino (parâmetro \texttt{redirectTo}, que aceita apenas caminhos internos do site; destinos externos levam ao painel). A3: encerrar sessão (\req{RF20}) --- a sessão é invalidada e o \en{cookie} removido.\\
-\textbf{Pós-condição} & Sessão válida associada ao usuário; operações de escrita autorizadas (\req{RF21}).\\
-\textbf{Requisitos e regras} & \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}; RN01, RN12.\\
+\textbf{Fluxos alternativos} & A1: credenciais inválidas --- mensagem genérica, que não revela qual campo falhou; limitação de tentativas (\req{RNF03}). A2: sessão expirada --- retorno ao formulário preservando o destino (parâmetro \texttt{redirectTo}, que aceita apenas caminhos internos do site; destinos externos levam ao painel). A3: encerrar sessão (\req{RF20}) --- a sessão é invalidada e o \en{cookie} removido. A4: conta suspensa (RN23) --- com a senha correta, o sistema recusa a entrada com a mensagem de suspensão (motivo e prazo, se houver) e não cria sessão; com a senha errada, a mensagem genérica de A1, que não revela a suspensão. A5: senha provisória (RN21) --- o sistema cria a sessão, mas leva o usuário à troca da senha (UC14), e nada mais é permitido antes dela.\\
+\textbf{Pós-condição} & Sessão válida associada ao usuário; as operações permitidas ao papel dele e ao que é dele (\req{RF21}, RN19).\\
+\textbf{Requisitos e regras} & \req{RF01}, \req{RF20}, \req{RF21}, \req{RF22}, \req{RF28}; RN01, RN12, RN19, RN21, RN23.\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
@@ -117,12 +126,12 @@ Os casos de uso com maior impacto sobre a arquitetura são especificados a segui
 \small
 \begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
 \toprule
-\textbf{Ator} & Administrador (autenticado, UC08)\\
-\textbf{Pré-condição} & Sessão válida. O documento será criado na raiz ou dentro de uma coleção existente.\\
-\textbf{Fluxo principal} & (1) O administrador aciona ``Nova publicação'' (na raiz ou na coleção desejada). (2) Informa o título; o \en{slug} é sugerido a partir do título e pode ser editado; escolhe a coleção pai e o estado de publicação (padrão: Publicado). (3) Escreve o texto em Markdown, acompanhando a pré-visualização. (4) Aciona ``Enviar nova versão''. (5) O sistema valida os dados (RN02, RN03, RN06), persiste o conteúdo com o usuário como autor e (6) dispara a invalidação do cache (UC12). (7) O painel confirma a publicação.\\
-\textbf{Fluxos alternativos} & A1: \en{slug} já existente entre os irmãos --- o sistema responde com conflito e sugere um \en{slug} alternativo. A2: o pai escolhido não é uma coleção --- erro de validação. A3: o administrador opta por ``Salvar localmente'' e retoma depois (\req{RF15}).\\
-\textbf{Pós-condição} & Documento persistido. Se ele e todos os seus ancestrais estiverem publicados, a \en{sidebar} e a página refletem a mudança a partir da próxima requisição; um rascunho só é visível no painel (RN15).\\
-\textbf{Requisitos e regras} & \req{RF05}, \req{RF08}, \req{RF09}, \req{RF15}, \req{RF16}, \req{RF17}, \req{RF26}; RN01 a RN06, RN10, RN11, RN13, RN15, RN16.\\
+\textbf{Ator} & Autor (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida. O documento será criado na raiz do espaço do autor ou dentro de uma coleção existente que seja dele.\\
+\textbf{Fluxo principal} & (1) O administrador aciona ``Nova publicação'' (na raiz ou na coleção desejada). (2) Informa o título; o \en{slug} é sugerido a partir do título e pode ser editado; escolhe a coleção pai e o estado de publicação (padrão: Publicado). (3) Escreve o texto em Markdown, acompanhando a pré-visualização. (4) Aciona ``Enviar nova versão''. (5) O sistema valida os dados (RN02, RN03, RN06) e os limites do usuário (RN25), persiste o conteúdo com o usuário como autor e dono (RN13) e (6) dispara a invalidação do cache (UC12). (7) O painel confirma a publicação.\\
+\textbf{Fluxos alternativos} & A1: \en{slug} já existente entre os irmãos (na raiz, entre os conteúdos do mesmo dono) --- o sistema responde com conflito e sugere um \en{slug} alternativo. A2: o pai escolhido não é uma coleção, ou não existe ou é de outro dono (indistinguíveis para o autor, RN19) --- erro de validação. A3: o autor opta por ``Salvar localmente'' e retoma depois (\req{RF15}). A4: limite de conteúdos ou de tamanho excedido (RN25) --- recusa com o motivo, e o texto fica guardado no navegador. A5: a sessão expirou ou a conta foi suspensa durante a escrita --- o texto fica guardado no navegador e o autor é levado ao login.\\
+\textbf{Pós-condição} & Documento persistido. Se ele e todos os seus ancestrais estiverem publicados, a \en{sidebar} e a página do espaço refletem a mudança a partir da próxima requisição; um rascunho só é visível no painel (RN15).\\
+\textbf{Requisitos e regras} & \req{RF05}, \req{RF08}, \req{RF09}, \req{RF15}, \req{RF16}, \req{RF17}, \req{RF26}; RN01 a RN06, RN10, RN11, RN13, RN15, RN16, RN19, RN25; RN18 (a confirmar).\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
@@ -133,10 +142,10 @@ Os casos de uso com maior impacto sobre a arquitetura são especificados a segui
 \small
 \begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
 \toprule
-\textbf{Ator} & Administrador (autenticado, UC08)\\
-\textbf{Pré-condição} & Sessão válida; existem conteúdos a reorganizar.\\
-\textbf{Fluxo principal} & (1) O administrador visualiza a árvore de conteúdos no painel. (2) Arrasta um item para outra posição ou outro pai, ou usa as ações ``subir'' e ``descer''. (3) A interface atualiza a árvore de forma otimista e envia o lote de alterações. (4) O sistema valida o lote (pai do tipo coleção, ausência de ciclos, \en{slugs} únicos no destino) e o persiste em uma transação. (5) O sistema invalida o \en{layout} raiz (UC12) e devolve a árvore atualizada.\\
-\textbf{Fluxos alternativos} & A1: movimento inválido --- o sistema rejeita o lote inteiro, a interface desfaz a atualização otimista e exibe o motivo.\\
+\textbf{Ator} & Autor (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida; existem conteúdos do autor a reorganizar.\\
+\textbf{Fluxo principal} & (1) O autor visualiza a árvore dos seus conteúdos no painel. (2) Arrasta um item para outra posição ou outro pai, ou usa as ações ``subir'' e ``descer''. (3) A interface atualiza a árvore de forma otimista e envia o lote de alterações. (4) O sistema valida o lote (todos os itens e o destino são do mesmo dono, pai do tipo coleção, ausência de ciclos, \en{slugs} únicos no destino) e o persiste em uma transação. (5) O sistema invalida as páginas do espaço afetadas, os caminhos antigos e os novos (UC12, RN10), e devolve a árvore atualizada.\\
+\textbf{Fluxos alternativos} & A1: movimento inválido --- o sistema rejeita o lote inteiro, a interface desfaz a atualização otimista e exibe o motivo. A2: um item ou o destino é de outro dono --- o lote inteiro é recusado (RN19).\\
 \textbf{Pós-condição} & Nova estrutura e nova ordem persistidas; a \en{sidebar} pública reflete a mudança.\\
 \textbf{Requisitos e regras} & \req{RF02}, \req{RF03}, \req{RF17}; RN02, RN03, RN05, RN06.\\
 \bottomrule
@@ -149,15 +158,48 @@ Os casos de uso com maior impacto sobre a arquitetura são especificados a segui
 \small
 \begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
 \toprule
-\textbf{Ator} & Administrador (autenticado, UC08)\\
-\textbf{Pré-condição} & Sessão válida.\\
-\textbf{Fluxo principal} & (1) O administrador abre Configurações. (2) Escolhe as cores primária, secundária e de destaque por seletor ou por código hexadecimal. (3) Pré-visualiza o resultado no próprio painel, com variáveis CSS locais. (4) Salva. (5) O sistema valida o formato e calcula o contraste, devolvendo avisos se for o caso. (6) Persiste a configuração e invalida o \en{layout} raiz. (7) Os leitores veem a nova paleta na próxima requisição, sem novo \en{build}.\\
-\textbf{Fluxos alternativos} & A1: valor fora do formato \texttt{\#RRGGBB} --- erro de validação no campo. A2: contraste abaixo de 4,5:1 entre texto e fundo --- aviso, sem bloquear o salvamento (RN09).\\
-\textbf{Pós-condição} & Configuração persistida; páginas regeneradas com as novas variáveis CSS.\\
-\textbf{Requisitos e regras} & \req{RF04}, \req{RF17}, \req{RF19}; RN08, RN09, RN10.\\
+\textbf{Ator} & Autor (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida. A aparência editada é a do próprio autor; o administrador também edita a do site.\\
+\textbf{Fluxo principal} & (1) O autor abre Configurações (ou Aparência). (2) Escolhe as cores primária, secundária e de destaque do modo claro e as do modo noturno, por seletor ou por código hexadecimal. (3) Pré-visualiza o resultado no próprio painel, nos dois modos, com variáveis CSS locais. (4) Salva. (5) O sistema valida o formato e calcula o contraste de cada paleta contra o fundo do seu modo, devolvendo avisos se for o caso. (6) Persiste a aparência, invalida as páginas do espaço (ou o portal, se for a do site) e cria ou atualiza as notificações de contraste, uma por modo (RN26). (7) Os leitores veem a nova paleta na próxima requisição, sem novo \en{build}.\\
+\textbf{Fluxos alternativos} & A1: valor fora do formato \texttt{\#RRGGBB} --- erro de validação no campo. A2: contraste abaixo do mínimo entre a cor e o fundo do modo (4,5:1 em texto; 3:1 no destaque) --- aviso, sem bloquear o salvamento (RN09); a notificação de contraste do modo é resolvida quando a paleta passa a atender. A3: o autor corrige a paleta depois, pela notificação, que leva à tela de aparência.\\
+\textbf{Pós-condição} & Aparência persistida; páginas regeneradas com as novas variáveis CSS.\\
+\textbf{Requisitos e regras} & \req{RF04}, \req{RF17}, \req{RF19}, \req{RF31}, \req{RF33}; RN08, RN09, RN10, RN26, RN27.\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
+\end{table}
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC13 --- Gerenciar usuários}\label{tab:uc13}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida de administrador, sem senha provisória pendente.\\
+\textbf{Gatilho} & O administrador abre Usuários no painel.\\
+\textbf{Fluxo principal} & (1) O administrador aciona ``Nova conta'' e informa e-mail, nome, \en{handle} e papel (padrão: usuário). (2) O sistema valida os dados (RN20), gera uma senha provisória (ou usa a informada, de 8 a 128 caracteres) e cria a conta com a troca de senha obrigatória (RN21). (3) O sistema exibe a senha provisória \emph{uma única vez}. (4) O administrador a repassa ao usuário por um canal próprio, pois não há envio de e-mail. As demais ações da lista são: editar nome, \en{handle} e papel; redefinir a senha (repete os passos 2 e 3 e revoga as sessões do usuário); suspender (motivo obrigatório, prazo opcional) e reativar; e excluir.\\
+\textbf{Fluxos alternativos} & A1: e-mail ou \en{handle} já usado --- 409 \arq{USER_CONFLICT}, com o campo. A2: rebaixar, suspender ou excluir o último administrador ativo --- recusado (RN22); o administrador também não suspende nem exclui a si mesmo. A3: excluir um usuário que tem conteúdo --- o sistema exige escolher entre \emph{transferir} o conteúdo a outro usuário (sujeito à unicidade de \en{slug} na raiz do destino; em conflito, recusa tudo ou renomeia a raiz conflitante, à escolha do administrador) e \emph{excluir junto}, com confirmação explícita (RN24). A4: o \en{handle} alterado deixa de servir o espaço no endereço antigo (as URLs mudam e não há redirecionamento; ADR-024).\\
+\textbf{Pós-condição} & Conta criada ou alterada; sessões revogadas na suspensão e na redefinição de senha; as páginas do espaço, invalidadas quando o \en{handle}, a suspensão ou o conteúdo mudam (UC12); o usuário notificado da suspensão e da redefinição (RN26).\\
+\textbf{Requisitos e regras} & \req{RF27}, \req{RF21}, \req{RF33}; RN19 a RN24, RN26.\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir das \adr{ADR-023}, \adr{ADR-024} e \adr{ADR-027}.}
+\end{table}
+
+\begin{table}[htb]
+\caption{Especificação do caso de uso UC15 --- Moderar conteúdo}\label{tab:uc15}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.0cm}Y@{}}
+\toprule
+\textbf{Ator} & Administrador (autenticado, UC08)\\
+\textbf{Pré-condição} & Sessão válida de administrador; o conteúdo é de outro usuário.\\
+\textbf{Fluxo principal} & (1) O administrador escolhe um usuário na lista e vê a árvore dele no painel, com os rascunhos. (2) Aciona despublicar, editar ou excluir sobre um conteúdo, ou suspende a conta (UC13). (3) Informa o motivo, obrigatório em toda ação sobre conteúdo alheio e na suspensão. (4) O sistema aplica a ação, em transação, e invalida as páginas do espaço (UC12). (5) O sistema notifica o dono, com o motivo (RN26).\\
+\textbf{Fluxos alternativos} & A1: a exclusão de um conteúdo exige confirmação explícita, e a de uma coleção apaga os descendentes (RN07). A2: o dono alterou o conteúdo depois de o administrador abri-lo --- se a RN18 for confirmada, a edição é recusada com 409 e o administrador revê o texto atual. A3: o espaço de um usuário suspenso responde 404 ao público, mas o conteúdo continua no banco e visível ao administrador no painel.\\
+\textbf{Pós-condição} & Conteúdo despublicado, alterado ou excluído; dono notificado; nenhum dado apagado sem confirmação.\\
+\textbf{Requisitos e regras} & \req{RF34}, \req{RF21}, \req{RF33}; RN07, RN10, RN19, RN23, RN26; RN18 (a confirmar).\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da \adr{ADR-027}.}
 \end{table}
 
 \section{Requisitos Funcionais}\label{sec:rf}
@@ -176,10 +218,10 @@ A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} ind
 \endhead
 \bottomrule
 \endfoot
-\reqrow{RF01}{Autenticação}{O acesso à área administrativa exige e-mail e senha, com sessão persistida em banco (better-auth).}{Essencial}{IC (RF01); UC08}{Core}
-\reqrow{RF02}{Estrutura hierárquica}{Os conteúdos formam uma árvore de coleções e documentos aninhados, por auto-relacionamento (pai e filhos).}{Essencial}{IC (RF02); UC04, UC07}{Dados}
-\reqrow{RF03}{Ordenação}{Cada conteúdo possui uma ordem relativa entre irmãos, editável pelo administrador.}{Essencial}{IC (RF03); UC07}{Dados}
-\reqrow{RF04}{Personalização}{Interface para alterar identidade visual e cores por variáveis CSS. Requisito agregador, detalhado em RF18 e RF19.}{Essencial}{IC (RF04); UC09}{UI}
+\reqrow{RF01}{Autenticação}{O acesso ao painel exige e-mail e senha, com sessão persistida em banco (better-auth). Conta suspensa não entra (RN23) e senha provisória obriga a troca no primeiro acesso (RN21).}{Essencial}{IC (RF01); UC08; ADR-023}{Core}
+\reqrow{RF02}{Estrutura hierárquica}{Os conteúdos formam uma árvore de coleções e documentos aninhados, por auto-relacionamento (pai e filhos); cada árvore tem um único dono, o autor da sua raiz (RN13).}{Essencial}{IC (RF02); UC04, UC07; ADR-024}{Dados}
+\reqrow{RF03}{Ordenação}{Cada conteúdo possui uma ordem relativa entre irmãos, editável pelo dono.}{Essencial}{IC (RF03); UC07}{Dados}
+\reqrow{RF04}{Personalização}{Interface para alterar identidade visual e cores por variáveis CSS. Requisito agregador, detalhado em RF18, RF19 e RF31.}{Essencial}{IC (RF04); UC09}{UI}
 \reqrow{RF05}{Criar documento}{Criar conteúdo do tipo DOCUMENT com título, \en{slug}, pai, estado de publicação (padrão PUBLISHED) e corpo em Markdown.}{Essencial}{UC05}{Core}
 \reqrow{RF06}{Criar coleção}{Criar conteúdo do tipo COLLECTION (pasta) para agrupar documentos e subcoleções, com estado de publicação (padrão PUBLISHED).}{Essencial}{UC06}{Core}
 \reqrow{RF07}{Editar e excluir}{Atualizar título, \en{slug}, corpo, estado, pai e ordem; excluir com confirmação e remoção em cascata dos descendentes.}{Essencial}{UC04; RN07}{Core}
@@ -187,23 +229,31 @@ A Tabela~\ref{tab:rf} lista os requisitos funcionais. A coluna \emph{Origem} ind
 \reqrow{RF09}{Fórmulas matemáticas}{Renderizar fórmulas \LaTeX{} em linha e em bloco no conteúdo e na pré-visualização (KaTeX).}{Essencial}{IC (OE2); UC03}{UI}
 \reqrow{RF10}{Realce de sintaxe}{Realçar blocos de código por linguagem, no conteúdo e na pré-visualização.}{Importante}{IC (OE2); UC03}{UI}
 \reqrow{RF11}{Markdown estendido}{Suportar tabelas, listas de tarefas, texto tachado e links automáticos (GFM).}{Importante}{IC (Fig. 3); UC03}{UI}
-\reqrow{RF12}{\en{Sidebar} hierárquica}{Exibir a árvore da coleção corrente, com o item ativo destacado, níveis recolhíveis e navegação por teclado.}{Essencial}{UC01; Fig. 3}{UI}
-\reqrow{RF13}{Barra superior}{Exibir logotipo, nome do site e as coleções raiz como abas ou links de navegação.}{Essencial}{UC01; Fig. 3}{UI}
-\reqrow{RF14}{Página de documento}{Exibir o documento em URL derivada da cadeia de \en{slugs}; responder 404 a caminhos inexistentes ou não publicados (RN15).}{Essencial}{UC02; RN04}{Core}
+\reqrow{RF12}{\en{Sidebar} hierárquica}{Exibir a árvore da coleção corrente do espaço, com o item ativo destacado, níveis recolhíveis e navegação por teclado.}{Essencial}{UC01; Fig. 3}{UI}
+\reqrow{RF13}{Barra superior}{Exibir logotipo, nome do espaço (ou do site, no portal) e as coleções raiz do espaço como abas ou links de navegação.}{Essencial}{UC01; Fig. 3}{UI}
+\reqrow{RF14}{Página de documento}{Exibir o documento em URL derivada do \en{handle} e da cadeia de \en{slugs} (RN04); responder 404 a caminhos inexistentes ou não publicados (RN15) e ao espaço de usuário suspenso ou removido (RN23).}{Essencial}{UC02; RN04; ADR-024}{Core}
 \reqrow{RF15}{Rascunho local}{Guardar rascunho no navegador (``Salvar localmente'') sem publicá-lo.}{Desejável}{IC (Fig. 6)}{UI}
 \reqrow{RF16}{Publicar versão}{Enviar ao servidor a versão editada (``Enviar nova versão''), substituindo o conteúdo publicado.}{Essencial}{IC (Fig. 6); UC05}{Core}
-\reqrow{RF17}{Invalidação de cache}{Revalidar as páginas afetadas após qualquer mutação de conteúdo ou de configuração.}{Essencial}{IC (UC12); RN10}{Core}
-\reqrow{RF18}{Identidade do site}{Configurar nome, descrição, logotipo e \en{favicon}.}{Essencial}{UC10; Fig. 5}{Core}
-\reqrow{RF19}{Paleta de cores}{Configurar as cores primária, secundária e de destaque, aplicadas por variáveis CSS sem novo \en{build}.}{Essencial}{IC (OE3); UC11}{UI}
+\reqrow{RF17}{Invalidação de cache}{Revalidar as páginas afetadas, e só as do espaço afetado, após qualquer mutação de conteúdo, de aparência ou de conta (RN10).}{Essencial}{IC (UC12); RN10}{Core}
+\reqrow{RF18}{Identidade do site}{Configurar nome, descrição, logotipo e \en{favicon}, do site (administrador) e de cada espaço (dono).}{Essencial}{UC10; Fig. 5}{Core}
+\reqrow{RF19}{Paleta de cores}{Configurar as cores primária, secundária e de destaque, do modo claro e do noturno, aplicadas por variáveis CSS sem novo \en{build}.}{Essencial}{IC (OE3); UC11}{UI}
 \reqrow{RF20}{Encerrar sessão}{Permitir \en{logout}, invalidando a sessão no servidor.}{Essencial}{UC08}{Core}
-\reqrow{RF21}{Autorização de escrita}{Bloquear, no servidor, toda operação de escrita sem sessão válida.}{Essencial}{UC08; RN01}{Core}
-\reqrow{RF22}{Bootstrap do administrador}{Criar o primeiro administrador na instalação, pelo comando \texttt{npm run admin:create}, a partir das variáveis de ambiente \texttt{ADMIN\_EMAIL}, \texttt{ADMIN\_PASSWORD} e, opcionalmente, \texttt{ADMIN\_NAME}; o comando é idempotente, recusa um segundo usuário com outro e-mail e não imprime a senha. O cadastro público é desabilitado e não há página de primeiro acesso.}{Essencial}{D-03; ADR-018}{Core}
-\reqrow{RF23}{Configuração inicial}{Inserir a configuração padrão (registro único) na instalação.}{Essencial}{RN08}{Dados}
-\reqrow{RF24}{Rodapé configurável}{Exibir rodapé com os links sociais configurados: seis campos opcionais e independentes (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch), apenas URLs http(s); campo vazio não exibe o ícone (RN17). O texto de direitos é gerado a partir do nome do site e do ano.}{Desejável}{IC (Fig. 3 a 5); D-19; ADR-013}{UI}
-\reqrow{RF25}{Metadados de SEO}{Gerar título, descrição e metadados por página; expor \arq{robots.txt} e mapa do site, este somente com conteúdo publicado (RN15).}{Importante}{IC (OE1); RNF07}{Core}
-\reqrow{RF26}{Estado de publicação}{Cada conteúdo tem estado DRAFT (rascunho) ou PUBLISHED (publicado), com padrão PUBLISHED. Somente conteúdo publicado, com todos os ancestrais publicados, é exibido ao público; o painel mostra todos os conteúdos e permite alternar o estado.}{Essencial}{D-15; ADR-012; RN15, RN16}{Core}
+\reqrow{RF21}{Autorização}{Bloquear, no servidor, toda operação sem sessão válida e toda operação sobre recurso de outro dono, salvo o que a moderação permite ao administrador (RN19); o recurso alheio responde 403.}{Essencial}{UC08; RN01, RN19; ADR-023}{Core}
+\reqrow{RF22}{Bootstrap do administrador}{Criar o primeiro administrador na instalação, pelo comando \texttt{npm run admin:create}, a partir das variáveis de ambiente \texttt{ADMIN\_EMAIL}, \texttt{ADMIN\_PASSWORD} e, opcionalmente, \texttt{ADMIN\_NAME} e \texttt{ADMIN\_HANDLE}; o comando é idempotente, não cria outro administrador enquanto houver um ativo, serve de recuperação quando não restar nenhum e não imprime a senha. O comando \texttt{npm run admin:reset-password} redefine a senha de uma conta (exige a troca no próximo acesso). O cadastro público é desabilitado e não há página de primeiro acesso.}{Essencial}{D-03; ADR-018; ADR-023, ADR-029}{Core}
+\reqrow{RF23}{Configuração inicial}{Inserir a configuração padrão do site (registro único) na instalação.}{Essencial}{RN08}{Dados}
+\reqrow{RF24}{Rodapé configurável}{Exibir rodapé, do site e de cada espaço, com os links sociais configurados pelo proprietário: seis campos opcionais e independentes (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch), apenas URLs http(s); campo vazio não exibe o ícone (RN17). O texto de direitos é gerado a partir do nome do site e do ano.}{Desejável}{IC (Fig. 3 a 5); D-19; ADR-013}{UI}
+\reqrow{RF25}{Metadados de SEO}{Gerar título, descrição e metadados por página; expor \arq{robots.txt} e mapa do site, este por espaço e somente com conteúdo publicado (RN15).}{Importante}{IC (OE1); RNF07}{Core}
+\reqrow{RF26}{Estado de publicação}{Cada conteúdo tem estado DRAFT (rascunho) ou PUBLISHED (publicado), com padrão PUBLISHED. Somente conteúdo publicado, com todos os ancestrais publicados, é exibido ao público; o painel mostra todos os conteúdos do autor e permite alternar o estado.}{Essencial}{D-15; ADR-012; RN15, RN16}{Core}
+\reqrow{RF27}{Gestão de usuários}{O administrador cria contas (e-mail, nome, \en{handle} e papel) com senha provisória exibida uma única vez, edita nome, \en{handle} e papel, redefine senhas, suspende e reativa (motivo obrigatório, prazo opcional) e exclui usuários, transferindo ou apagando o conteúdo (RN20 a RN24). Só o administrador cria contas; o cadastro público não existe.}{Essencial}{UC13; ADR-023, ADR-027}{Core}
+\reqrow{RF28}{Perfil e troca de senha}{O usuário troca a própria senha, obrigatoriamente no primeiro acesso e depois de uma redefinição pelo administrador, e edita o próprio nome. Antes da troca, nada mais é permitido (RN21).}{Essencial}{UC14; ADR-023}{Core, UI}
+\reqrow{RF29}{Espaço público por usuário}{Cada usuário com \en{handle} tem um espaço público em \texttt{/\{handle\}}, com a árvore, o menu, o rodapé e a aparência próprios; o espaço de usuário suspenso, removido ou sem \en{handle} responde 404 (RN23).}{Essencial}{UC01, UC02; ADR-024}{Core, UI}
+\reqrow{RF30}{Portal do administrador}{A página \texttt{/} é o portal: um texto em Markdown, editável pelo administrador com o mesmo editor, e um diretório dos espaços públicos, que ele pode ligar ou desligar (RN28).}{Importante}{UC17, UC19; ADR-024}{Core, UI}
+\reqrow{RF31}{Aparência por proprietário e paleta noturna}{O site (do administrador) e cada usuário têm a própria aparência: nome, descrição, logotipo, \en{favicon}, seis links sociais e duas paletas, a clara e a noturna, de três cores cada; os neutros de cada modo são fixos (RN27). O contraste é verificado por modo, com aviso sem bloqueio (RN09).}{Essencial}{UC09 a UC11; ADR-025}{UI, Core, Dados}
+\reqrow{RF32}{Modo de cor do leitor}{O leitor escolhe Claro, Escuro ou Automático (padrão: o do sistema); a escolha fica no navegador e é aplicada antes da primeira pintura, sem \en{cookie} lido no servidor (RN27).}{Importante}{UC18; ADR-025}{UI}
+\reqrow{RF33}{Notificações internas}{O servidor gera notificações por eventos (contraste da paleta, ações de moderação, eventos da conta); o usuário vê o contador de não lidas, a lista, marca como lida e dispensa; só vê as suas (RN26). Não há e-mail nem tempo real.}{Importante}{UC16; ADR-026}{Core, UI, Dados}
+\reqrow{RF34}{Moderação}{O administrador vê (inclusive rascunhos, no painel), despublica, edita e exclui o conteúdo de qualquer usuário, e suspende e reativa contas; toda ação sobre outro usuário exige o motivo e gera notificação ao dono (RN19, RN26).}{Essencial}{UC15; ADR-027}{Core, UI}
 \end{longtable}
-\fonte{Elaborado pelos autores. RF01 a RF04: \citeonline{reis2026ic}.}
+\fonte{Elaborado pelos autores. RF01 a RF04: \citeonline{reis2026ic}. RF27 a RF34: derivados das \adr{ADR-023} a \adr{ADR-027}.}
 
 \section{Requisitos Não Funcionais}\label{sec:rnf}
 
@@ -223,9 +273,9 @@ Os requisitos não funcionais (Tabela~\ref{tab:rnf}) estão associados às carac
 \endfoot
 \reqtarget{RNF01} & \textbf{Portabilidade e implantação simples.} Implantável a partir do repositório com poucos comandos (instalar, configurar variáveis de ambiente, migrar, compilar e iniciar), com um único arquivo de banco e nenhum serviço externo obrigatório. & Portabilidade & Essencial\\[1pt]
 \reqtarget{RNF02} & \textbf{Desempenho de leitura.} Páginas públicas servidas do cache ISR. Meta: LCP $\leq$ 2,5 s (percentil 75) e pontuação de desempenho $\geq$ 90 no Lighthouse, em perfil móvel simulado. & Eficiência de desempenho & Importante\\[1pt]
-\reqtarget{RNF03} & \textbf{Segurança.} Senhas somente como \en{hash}; \en{cookies} de sessão \texttt{HttpOnly}, \texttt{SameSite} e \texttt{Secure} em produção; validação de toda entrada no servidor; proibição de HTML bruto no conteúdo; limitação de tentativas de login (no máximo cinco por minuto por endereço IP); recusa de mutações vindas de outra origem; segredos apenas em variáveis de ambiente; cabeçalhos de segurança HTTP; alinhamento ao OWASP Top 10 \cite{owasptop10}. & Segurança & Essencial\\[1pt]
+\reqtarget{RNF03} & \textbf{Segurança.} Senhas somente como \en{hash}; \en{cookies} de sessão \texttt{HttpOnly}, \texttt{SameSite} e \texttt{Secure} em produção; validação de toda entrada no servidor; proibição de HTML bruto no conteúdo; limitação de tentativas de login (no máximo cinco por minuto por endereço IP); recusa de mutações vindas de outra origem; autorização por dono em todo recurso e rotas brutas do better-auth fechadas, com lista de permitidas (RN19, \adr{ADR-029}); limites de conteúdo, de tamanho e de taxa por usuário (RN25); segredos apenas em variáveis de ambiente; cabeçalhos de segurança HTTP; alinhamento ao OWASP Top 10 \cite{owasptop10}. & Segurança & Essencial\\[1pt]
 \reqtarget{RNF04} & \textbf{Usabilidade.} Interface em português do Brasil; fluxo de criar e publicar um documento concluível por usuário sem formação técnica e sem consultar documentação. Meta: pontuação SUS $\geq$ 68. & Usabilidade & Importante\\[1pt]
-\reqtarget{RNF05} & \textbf{Acessibilidade.} Conformidade com o WCAG 2.1 nível AA \cite{wcag21} nas páginas públicas e no painel: contraste mínimo de 4,5:1, navegação por teclado, foco visível, rótulos e textos alternativos. & Usabilidade & Importante\\[1pt]
+\reqtarget{RNF05} & \textbf{Acessibilidade.} Conformidade com o WCAG 2.1 nível AA \cite{wcag21} nas páginas públicas e no painel, nos dois modos de cor: contraste mínimo de 4,5:1, navegação por teclado, foco visível, rótulos e textos alternativos. & Usabilidade & Importante\\[1pt]
 \reqtarget{RNF06} & \textbf{Responsividade.} Layout adaptável de 320 px a telas largas; \en{sidebar} recolhível em telas pequenas. & Usabilidade; Compatibilidade & Importante\\[1pt]
 \reqtarget{RNF07} & \textbf{SEO.} HTML pré-renderizado com título, descrição e metadados por página; URLs estáveis e legíveis. & Adequação funcional & Importante\\[1pt]
 \reqtarget{RNF08} & \textbf{Manutenibilidade e modularidade.} Fronteiras entre Dados, Core e UI respeitadas; acesso ao banco somente por \arq{src/lib/db.js}; \en{lint} sem erros; documentação sincronizada com o código. & Manutenibilidade & Essencial\\[1pt]
@@ -235,7 +285,7 @@ Os requisitos não funcionais (Tabela~\ref{tab:rnf}) estão associados às carac
 \reqtarget{RNF12} & \textbf{Internacionalização.} Nesta versão apenas pt-BR; textos de interface centralizados para viabilizar tradução futura. & Adequação funcional & Desejável\\[1pt]
 \reqtarget{RNF13} & \textbf{Licenciamento.} Código publicado sob licença de código aberto (D-02), com dependências de licenças compatíveis. & Restrição & Essencial\\[1pt]
 \reqtarget{RNF14} & \textbf{Observabilidade mínima.} Erros de servidor registrados em \en{log} com contexto suficiente ao diagnóstico, sem expor dados sensíveis ao usuário. & Manutenibilidade & Desejável\\[1pt]
-\reqtarget{RNF15} & \textbf{Privacidade.} Não coletar dados pessoais de leitores além dos registros de acesso do servidor; sem rastreadores de terceiros por padrão; dados do administrador limitados a nome e e-mail. & Segurança & Importante\\[1pt]
+\reqtarget{RNF15} & \textbf{Privacidade.} Não coletar dados pessoais de leitores além dos registros de acesso do servidor; sem rastreadores de terceiros por padrão; dados dos usuários limitados a nome, e-mail e \en{handle}, e a senha só como \en{hash}. & Segurança & Importante\\[1pt]
 \end{longtable}
 \fonte{Elaborado pelos autores, com base em \citeonline{iso25010}.}
 
@@ -255,27 +305,36 @@ As regras de negócio (RN) constituem invariantes do domínio; devem ser garanti
 \endhead
 \bottomrule
 \endfoot
-\reqtarget{RN01} & Somente usuários autenticados podem criar, alterar, mover ou excluir conteúdo e alterar a configuração. & RF21; UC08\\[1pt]
+\reqtarget{RN01} & Somente usuários autenticados podem criar, alterar, mover ou excluir conteúdo e alterar a aparência; cada um só age sobre o que é seu, salvo o administrador (RN19). & RF21; UC08; RN19\\[1pt]
 \reqtarget{RN02} & Todo conteúdo tem tipo DOCUMENT ou COLLECTION. Apenas COLLECTION pode ter filhos; DOCUMENT é folha. O tipo é validado na aplicação, pois o SQLite não impõe valores de enumeração. & RF02, RF05, RF06\\[1pt]
-\reqtarget{RN03} & O \en{slug} contém apenas letras minúsculas, dígitos e hífens (\texttt{\^{}[a-z0-9]+(-[a-z0-9]+)*\$}), com 1 a 80 caracteres; é único entre irmãos; e os \en{slugs} \texttt{admin}, \texttt{api}, \texttt{login} e \arq{_next} são reservados no nível raiz (D-05). & RF05, RF14\\[1pt]
-\reqtarget{RN04} & A URL pública de um conteúdo é a concatenação dos \en{slugs} da raiz até o nó, separados por barras. & RF14\\[1pt]
+\reqtarget{RN03} & O \en{slug} contém apenas letras minúsculas, dígitos e hífens (\texttt{\^{}[a-z0-9]+(-[a-z0-9]+)*\$}), com 1 a 80 caracteres; é único entre irmãos e, na raiz, entre os conteúdos do mesmo dono (índice parcial por dono, D-05 e \adr{ADR-024}). Os nomes reservados valem para o \en{handle} (RN20): o \en{slug} da raiz de um espaço fica sob \texttt{/\{handle\}} e não colide com rotas da aplicação, de modo que deixa de ter nomes reservados. & RF05, RF14; RN20\\[1pt]
+\reqtarget{RN04} & A URL pública de um conteúdo é o \texttt{/\{handle\}} do dono seguido dos \en{slugs} da raiz até o nó, separados por barras. & RF14, RF29\\[1pt]
 \reqtarget{RN05} & A ordem é um inteiro não negativo; entre irmãos, a listagem ordena por ordem crescente e, em empate, por data de criação. & RF03\\[1pt]
 \reqtarget{RN06} & Mover um conteúdo não pode criar ciclo: o destino não pode ser o próprio nó nem um de seus descendentes. & RF02, RF03\\[1pt]
 \reqtarget{RN07} & Excluir um conteúdo exclui todos os seus descendentes e exige confirmação explícita no painel. & RF07\\[1pt]
-\reqtarget{RN08} & Existe exatamente um registro de configuração; se ausente, é criado com os valores padrão (nome ``Vitrine'', cores \texttt{\#3b82f6}, \texttt{\#1e293b} e \texttt{\#f59e0b}). & RF18, RF19, RF23\\[1pt]
-\reqtarget{RN09} & Cores são aceitas no formato \texttt{\#RRGGBB}; o sistema avisa, sem bloquear, quando o contraste de uma cor do tema com o branco é inferior a 4,5:1 (primária e secundária, usadas com texto) ou a 3:1 (destaque, que não é texto); os pares estão na Tabela~\ref{tab:pares-contraste}. & RF19; RNF05\\[1pt]
-\reqtarget{RN10} & Toda mutação de conteúdo ou de configuração dispara a revalidação das páginas afetadas: somente a página, se apenas o corpo mudou; o \en{layout} raiz, se título, \en{slug}, pai, ordem, estado de publicação, tipo (documento ou coleção) ou configuração mudaram. & RF17\\[1pt]
+\reqtarget{RN08} & Existe exatamente um registro de configuração \emph{do site} (portal, login e painel); cada usuário tem, no máximo, um registro de aparência, criado sob demanda (sem registro, valem os padrões). Se o do site estiver ausente, é criado com os valores padrão (nome ``Vitrine'' e as paletas da Seção~\ref{sec:arq-tema-padrao}). & RF18, RF19, RF23, RF31\\[1pt]
+\reqtarget{RN09} & Cores são aceitas no formato \texttt{\#RRGGBB}; o sistema avisa, sem bloquear, quando o contraste de uma cor do tema com o fundo do seu modo (o branco, no modo claro) é inferior a 4,5:1 (primária e secundária, usadas com texto) ou a 3:1 (destaque, que não é texto); os pares estão na Tabela~\ref{tab:pares-contraste}. & RF19, RF31; RNF05\\[1pt]
+\reqtarget{RN10} & Toda mutação de conteúdo, de aparência ou de conta dispara a revalidação das páginas do espaço afetado, por caminhos literais calculados antes e depois da escrita (\adr{ADR-030}): somente a página, se apenas o corpo mudou; a página inicial do espaço e os caminhos públicos antigos e novos do nó e dos descendentes, se título, \en{slug}, pai, ordem, estado de publicação ou tipo (documento ou coleção) mudaram; o espaço inteiro, se a aparência, o \en{handle} ou a suspensão mudaram; e somente o portal \texttt{/}, se a configuração do site mudou. & RF17\\[1pt]
 \reqtarget{RN11} & O corpo em Markdown nunca é interpretado como HTML bruto. & RNF03\\[1pt]
-\reqtarget{RN12} & Sessões têm prazo de expiração: sete dias, renovados no máximo uma vez por dia enquanto a sessão é usada; uma sessão expirada equivale a nenhuma sessão. & RF01\\[1pt]
-\reqtarget{RN13} & O autor de um conteúdo é o usuário autenticado que o criou. & RF05\\[1pt]
+\reqtarget{RN12} & Sessões têm prazo de expiração: sete dias, renovados no máximo uma vez por dia enquanto a sessão é usada; uma sessão expirada equivale a nenhuma sessão. As sessões de um usuário são revogadas na suspensão e na redefinição de senha pelo administrador. & RF01, RF27\\[1pt]
+\reqtarget{RN13} & O autor de um conteúdo é o usuário autenticado que o criou, e é o seu dono; a árvore inteira tem um único dono, o da sua raiz. O dono vem sempre da sessão, mesmo quando é o administrador quem escreve. & RF05; RN19\\[1pt]
 \reqtarget{RN14} & A abertura da URL de uma COLLECTION publicada redireciona ao primeiro documento descendente publicado, na ordem da árvore; se não houver, exibe um estado vazio (D-16). & RF14\\[1pt]
-\reqtarget{RN15} & Um conteúdo é visível ao público --- por URL, na \en{sidebar} e na barra superior, na geração estática e no mapa do site --- somente se ele e todos os seus ancestrais estiverem PUBLISHED. Conteúdo não visível responde 404 por URL direta. O painel administrativo exibe todos os conteúdos, com o seu estado. & RF14, RF25, RF26\\[1pt]
-\reqtarget{RN16} & O estado padrão na criação é PUBLISHED. O administrador pode alternar entre DRAFT e PUBLISHED a qualquer momento. Alterar o estado de uma COLLECTION afeta a visibilidade de toda a sua subárvore, sem modificar o estado dos descendentes. Mudar o estado é uma mudança estrutural para a revalidação (RN10). & RF26, RF17\\[1pt]
-\reqtarget{RN17} & Os links sociais do rodapé (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch) são opcionais e independentes. Só são aceitas URLs absolutas com protocolo \texttt{http} ou \texttt{https}; campo vazio equivale a link ausente e o ícone não é exibido; os links são renderizados com os atributos \texttt{noopener} e \texttt{noreferrer}. & RF24, RNF03\\[1pt]
+\reqtarget{RN15} & Um conteúdo é visível ao público --- por URL, na \en{sidebar} e na barra superior, na geração estática e no mapa do site --- somente se ele e todos os seus ancestrais estiverem PUBLISHED e o espaço do dono estiver ativo (RN23). Conteúdo não visível responde 404 por URL direta. O painel exibe ao autor todos os conteúdos dele, com o seu estado, e ao administrador, os de qualquer usuário (RN19). & RF14, RF25, RF26, RF29\\[1pt]
+\reqtarget{RN16} & O estado padrão na criação é PUBLISHED. O dono (e o administrador, na moderação) pode alternar entre DRAFT e PUBLISHED a qualquer momento. Alterar o estado de uma COLLECTION afeta a visibilidade de toda a sua subárvore, sem modificar o estado dos descendentes. Mudar o estado é uma mudança estrutural para a revalidação (RN10). & RF26, RF17\\[1pt]
+\reqtarget{RN17} & Os links sociais do rodapé de cada proprietário (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch) são opcionais e independentes. Só são aceitas URLs absolutas com protocolo \texttt{http} ou \texttt{https}; campo vazio equivale a link ausente e o ícone não é exibido; os links são renderizados com os atributos \texttt{noopener} e \texttt{noreferrer}. & RF24, RNF03\\[1pt]
+\reqtarget{RN18} & \textbf{(Proposta do Arquiteto, a confirmar pelo Engenheiro Chefe.)} O envio de uma nova versão pode informar a versão em que o autor se baseou (o \texttt{updatedAt}); se o conteúdo mudou depois, o servidor recusa o envio com 409 \arq{VERSION_CONFLICT}, e o editor mostra os dois textos e deixa o autor escolher. Sem a regra, dois autores, ou duas abas, se sobrescrevem em silêncio (\decisao{D-15}). & RF16, RF34; UC05, UC15\\[1pt]
+\reqtarget{RN19} & Cada usuário lê (no painel), altera, move e exclui só o que é seu: conteúdo, aparência, notificações e perfil; o recurso de outro dono responde 403 \arq{FORBIDDEN}. O administrador, além do que é seu, gerencia o conteúdo de qualquer usuário (ver, despublicar, editar e excluir, com motivo; RN26), as contas (RN20 a RN24) e a configuração do site; \emph{não} edita a aparência nem o perfil de outro usuário e não lê as notificações alheias (\textbf{a confirmar}, pois a \adr{ADR-023} diz que o administrador ``pode tudo''). A autorização é verificada no servidor, em cada rota e em cada página protegida. & RF21, RF34; \adr{ADR-023}, \adr{ADR-029}\\[1pt]
+\reqtarget{RN20} & O \en{handle} é único, tem de 3 a 30 caracteres \texttt{[a-z0-9-]}, sem hífen nas pontas nem repetido, e não pode ser um nome reservado: \texttt{admin}, \texttt{api}, \texttt{login}, \texttt{logout} e \arq{_next}, nem o de uma pasta de \arq{public/} ou rota estática. É definido pelo administrador, na criação da conta, e \emph{só ele o altera}, porque mudá-lo quebra as URLs do espaço (não há redirecionamento). Um usuário sem \en{handle} não tem espaço público. & RF27, RF29; \adr{ADR-024}, \adr{ADR-028}\\[1pt]
+\reqtarget{RN21} & Contas só são criadas pelo administrador (a primeira, pelo comando de instalação); não há cadastro público nem e-mail. A senha provisória (de 8 a 128 caracteres, definida ou gerada) é exibida uma única vez, e a conta só pode trocar a própria senha e ler o próprio perfil até a trocar; a troca recusa a senha igual à atual e revoga as outras sessões. A redefinição pelo administrador (ou por \texttt{admin:reset-password}) revoga todas as sessões e exige nova troca. & RF22, RF27, RF28; \adr{ADR-023}, \adr{ADR-029}\\[1pt]
+\reqtarget{RN22} & O último administrador ativo não pode ser removido, rebaixado nem suspenso; nenhum administrador suspende ou exclui a si mesmo. Sem nenhum administrador ativo, o comando \texttt{admin:create} recupera o acesso. & RF22, RF27; \adr{ADR-023}\\[1pt]
+\reqtarget{RN23} & Um usuário suspenso (sem prazo, ou com prazo ainda vigente) não entra: as sessões são revogadas, o espaço dele responde 404 e o conteúdo é preservado; vencido o prazo, a conta volta a valer, sem ação do administrador. A suspensão exige um motivo, que o usuário vê ao tentar entrar com a senha correta e na notificação. & RF01, RF27, RF29, RF34; \adr{ADR-027}\\[1pt]
+\reqtarget{RN24} & Excluir um usuário que tem conteúdo exige que o administrador escolha entre transferi-lo a outro usuário, sujeito à unicidade de \en{slug} na raiz do destino, e excluí-lo junto, com confirmação explícita; a operação é atômica (nada muda se falhar). & RF27; \adr{ADR-027}\\[1pt]
+\reqtarget{RN25} & Cada usuário, inclusive o administrador, tem no máximo \texttt{MAX\_CONTENTS\_PER\_USER} conteúdos (padrão 500, em qualquer estado) e cada corpo tem no máximo \texttt{MAX\_BODY\_BYTES} \emph{bytes} (padrão 256~KiB, medidos em UTF-8, e não em caracteres); ao excedê-los, a API responde 422 \arq{QUOTA_EXCEEDED}, e um corpo muito acima do limite é recusado antes de ser lido, com 413. As escritas têm limite de taxa por usuário (429). & RF05, RF21; \adr{ADR-023}, \adr{ADR-029}\\[1pt]
+\reqtarget{RN26} & As notificações são geradas pelo servidor, por eventos: o contraste da paleta (uma por modo, com chave de deduplicação, reaberta a cada ocorrência e resolvida quando a paleta passa a atender), as ações de moderação sobre conteúdo ou conta (sempre, com o motivo) e os eventos da conta (como a senha redefinida). Cada usuário vê e altera só as suas. Retenção: as lidas há mais de 90 dias saem; ao passar de 200 por usuário, saem primeiro as lidas mais antigas, depois as resolvidas e, por último, a mais antiga das não lidas (refina a \adr{ADR-026}, a confirmar). & RF33, RF34; \adr{ADR-026}, \adr{ADR-028}\\[1pt]
+\reqtarget{RN27} & Cada proprietário tem duas paletas de três cores (a clara e a noturna) sobre neutros fixos de cada modo; o contraste é verificado por modo (RN09). O leitor escolhe Claro, Escuro ou Automático (padrão: o do sistema); a escolha vale só no navegador (\texttt{localStorage}), é aplicada por um \en{script} no \texttt{<head>} antes da primeira pintura, e as páginas continuam estáticas. & RF31, RF32; \adr{ADR-025}\\[1pt]
+\reqtarget{RN28} & O portal \texttt{/} mostra o texto do administrador e, se o diretório estiver ligado, os espaços públicos: os de usuários não suspensos, com \en{handle} e com ao menos um conteúdo \emph{raiz} publicado (RN15). A ordem é alfabética pelo nome de exibição do espaço (detalhe de apresentação, a confirmar). & RF30; \adr{ADR-024}\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores.}
-
-\vitrinependencia{Dados}{A regra RN02 (apenas COLLECTION tem filhos) e a unicidade de slug entre irmãos (RN03) ainda não estão garantidas pelo esquema atual; decidir entre restrição no banco e validação na aplicação (decisões D-05 e D-14) e registrar no mural.}
+\fonte{Elaborado pelos autores. RN18 a RN28: derivadas das \adr{ADR-023} a \adr{ADR-030}; os pontos marcados ``a confirmar'' aguardam o Engenheiro Chefe.}
 
 \section{Matriz de Rastreabilidade}\label{sec:matriz-rastreabilidade}
 
@@ -293,32 +352,40 @@ A Tabela~\ref{tab:matriz-rastreabilidade} relaciona cada requisito funcional ao 
 \endhead
 \bottomrule
 \endfoot
-RF01 & UC08 & M03 & Core\\
-RF02 & UC04, UC07 & M01, M02 & Dados\\
-RF03 & UC07 & M01, M02, M10 & Dados, UI\\
-RF04 & UC09 & M11 & UI, Core\\
-RF05 & UC05 & M04, M09 & Core, UI\\
-RF06 & UC06 & M04, M10 & Core, UI\\
-RF07 & UC04 & M04, M10 & Core, UI\\
+RF01 & UC08 & M03, M16 & Core\\
+RF02 & UC04, UC07 & M01, M02, M15 & Dados\\
+RF03 & UC07 & M01, M02, M15, M20 & Dados, UI\\
+RF04 & UC09 & M18 & UI, Core\\
+RF05 & UC05 & M04, M09, M16 & Core, UI\\
+RF06 & UC06 & M04, M20 & Core, UI\\
+RF07 & UC04 & M04, M20 & Core, UI\\
 RF08 & UC04 & M09 & UI\\
 RF09 & UC03 & M08 & UI\\
 RF10 & UC03 & M08 & UI\\
 RF11 & UC03 & M08 & UI\\
-RF12 & UC01 & M07 & UI\\
-RF13 & UC01 & M07 & UI\\
-RF14 & UC02 & M02, M07 & Core, Dados\\
+RF12 & UC01 & M17 & UI\\
+RF13 & UC01 & M17 & UI\\
+RF14 & UC02 & M02, M15, M17 & Core, Dados\\
 RF15 & UC05 & M09 & UI\\
 RF16 & UC05 & M04, M09 & Core, UI\\
-RF17 & UC12 & M06 & Core\\
-RF18 & UC10 & M05, M11 & Core, UI\\
-RF19 & UC11 & M05, M11 & UI, Core\\
+RF17 & UC12 & M06, M17 & Core\\
+RF18 & UC10 & M05, M18 & Core, UI\\
+RF19 & UC11 & M05, M18 & UI, Core\\
 RF20 & UC08 & M03 & Core\\
-RF21 & UC08 & M03, M04, M05 & Core\\
-RF22 & UC08 & M01, M03, M13 & Core, Dados\\
-RF23 & UC09 & M01 & Dados\\
-RF24 & UC01, UC10 & M01, M07, M11 & UI, Dados\\
+RF21 & UC08 & M03, M04, M05, M16 & Core\\
+RF22 & UC08 & M01, M03, M13, M16 & Core, Dados\\
+RF23 & UC09 & M01, M15 & Dados\\
+RF24 & UC01, UC10 & M01, M17, M18 & UI, Dados\\
 RF25 & UC02 & M12 & Core\\
-RF26 & UC02, UC04, UC05 & M01, M04, M07, M10 & Core, Dados, UI\\
+RF26 & UC02, UC04, UC05 & M01, M04, M17, M20 & Core, Dados, UI\\
+RF27 & UC13 & M16, M20 & Core, UI\\
+RF28 & UC14 & M16, M20 & Core, UI\\
+RF29 & UC01, UC02, UC17 & M15, M17 & Core, UI, Dados\\
+RF30 & UC17, UC19 & M17, M20 & Core, UI\\
+RF31 & UC09, UC10, UC11 & M15, M18 & UI, Core, Dados\\
+RF32 & UC18 & M18 & UI\\
+RF33 & UC16 & M15, M19 & Core, UI, Dados\\
+RF34 & UC15 & M16, M20 & Core, UI\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -364,4 +431,4 @@ A análise dos protótipos em confronto com o modelo de dados revelou duas lacun
 
 \section{Síntese do Capítulo}
 
-Foram especificados doze casos de uso, vinte e seis requisitos funcionais, quinze requisitos não funcionais e dezessete regras de negócio, com rastreabilidade para módulos e agentes. Os requisitos herdados da IC foram preservados e refinados; os derivados foram marcados. Este capítulo é o contrato de comportamento: o Capítulo~\ref{cap:arquitetura} define \emph{como} o sistema atende a ele.
+Foram especificados dezenove casos de uso, trinta e quatro requisitos funcionais, quinze requisitos não funcionais e vinte e oito regras de negócio (a RN18 e alguns pontos das RN19, RN26 e RN28 aguardam o Engenheiro Chefe), com rastreabilidade para módulos e agentes. Os requisitos herdados da IC foram preservados e refinados; os derivados foram marcados. Este capítulo é o contrato de comportamento: o Capítulo~\ref{cap:arquitetura} define \emph{como} o sistema atende a ele.

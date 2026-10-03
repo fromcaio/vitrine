@@ -36,11 +36,13 @@ F1 & Especificação & Documentação \LaTeX{} inicial, diagramas como código, 
 \addlinespace
 F2 & Fundação & Esquema, migração e \en{seed}; acesso a dados; autenticação; proteção de rotas & \agente{Dados}, \agente{Core}\\
 \addlinespace
-F3 & Conteúdo e leitura & API de conteúdo; páginas públicas com ISR; \en{sidebar} e barra superior; renderização Markdown com \LaTeX{} & \agente{Core}, \agente{UI}\\
+F2b & Multiusuário e espaços & Modelo de dados multiusuário e migração (M15); autorização por dono, contas e senha provisória (M16). Acrescentada em 02/10/2026 (\adr{ADR-023} a \adr{ADR-027}); precede a leitura pública, o painel por dono e a personalização, e a trava de segurança da \adr{ADR-023} só cai quando a autorização por dono estiver integrada & \agente{Dados}, \agente{Core}\\
 \addlinespace
-F4 & Edição e painel & Editor com pré-visualização; gestão da árvore (criar, mover, ordenar, excluir) & \agente{UI}, \agente{Core}\\
+F3 & Conteúdo e leitura & API de conteúdo; renderização Markdown com \LaTeX{}; espaços públicos por \en{handle}, portal, \en{sidebar} e barra superior, com ISR e revalidação por espaço (M17, que reescreve o M07) & \agente{Core}, \agente{UI}\\
 \addlinespace
-F5 & Personalização & Identidade e paleta por variáveis CSS; revalidação de \en{layout} & \agente{UI}, \agente{Core}, \agente{Dados}\\
+F4 & Edição e painel & Editor com pré-visualização (M09); painel por dono, gestão da árvore, usuários e moderação (M20, que reescreve o M10) & \agente{UI}, \agente{Core}\\
+\addlinespace
+F5 & Personalização & Aparência por proprietário, com paleta clara e noturna, modo de cor do leitor e avisos de contraste (M18, que reescreve o M11); notificações internas (M19) & \agente{UI}, \agente{Core}, \agente{Dados}\\
 \addlinespace
 F6 & Verificação e validação & Testes automatizados, desempenho, segurança, acessibilidade e usabilidade & Todos\\
 \addlinespace

@@ -59,7 +59,7 @@ Leia os `.tex` diretamente. Os números de seção podem mudar; os rótulos `\la
 | Autenticação, cache/ISR, API HTTP, rotas, segurança | `cap5_arquitetura.tex` §5.6, §5.7, §5.10, §5.11, §5.12 |
 | Pipeline de Markdown e tema dinâmico | `cap5_arquitetura.tex` §5.8 e §5.9 |
 | O que fazer em cada módulo (M01–M14), critérios de aceite e status | `cap6_implementacao.tex` |
-| Casos de teste (CT01–CT33) | `cap7_testes.tex` |
+| Casos de teste (CT01–CT52) | `cap7_testes.tex` |
 | Decisões de projeto (ADR-001 a ADR-027; os D-xx iniciais estão todos resolvidos) | `apendices/apendice_e_adr.tex` |
 | Implantação e operação | `apendices/apendice_d_implantacao.tex` |
 | Processo DDD, papéis, fluxo Git, critérios de merge | `cap3_metodologia.tex` §3.3, `ARQUITETO.md`, `DESENVOLVEDORES.md` |

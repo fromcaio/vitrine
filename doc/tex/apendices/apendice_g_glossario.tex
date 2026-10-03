@@ -5,11 +5,13 @@
 \chapter{Glossário}\label{ap:glossario}
 
 \begin{description}[style=nextline, leftmargin=0.6cm, itemsep=4pt]
-  \item[Administrador] Ator humano que se autentica para gerenciar o conteúdo e a identidade visual do site. Na versão atual, é o único perfil autenticado.
+  \item[Administrador] Autor com o papel \texttt{admin}: além do próprio espaço, gerencia o site (portal, login e painel), as contas dos usuários e a moderação (\adr{ADR-023}, \adr{ADR-027}). Hoje é o único perfil autenticado; as contas de usuário só existem depois do M16.
   \item[Agente] Participante especializado do desenvolvimento (Arquiteto, Dados, Core ou UI), em geral uma ferramenta de inteligência artificial operada sob supervisão humana.
+  \item[Aparência] Conjunto de identidade (nome, descrição, logotipo, \en{favicon}), links sociais e duas paletas (clara e noturna) de um proprietário; o site e cada usuário têm a sua (RF31, RN08, \adr{ADR-025}). Substitui, no escopo multiusuário, o termo \emph{Tema}.
   \item[App Router] Sistema de roteamento do Next.js baseado na estrutura do diretório \arq{src/app}.
   \item[Arquiteto] Agente que governa a documentação, revisa pedidos de integração e executa os \en{merges} na \texttt{main}; também chamado Redator Técnico e \en{Merge Master}.
   \item[ADR] \en{Architecture Decision Record}: registro curto de uma decisão arquitetural com contexto, decisão e consequências.
+  \item[Autor] Usuário autenticado, de papel \texttt{user} ou \texttt{admin}, que cria conteúdo e é o seu dono (RN13); ator do Capítulo~\ref{cap:requisitos}.
   \item[better-auth] Biblioteca de autenticação usada pelo Vitrine para login por e-mail e senha e gestão de sessões.
   \item[\en{Bind mount}] Montagem de um diretório do hospedeiro dentro do contêiner; no Vitrine, guarda o arquivo do SQLite fora da imagem Docker.
   \item[Client Component] Componente React que também é executado no navegador, declarado com a diretiva \texttt{"use client"}; no Vitrine, só os que têm estado ou eventos, como o \texttt{LoginForm} e a navegação lateral do painel.
@@ -17,35 +19,45 @@
   \item[Contêiner] Instância em execução de uma imagem Docker; no Vitrine, um único contêiner executa o servidor Next.js (\adr{ADR-011}).
   \item[Conteúdo] Nó da árvore do site: documento ou coleção.
   \item[Core] Agente responsável pela lógica de servidor: API, autenticação, roteamento e revalidação.
+  \item[Cota] Limite por usuário de conteúdos (\texttt{MAX\_CONTENTS\_PER\_USER}, padrão 500) e de tamanho do corpo em \emph{bytes} (\texttt{MAX\_BODY\_BYTES}, padrão 256~KiB); ao excedê-lo, a API responde 422 \arq{QUOTA\_EXCEEDED} (RN25).
   \item[Dados] Agente responsável pelo esquema, pelas migrações e pelo acesso ao banco.
   \item[DBML] \en{Database Markup Language}, usada para descrever o modelo de dados como texto.
   \item[Docker] Plataforma de contêineres usada para empacotar e executar o Vitrine em uma VPS (\decisao{D-04}).
   \item[Documento] Conteúdo do tipo \texttt{DOCUMENT}: uma página com corpo em Markdown; não tem filhos.
   \item[Documentation-Driven Development] Processo em que a documentação é escrita antes do código e é a fonte da verdade que o código deve atender.
   \item[\en{Driver adapter}] Módulo que liga o cliente do Prisma 7 ao banco; o Vitrine usa o \arq{@prisma/adapter-better-sqlite3} (\adr{ADR-014}).
+  \item[Espaço] Área pública de um usuário, em \texttt{/\{handle\}}, com a árvore, o menu, o rodapé e a aparência dele; responde 404 se o usuário está suspenso, foi removido ou não tem \en{handle} (RF29, RN23, \adr{ADR-024}).
   \item[Estado de publicação] Atributo \texttt{status} de um conteúdo, com os valores \texttt{DRAFT} (rascunho, invisível ao público) e \texttt{PUBLISHED} (publicado, valor padrão); um conteúdo só é público se ele e todos os seus ancestrais estiverem publicados (RN15).
   \item[Envelope de resposta] Estrutura \texttt{\{ "data": ... \}} que embrulha toda resposta de sucesso com corpo da API, deixando espaço para campos ao lado, como \texttt{warnings} (\adr{ADR-018}).
   \item[Fonte da verdade] Artefato que prevalece em caso de conflito sobre determinada informação (Tabela~\ref{tab:fontes-verdade}).
+  \item[\en{Handle}] Identificador público e único do usuário, de 3 a 30 caracteres \texttt{[a-z0-9-]}, que forma a primeira parte da URL do espaço; definido e alterado só pelo administrador (RN20, \adr{ADR-028}).
   \item[Índice parcial] Índice do banco que vale apenas para as linhas que satisfazem uma condição; no Vitrine, o índice único de \en{slug} restrito aos conteúdos de raiz (\texttt{WHERE parentId IS NULL}), escrito à mão na migração inicial (Seção~\ref{sec:arq-indice-parcial}).
   \item[ISR] \en{Incremental Static Regeneration}: estratégia do Next.js que serve páginas estáticas e as regenera de forma incremental.
   \item[KaTeX] Biblioteca de composição de fórmulas matemáticas para a web.
   \item[Link social] Um dos seis campos opcionais da configuração do site (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch) que originam os ícones do rodapé (RF24, RN17).
   \item[Merge] Integração de uma ramificação na \texttt{main}.
+  \item[Moderação] Conjunto de ações do administrador sobre o conteúdo e a conta de outro usuário (ver, despublicar, editar, excluir, suspender e reativar); toda ação exige o motivo e notifica o dono (RF34, RN19, RN26, \adr{ADR-027}).
+  \item[Modo noturno] Variante escura da aparência, com paleta própria sobre neutros fixos; o leitor escolhe Claro, Escuro ou Automático, e a escolha vale só no navegador (RF32, RN27, \adr{ADR-025}).
   \item[Monólito modular] Aplicação implantada como uma unidade, com módulos internos bem delimitados.
   \item[Mural] Arquivo \arq{MURAL_DE_AGENTES.md}, canal de comunicação e de pedidos de integração, editado somente na \texttt{main}.
+  \item[Notificação] Aviso interno gerado pelo servidor por evento (contraste da paleta, moderação, conta), visível só ao destinatário, com contador de não lidas; não há e-mail nem tempo real (RF33, RN26, \adr{ADR-026}).
   \item[Pasta privada] Diretório do App Router cujo nome começa por sublinhado (por exemplo, \arq{_lib}); não gera rota e guarda código compartilhado por uma área do \arq{src/app}.
   \item[Placeholder] Marcador de figura ou de código ausente, que indica o arquivo a ser criado e é substituído automaticamente quando o arquivo existe.
+  \item[Portal] A página \texttt{/}, do administrador: um texto em Markdown e, se ligado, o diretório dos espaços públicos (RF30, RN28).
   \item[Prisma] Biblioteca de acesso a dados com esquema declarativo, cliente tipado e migrações; o projeto usa a versão 7 (\adr{ADR-003}, \adr{ADR-014}).
+  \item[Proprietário] Quem detém um recurso: o \emph{dono} de um conteúdo (o autor da raiz da árvore) ou de uma aparência; o site é o proprietário da configuração do portal. A autorização compara o proprietário com a sessão (RN13, RN19).
   \item[Proxy] Arquivo do Next.js 16 (antigo \en{Middleware}) que executa lógica antes da conclusão de uma requisição.
   \item[Rascunho] Termo com dois sentidos no projeto: o estado \texttt{DRAFT} de um conteúdo no servidor (RF26) e o rascunho local do editor, guardado no navegador antes do envio (RF15).
   \item[Razão de contraste] Medida da WCAG 2.1 da diferença de luminância entre duas cores, de 1:1 (cores iguais) a 21:1 (preto e branco), calculada por $(L_1 + 0{,}05)/(L_2 + 0{,}05)$; o nível AA exige 4,5:1 para texto e 3:1 para componentes de interface (RN09, RNF05).
   \item[Revalidação] Invalidação de páginas em cache para que sejam regeneradas na próxima requisição.
   \item[Route Handler] Arquivo \arq{route.js} do App Router que implementa um \en{endpoint} HTTP.
+  \item[Senha provisória] Senha gerada (ou definida) pelo administrador ao criar a conta ou redefinir a senha; é exibida uma única vez e obriga a troca no primeiro acesso, antes de qualquer outra ação (RF28, RN21).
   \item[Server Component] Componente React executado apenas no servidor.
   \item[Server Function] Função executada no servidor, definida em um arquivo com a diretiva \texttt{"use server"} e acionada pelo navegador, por exemplo por um formulário (também chamada \en{Server Action}); no Vitrine, o encerramento da sessão (\texttt{signOut}). Cada função exportada é um ponto de entrada HTTP e deve validar no servidor tudo o que exige.
   \item[Slug] Trecho legível da URL que identifica um conteúdo entre seus irmãos.
   \item[SQLite] Banco de dados SQL embutido, em arquivo único.
-  \item[Tema] Conjunto de identidade (nome, logotipo) e cores do site, aplicado por variáveis CSS.
+  \item[Suspensão] Bloqueio de uma conta pelo administrador, com motivo obrigatório e prazo opcional: revoga as sessões, impede o \en{login} e faz o espaço responder 404, preservando o conteúdo; o prazo vencido a desfaz (RN23, \adr{ADR-027}).
+  \item[Tema] Conjunto de identidade (nome, logotipo) e cores, aplicado por variáveis CSS; no escopo multiusuário, chama-se aparência e é por proprietário.
   \item[Token de tema] Variável CSS do tema (por exemplo, \arq{--vitrine-primary}) e o utilitário do Tailwind que a referencia (\texttt{bg-primary}); os componentes usam somente tokens, nunca cores fixas (RF19).
   \item[UI] Agente responsável pela interface: componentes, estilos e editor.
   \item[VPS] \en{Virtual Private Server}: servidor virtual dedicado, alvo de implantação do Vitrine (\decisao{D-04}).
