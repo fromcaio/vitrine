@@ -14,6 +14,9 @@ const VARIANTS = {
   /** Ação sobre a cor secundária (barra superior do painel). */
   inverse:
     "border border-on-secondary text-on-secondary enabled:hover:bg-on-secondary enabled:hover:text-secondary",
+  /** Ação secundária, sobre fundos claros: só neutros, independe da paleta. */
+  outline:
+    "border border-border-strong bg-background text-foreground enabled:hover:bg-surface enabled:hover:border-foreground",
 };
 
 /**

@@ -11,6 +11,12 @@
 // Server Component, não envia JavaScript ao navegador; importado pelo editor, roda no cliente.
 // Recebe só o Markdown: não conhece o dono do conteúdo nem o tema. As cores vêm dos tokens de
 // globals.css, e a variante noturna, da classe .dark no <html> (ADR-025).
+import fortran from "highlight.js/lib/languages/fortran";
+import haskell from "highlight.js/lib/languages/haskell";
+import julia from "highlight.js/lib/languages/julia";
+import latex from "highlight.js/lib/languages/latex";
+import matlab from "highlight.js/lib/languages/matlab";
+import { common } from "lowlight";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -42,11 +48,23 @@ export const KATEX_OPTIONS = Object.freeze({
 
 const REMARK_PLUGINS = [remarkGfm, remarkMath];
 
+/**
+ * Linguagens do realce (R-002): o conjunto `common` do lowlight (37) mais as cinco que um CMS
+ * acadêmico precisa garantir. Outras entram sob pedido: importe a gramática de
+ * `highlight.js/lib/languages/<nome>` e acrescente-a aqui, com um teste.
+ * Apelidos que o highlight.js já traz: `tex`, `hs`, `f90` e `f95`.
+ */
+export const HIGHLIGHT_LANGUAGES = Object.freeze({ ...common, latex, matlab, julia, haskell, fortran });
+
 // O KaTeX vem primeiro para consumir os blocos `language-math` antes que o realce tente tratá-los
 // como uma linguagem (o resultado seria o mesmo, com uma tentativa inútil). O realce só atua
 // quando o bloco declara a linguagem (sem detecção automática) e ignora, sem erro, uma linguagem
 // que não conhece.
-const REHYPE_PLUGINS = [[rehypeKatex, KATEX_OPTIONS], rehypeMathErrors, rehypeHighlight];
+const REHYPE_PLUGINS = [
+  [rehypeKatex, KATEX_OPTIONS],
+  rehypeMathErrors,
+  [rehypeHighlight, { languages: HIGHLIGHT_LANGUAGES }],
+];
 
 /** Textos em português da seção de notas de rodapé (o padrão da biblioteca é em inglês). */
 const REMARK_REHYPE_OPTIONS = {

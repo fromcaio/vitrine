@@ -5,7 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { KATEX_OPTIONS, MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
+import { common } from "lowlight";
+import { HIGHLIGHT_LANGUAGES, KATEX_OPTIONS, MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 
 const COMPONENT_DIR = path.resolve(import.meta.dirname, "../../src/components/markdown");
 
@@ -110,7 +111,21 @@ describe("MarkdownRenderer: Markdown básico e contrato do componente", () => {
     expect(source).not.toMatch(/^\s*["']use client["']/m);
     const imports = [...source.matchAll(/^import\s+(?:[^"']*\sfrom\s+)?["']([^"']+)["']/gm)].map(([, name]) => name);
     expect(imports.sort()).toEqual(
-      ["./markdown.css", "katex/dist/katex.min.css", "react-markdown", "rehype-highlight", "rehype-katex", "remark-gfm", "remark-math"].sort(),
+      [
+        "./markdown.css",
+        "highlight.js/lib/languages/fortran",
+        "highlight.js/lib/languages/haskell",
+        "highlight.js/lib/languages/julia",
+        "highlight.js/lib/languages/latex",
+        "highlight.js/lib/languages/matlab",
+        "katex/dist/katex.min.css",
+        "lowlight",
+        "react-markdown",
+        "rehype-highlight",
+        "rehype-katex",
+        "remark-gfm",
+        "remark-math",
+      ].sort(),
     );
   });
 
@@ -458,8 +473,9 @@ describe("CT18: blocos de código recebem realce conforme a linguagem (RF10)", (
     },
   );
 
-  // O conjunto registrado é o "common" do lowlight (37 linguagens); LaTeX, por exemplo, não está.
-  it.each([["linguagem-inexistente"], ["latex"]])(
+  // O conjunto registrado é o "common" do lowlight (37 linguagens) mais as cinco da R-002; COBOL,
+  // por exemplo, não está (outras entram sob pedido).
+  it.each([["linguagem-inexistente"], ["cobol"], ["scala"]])(
     "mantém o texto de uma linguagem que não conhece (%s), sem realce e sem erro",
     (language) => {
       const html = render(`\`\`\`${language}\ndef x(): pass \\frac{1}{2}\n\`\`\``);
@@ -467,6 +483,74 @@ describe("CT18: blocos de código recebem realce conforme a linguagem (RF10)", (
       expect(html).not.toContain("<span");
     },
   );
+
+  // R-002: o produto garante o conjunto `common` mais LaTeX, MATLAB, Julia, Haskell e Fortran.
+  describe("linguagens acrescentadas ao conjunto common (R-002)", () => {
+    it("registra as 37 do common e as cinco novas, nada além", () => {
+      expect(Object.keys(HIGHLIGHT_LANGUAGES)).toHaveLength(42);
+      for (const language of Object.keys(common)) expect(HIGHLIGHT_LANGUAGES).toHaveProperty(language);
+      for (const language of ["latex", "matlab", "julia", "haskell", "fortran"]) {
+        expect(typeof HIGHLIGHT_LANGUAGES[language], language).toBe("function");
+      }
+      expect(Object.isFrozen(HIGHLIGHT_LANGUAGES)).toBe(true);
+    });
+
+    it("realça LaTeX", () => {
+      const html = render("```latex\n\\documentclass{article}\n\\begin{document}\n% comentário\nOlá $x^2$\n\\end{document}\n```");
+      expect(html).toContain('<code class="hljs language-latex">');
+      expect(html).toContain('<span class="hljs-comment">% comentário</span>');
+      expect(html).toContain('<span class="hljs-keyword">');
+      expect(html).toContain("\\documentclass");
+    });
+
+    it("realça MATLAB", () => {
+      const html = render("```matlab\nfunction y = f(x)\n  % comentário\n  y = x.^2 + 1;\nend\n```");
+      expect(html).toContain('<code class="hljs language-matlab">');
+      expect(html).toContain('<span class="hljs-keyword">function</span>');
+      expect(html).toContain('<span class="hljs-comment">% comentário</span>');
+      expect(html).toContain('<span class="hljs-number">2</span>');
+    });
+
+    it("realça Julia", () => {
+      const html = render("```julia\nfunction f(x)\n  # comentário\n  return x^2 + 1\nend\n```");
+      expect(html).toContain('<code class="hljs language-julia">');
+      expect(html).toContain('<span class="hljs-keyword">function</span>');
+      expect(html).toContain('<span class="hljs-comment"># comentário</span>');
+      expect(html).toContain('<span class="hljs-number">2</span>');
+    });
+
+    it("realça Haskell", () => {
+      const html = render('```haskell\nmodule Main where\n-- comentário\nmain :: IO ()\nmain = putStrLn "Olá"\n```');
+      expect(html).toContain('<code class="hljs language-haskell">');
+      expect(html).toContain('<span class="hljs-keyword">module</span>');
+      expect(html).toContain('<span class="hljs-comment">-- comentário</span>');
+      expect(html).toContain('<span class="hljs-type">IO</span>');
+      expect(html).toContain('<span class="hljs-string">&quot;Olá&quot;</span>');
+    });
+
+    it("realça Fortran", () => {
+      const html = render('```fortran\nprogram ola\n  ! comentário\n  print *, "Olá"\nend program ola\n```');
+      expect(html).toContain('<code class="hljs language-fortran">');
+      expect(html).toContain('<span class="hljs-keyword">program</span>');
+      expect(html).toContain('<span class="hljs-comment">! comentário</span>');
+      expect(html).toContain('<span class="hljs-string">&quot;Olá&quot;</span>');
+    });
+
+    it.each([
+      ["tex", "% comentário", "hljs-comment"],
+      ["hs", "-- comentário", "hljs-comment"],
+      ["f90", "! comentário", "hljs-comment"],
+      ["f95", "! comentário", "hljs-comment"],
+    ])("reconhece o apelido %s", (alias, line, className) => {
+      const html = render(`\`\`\`${alias}\n${line}\n\`\`\``);
+      expect(html).toContain(`<span class="${className}">${line}</span>`);
+    });
+
+    it("mantém as linguagens do common funcionando depois do acréscimo", () => {
+      expect(render("```python\n# c\n```")).toContain('<span class="hljs-comment"># c</span>');
+      expect(render("```js\nconst x = 1;\n```")).toContain('<span class="hljs-keyword">const</span>');
+    });
+  });
 
   it("não adivinha a linguagem de um bloco que não a declara", () => {
     const html = render("```\nconst x = 1;\n```");
@@ -513,6 +597,49 @@ describe("tema: só tokens, nenhuma cor fixa (RF19, ADR-025)", () => {
     }
     // A única cor em atributo style é o token do erro de fórmula.
     expect(styles.filter((style) => /(^|;)color:/.test(style))).toEqual(["color:var(--vitrine-danger)"]);
+  });
+
+  // WCAG 1.4.1: o link tem a cor do texto (--vitrine-link), e só o sublinhado o distingue. A
+  // mutação que tirava o sublinhado de `.vitrine-markdown a` passou nos testes do M-009 (R-002).
+  describe("links distinguíveis sem a cor (WCAG 1.4.1)", () => {
+    /** Regras do CSS como [seletor, corpo]; o arquivo não tem blocos aninhados nem @media. */
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => [selector.trim(), body]);
+    const ruleBody = (/** @type {string} */ selector) => rules.find(([found]) => found === selector)?.[1] ?? "";
+
+    it("sublinha os links do conteúdo", () => {
+      const body = ruleBody(".vitrine-markdown a");
+      expect(body, "regra .vitrine-markdown a").not.toBe("");
+      expect(body).toMatch(/text-decoration:\s*underline\s*;/);
+      expect(body).not.toMatch(/text-decoration(-line)?:\s*(none|inherit|initial|unset|revert)/);
+    });
+
+    it("dá ao link a cor do texto, pelo token --vitrine-link, e não a da paleta", () => {
+      expect(ruleBody(".vitrine-markdown a")).toMatch(/color:\s*var\(--vitrine-link\)\s*;/);
+      const globals = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+      expect(globals).toContain("--vitrine-link: var(--vitrine-foreground);");
+    });
+
+    it("nenhuma regra da folha tira o sublinhado de um link, nem no hover e no foco", () => {
+      const anchorRules = rules.filter(([selector]) => selector.split(",").some((part) => /(^|[\s>+~])a(?![\w-])/.test(part.trim())));
+      expect(anchorRules.map(([selector]) => selector)).toEqual(expect.arrayContaining([".vitrine-markdown a", ".vitrine-markdown a:hover"]));
+      for (const [selector, body] of anchorRules) {
+        expect(body, selector).not.toMatch(/text-decoration(-line)?:\s*(none|inherit|initial|unset|revert)/);
+      }
+    });
+
+    it("renderiza o link como <a href> puro, sem classe nem estilo que remova o sublinhado", () => {
+      const html = render("Veja [a aula](https://exemplo.test/aula), [outra](/ana/algebra) e https://exemplo.test/x.");
+      const anchors = openingTags(html).filter((tag) => tag.name === "a");
+      expect(anchors).toHaveLength(3);
+      for (const { attributes } of anchors) {
+        expect(Object.keys(attributes)).toEqual(["href"]);
+      }
+    });
+
+    it("não deixa um estilo global do arquivo da folha tirar o sublinhado", () => {
+      const globals = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+      expect(globals).not.toMatch(/(^|[\s,}])a\s*(:[\w-]+)?\s*\{[^}]*text-decoration[^}]*none/);
+    });
   });
 
   it("usa na folha todos os tokens do realce de código", () => {
