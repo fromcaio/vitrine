@@ -43,6 +43,7 @@ Regra de fronteira: o que não é seu, **peça ao dono pelo mural** (`[PEDIDO]`)
 - **Commits pequenos e rastreáveis:** Conventional Commits em português (`feat`, `fix`, `chore`, `refactor`, `test`, `docs` apenas para imagens de evidência), com rodapé de IDs: `Refs: RF03, RN05`.
 - **Árvore limpa antes de trocar de branch** (`git status`). Sem `push --force`, sem `reset --hard` em trabalho alheio, sem `--no-verify`.
 - **Nunca versionar:** `.env*` (exceto `.env.example`), `*.db`, `*.db-journal`, `*.db-wal`, `.next/`, `node_modules/`, `src/generated/`, PDFs gerados.
+- **A sessão do Arquiteto na nuvem não usa *worktrees*** (clone próprio; `ARQUITETO.md` §7); esta regra vale para os desenvolvedores, em qualquer máquina.
 - **Cada agente trabalha em um *worktree* próprio, sempre.** A cópia principal (`vitrine-monolito`) fica **permanentemente na `main`** e só serve ao mural e ao Arquiteto: **ninguém desenvolve nela nem troca a branch dela**. O **primeiro passo** de toda tarefa é `git worktree add ../vitrine-<agente> -b <tipo>/<dominio>-<tema> main`, seguido de `npm ci` no novo *worktree*, **mesmo sem ver outro agente ativo**: os agentes rodam ao mesmo tempo sem se ver, e foi isso que levou um commit de código à `main` e outro à branch de um colega (incidente de 02/10/2026, R-001). Ao começar e **antes de cada commit**, confira `git worktree list` e `git branch --show-current`. Depois do merge, o Arquiteto remove o *worktree*.
 
 ## 4. Comunicação e Solicitação de Merge (O Mural na Main)

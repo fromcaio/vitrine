@@ -43,7 +43,7 @@ Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
    `git diff --name-only main...feat/x | grep -E '^(MURAL_DE_AGENTES\.md|CLAUDE\.md|ARQUITETO\.md|DESENVOLVEDORES\.md|doc/(ref/|diagrams/src/|tex/.*\.(tex|sty|bib|cls)))'`
 3. **Conformidade com a especificação:** o comportamento implementado atende aos RF/RN/UC citados; contratos de API (Cap. 5 §5.10), modelo de dados (§5.5), regras de dependência (§5.3.3), segurança (§5.12) e tema/Markdown (§5.8–§5.9) respeitados.
 4. **Mudanças declaradas:** schema, rotas, variáveis de ambiente e dependências novas constam do pedido e são compatíveis com a documentação — ou vieram acompanhadas de `[RFC]` já aceito.
-5. **Qualidade:** `npm run lint` e `npm run build` passam; testes aplicáveis (CT do Cap. 7) executados e citados. Se o pedido tocar `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `next.config.mjs` ou `security-headers.mjs`, construa a imagem na cópia descartável e repita o roteiro do Apêndice D em contêiner (a construção exige 6 GB livres; confira `docker info` antes, não inicie nem reinicie o Docker por conta própria e remova só o que você criou), confira os cabeçalhos por HTTP e verifique a CSP no navegador sobre o *build* de produção (Cap. 5 §5.12).
+5. **Qualidade:** `npm run lint` e `npm run build` passam; testes aplicáveis (CT do Cap. 7) executados e citados. Se o pedido tocar `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `next.config.mjs` ou `security-headers.mjs`, construa a imagem na cópia descartável e repita o roteiro do Apêndice D em contêiner (a construção exige 6 GB livres; confira `docker info` antes, não inicie nem reinicie o Docker por conta própria — exceto na sessão na nuvem, §7 — e remova só o que você criou), confira os cabeçalhos por HTTP e verifique a CSP no navegador sobre o *build* de produção (Cap. 5 §5.12).
 6. **Higiene:** nenhum segredo, banco (`*.db`), `.next/`, `node_modules/` ou arquivo gerado versionado (`git diff main...feat/x | grep -i -E "(secret|password|token|api[_-]?key)\s*="`).
 7. **Evidências:** capturas/figuras nos caminhos exatos pedidos pelos *placeholders* quando há mudança visível.
 8. **Commits:** Conventional Commits, com IDs no rodapé; histórico inteligível.
@@ -103,8 +103,28 @@ Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENT
 ## 5. Higiene do repositório
 - A `main` só recebe: *merges* autorizados, atualizações de `doc/**`, governança e o mural.
 - Novas dependências: aprove explicitamente (licença, manutenção, impacto) e registre no Cap. 3; combine versões fixadas no *lockfile*.
-- O repositório tem o remoto `origin` (GitHub). Não faça `git push` por conta própria (publica o histórico); quando o usuário o pedir, confirme antes se o repositório é privado e envie a `main`, as branches de feature em revisão e as tags.
+- O repositório tem o remoto `origin` (GitHub). Não faça `git push` por conta própria (publica o histórico); quando o usuário o pedir, confirme antes se o repositório é privado e envie a `main`, as branches de feature em revisão e as tags. Na sessão na nuvem, a autorização é a da §7.
 - Ao fechar uma fase do planejamento (F1 a F7, Cap. 3 §3.2) você pode criar uma tag anotada (`git tag -a fase-F2 -m "..."`).
 
 ## 6. Decisões humanas
 Não há mais decisões abertas: em 01/10/2026 o Engenheiro Chefe resolveu as últimas (D-02 licença MIT, D-18 documentação sem formato acadêmico) e aprovou RF26 e RN15 a RN17; as questões técnicas restantes têm valor padrão na ADR-017, refinável por `[RFC]`. Ao fim de cada sessão, resuma ao usuário o que depende dele (novas questões de produto). Nunca decida por ele. Quando um desenvolvedor registrar no mural uma decisão do Engenheiro Chefe (como fez a Dados no pedido P-001), confirme-a, transcreva-a como ADR e marque como "a confirmar" qualquer regra que você tenha derivado dela até a aprovação.
+
+## 7. Operação na nuvem (sessão em VM Linux)
+Desde 2026-10-03 o Arquiteto também roda em uma sessão na nuvem (VM Ubuntu 24.04, clone próprio e privado do repositório). Esta seção registra o que difere do trabalho na máquina local; o resto deste arquivo continua valendo.
+
+**Git (autorização do Engenheiro Chefe, concedida sessão a sessão).**
+- O Arquiteto continua sendo a **única** área que escreve código, documentação, governança e mural na `main`. Com a autorização da sessão, pode `git push origin main` (sempre depois de `git pull --rebase origin main`) e `git push origin <sua-branch>`.
+- **Nunca `--force`**, nunca reescrever a `main`. O *proxy* do GitHub recusa a exclusão de branches: as já integradas são apagadas pelo Engenheiro Chefe, a quem se pede ao fim de cada etapa.
+- O mural segue só na `main`, em commit exclusivo: rebaseie imediatamente antes de editar e envie logo; em conflito, preserve os dois lados.
+- **Sem *worktrees*:** o clone da nuvem é só do Arquiteto. Para verificar uma branch, use `git switch --detach origin/<branch>` (ou um segundo clone descartável) e **volte à `main` antes de qualquer commit**. Os desenvolvedores continuam obrigados a usar o *worktree* (`DESENVOLVEDORES.md` §3).
+- Commits no padrão de sempre (Conventional Commits em português, `Refs:` no rodapé) e, quando o ambiente exigir, os *trailers* de atribuição. Commit e envio a cada marco.
+
+**Ambiente.** A VM usa o Node 22 (a imagem Docker, o 24): o `npm ci` avisa `EBADENGINE` por causa do `jsdom` (22.22.0 em vez de 22.22.2 ou superior), e a suíte passa mesmo assim. Rotina: `git fetch origin`, `npm ci`, `npx prisma generate`, `.env` com valores fictícios (nunca ler, imprimir nem versionar `.env*`), `npm run lint`, `npm run build`, `npm test`.
+
+**Docker.** A VM não tem serviço do Docker em execução: o `dockerd` é iniciado à mão, em segundo plano (sem `systemd`; *overlayfs* e *cgroups* v1), com o registro fora do repositório. Isto **revoga, para a nuvem**, a regra de não iniciar o Docker (§2.1, item 5), que continua valendo na máquina local. A política de rede do ambiente nega os espelhos do Debian (`deb.debian.org`, `security.debian.org`), de modo que o `apt-get` do `Dockerfile` falha com a `node:24-bookworm-slim`. Contorno, só para a verificação (nada disso entra no repositório): uma base derivada da imagem **completa** `node:24-bookworm` (mesma Debian e mesma versão do Node, já com `python3`, `make`, `g++` e `openssl`), sem as fontes do `apt` e com o CA do *proxy* do ambiente em `NODE_EXTRA_CA_CERTS`, passada pelo `ARG NODE_IMAGE`; a construção usa `docker build --network host` e repassa `HTTPS_PROXY`. Pedir ao Engenheiro Chefe que libere esses domínios elimina o contorno.
+
+**Navegador.** O Chromium do Playwright vem em `/opt/pw-browsers` (revisão mais antiga que a do `@playwright/test` do projeto; não rode `playwright install`). Os ensaios usam uma configuração auxiliar **fora do repositório** (excluída em `.git/info/exclude`) que herda a `playwright.config.js` e acrescenta `launchOptions.executablePath: "/opt/pw-browsers/chromium"`. Se o ambiente não tiver Chromium, diga ao Engenheiro Chefe qual domínio liberar.
+
+**PDF.** Instalar, sob demanda e como `root`: `latexmk texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra texlive-pictures texlive-publishers texlive-lang-portuguese texlive-bibtex-extra poppler-utils` **e `lmodern`** (o único acréscimo: sem ele falta o `lmodern.sty`). Depois, `bash doc/tex/build-isolado.sh --limpar`, com `TMPDIR` fora do repositório. Estado de 2026-10-03: 252 páginas, sem referência indefinida, com avisos de largura (*overfull*) só cosméticos.
+
+**Limite de uso.** A conta é compartilhada: trabalhe em passos curtos, não releia arquivos grandes sem necessidade e, perto do limite, registre o estado no mural e encerre.
