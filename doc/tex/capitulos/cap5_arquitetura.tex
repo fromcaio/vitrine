@@ -26,7 +26,7 @@ A arquitetura é um \textbf{monólito modular}: um único repositório, um únic
 
 \section{Decisões Arquiteturais}\label{sec:arq-decisoes}
 
-As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, a ADR-022 em 02/10/2026, após o merge M-008, e as ADR-023 a ADR-027 em 02/10/2026, quando o Engenheiro Chefe ampliou o escopo para vários usuários (decisões D-20 a D-28); os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, a ADR-022 em 02/10/2026, após o merge M-008, as ADR-023 a ADR-027 em 02/10/2026, quando o Engenheiro Chefe ampliou o escopo para vários usuários (decisões D-20 a D-28), e as ADR-028 a ADR-030 em 03/10/2026, decisões técnicas do Arquiteto sobre os RFC do Dados e do Core; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
 
 \begingroup\small\renewcommand{\arraystretch}{1.25}
 \begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
@@ -68,6 +68,9 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-025} & Aparência por proprietário, com paleta clara e noturna & Cada autor controla a própria identidade, e o modo noturno precisa de contraste verificável (substitui o D-17)\\
 \adr{ADR-026} & Notificações internas, geradas pelo servidor & O aviso de contraste se perdia ao recarregar, e a plataforma não envia e-mail\\
 \adr{ADR-027} & Moderação pelo administrador, com notificação ao dono & Autores não confiáveis exigem retirar conteúdo e suspender contas sem perder dados\\
+\adr{ADR-028} & Modelo de dados multiusuário: \en{handle} próprio, aparência em tabelas separadas, dono único por árvore, notificações e WAL & O RFC do Dados verificou no SQLite e no Prisma o que as ADR-023 a ADR-027 exigem\\
+\adr{ADR-029} & Autorização por dono, rotas \texttt{/api/users}, lista de permitidas do better-auth e senha provisória & As rotas brutas do \en{plugin} não validam nem protegem o último administrador; a API só exigia sessão\\
+\adr{ADR-030} & Revalidação por espaço por caminhos literais e layout raiz sem dados do banco (ajusta a ADR-024, item 5, e a ADR-021) & A revalidação do layout de um \en{handle} não funciona como escrita e a de um layout invalida todos os espaços\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup
