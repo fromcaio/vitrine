@@ -53,6 +53,12 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \addlinespace
 \arq{ADMIN_NAME} & Não & Nome de exibição do administrador; o padrão é \texttt{Administrador}\\
 \addlinespace
+\arq{ADMIN_HANDLE} & Não (alvo, M16) & \en{Handle} do administrador inicial (RN20), lido só pelo \texttt{admin:create}; sem ele, o administrador não tem espaço público até ter um \en{handle}\\
+\addlinespace
+\arq{MAX_CONTENTS_PER_USER} & Não (alvo, M16) & Máximo de conteúdos por usuário, em qualquer estado; padrão 500 (RN25)\\
+\addlinespace
+\arq{MAX_BODY_BYTES} & Não (alvo, M16) & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 262144 (256~KiB); um corpo muito acima é recusado com 413 antes de ser lido (RN25)\\
+\addlinespace
 \arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção (definida na imagem)\\
 \addlinespace
 \arq{PORT} & Não & Porta do servidor Next.js; o padrão é 3000\\
@@ -92,7 +98,7 @@ docker compose up -d
 curl -sI http://127.0.0.1:3000/login | head -n 1     # HTTP/1.1 200 OK
 \end{lstlisting}
 
-O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (há um único administrador, \decisao{D-13}) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
+O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (hoje há um único administrador, \decisao{D-13}; com o M16, o comando passa a criar mais um administrador, com \arq{ADMIN_HANDLE} opcional, e a recuperar o acesso quando não resta nenhum ativo, RN22) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
 
 \subsection{Arquivos de Implantação}\label{sec:impl-arquivos}
 
@@ -167,11 +173,24 @@ location / {
 
 Se o cabeçalho chegar com mais de um endereço, todos os visitantes passam a dividir um único contador de tentativas (cinco por minuto no total em \arq{/sign-in/email}); o sintoma é o erro 429 no login do administrador com poucas tentativas.
 
+\textbf{Limite de taxa e páginas inexistentes (alvo, M17; \adr{ADR-030}).} Uma página pública inexistente \emph{dentro de um espaço válido} fica em \en{cache} (cerca de 12 a 16~kB e 7 arquivos por URL, sem expurgo), e a aplicação não a evita. A mitigação é operacional: limitar a taxa por endereço nas rotas públicas, no \en{proxy} (o Código~\ref{lst:ratelimit} é um esboço para o Nginx) e monitorar o uso de disco do volume \arq{.next}, com um alerta antes de o disco encher. O primeiro segmento que não é \en{handle} nem rota reservada é tratado pelo Proxy da aplicação e não deixa arquivos.
+
+\begin{lstlisting}[caption={Esboço: limite de taxa por endereço no Nginx (ajustar os valores ao tráfego)}, label={lst:ratelimit}]
+limit_req_zone $binary_remote_addr zone=vitrine:10m rate=10r/s;
+
+server {
+    location / {
+        limit_req zone=vitrine burst=40 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+\end{lstlisting}
+
 \textbf{HSTS e cabeçalhos de segurança da aplicação.} A aplicação não envia \texttt{Strict-Transport-Security} nem redireciona para HTTPS (Seção~\ref{sec:arq-csp}); isso é do \en{proxy}, como nos Códigos~\ref{lst:caddy} e~\ref{lst:nginx}. Envie o HSTS só depois de confirmar que o HTTPS funciona, porque o navegador passa a recusar HTTP durante o prazo (\texttt{max-age}). Em contrapartida, o \en{proxy} \textbf{não deve remover nem substituir} os cabeçalhos de segurança da aplicação, em especial a \texttt{Content-Security-Policy}: uma política mais restritiva, que retire o \texttt{'unsafe-inline'} de \texttt{script-src}, impede a hidratação das páginas e faz o formulário de login enviar o e-mail e a senha pela URL (Seção~\ref{sec:arq-csp}). Os trechos do Caddy e do Nginx ainda não foram ensaiados com o contêiner (ver a pendência no início deste apêndice).
 
 \section{Cópia de Segurança e Restauração}\label{sec:backup}
 
-O banco é um único arquivo no diretório \arq{data/}; porém, com o modo WAL, copiar os arquivos com o sistema em execução pode produzir uma cópia inconsistente. A forma recomendada é gerar uma cópia consistente com o próprio SQLite, executada no servidor sobre o arquivo do volume, por exemplo:
+O banco é um único arquivo no diretório \arq{data/}; porém, com o modo WAL (que o \arq{db.js} passa a definir com o M15, Seção~\ref{sec:arq-wal}, e que traz os arquivos \arq{-wal} e \arq{-shm} ao lado do banco), copiar os arquivos com o sistema em execução pode produzir uma cópia inconsistente. Com \texttt{synchronous=NORMAL}, uma queda de energia pode perder as últimas escritas confirmadas, mas não corrompe o banco; por isso a frequência da cópia importa mais (com vários autores, prefira cópias de hora em hora a diárias). A forma recomendada é gerar uma cópia consistente com o próprio SQLite, executada no servidor sobre o arquivo do volume, por exemplo:
 
 \begin{lstlisting}[language=VSh, caption={Esboço: cópia de segurança consistente do SQLite}, label={lst:backup}]
 # Requer a CLI sqlite3 (SQLite 3.27 ou superior para VACUUM INTO)
@@ -184,7 +203,7 @@ Para restaurar: parar o serviço (\texttt{docker compose down}), substituir o ar
 
 Antes de atualizar, faça uma cópia de segurança. Em seguida: obter o novo código (\texttt{git pull}), reconstruir a imagem (\texttt{docker compose build}), aplicar as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}) e recriar o contêiner (\texttt{docker compose up -d}). Por fim, \textbf{salve a configuração do site} (passo descrito abaixo). As imagens anteriores continuam no disco até serem removidas (\texttt{docker image prune}).
 
-\textbf{Páginas estáticas depois de recriar o contêiner (comportamento por projeto, \en{by design}).} O \en{build} não consulta o banco (\adr{ADR-021}). Por isso, sempre que o contêiner é \emph{recriado} --- \texttt{up -d} depois de uma nova imagem, \texttt{down} seguido de \texttt{up -d}, ou \texttt{up -d -{}-force-recreate} ---, a página inicial e a de erro 404 são servidas com o \textbf{tema padrão} (as cores do CSS e o título ``Vitrine'') e só assumem o \textbf{tema personalizado} depois da \textbf{primeira revalidação}, isto é, depois que a configuração do site for salva: no painel, quando o formulário de configurações existir (M11), ou por um \texttt{PUT /api/configuration} autenticado. Salvar sem alterar nada basta: a primeira requisição seguinte regenera as páginas (\texttt{MISS}) e as demais saem do cache (\texttt{HIT}), já com a paleta e o nome do banco. As rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração do banco, e a sessão do administrador e os dados permanecem no volume. Um \texttt{docker compose restart}, ou a reinicialização do servidor, \emph{não} tem esse efeito, porque o contêiner continua o mesmo e conserva as páginas regeneradas. Isso não é um defeito, e não há um passo automático: ele exigiria as credenciais do administrador na implantação ou uma rota de revalidação nova, que o contrato da API não prevê (Seção~\ref{sec:arq-tema-estatico}). As páginas públicas, quando existirem (M07), nascem sob demanda, com o tema do banco.
+\textbf{Páginas estáticas depois de recriar o contêiner (comportamento por projeto, \en{by design}).} O \en{build} não consulta o banco (\adr{ADR-021}). Por isso, sempre que o contêiner é \emph{recriado} --- \texttt{up -d} depois de uma nova imagem, \texttt{down} seguido de \texttt{up -d}, ou \texttt{up -d -{}-force-recreate} ---, a página inicial e a de erro 404 são servidas com o \textbf{tema padrão} (as cores do CSS e o título ``Vitrine'') e só assumem o \textbf{tema personalizado} depois da \textbf{primeira revalidação}, isto é, depois que a configuração do site for salva: no painel, quando o formulário de configurações existir (M11), ou por um \texttt{PUT /api/configuration} autenticado. Salvar sem alterar nada basta: a primeira requisição seguinte regenera as páginas (\texttt{MISS}) e as demais saem do cache (\texttt{HIT}), já com a paleta e o nome do banco. As rotas dinâmicas (\arq{/login} e \arq{/admin}) já nascem com a configuração do banco, e a sessão do administrador e os dados permanecem no volume. Um \texttt{docker compose restart}, ou a reinicialização do servidor, \emph{não} tem esse efeito, porque o contêiner continua o mesmo e conserva as páginas regeneradas. Isso não é um defeito, e não há um passo automático: ele exigiria as credenciais do administrador na implantação ou uma rota de revalidação nova, que o contrato da API não prevê (Seção~\ref{sec:arq-tema-estatico}). As páginas públicas, quando existirem (M07), nascem sob demanda, com o tema do banco. \textbf{Com o M17} (layout raiz estático, \adr{ADR-030}), esse passo deixa de existir para o portal e para os espaços: a 404 global usa sempre os padrões da Tabela~\ref{tab:padroes-cor}, e cada espaço nasce, sob demanda, com a aparência do dono; só o portal \texttt{/} continua sendo regenerado depois de salvar a configuração do site. A migração do M15 deve ser precedida de uma cópia de segurança (a migração é irreversível), e o \texttt{migrate deploy} segue sendo um passo explícito.
 
 \section{Alternativa sem Contêiner}
 

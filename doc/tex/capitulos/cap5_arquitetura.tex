@@ -197,20 +197,31 @@ Convenções: identificadores em inglês; comentários e textos de interface em 
 
 \subsection{Modelo de Domínio}
 
-O domínio possui seis entidades (Figura~\ref{fig:classes-dominio}): quatro de autenticação, gerenciadas pelo better-auth (\texttt{User}, \texttt{Session}, \texttt{Account}, \texttt{Verification}), e duas de negócio do Vitrine (\texttt{Content} e \texttt{Configuration}), além do enumerado \texttt{ContentStatus}. \texttt{Content} possui um auto-relacionamento que forma a árvore de documentos e coleções, um estado de publicação (\texttt{DRAFT} ou \texttt{PUBLISHED}, padrão \texttt{PUBLISHED}; \adr{ADR-012}) e se relaciona com o autor (\texttt{User}). \texttt{Configuration} é um registro único e guarda também os seis links sociais do rodapé, todos opcionais (\adr{ADR-013}).
+O \textbf{estado atual} do esquema tem seis entidades: quatro de autenticação, gerenciadas pelo better-auth (\texttt{User}, \texttt{Session}, \texttt{Account}, \texttt{Verification}), e duas de negócio do Vitrine (\texttt{Content} e \texttt{Configuration}), além do enumerado \texttt{ContentStatus}. \texttt{Content} possui um auto-relacionamento que forma a árvore de documentos e coleções, um estado de publicação (\texttt{DRAFT} ou \texttt{PUBLISHED}, padrão \texttt{PUBLISHED}; \adr{ADR-012}) e se relaciona com o autor (\texttt{User}). \texttt{Configuration} é um registro único e guarda também os seis links sociais do rodapé, todos opcionais (\adr{ADR-013}).
+
+O \textbf{modelo-alvo} (Figura~\ref{fig:classes-dominio}; \adr{ADR-023} a \adr{ADR-028}; módulo M15) acrescenta o escopo multiusuário e tem oito entidades de negócio e de autenticação, mais dois enumerados:
+\begin{itemize}
+  \item \texttt{User} ganha o \texttt{role} (\texttt{admin} ou \texttt{user}), o \texttt{banned}, o \texttt{banReason} e o \texttt{banExpires} (do \en{plugin} \texttt{admin} do better-auth), o \texttt{handle} (único, nulo até o administrador defini-lo) e o \texttt{mustChangePassword}; \texttt{Session} ganha o \texttt{impersonatedBy}, que o Vitrine não usa;
+  \item \texttt{Content} tem \emph{um único dono por árvore}: o \texttt{authorId} de um nó é sempre o de seu pai, e o banco o impõe (Seção~\ref{sec:arq-indice-parcial});
+  \item \texttt{Configuration} continua sendo \emph{o site} (registro único, RN08) e ganha as três cores noturnas, o \texttt{homeBody} (texto do portal) e o \texttt{directoryEnabled}; \texttt{Appearance} (tabela \texttt{appearances}, chave \texttt{ownerId}) guarda a aparência de cada usuário, com as mesmas colunas de identidade, links e paletas e sem os campos do portal;
+  \item \texttt{Notification} (tabela \texttt{notifications}) guarda os avisos internos, com o enumerado \texttt{NotificationSeverity} (\texttt{INFO}, \texttt{WARNING}, \texttt{CRITICAL}); o tipo (\texttt{CONTRAST}, \texttt{MODERATION}, \texttt{ACCOUNT}) é texto validado na aplicação, como o \texttt{type} de \texttt{Content}.
+\end{itemize}
+Até o M15 estar integrado, vale o esquema atual; o Apêndice~\ref{ap:schema} e o dicionário do Apêndice~\ref{ap:dicionario} distinguem os dois.
 
 \vitrinefigura[tipo=diagrama, arquivo=classes-dominio, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/classes-dominio.puml},
-  descricao={Diagrama de classes do domínio espelhando prisma/schema.prisma: User, Session, Account, Verification, Content (auto-relacionamento pai e filhos, com status), Configuration (com os seis links sociais), o enumerado ContentStatus e o valor lógico ContentType.}]
+  descricao={Diagrama de classes do domínio, no modelo-alvo multiusuário: User (com papel, suspensão, handle e troca de senha obrigatória), Session, Account, Verification, Content (auto-relacionamento pai e filhos, com status e dono único por árvore), Configuration (o site, com paleta noturna e portal), Appearance (aparência do usuário), Notification, os enumerados ContentStatus e NotificationSeverity e o valor lógico ContentType.}]
   {Modelo de domínio do Vitrine}{fig:classes-dominio}
 
 \subsection{Modelo Físico}
 
 O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata nas relações, exceto o autor do conteúdo (\texttt{Content.author}), que usa \texttt{Restrict}: excluir um usuário que tenha conteúdo é bloqueado (RNF10). O enumerado \texttt{ContentStatus} é gravado como texto; o SQLite não impõe o conjunto de valores, de modo que a verificação cabe ao Prisma e à aplicação. Os seis links sociais são colunas de texto opcionais da tabela \arq{configurations}: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}.
 
+No modelo-alvo (\adr{ADR-028}), as convenções valem também para as tabelas novas (\texttt{appearances} e \texttt{notifications}), e as relações novas são: \texttt{Appearance.owner} e \texttt{Notification.user} com \texttt{Cascade} (apagar o usuário apaga a aparência e os avisos, mas só depois de seu conteúdo ter sido transferido ou excluído, pois \texttt{Content.author} segue \texttt{Restrict}); e a chave estrangeira \emph{composta} \texttt{(parentId, authorId)} $\rightarrow$ \texttt{(id, authorId)} em \texttt{contents}, com \texttt{@@unique([id, authorId])} como alvo. As colunas de cor são texto \texttt{\#RRGGBB}; as da aparência clara e noturna têm os padrões da Seção~\ref{sec:arq-tema-padrao}, que são também os do \en{seed}. O índice \texttt{(parentId, order)} é substituído por \texttt{(authorId, parentId, order)}, e a tabela \texttt{notifications} tem o índice \texttt{(userId, readAt, updatedAt)} e a unicidade de \texttt{(userId, dedupeKey)}. O banco roda em modo WAL com \texttt{synchronous=NORMAL} (Seção~\ref{sec:arq-wal}).
+
 \vitrinefigura[tipo=diagrama, arquivo=er-vitrine, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/er-vitrine.dbml},
-  descricao={Diagrama entidade-relacionamento gerado no dbdiagram.io a partir de er-vitrine.dbml: tabelas user, session, account, verification, contents (auto-relacionamento e coluna status do enumerado ContentStatus) e configurations (com as seis colunas de links sociais).}]
+  descricao={Diagrama entidade-relacionamento gerado no dbdiagram.io a partir de er-vitrine.dbml (modelo-alvo multiusuário): tabelas user (com role, suspensão, handle e mustChangePassword), session, account, verification, contents (auto-relacionamento, status e chave composta de dono), configurations (o site: seis links, paleta clara e noturna e portal), appearances e notifications.}]
   {Diagrama entidade-relacionamento do Vitrine}{fig:er-vitrine}
 
 A Figura~\ref{fig:ic-er} reproduz o modelo do relatório de IC, com três tabelas. A evolução consiste em substituir a tabela genérica \texttt{users} pelas tabelas do better-auth e em explicitar as relações de cascata.
@@ -221,7 +232,7 @@ A Figura~\ref{fig:ic-er} reproduz o modelo do relatório de IC, com três tabela
 
 \subsection{Hierarquia de Conteúdo}\label{sec:arq-hierarquia}
 
-A árvore de conteúdos é representada pelo campo \texttt{parentId} (nulo para nós raiz). A URL pública é a cadeia de \en{slugs} da raiz ao nó (RN04). Para a navegação, a árvore é carregada por \textbf{uma única consulta}, sem o corpo dos documentos, e montada em memória em tempo linear; a resolução de um caminho percorre os níveis comparando \en{slugs}. O Código~\ref{lst:algoritmo-arvore} é um \emph{esboço} do algoritmo a ser implementado em \arq{src/lib/content-tree.js}. O parâmetro \texttt{onlyPublished} implementa a RN15: um nó \texttt{DRAFT} é removido junto com toda a sua subárvore, de modo que um descendente publicado de um ancestral em rascunho também não aparece. A área pública usa a árvore podada; o painel usa a árvore completa.
+A árvore de conteúdos é representada pelo campo \texttt{parentId} (nulo para nós raiz). A URL pública é o \en{handle} do dono seguido da cadeia de \en{slugs} da raiz ao nó (RN04). Com vários usuários, cada árvore pertence a um só dono, a navegação carrega a árvore \emph{de um dono} (a consulta filtra por \texttt{authorId} e usa o índice \texttt{(authorId, parentId, order)}), e a resolução de um caminho começa pelo \en{handle}: o dono é localizado por ele, e o restante do caminho percorre a árvore dele, de modo que dois usuários podem ter raízes com o mesmo \en{slug}. O esboço abaixo, de \arq{buildTree} e \arq{resolvePath}, não muda: recebe as linhas de um dono. Para a navegação, a árvore é carregada por \textbf{uma única consulta}, sem o corpo dos documentos, e montada em memória em tempo linear; a resolução de um caminho percorre os níveis comparando \en{slugs}. O Código~\ref{lst:algoritmo-arvore} é um \emph{esboço} do algoritmo a ser implementado em \arq{src/lib/content-tree.js}. O parâmetro \texttt{onlyPublished} implementa a RN15: um nó \texttt{DRAFT} é removido junto com toda a sua subárvore, de modo que um descendente publicado de um ancestral em rascunho também não aparece. A área pública usa a árvore podada; o painel usa a árvore completa.
 
 \begin{lstlisting}[language=VJS, caption={Esboço: montagem da árvore e resolução de caminho}, label={lst:algoritmo-arvore}]
 // rows: [{ id, title, slug, type, status, order, parentId, createdAt }] (sem o corpo)
@@ -284,8 +295,12 @@ A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação r
 6 & Datas e booleanos sem valor padrão em \arq{User.emailVerified} & --- & Manter: o valor é fornecido pelo better-auth\\[1pt]
 7 & Tabela \texttt{verification} sem relação com \texttt{user} & --- & Manter: desenho do better-auth\\[1pt]
 8 & \texttt{status} tem padrão \texttt{PUBLISHED}: um conteúdo recém-criado torna-se público de imediato (decisão D-15) & RN15, RN16, risco R11 & Manter o padrão; a API deve aceitar a criação já como \texttt{DRAFT}, a interface deve exibir o estado com destaque e a camada de dados deve filtrar por \texttt{PUBLISHED} nas leituras públicas\\[1pt]
+9 & \texttt{Configuration} serve ao site, mas cada usuário precisa de uma aparência & RN08, RF31 & \emph{A fazer (M15)}: tabela \texttt{appearances} (\adr{ADR-028}); não usar \texttt{ownerId} opcional em \texttt{Configuration}, que não garante o registro único do site (no SQLite, \texttt{NULL} difere de \texttt{NULL})\\[1pt]
+10 & Nada impede um filho com \texttt{authorId} diferente do pai & RN13, RN19 & \emph{A fazer (M15)}: chave estrangeira composta \texttt{(parentId, authorId)} $\rightarrow$ \texttt{(id, authorId)}\\[1pt]
+11 & O índice parcial da raiz vale para o banco todo, e não por dono & RN03 & \emph{A fazer (M15)}: índice parcial sobre \texttt{(authorId, slug)} onde \texttt{parentId} é nulo (Seção~\ref{sec:arq-indice-parcial})\\[1pt]
+12 & O \arq{db.js} não define o modo do banco, que roda em \texttt{DELETE} com \texttt{synchronous=FULL}, ao contrário da \adr{ADR-002} & RNF02 & \emph{A fazer (M15)}: WAL e \texttt{synchronous=NORMAL} (Seção~\ref{sec:arq-wal})\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores.}
+\fonte{Elaborado pelos autores. As observações 9 a 12 vêm da \adr{ADR-028}.}
 
 \subsection{Índice Parcial da Raiz}\label{sec:arq-indice-parcial}
 
@@ -300,11 +315,30 @@ CREATE UNIQUE INDEX "contents_root_slug_key"
   ON "contents"("slug") WHERE "parentId" IS NULL;
 \end{lstlisting}
 
-Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma deve preservar esse índice; o agente Dados deve conferir isso ao alterar o esquema. Em banco descartável, o agente Dados verificou que um \en{slug} repetido na raiz e entre irmãos é recusado e que o mesmo \en{slug} em pais diferentes é aceito; os testes de integração correspondentes (casos CT08 e CT28) ainda devem ser automatizados.
+\textbf{Por dono (M15; \adr{ADR-028}).} Com vários usuários, a raiz de cada um é independente, e o índice parcial passa a ser por dono (Código~\ref{lst:indice-parcial-dono}); o índice composto entre irmãos não muda. O dono único por árvore é imposto pela chave estrangeira composta, cujo alvo exige uma unicidade redundante \texttt{(id, authorId)}. Com ela, transferir uma árvore a outro usuário é um único \texttt{UPDATE} do \texttt{authorId} da raiz: a cascata da chave composta leva os descendentes, e o índice parcial faz a operação falhar \emph{inteira} se o \en{slug} da raiz já existir no destino (RN24).
+
+\begin{lstlisting}[caption={Índices do modelo-alvo (trecho previsto da migração multiusuário)}, label={lst:indice-parcial-dono}]
+-- manual: o Prisma não modela índice parcial e a migração de redefinir
+-- "contents" o descartaria sem avisar; recriar SEMPRE, e testar
+CREATE UNIQUE INDEX "contents_root_owner_slug_key"
+  ON "contents"("authorId", "slug") WHERE "parentId" IS NULL;
+
+-- alvo da chave composta (parentId, authorId) -> (id, authorId)
+CREATE UNIQUE INDEX "contents_id_authorId_key"
+  ON "contents"("id", "authorId");
+\end{lstlisting}
+
+Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma deve preservar esse índice; o agente Dados deve conferir isso ao alterar o esquema (e a migração multiusuário, que redefine \texttt{contents}, deve recriá-lo, com teste que falhe se ele sumir). Em banco descartável, o agente Dados verificou que um \en{slug} repetido na raiz e entre irmãos é recusado e que o mesmo \en{slug} em pais diferentes é aceito; os testes de integração correspondentes (casos CT08 e CT28) ainda devem ser automatizados.
 
 \subsection{Migrações e Dados Iniciais}
 
 As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados foram integradas pelo merge M-003; o administrador inicial não passa pelo \en{seed}: é criado pelo comando \texttt{npm run admin:create} do Core, integrado no merge M-004 (\decisao{D-03}, \adr{ADR-018}). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+
+\textbf{Migração multiusuário (M15).} Uma única migração (a normalização do dono precisa vir antes da cópia dos dados) cria as colunas, as tabelas e os índices da \adr{ADR-028}, recria o índice parcial e a chave composta e, no mesmo arquivo, faz o \texttt{UPDATE} condicional das cores: a linha do site recebe a nova paleta clara (\adr{ADR-031}) \emph{somente} nas colunas que ainda valem o padrão antigo, e nunca nas que o administrador personalizou. Deve aplicar-se em banco vazio e sobre cópias de bancos legados populados, e o \en{harness} dos oito bancos do RFC P-008 vira teste (CT34).
+
+\subsection{Modo do Banco e Escrita}\label{sec:arq-wal}
+
+O \arq{db.js} abre o banco em modo WAL com \texttt{synchronous=NORMAL} (\adr{ADR-002}, \adr{ADR-028}). A medida, em uma VM de teste com disco virtual, de 300 escritas isoladas deu 0,77~ms em \texttt{DELETE} com \texttt{FULL}, 0,31~ms em WAL com \texttt{FULL} e 0,02~ms em WAL com \texttt{NORMAL}; o valor depende do \texttt{fsync} do disco da VPS-alvo, e a medição lá, se o disco for lento, decide entre \texttt{NORMAL} e \texttt{FULL}. O WAL traz dois arquivos auxiliares (\texttt{-wal} e \texttt{-shm}) ao lado do banco e exige \emph{volume local} (nunca de rede); a cópia de segurança usa \texttt{VACUUM INTO}, que é consistente em WAL (Apêndice~\ref{ap:implantacao}). Em queda de energia, o modo \texttt{NORMAL} pode perder as últimas escritas confirmadas, mas não corrompe o banco; a perda é aceita, com as cópias periódicas e o rascunho local do navegador como rede (RF15).
 
 \section{Autenticação e Autorização}\label{sec:arq-auth}
 
@@ -364,6 +398,8 @@ export const auth = betterAuth({
 export const { GET, POST } = toNextJsHandler(auth);
 \end{lstlisting}
 
+\textbf{Configuração-alvo (M16; \adr{ADR-029}).} A Tabela~\ref{tab:auth-config} e o Código~\ref{lst:auth-esboco} descrevem o que está integrado. O módulo M16 acrescenta o \en{plugin} \texttt{admin()}, com \texttt{defaultRole} \texttt{user}, \texttt{adminRoles} \texttt{admin}, papéis personalizados (o \texttt{admin} sem a permissão \texttt{impersonate}; o \texttt{user} sem nenhuma) e \texttt{bannedUserMessage} como função, e declara o \texttt{handle} e o \texttt{mustChangePassword} em \texttt{additionalFields} com \texttt{input: false}, para que nenhuma rota do \en{plugin} os altere. O cadastro público segue desabilitado, e o \en{plugin} \texttt{username} \emph{não} é usado, porque deixaria o usuário alterar o próprio \en{handle}. O \en{cache} de \en{cookie} de sessão fica desligado (um usuário suspenso continuaria autenticado até o \en{cookie} vencer), ao custo de uma consulta por requisição, aceita no perfil de uso. As variáveis novas, \texttt{MAX\_CONTENTS\_PER\_USER}, \texttt{MAX\_BODY\_BYTES} e \texttt{ADMIN\_HANDLE} (opcional, lida só pelo \texttt{admin:create}), constam do \arq{.env.example} e do Apêndice~\ref{ap:implantacao}.
+
 A limitação de tentativas identifica o cliente pelo cabeçalho \texttt{x-forwarded-for}, que o better-auth 1.7.6 só aceita quando contém um \emph{único} endereço (um valor com vários endereços pode ter sido forjado pelo cliente). Quando o endereço não pode ser determinado, todos os clientes passam a compartilhar um único contador por rota --- por exemplo, apenas cinco tentativas de login por minuto no total ---, o que mantém a proteção, mas deixa um atacante bloquear momentaneamente o login do administrador. Por isso o \en{proxy} reverso deve \emph{definir} esse cabeçalho com o endereço real do cliente, substituindo o valor recebido, e não acrescentar-lhe um segundo endereço (Apêndice~\ref{ap:implantacao}).
 
 \subsection{Fluxo e Proteção em Camadas}
@@ -381,7 +417,7 @@ O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:se
 \addlinespace
 2. Layout/página do painel & Server Component valida a sessão no servidor e redireciona se inválida; a página repete a validação, pois layouts não são renderizados de novo a cada navegação & Barreira real para páginas\\
 \addlinespace
-3. Route Handlers & Cada handler valida a sessão no banco antes de qualquer ação (RF21) e, nas mutações, antes disso, a origem da requisição; só então lê o corpo & Barreira real para a API\\
+3. Route Handlers & Cada handler valida a sessão no banco antes de qualquer ação (RF21) e, nas mutações, antes disso, a origem da requisição; só então lê o corpo; com o M16, aplicam também a autorização por dono, na ordem da Seção~\ref{sec:arq-autorizacao} & Barreira real para a API\\
 \addlinespace
 4. Validação de entrada & Esquemas de entrada rejeitam dados inválidos antes da camada de dados & Integridade e segurança\\
 \bottomrule
@@ -396,9 +432,44 @@ O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:se
   descricao={Sequência de autenticação: acesso a /admin sem cookie, redirecionamento a /login, POST de credenciais ao better-auth, criação de sessão, Set-Cookie e acesso autorizado.}]
   {Sequência de autenticação do administrador}{fig:seq-autenticacao}
 
+\subsection{Autorização por Dono}\label{sec:arq-autorizacao}
+
+Esta seção é a especificação do módulo M16 (\adr{ADR-023}, \adr{ADR-027}, \adr{ADR-029}); enquanto ele não estiver integrado, vale a regra de hoje: toda rota exige só a sessão (RF21), e nenhuma conta além do administrador pode ser criada.
+
+\textbf{Matriz.} A autorização é um módulo puro, \arq{src/lib/authz.js}, que expõe \texttt{authorize(sessão, ação, recurso)} sobre uma \emph{tabela} papel $\times$ recurso $\times$ ação (Tabela~\ref{tab:matriz-authz}). Papel ou ação desconhecidos, ou sessão ausente onde se exige uma, \emph{falham fechados}. O \en{helper} de rota recebe a ação e a função que carrega o recurso, e aplica sempre a mesma \textbf{ordem}: (1) origem da requisição (nas mutações); (2) sessão, com a suspensão vencida a \texttt{banExpires}; (3) senha provisória (RN21); (4) limite de taxa (por usuário); (5) carregar o recurso (404 se não existe); (6) autorização (403); (7) corpo (400 e 422); (8) cotas (422). O \texttt{authorId} gravado vem \emph{sempre} da sessão, mesmo quando é o administrador quem escreve (RN13).
+
+\begin{table}[htb]
+\caption{Matriz de autorização (resumo; a tabela completa está em \arq{authz.js})}\label{tab:matriz-authz}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.6cm}L{2.7cm}L{2.7cm}Y@{}}
+\toprule
+\textbf{Recurso e ação} & \textbf{Anônimo} & \textbf{Usuário} & \textbf{Administrador}\\
+\midrule
+Conteúdo: ler no painel, criar, alterar, mover, excluir & 401 & só os seus; de outro, 403 & os seus; de outro, só com motivo (RN19, RN26)\\
+\addlinespace
+Aparência: ler e alterar & 401 & só a sua & só a sua; a de outro, 403 (a confirmar)\\
+\addlinespace
+Configuração do site e portal & 401 & 403 & permitido\\
+\addlinespace
+Usuários: listar, criar, editar, redefinir, suspender, excluir & 401 & 403 (só o próprio perfil e a própria senha) & permitido, com as proteções de RN22\\
+\addlinespace
+Notificações: listar, marcar, dispensar & 401 & só as suas & só as suas\\
+\addlinespace
+Leitura pública (\arq{/\{handle\}/\ldots}) & permitido, só o publicado e de espaço ativo & idem & idem\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da \adr{ADR-029}. ``Com senha provisória'', todas as ações do usuário e do administrador respondem 403 \arq{PASSWORD\_CHANGE\_REQUIRED}, exceto a troca da própria senha e a leitura do próprio perfil (RN21).}
+\end{table}
+
+\textbf{Superfície do better-auth.} O \en{catch-all} \arq{/api/auth/[...all]} do pacote expõe 45 rotas brutas, 15 delas do \en{plugin} \texttt{admin}, que gravam texto sem validar. Por isso o Route Handler responde só a \texttt{GET get-session}, \texttt{POST sign-in/email} e \texttt{POST sign-out}; o resto responde 404 no envelope da \adr{ADR-018}, sem chegar ao roteador do pacote. As operações sobre usuários passam por rotas próprias (Tabela~\ref{tab:api}), que autorizam primeiro, chamam o \en{plugin} depois, \emph{sempre com os \texttt{headers} do pedido} (chamado sem eles, \texttt{auth.api.*} não verifica nada; só o \en{bootstrap} \texttt{admin:create} o faz) e traduzem os erros do pacote.
+
+\textbf{Operações que o pacote não protege e o Vitrine protege.} O último administrador ativo (RN22) e a exclusão de usuário com conteúdo (RN24) passam por funções transacionais: o \texttt{remove-user} do pacote apaga as sessões e a credencial \emph{antes} de falhar quando o usuário tem conteúdo; a redefinição de senha (\texttt{set-user-password}) não revoga as sessões, e a rota própria o faz (RN12, RN21); a suspensão revoga as sessões e a conta volta sozinha quando o prazo vence (RN23).
+
+\textbf{Limite de taxa e cotas.} As escritas têm limite por usuário, em memória (zera a cada reinício e vale por instância; aceito); o corpo muito acima de \texttt{MAX\_BODY\_BYTES} é recusado antes de ser lido (413) e as cotas respondem 422 \arq{QUOTA\_EXCEEDED} (RN25). Um recurso de outro dono responde 403, que confirma a existência do identificador (\texttt{cuid}, de baixo risco; trocar por 404 é uma linha em \texttt{authorize}).
+
 \subsection{Política de Cadastro e Papéis}
 
-Na versão inicial há um único perfil, o administrador. O primeiro usuário é criado pelo comando \texttt{npm run admin:create} (\decisao{D-03}, \adr{ADR-018}), executado por quem instala o sistema: ele lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e, opcionalmente, \arq{ADMIN_NAME}, valida o formato e chama \texttt{ensureInitialAdmin} (\arq{src/lib/auth.js}), que usa o adaptador interno do better-auth --- com o mesmo \en{hash} de senha do login --- porque a rota de cadastro está desabilitada. O comando é \textbf{idempotente}: com o mesmo e-mail, nada muda (nem a senha) e a saída é 0; recusa um segundo usuário com outro e-mail, pois há um único administrador (\decisao{D-13}; saída 1); completa a credencial de um usuário que ficou sem ela por uma execução interrompida; e nunca imprime a senha. Não há página aberta de primeiro acesso, para evitar o sequestro da instalação. As credenciais não passam pelo \arq{prisma/seed.js}, que cria apenas a configuração padrão (RF23); o comando roda com o \texttt{tsx}, como o \en{seed}. Na imagem Docker: \texttt{docker compose run -{}-rm vitrine npm run admin:create} (Apêndice~\ref{ap:implantacao}). O \en{plugin} \texttt{admin} do better-auth, presente no pacote instalado, é o caminho previsto para papéis e permissões futuros (\decisao{D-13}).
+O estado atual tem um único perfil, o administrador; o modelo-alvo (M16) tem os papéis \texttt{admin} e \texttt{user}, e as contas são criadas só pelo administrador, por \arq{POST /api/users}, com senha provisória (RN21). O primeiro usuário é criado pelo comando \texttt{npm run admin:create} (\decisao{D-03}, \adr{ADR-018}), executado por quem instala o sistema: ele lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e, opcionalmente, \arq{ADMIN_NAME}, valida o formato e chama \texttt{ensureInitialAdmin} (\arq{src/lib/auth.js}), que usa o adaptador interno do better-auth --- com o mesmo \en{hash} de senha do login --- porque a rota de cadastro está desabilitada. O comando é \textbf{idempotente}: com o mesmo e-mail, nada muda (nem a senha) e a saída é 0; recusa um segundo usuário com outro e-mail, pois há um único administrador (\decisao{D-13}; saída 1); completa a credencial de um usuário que ficou sem ela por uma execução interrompida; e nunca imprime a senha. Não há página aberta de primeiro acesso, para evitar o sequestro da instalação. As credenciais não passam pelo \arq{prisma/seed.js}, que cria apenas a configuração padrão (RF23); o comando roda com o \texttt{tsx}, como o \en{seed}. Na imagem Docker: \texttt{docker compose run -{}-rm vitrine npm run admin:create} (Apêndice~\ref{ap:implantacao}). O \en{plugin} \texttt{admin} do better-auth é o caminho adotado para os papéis (\decisao{D-13}, \adr{ADR-029}). Com vários administradores possíveis, o \texttt{admin:create} deixa de recusar um segundo usuário: passa a criar um administrador com o \texttt{ADMIN\_HANDLE} (opcional), continua idempotente pelo e-mail e serve também para recuperar o acesso quando não resta administrador ativo (RN22); um segundo comando, \texttt{admin:reset-password}, redefine a senha de qualquer conta e exige nova troca. A \textbf{senha provisória} (RN21) é gerada com 16 caracteres aleatórios, exibida uma única vez pela rota que a criou e nunca registrada em \en{log}; o marcador \texttt{mustChangePassword} é limpo só pela rota de troca.
 
 \section{Renderização, Cache e ISR}\label{sec:arq-isr}
 
@@ -413,7 +484,11 @@ A Tabela~\ref{tab:rotas-render} define o modo de renderização de cada conjunto
 \toprule
 \textbf{Rota} & \textbf{Modo} & \textbf{Regras}\\
 \midrule
-\arq{/} e \arq{/[...slug]} & Estático com ISR & \arq{generateStaticParams} lista os caminhos \emph{publicados} (RN15); \texttt{revalidate} alto (por exemplo, 3600 s) como rede de segurança; novos caminhos são gerados sob demanda; revalidação sob demanda pelas mutações\\
+\arq{/} (portal) & Estático com ISR & Lê o texto do portal e o diretório (RN28); invalidado só pela configuração do site e por mudanças de espaço que afetam o diretório (\texttt{revalidatePath('/', 'page')})\\
+\addlinespace
+\arq{/[handle]} e \arq{/[handle]/[...slug]} (M17) & Estático com ISR & \arq{generateStaticParams} lista só os caminhos \emph{publicados} de espaços \emph{ativos} (RN15, RN23), sem consultar o banco no \en{build} (\adr{ADR-021}); \texttt{revalidate} alto (3600 s) como rede de segurança; novos caminhos são gerados sob demanda; revalidação sob demanda por caminhos literais (\adr{ADR-030})\\
+\addlinespace
+\arq{/[...slug]} (hoje, até o M17) & Estático com ISR & Rota atual, sem espaço; substituída pelas duas anteriores\\
 \addlinespace
 \arq{/login} & Estático ou dinâmico & Formulário; sem dados sensíveis\\
 \addlinespace
@@ -427,7 +502,9 @@ A Tabela~\ref{tab:rotas-render} define o modo de renderização de cada conjunto
 
 \subsection{Regras de Revalidação}
 
-A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16. A invalidação é feita em Route Handlers com \arq{revalidatePath}, função que só pode ser chamada no servidor, não em Componentes Cliente nem no Proxy. Em Route Handlers, a função marca o caminho para revalidação, que ocorre na próxima visita \cite{nextjsdocs}. A escolha por \emph{layout} raiz quando a estrutura muda é necessária porque a \en{sidebar} e a barra superior, presentes em todas as páginas, dependem da árvore inteira.
+A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16 \emph{por espaço} (\adr{ADR-030}; módulo M17). A invalidação é feita em Route Handlers com \arq{revalidatePath}, função que só pode ser chamada no servidor, não em Componentes Cliente nem no Proxy. Em Route Handlers, a função marca o caminho para revalidação, que ocorre na próxima visita \cite{nextjsdocs}.
+
+\textbf{Por que caminhos literais.} Medido no Next.js 16.3.7 (\texttt{next build} e \texttt{next start}, dois espaços, cabeçalho \texttt{x-nextjs-cache}): \texttt{revalidatePath('/a', 'layout')} \emph{não invalida nada} em um segmento dinâmico; \texttt{revalidatePath('/[handle]', 'layout')} invalida \emph{todos} os espaços; \texttt{revalidatePath('/', 'layout')} invalida tudo; só o caminho literal de página (\texttt{revalidatePath('/a/x')}) funciona, e é barato (2000 chamadas em 58~ms). Por isso o servidor calcula os caminhos públicos do nó e dos descendentes \emph{antes e depois} da escrita, a partir da árvore do dono (uma função de dados do M15), porque renomear ou mover deixa em \en{cache} o HTML antigo. Com até 500 conteúdos por dono (RN25), são cerca de 500 chamadas por evento, abaixo de 10~ms. \textbf{Nunca} se usa \texttt{revalidatePath('/', 'layout')} por mudança de um espaço ou do site. O comportamento depende da versão do \en{framework} e deve ser conferido a cada atualização (CT44).
 
 \begin{table}[htb]
 \caption{Eventos de mutação e a revalidação correspondente}\label{tab:revalidacao}
@@ -436,21 +513,25 @@ A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16. A invalidação
 \toprule
 \textbf{Evento} & \textbf{Ação de revalidação}\\
 \midrule
-Criar ou excluir conteúdo; alterar título, \en{slug}, pai, ordem ou tipo; mover/reordenar &\texttt{revalidatePath("/", "layout")}: invalida todas as páginas, pois a árvore de navegação mudou\\
+Criar ou excluir conteúdo; alterar título, \en{slug}, pai, ordem ou tipo; mover/reordenar & Página inicial do espaço e caminhos públicos \emph{antigos e novos} do nó e dos descendentes (a árvore de navegação mudou)\\
 \addlinespace
-Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó & \texttt{revalidatePath("/", "layout")}: a visibilidade do nó e de seus descendentes altera a árvore de navegação e o conjunto de páginas (RN16)\\
+Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó, inclusive por moderação & O mesmo: a visibilidade do nó e de seus descendentes altera a navegação e o conjunto de páginas (RN16)\\
 \addlinespace
 Alterar somente o corpo de um documento (estado inalterado) & \texttt{revalidatePath(caminho do documento)}\\
 \addlinespace
-Alterar a configuração (nome, logotipo, cores, links sociais) & \texttt{revalidatePath("/", "layout")}: o rodapé aparece em todas as páginas\\
+Alterar a aparência do dono, o \en{handle} (com o antigo e o novo) ou a suspensão & Todo o espaço: página inicial e todos os caminhos públicos do dono\\
+\addlinespace
+Alterar a configuração do site ou o portal (nome, logotipo, cores, links, texto, diretório) & Somente \texttt{revalidatePath('/', 'page')}\\
 \bottomrule
 \end{tabularx}
-\fonte{Elaborado pelos autores, com base em RN10 e RN16.}
+\fonte{Elaborado pelos autores, com base em RN10, RN16 e na \adr{ADR-030}.}
 \end{table}
+
+\textbf{Páginas inexistentes.} Uma página inexistente fica em \en{cache} (404 com \texttt{HIT}) e ocupa cerca de 12 a 16~kB e 7 arquivos por URL, sem expurgo (200 URLs aleatórias acrescentaram 1400 arquivos). Para o primeiro segmento que não é \en{handle} nem rota reservada, o Proxy faz \texttt{rewrite} para uma página dinâmica que responde \texttt{notFound()}: nenhum arquivo novo, e um \en{handle} criado em seguida funciona sem revalidar (CT45). O documento inexistente \emph{dentro de um espaço válido} não é coberto, e o risco, medido, é aceito com a mitigação operacional do Apêndice~\ref{ap:implantacao} (limite de taxa no \en{proxy} reverso e monitoramento do disco); o Core mede, na implementação, o custo de o Proxy consultar também o documento, e reporta.
 
 \subsection{Visibilidade por Estado de Publicação}\label{sec:arq-visibilidade}
 
-A regra RN15 --- um conteúdo só é público se ele e todos os seus ancestrais estiverem \texttt{PUBLISHED} --- é aplicada em um único lugar, a camada de dados, e nunca nos componentes. Os pontos de aplicação são: (i) a árvore usada pela \en{sidebar}, pela barra superior e por \arq{generateStaticParams}, podada conforme o Código~\ref{lst:algoritmo-arvore}; (ii) a resolução do caminho nos Server Components, que responde 404 (\arq{notFound()}) para um nó ausente da árvore podada, de modo que um rascunho não é acessível nem por URL direta; e (iii) o mapa do site e os metadados (RF25). As rotas \arq{/api/contents} e o painel recebem a árvore completa, com o campo \texttt{status} de cada nó (RF26). Como o estado entra na regeneração do \en{layout} raiz (Tabela~\ref{tab:revalidacao}), a mudança de estado reflete-se em todas as páginas na visita seguinte. Como o padrão do estado é \texttt{PUBLISHED} (\decisao{D-15}), a proteção contra a publicação acidental depende de a interface exibir o estado de forma explícita e de a API aceitar a criação já como rascunho (risco R11).
+A regra RN15 --- um conteúdo só é público se ele e todos os seus ancestrais estiverem \texttt{PUBLISHED} \emph{e o espaço do dono estiver ativo} (não suspenso, com \en{handle}; RN23) --- é aplicada em um único lugar, a camada de dados, e nunca nos componentes. Os pontos de aplicação são: (i) a árvore usada pela \en{sidebar}, pela barra superior e por \arq{generateStaticParams}, podada conforme o Código~\ref{lst:algoritmo-arvore}; (ii) a resolução do caminho nos Server Components, que responde 404 (\arq{notFound()}) para um nó ausente da árvore podada, de modo que um rascunho não é acessível nem por URL direta; e (iii) o mapa do site e os metadados (RF25). As rotas \arq{/api/contents} e o painel recebem a árvore completa \emph{do dono}, com o campo \texttt{status} de cada nó (RF26); o administrador vê a de outro usuário só no painel, para a moderação (RN19). Como o estado entra na invalidação do espaço (Tabela~\ref{tab:revalidacao}), a mudança de estado reflete-se nas páginas do dono na visita seguinte. Como o padrão do estado é \texttt{PUBLISHED} (\decisao{D-15}), a proteção contra a publicação acidental depende de a interface exibir o estado de forma explícita e de a API aceitar a criação já como rascunho (risco R11).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-leitura-isr, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-leitura-isr.puml},
@@ -492,7 +573,7 @@ A renderização de um documento usa o componente \arq{MarkdownRenderer} (\arq{s
 
 \section{Tematização Dinâmica}\label{sec:arq-tema}
 
-A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS alimentadas pelo banco. O mecanismo, ilustrado na Figura~\ref{fig:seq-personalizacao-tema}, tem três partes:
+A personalização visual (RF04, RF18, RF19, RF31, RF32) baseia-se em variáveis CSS alimentadas pelo banco. Esta seção descreve primeiro o mecanismo \emph{atual} (administrador único, tema único e claro), que está integrado, e depois, nas subseções seguintes, o \emph{alvo} da \adr{ADR-025}, da \adr{ADR-030} e da \adr{ADR-031} (aparência por proprietário, duas paletas e modo noturno; módulos M15 e M18). O mecanismo atual, ilustrado na Figura~\ref{fig:seq-personalizacao-tema}, tem três partes:
 
 \begin{enumerate}
   \item \textbf{Tokens.} Em \arq{globals.css}, o bloco \texttt{@theme inline} do Tailwind mapeia os tokens de cor (por exemplo, \arq{--color-primary}) para variáveis (por exemplo, \arq{var(--vitrine-primary)}); os utilitários compilados referenciam a variável, não o valor;
@@ -546,11 +627,87 @@ A personalização visual (RF04, RF18, RF19) baseia-se em variáveis CSS aliment
 @custom-variant dark (&:where(.dark, .dark *));
 \end{lstlisting}
 
-O mapeamento semântico é: \textbf{primária} para ações e ênfase (botão principal e item ativo da navegação, com o fundo \texttt{bg-primary} e o texto \texttt{text-on-primary}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos, com texto branco, \texttt{text-on-secondary}) e para o \en{hover} dos botões; e \textbf{destaque} para marcadores e realce não textual (marcador do item ativo e \en{hover} da navegação). O \textbf{indicador de foco} não usa a cor de destaque: é neutro e global --- contorno de 2~px em \texttt{\#171717} com halo branco (\arq{--vitrine-focus} e \arq{--vitrine-focus-halo}) ---, de modo que fica visível sobre qualquer fundo, inclusive sobre uma paleta que o administrador troque (RNF05; \adr{ADR-020}). Os demais tons da interface --- fundo, texto, superfícies, bordas e mensagens de erro --- são neutros fixos, não configuráveis. Até a implementação da \adr{ADR-025}, que substitui o \decisao{D-17}, vale somente o modo claro, com a paleta escolhida pelo administrador, e a variante \texttt{dark:} do Tailwind só vale sob a classe \texttt{.dark}, nunca pela preferência do sistema; o merge M-009 já define, sob \texttt{.dark}, as cores noturnas do realce de código, mas os neutros noturnos, a alternância e as paletas noturnas por proprietário serão especificados na reconciliação deste capítulo com a \adr{ADR-025}. Por isso, hoje, o fundo da página é fixo e branco, o texto sobre a cor secundária é branco, o texto sobre a cor primária é escolhido por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e só as três cores do tema são verificadas. Os componentes usam apenas os utilitários gerados pelos tokens (por exemplo, \texttt{bg-primary}, \texttt{text-on-primary}, \texttt{bg-surface} e \texttt{text-muted}), nunca as cores fixas do Tailwind (RF19).
+O mapeamento semântico é: \textbf{primária} para ações e ênfase (botão principal e item ativo da navegação, com o fundo \texttt{bg-primary} e o texto \texttt{text-on-primary}); \textbf{secundária} para a estrutura (fundo da barra superior e cabeçalhos, com texto branco, \texttt{text-on-secondary}) e para o \en{hover} dos botões; e \textbf{destaque} para marcadores e realce não textual (marcador do item ativo e \en{hover} da navegação). O \textbf{indicador de foco} não usa a cor de destaque: é neutro e global --- contorno de 2~px em \texttt{\#171717} com halo branco (\arq{--vitrine-focus} e \arq{--vitrine-focus-halo}) ---, de modo que fica visível sobre qualquer fundo, inclusive sobre uma paleta que o administrador troque (RNF05; \adr{ADR-020}). Os demais tons da interface --- fundo, texto, superfícies, bordas e mensagens de erro --- são neutros fixos, não configuráveis. A \adr{ADR-025} substitui o \decisao{D-17} (sem modo escuro): o modo noturno é especificado na Seção~\ref{sec:arq-tema-padrao}. Até o M18 estar integrado, vale somente o modo claro, com a paleta escolhida pelo administrador, e a variante \texttt{dark:} do Tailwind só vale sob a classe \texttt{.dark}, nunca pela preferência do sistema; o merge M-009 já define, sob \texttt{.dark}, as cores noturnas do realce de código. Por isso, hoje, o fundo da página é fixo e branco, o texto sobre a cor secundária é branco, o texto sobre a cor primária é escolhido por \texttt{readableTextOn} (Seção~\ref{sec:arq-contraste}) e só as três cores do tema são verificadas. Os componentes usam apenas os utilitários gerados pelos tokens (por exemplo, \texttt{bg-primary}, \texttt{text-on-primary}, \texttt{bg-surface} e \texttt{text-muted}), nunca as cores fixas do Tailwind (RF19).
+
+\subsection{Paletas Padrão, Neutros por Modo e Alternância}\label{sec:arq-tema-padrao}
+
+Esta seção é a especificação do módulo M18 (\adr{ADR-025}, \adr{ADR-031}); até ele ser integrado, valem o \arq{globals.css} e a paleta atual descritos acima. Cada proprietário tem duas paletas de três cores (primária, secundária e destaque) sobre \emph{neutros fixos} de cada modo; só as paletas são configuráveis, o que mantém o contraste verificável com poucos pares por modo (RN27).
+
+\textbf{Paletas padrão.} Os valores da Tabela~\ref{tab:padroes-cor} são os padrões do esquema, da leitura de uma aparência ainda não gravada e do \en{seed}; nenhum gera aviso de contraste. Em uma instalação existente, a migração do M15 troca, na linha do site, só as cores que ainda valem o padrão antigo (\adr{ADR-031}).
+
+\begin{table}[htb]
+\caption{Paletas padrão e as razões de contraste com o fundo de cada modo}\label{tab:padroes-cor}
+\small
+\begin{tabularx}{\linewidth}{@{}L{2.2cm}L{2.0cm}L{2.0cm}L{2.0cm}Y@{}}
+\toprule
+\textbf{Cor} & \textbf{Modo claro} & \textbf{Razão com \texttt{\#FFFFFF}} & \textbf{Modo noturno} & \textbf{Razão com \texttt{\#0A0A0A}}\\
+\midrule
+Primária & \texttt{\#2563EB} & 5,17:1 (mín. 4,5) & \texttt{\#60A5FA} & 7,79:1 (mín. 4,5)\\
+Secundária & \texttt{\#1E293B} & 14,63:1 (mín. 4,5) & \texttt{\#CBD5E1} & 13,33:1 (mín. 4,5)\\
+Destaque & \texttt{\#B45309} & 5,02:1 (mín. 3) & \texttt{\#FBBF24} & 11,86:1 (mín. 3)\\
+Texto sobre a primária & \texttt{\#FFFFFF} & 5,17:1 & \texttt{\#000000} & 8,25:1\\
+Texto sobre a secundária & \texttt{\#FFFFFF} & 14,63:1 & \texttt{\#000000} & 14,14:1\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores; razões calculadas com \texttt{contrastRatio} de \arq{src/lib/theme.js} e arredondadas (o aviso do sistema trunca, Seção~\ref{sec:arq-contraste}). O texto sobre cada cor é o resultado de \texttt{readableTextOn} e acompanha a cor, quando ela é personalizada.}
+\end{table}
+
+\textbf{Neutros por modo.} São definidos em \arq{globals.css} e nunca variam por proprietário (Tabela~\ref{tab:neutros}). O modo noturno vale sob a classe \texttt{.dark} em \texttt{<html>}, nunca pela preferência do sistema diretamente, para que a escolha do leitor prevaleça.
+
+\begin{table}[htb]
+\caption{Neutros fixos dos dois modos (razões com o fundo do próprio modo)}\label{tab:neutros}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.1cm}L{2.0cm}L{2.0cm}Y@{}}
+\toprule
+\textbf{Token} & \textbf{Claro} & \textbf{Noturno} & \textbf{Razões (claro; noturno) e uso}\\
+\midrule
+\arq{--vitrine-background} & \texttt{\#FFFFFF} & \texttt{\#0A0A0A} & Fundo da página\\
+\arq{--vitrine-foreground} & \texttt{\#171717} & \texttt{\#EDEDED} & 17,92:1; 16,91:1. Texto principal\\
+\arq{--vitrine-surface} & \texttt{\#F5F5F5} & \texttt{\#171717} & Cartões e fundo de código; o texto principal tem 16,44:1 e 15,31:1 sobre ele\\
+\arq{--vitrine-muted} & \texttt{\#525252} & \texttt{\#A3A3A3} & 7,81:1; 7,84:1. Texto secundário (7,16:1 e 7,10:1 sobre a superfície)\\
+\arq{--vitrine-border} & \texttt{\#D4D4D4} & \texttt{\#404040} & Divisores decorativos (sem exigência de contraste)\\
+\arq{--vitrine-border-strong} & \texttt{\#737373} & \texttt{\#737373} & 4,74:1; 4,17:1. Borda de campos e controles (mínimo 3:1; 4,34:1 e 3,78:1 sobre a superfície)\\
+\arq{--vitrine-danger} & \texttt{\#B91C1C} & \texttt{\#F87171} & 6,47:1; 7,15:1. Mensagens de erro (5,93:1 e 6,48:1 sobre a superfície)\\
+Foco & \texttt{\#171717} & \texttt{\#FAFAFA} & Contorno de 2~px com halo do fundo (\arq{--vitrine-focus-halo}); 17,92:1 e 18,96:1\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores; razões truncadas em duas casas, calculadas com \texttt{contrastRatio}.}
+\end{table}
+
+\textbf{Realce de código e KaTeX.} Os tokens \arq{--vitrine-code-*} e \arq{--vitrine-link} já têm variante noturna (merge M-009, com pior caso de 7,11:1). O KaTeX herda a cor do texto (\texttt{currentColor}) e dispensa variante própria; o M18 confirma isso nos dois modos.
+
+\textbf{Aplicação das paletas.} O layout raiz é único e \emph{estático} (\adr{ADR-030}): não lê o banco e não define cores. O proprietário aparece em um elemento envoltório com a classe \texttt{vitrine-tema}, que o layout de \texttt{/\{handle\}} (aparência do usuário) e os do portal, do login e do painel (aparência do site) preenchem, no atributo \texttt{style}, com as variáveis \emph{das duas paletas}: \arq{--vitrine-light-primary}, \arq{--vitrine-light-secondary}, \arq{--vitrine-light-accent}, \arq{--vitrine-light-on-primary}, \arq{--vitrine-light-on-secondary} e as cinco equivalentes \arq{--vitrine-dark-*}. As duas regras do Código~\ref{lst:tema-modos} escolhem o conjunto do modo. Elas ficam no \emph{mesmo elemento} do atributo \texttt{style} de propósito: um \texttt{var()} declarado em \texttt{:root} seria resolvido ali, onde as variáveis do proprietário não existem. Os valores continuam validados como \texttt{\#RRGGBB} antes de persistir e na leitura (Seção~\ref{sec:arq-tema-estatico}), e os textos sobre as cores (\arq{on-*}) são calculados \emph{por modo}, com \texttt{readableTextOn}, porque o texto sobre a secundária deixa de ser sempre branco: no modo noturno com a paleta padrão é preto.
+
+\begin{lstlisting}[language=VCSS, caption={Escolha do conjunto de cores pelo modo (esboço normativo; vale também para as demais cores)}, label={lst:tema-modos}]
+.vitrine-tema {
+  --vitrine-primary: var(--vitrine-light-primary, #2563eb);
+  --vitrine-on-primary: var(--vitrine-light-on-primary, #ffffff);
+  /* secondary, accent e on-secondary, do mesmo modo */
+}
+.dark .vitrine-tema {
+  --vitrine-primary: var(--vitrine-dark-primary, #60a5fa);
+  --vitrine-on-primary: var(--vitrine-dark-on-primary, #000000);
+}
+\end{lstlisting}
+
+\textbf{Alternância e primeira pintura.} O leitor escolhe Claro, Escuro ou Automático (RF32); a escolha fica em \texttt{localStorage}, na chave \texttt{vitrine:modo} (\texttt{light}, \texttt{dark} ou \texttt{auto}, que também é o valor de quem nunca escolheu). Um \en{script} inline no \texttt{<head>} do layout raiz (Código~\ref{lst:modo-cor}), de conteúdo \emph{fixo} (nunca montado com dado do banco ou do usuário), aplica a classe \texttt{.dark} antes da primeira pintura; a página não depende de \en{cookie} lido no servidor e permanece estática e com ISR (CT47). O \texttt{<html>} leva \texttt{suppressHydrationWarning}, porque a classe muda antes da hidratação. O \en{script} é admitido pela CSP (\texttt{script-src 'unsafe-inline'}, \adr{ADR-022}); o M18 o verifica sob \texttt{npm run build}, com o console aberto. O seletor de modo é um Componente Cliente que grava a chave e alterna a classe, e acompanha a mudança da preferência do sistema enquanto o modo é Automático. O CSS declara \texttt{color-scheme: light} em \texttt{:root} e \texttt{color-scheme: dark} em \texttt{.dark}, para que barras de rolagem e controles nativos acompanhem o modo.
+
+\begin{lstlisting}[language=VJS, caption={Script do modo de cor no <head> do layout raiz (esboço normativo)}, label={lst:modo-cor}]
+(function () {
+  try {
+    var m = localStorage.getItem("vitrine:modo");
+    var escuro = m === "dark" ||
+      (m !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    if (escuro) document.documentElement.classList.add("dark");
+  } catch (e) { /* armazenamento bloqueado: segue o modo claro */ }
+})();
+\end{lstlisting}
 
 \subsection{Avisos de Contraste}\label{sec:arq-contraste}
 
 Ao salvar a configuração, o sistema calcula a razão de contraste da WCAG 2.1 (luminância relativa do sRGB, razão $(L_1 + 0{,}05)/(L_2 + 0{,}05)$) entre cada cor do tema e o branco, conforme a Tabela~\ref{tab:pares-contraste}, e emite um aviso, sem bloquear o salvamento, quando a razão é inferior ao mínimo do par (RN09, \req{RNF05}). A razão é simétrica, e o par é sempre contra o branco: o par ``primária e branco'' cobre a cor primária usada como texto sobre o fundo da página (por exemplo, em links). O texto \emph{sobre} um fundo da cor primária, ao contrário, não é branco fixo: é calculado, como descrito adiante.
+
+\textbf{Por modo (M18; \adr{ADR-025}).} A tabela abaixo descreve o que está integrado (um modo, contra o branco). No alvo, os mesmos três pares, com os mesmos mínimos, são verificados \emph{por modo}: a paleta clara contra \texttt{\#FFFFFF} e a noturna contra o fundo noturno, \texttt{\#0A0A0A} (Tabela~\ref{tab:neutros}). As colunas das cores noturnas são \texttt{darkPrimaryColor}, \texttt{darkSecondaryColor} e \texttt{darkAccentColor}; \texttt{contrastWarnings} passa a receber a paleta e o modo e devolve, em cada aviso, o campo e o modo (\texttt{mode}: \texttt{light} ou \texttt{dark}); o \texttt{PUT} da aparência (do site e do usuário) calcula os dois conjuntos. Os avisos continuam sem bloquear o salvamento (RN09) e, no alvo, também geram a notificação de contraste do dono (RN26), uma por modo, com a chave de deduplicação \texttt{contrast:\{modo\}}, reaberta a cada ocorrência e resolvida quando a paleta passa a atender.
 
 \begin{table}[htb]
 \caption{Pares de contraste verificados na configuração}\label{tab:pares-contraste}
@@ -583,7 +740,7 @@ A comparação com o mínimo usa a razão \emph{sem arredondar}; o campo \texttt
 
 \textbf{Texto sobre a cor primária.} O branco fixo não atende ao nível AA com a paleta padrão: sobre a primária \texttt{\#3b82f6}, ele dá 3,68:1. Por isso o texto sobre um fundo da cor primária (o botão principal e o item ativo da navegação) usa a variável \arq{--vitrine-on-primary}, exposta como o utilitário \texttt{text-on-primary}, cujo valor é \texttt{readableTextOn(primaryColor)}, isto é, o branco ou o preto (\texttt{\#000000}), o de maior razão de contraste (no empate, o branco); com a paleta padrão, o preto, que dá 5,71:1. O \en{layout} raiz define essa variável junto com as três cores no atributo \texttt{style} de \texttt{<html>}, e quem sobrescrever \arq{--vitrine-primary} deve sobrescrever também \arq{--vitrine-on-primary}; do contrário, uma primária escura ficaria com texto escuro. O texto sobre a cor secundária continua branco (\arq{--vitrine-on-secondary}), protegido pelo par da secundária. A decisão, tomada com o Engenheiro Chefe, consta na \adr{ADR-020}; o preto puro foi adotado no merge M-009.
 
-\textbf{Limites conhecidos.} (i) Com o preto puro como texto escuro (merge M-009), toda cor \texttt{\#RRGGBB} tem um texto, o branco ou o preto, com pelo menos 4,58:1 --- o pior caso, verificado por varredura dos cinzas e de uma grade de 4.096 cores ---; antes, com \texttt{\#171717}, cerca de 6\% das cores ficavam abaixo de 4,5:1. O par da primária, portanto, deixa de proteger o texto sobre ela e protege só o texto na cor primária sobre a página. (ii) A primária padrão tem 3,68:1 também sobre a página, e a de destaque padrão, 2,15:1: com a paleta padrão da RN08, texto na cor primária não atenderia ao nível AA, e marcadores na cor de destaque ficam abaixo de 3:1; o primeiro \texttt{PUT /api/configuration} com essa paleta devolve, portanto, dois avisos (primária e destaque). Por isso os links do conteúdo não usam a cor primária: o token \arq{--vitrine-link} tem como padrão a cor do texto (4,5:1 com qualquer paleta) e os links são sempre sublinhados, distinguindo-se sem depender da cor (WCAG 1.4.1); quem quiser links coloridos sobrescreve o token com uma cor já verificada contra o fundo, o que seria um \texttt{[PEDIDO]} ao Core, depois da especificação do modo noturno (\adr{ADR-025}).
+\textbf{Limites conhecidos.} (i) Com o preto puro como texto escuro (merge M-009), toda cor \texttt{\#RRGGBB} tem um texto, o branco ou o preto, com pelo menos 4,58:1 --- o pior caso, verificado por varredura dos cinzas e de uma grade de 4.096 cores ---; antes, com \texttt{\#171717}, cerca de 6\% das cores ficavam abaixo de 4,5:1. O par da primária, portanto, deixa de proteger o texto sobre ela e protege só o texto na cor primária sobre a página. (ii) A primária padrão \emph{atual} tem 3,68:1 também sobre a página, e a de destaque padrão, 2,15:1: com a paleta atual, texto na cor primária não atenderia ao nível AA, e marcadores na cor de destaque ficam abaixo de 3:1; o primeiro \texttt{PUT /api/configuration} com essa paleta devolve, portanto, dois avisos (primária e destaque). A \adr{ADR-031} substitui esses padrões pelos da Tabela~\ref{tab:padroes-cor}, que não geram aviso; a troca ocorre com o M15 (esquema, \en{seed} e migração). Por isso os links do conteúdo não usam a cor primária: o token \arq{--vitrine-link} tem como padrão a cor do texto (4,5:1 com qualquer paleta) e os links são sempre sublinhados, distinguindo-se sem depender da cor (WCAG 1.4.1); quem quiser links coloridos sobrescreve o token com uma cor já verificada contra o fundo, o que seria um \texttt{[PEDIDO]} ao Core, depois da especificação do modo noturno (\adr{ADR-025}).
 
 \vitrinefigura[tipo=diagrama, arquivo=seq-personalizacao-tema, agente=Arquiteto, largura=0.95,
   origem={doc/diagrams/src/seq-personalizacao-tema.puml},
@@ -591,6 +748,8 @@ A comparação com o mínimo usa a razão \emph{sem arredondar}; o campo \texttt
   {Sequência de personalização visual}{fig:seq-personalizacao-tema}
 
 \subsection{Leitura da Configuração e o \en{Build}}\label{sec:arq-tema-estatico}
+
+\textbf{Alvo (M17 e M18; \adr{ADR-030}).} O texto desta seção descreve o que está integrado: o \en{layout} raiz lê a configuração. No alvo, o layout raiz passa a ser estático e \emph{não lê o banco}; a configuração do site é lida, em execução e pela mesma guarda, só pelo portal \texttt{/}, pelo login e pelo painel (que a injetam no envoltório \texttt{vitrine-tema}, Seção~\ref{sec:arq-tema-padrao}), e a aparência do dono é lida pelo layout de \texttt{/\{handle\}}, que também define o título e a descrição no \texttt{generateMetadata}. Sem dado do banco no layout raiz, as quatro regras abaixo continuam valendo para cada ponto de leitura, e a \emph{página 404 global} sai do \en{build} sempre com os padrões da Tabela~\ref{tab:padroes-cor}, sem depender de revalidação: o que o parágrafo ``Páginas estáticas'' trata como efeito de recriar o contêiner deixa de existir para ela.
 
 A leitura da configuração para o \en{layout} raiz, para os metadados e para o painel está em \arq{src/app/_lib/site.js} (pasta privada do Core, merge M-007) e segue quatro regras (\adr{ADR-021}):
 
@@ -609,7 +768,7 @@ A leitura da configuração para o \en{layout} raiz, para os metadados e para o 
 
 \subsection{Convenções}
 
-As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). Toda rota de conteúdo e de configuração exige sessão válida, verificada no servidor antes de qualquer outra ação. Entradas e saídas são JSON em UTF-8; as rotas de escrita aceitam apenas \texttt{Content-Type: application/json}, e todas as respostas levam \texttt{Cache-Control: no-store}. Códigos de status: \texttt{200}/\texttt{201}/\texttt{204} para sucesso; \texttt{400} para JSON malformado ou \texttt{Content-Type} diferente de JSON (código \arq{VALIDATION_ERROR}); \texttt{401} sem sessão válida ou com mutação vinda de outra origem; \texttt{404} recurso inexistente; \texttt{409} conflito (por exemplo, \en{slug} duplicado); \texttt{422} falha de validação; \texttt{429} excesso de tentativas de login (resposta do better-auth); \texttt{500} erro interno. Essas convenções foram aprovadas na \adr{ADR-018}.
+As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). Toda rota de conteúdo e de configuração exige sessão válida, verificada no servidor antes de qualquer outra ação. Entradas e saídas são JSON em UTF-8; as rotas de escrita aceitam apenas \texttt{Content-Type: application/json}, e todas as respostas levam \texttt{Cache-Control: no-store}. Códigos de status: \texttt{200}/\texttt{201}/\texttt{204} para sucesso; \texttt{400} para JSON malformado ou \texttt{Content-Type} diferente de JSON (código \arq{VALIDATION_ERROR}); \texttt{401} sem sessão válida ou com mutação vinda de outra origem; \texttt{404} recurso inexistente; \texttt{409} conflito (por exemplo, \en{slug} duplicado); \texttt{422} falha de validação; \texttt{429} excesso de tentativas de login (resposta do better-auth); \texttt{500} erro interno. Essas convenções foram aprovadas na \adr{ADR-018}. A \adr{ADR-029} acrescenta, para o M16: \texttt{403} (recurso de outro dono ou senha provisória), \texttt{413} (corpo grande demais, recusado antes da leitura), \texttt{429} também para o limite de escritas por usuário (com \texttt{Retry-After}) e \texttt{503} (\arq{BUSY}); e o campo \texttt{reason} (1 a 500 caracteres) é obrigatório nas ações do administrador sobre outro usuário (RN19), no corpo JSON e, no \texttt{DELETE}, no parâmetro de consulta \texttt{reason}.
 
 \textbf{Resposta de sucesso.} Toda resposta de sucesso com corpo usa o envelope \texttt{\{ "data": ... \}}, que deixa espaço para campos adicionais ao lado de \texttt{data}, como \texttt{warnings} (Seção~\ref{sec:arq-contraste}). O \texttt{POST} de criação responde \texttt{201} e o cabeçalho \texttt{Location} com o caminho do novo recurso; o \texttt{DELETE} responde \texttt{204} sem corpo; e a reordenação devolve em \texttt{data} a árvore atualizada.
 
@@ -631,7 +790,7 @@ As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). 
 }
 \end{lstlisting}
 
-Códigos de erro previstos: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{NOT_FOUND}, \arq{SLUG_CONFLICT}, \arq{INVALID_PARENT}, \arq{CYCLE_DETECTED} e \arq{INTERNAL_ERROR}.
+Códigos de erro integrados: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{NOT_FOUND}, \arq{SLUG_CONFLICT}, \arq{INVALID_PARENT}, \arq{CYCLE_DETECTED} e \arq{INTERNAL_ERROR}. Códigos novos (M16; \adr{ADR-029}): \arq{FORBIDDEN} (403), \arq{PASSWORD_CHANGE_REQUIRED} (403), \arq{QUOTA_EXCEEDED} (422), \arq{PAYLOAD_TOO_LARGE} (413), \arq{RATE_LIMITED} (429), \arq{USER_CONFLICT} (409, com \texttt{details[0].field} igual a \texttt{email} ou \texttt{handle}), \arq{LAST_ADMIN} (409), \arq{USER_HAS_CONTENT} (409) e \arq{BUSY} (503). O código \arq{VERSION_CONFLICT} (409) só existirá se o Engenheiro Chefe confirmar a RN18.
 
 \textbf{Regras comuns de entrada.} Campos desconhecidos são descartados, inclusive \texttt{authorId}, que vem sempre da sessão (RN13). Um \texttt{PATCH} ou \texttt{PUT} sem nenhum campo conhecido responde \texttt{422}. O \en{slug} reservado também é conferido ao mover um conteúdo para a raiz (por \texttt{PATCH} ou em lote). A mutação cujo cabeçalho \texttt{Origin} indica outro site é recusada com \texttt{401} (\arq{UNAUTHENTICATED}), pois o cookie de sessão não é aceito em requisições de outra origem e o contrato não prevê \texttt{403} (Seção~\ref{sec:arq-seguranca}).
 
@@ -702,20 +861,83 @@ Duas observações de implementação. Em \texttt{reorderContents}, os itens do 
 \texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20); o painel usa, em seu lugar, a \en{Server Function} \texttt{signOut} (\arq{admin/_lib/actions.js}) & 200\\[1pt]
 \texttt{GET} & \arq{/api/auth/get-session} & Não & Sessão corrente ou nula & 200\\[1pt]
 \end{longtable}
-\fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth, conferidas na versão 1.7.6 (merge M-004); as demais rotas padrão da biblioteca (por exemplo, troca de senha) também ficam expostas em \arq{/api/auth/*} e exigem sessão.}
+\fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth, conferidas na versão 1.7.6 (merge M-004); as demais rotas padrão da biblioteca (por exemplo, troca de senha) também ficam expostas em \arq{/api/auth/*} e exigem sessão, \emph{até o M16}, que as fecha: o \en{catch-all} passa a responder só a \texttt{get-session}, \texttt{sign-in/email} e \texttt{sign-out} (Seção~\ref{sec:arq-autorizacao}).}
 
-A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas e aplica o filtro de publicação (RN15). As rotas de conteúdo e de configuração servem ao painel administrativo.
+A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas e aplica o filtro de publicação (RN15). As rotas de conteúdo e de configuração servem ao painel.
+
+\textbf{Contrato-alvo do escopo multiusuário (M16 a M20).} A Tabela~\ref{tab:api} descreve as rotas integradas; a Tabela~\ref{tab:api-alvo} acrescenta e ajusta as do escopo multiusuário (\adr{ADR-029}), com a mesma ordem de verificação da Seção~\ref{sec:arq-autorizacao}. Sempre no envelope da \adr{ADR-018}.
+
+\begin{longtable}{@{}L{1.5cm}L{4.1cm}L{2.1cm}L{6.1cm}@{}}
+\caption{Contrato-alvo das rotas do escopo multiusuário (normativo; M16 a M20)}\label{tab:api-alvo}\\
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Quem} & \textbf{Descrição}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Quem} & \textbf{Descrição}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{GET} & \arq{/api/contents} & Dono; admin com \texttt{?ownerId=} & Árvore \emph{do dono} da sessão, com rascunhos; o administrador lista a de outro usuário informando \texttt{ownerId} (moderação)\\[1pt]
+\texttt{POST}, \texttt{PATCH}, \texttt{DELETE} & \arq{/api/contents}, \arq{/api/contents/:id}, \arq{/api/contents/reorder} & Dono; admin com \texttt{reason} sobre conteúdo alheio & Como na Tabela~\ref{tab:api}; \texttt{authorId} da sessão (RN13); pai, item ou lote de outro dono: 403 (lote inteiro recusado); cotas (RN25); no conteúdo alheio, o administrador só despublica, edita e exclui, com \texttt{reason}, e o dono é notificado (RN26)\\[1pt]
+\texttt{GET}, \texttt{PUT} & \arq{/api/appearance} & Dono (qualquer papel) & Aparência \emph{do próprio usuário}: identidade, seis links, paleta clara e noturna; \texttt{PUT} parcial; devolve \texttt{warnings} por modo (Seção~\ref{sec:arq-contraste}); revalida só o espaço do dono. A de outro usuário responde 403 (RN19)\\[1pt]
+\texttt{GET}, \texttt{PUT} & \arq{/api/configuration} & Admin & Configuração \emph{do site} (identidade, links, paletas, \texttt{homeBody}, \texttt{directoryEnabled}); usuário comum recebe 403; revalida só \texttt{/} (\adr{ADR-030})\\[1pt]
+\texttt{GET}, \texttt{POST} & \arq{/api/users} & Admin & Lista; cria conta (\texttt{email}, \texttt{name}, \texttt{handle}, \texttt{role}, senha opcional) com troca obrigatória e devolve a senha provisória \emph{uma única vez} (201)\\[1pt]
+\texttt{GET}, \texttt{PATCH} & \arq{/api/users/me} & Próprio usuário & Perfil; edita o nome. Permitido com senha provisória (RN21)\\[1pt]
+\texttt{POST} & \arq{/api/users/me/password} & Próprio usuário & Troca a senha (\texttt{current}, \texttt{next}); recusa a igual à atual; revoga as outras sessões; limpa \texttt{mustChangePassword}\\[1pt]
+\texttt{GET}, \texttt{PATCH}, \texttt{DELETE} & \arq{/api/users/:id} & Admin & Detalhe; edita nome, \en{handle} e papel (invalida o espaço); exclui, com \texttt{content} igual a \texttt{transfer} (com \texttt{to}) ou \texttt{delete}; 409 \arq{USER\_HAS\_CONTENT} sem a escolha; 409 \arq{LAST\_ADMIN}\\[1pt]
+\texttt{PUT} & \arq{/api/users/:id/password} & Admin & Redefine a senha (provisória, exibida uma vez); revoga todas as sessões; notifica o usuário\\[1pt]
+\texttt{POST}, \texttt{DELETE} & \arq{/api/users/:id/ban} & Admin & Suspende (\texttt{reason} obrigatório, \texttt{expiresAt} opcional) e reativa; revoga as sessões; invalida o espaço; notifica\\[1pt]
+\texttt{GET} & \arq{/api/notifications} & Próprio usuário & Lista (\texttt{?unread=1}) e \texttt{unreadCount}; só as suas (RN26)\\[1pt]
+\texttt{PATCH} & \arq{/api/notifications/:id} & Próprio usuário & Marca como lida (\texttt{read}) ou dispensa (\texttt{dismissed}); a de outro usuário responde 404\\[1pt]
+\texttt{POST} & \arq{/api/notifications/read-all} & Próprio usuário & Marca todas as suas como lidas\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir das ADR-023 a ADR-029. Os nomes dos parâmetros de corpo são normativos; o Core os fixa nos validadores e pode propor ajustes por \texttt{[RFC]}.}
 
 Os campos de entrada têm as seguintes regras de validação no servidor (\texttt{422} em caso de falha): \texttt{status} deve ser \texttt{DRAFT} ou \texttt{PUBLISHED}; cada link social, quando preenchido, deve ser uma URL absoluta com protocolo \texttt{http} ou \texttt{https}, e a cadeia vazia equivale a \texttt{null} (RN17); as cores devem ser \texttt{\#RRGGBB} (RN09); o \en{slug} segue a RN03 (1 a 80 caracteres, sem \en{slugs} reservados na raiz). A resposta de \texttt{422} traz um item de \texttt{details} por campo inválido.
 
 \section{Roteamento e Navegação}\label{sec:arq-rotas}
 
-A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\texttt{admin}, \texttt{login}, \texttt{api}) têm precedência sobre o \en{catch-all} \arq{[...slug]}, razão pela qual esses nomes são reservados no nível raiz (RN03). A estrutura visual de cada página segue os protótipos da IC (Seção~\ref{sec:prototipagem}): barra superior com logotipo, nome e coleções raiz; \en{sidebar} da coleção corrente; área de conteúdo; e rodapé.
+A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\texttt{admin}, \texttt{login}, \texttt{api}) têm precedência sobre o \en{catch-all} \arq{[...slug]}, razão pela qual esses nomes são reservados no nível raiz (RN03). No alvo (\adr{ADR-024}, M17), o primeiro segmento dinâmico é o \texttt{[handle]}, e os nomes reservados valem para o \en{handle} (RN20), de modo que um \en{slug} de raiz, que fica sob \texttt{/\{handle\}}, não colide com rota alguma. A Tabela~\ref{tab:rotas-alvo} lista as rotas-alvo. A estrutura visual de cada página segue os protótipos da IC (Seção~\ref{sec:prototipagem}): barra superior com logotipo, nome e coleções raiz; \en{sidebar} da coleção corrente; área de conteúdo; e rodapé.
 
 \vitrinefigura[tipo=diagrama, arquivo=nav-mapa-do-site, agente=Arquiteto, largura=0.9,
   origem={doc/diagrams/src/nav-mapa-do-site.puml},
   descricao={Mapa mental das rotas: área pública (início e leitura de documento), login, painel administrativo (visão geral, árvore, novo conteúdo, editor, configurações) e API.}]
   {Mapa de rotas e navegação}{fig:nav-mapa-do-site}
+
+\begin{table}[htb]
+\caption{Rotas de páginas no alvo multiusuário}\label{tab:rotas-alvo}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.3cm}L{2.3cm}Y@{}}
+\toprule
+\textbf{Rota} & \textbf{Acesso} & \textbf{Conteúdo}\\
+\midrule
+\arq{/} & Público & Portal: texto do administrador e diretório dos espaços (RF30)\\
+\addlinespace
+\arq{/[handle]} e \arq{/[handle]/[...slug]} & Público & Espaço de um usuário ativo: início, coleção e documento (RF29); 404 se suspenso, removido ou sem \en{handle}\\
+\addlinespace
+\arq{/login} & Público & Entrar (UC08); conta suspensa vê o motivo\\
+\addlinespace
+\arq{/admin} & Sessão & Visão geral do próprio usuário e as notificações pendentes\\
+\addlinespace
+\arq{/admin/conteudo}, \arq{/admin/conteudo/novo} e \arq{/admin/conteudo/[id]} & Dono & Árvore do próprio usuário, novo conteúdo e editor (\texttt{?pai=} só aceita coleção do próprio usuário)\\
+\addlinespace
+\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, links e as duas paletas\\
+\addlinespace
+\arq{/admin/perfil} & Sessão & Nome e troca de senha; alvo do redirecionamento com senha provisória\\
+\addlinespace
+\arq{/admin/notificacoes} & Dono & Lista de notificações\\
+\addlinespace
+\arq{/admin/configuracoes} & Admin & Configuração do site e do portal\\
+\addlinespace
+\arq{/admin/usuarios} e \arq{/admin/usuarios/[id]} & Admin & Lista e formulário de usuários (UC13)\\
+\addlinespace
+\arq{/admin/usuarios/[id]/conteudo} & Admin & Árvore de outro usuário, com os rascunhos, para a moderação (UC15)\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir das ADR-023 e ADR-024. Cada página protegida repete a verificação de sessão e de dono no servidor (RN19).}
+\end{table}
 
 \begingroup\small
 \begin{longtable}{@{}L{3.3cm}L{2.9cm}L{6.0cm}L{2.2cm}@{}}
@@ -747,6 +969,14 @@ ThemeForm & \arq{components/admin} & Identidade, cores e links sociais, com pré
 LoginForm & \arq{components/admin} & Formulário de autenticação (RF01, UC08): mensagem de erro única, aviso de excesso de tentativas e falha de conexão; Componente Cliente & Implementado\\
 Button, Field, icons & \arq{components/ui} & Botão com as variantes \texttt{primary}, \texttt{inverse} e \texttt{outline}, só com tokens de tema; campo de formulário com rótulo, ajuda e erro ligados por \texttt{aria-describedby}; e ícones em SVG embutido, decorativos (RF19) & Implementado\\
 Demais primitivos & \arq{components/ui} & Diálogo de confirmação, \en{toast}, campo de cor & Planejado\\
+SpaceLayout & \arq{components/layout} & Layout do espaço: envoltório \texttt{vitrine-tema} com a aparência do dono, barra superior, \en{sidebar} e rodapé (RF29; M17) & Planejado\\
+ColorModeToggle & \arq{components/layout} & Seletor Claro, Escuro ou Automático; Componente Cliente que grava \texttt{vitrine:modo} (RF32; M18) & Planejado\\
+AppearanceForm (substitui o ThemeForm) & \arq{components/admin} & Identidade, links e duas paletas, com pré-visualização nos dois modos e aviso de contraste por modo (RF31; M18) & Planejado\\
+NotificationBell, NotificationList & \arq{components/admin} & Contador de não lidas no cabeçalho e lista com marcar e dispensar (RF33; M19) & Planejado\\
+UserTable, UserForm, ProvisionalPassword & \arq{components/admin} & Lista e formulário de usuários e exibição única da senha provisória (RF27; M20) & Planejado\\
+ModerationDialog & \arq{components/admin} & Confirmação com o motivo obrigatório, para as ações sobre conteúdo e conta de outro usuário (RF34; M20) & Planejado\\
+PasswordChangeForm & \arq{components/admin} & Troca de senha, inclusive a obrigatória (RF28; M20) & Planejado\\
+PortalDirectory & \arq{components/layout} & Diretório de espaços do portal (RF30, RN28; M17) & Planejado\\
 \end{longtable}
 \fonte{Elaborado pelos autores. O inventário nasceu como proposta para o agente UI; os componentes ``Implementado'' vieram do merge M-005.}
 \endgroup
@@ -766,6 +996,8 @@ O \en{layout} raiz (\arq{src/app/layout.js}, arquivo de rota do Core) envolve to
   \item \textbf{os metadados do site}, por \texttt{generateMetadata}: \texttt{title} com \texttt{default} igual ao nome do site e \texttt{template} \texttt{"\%s | <nome>"}, que vale para os segmentos filhos que definem o próprio título --- \arq{/login} aparece como ``Entrar | <nome>'', \arq{/admin} como ``Painel administrativo | <nome>'' e a página 404 como ``Página não encontrada | <nome>'' ---, e \texttt{description} igual à descrição configurada. Sem configuração, valem o nome ``Vitrine'' (RN08) e uma descrição em português, derivada da definição do produto (Capítulo~\ref{cap:intro}): ``Plataforma de código aberto para blogs e portfólios acadêmicos, com editor Markdown, fórmulas em LaTeX e estrutura hierárquica de conteúdo.'' O modelo do Next.js substitui todo \texttt{\%s}: um nome de site que contenha literalmente \texttt{\%s} seria alterado nos títulos (caso desprezível, sem tratamento);
   \item \textbf{as fontes e as classes de estrutura}: as variáveis das fontes Geist e as classes do \texttt{<html>} (\texttt{h-full antialiased}) e do \texttt{<body>} (\texttt{min-h-full flex flex-col}), de que a casca do painel e o cartão de login dependem para ocupar a altura da janela.
 \end{itemize}
+
+\textbf{Alvo (\adr{ADR-030}, \adr{ADR-025}).} O layout raiz passa a ser único e estático: define só o idioma, as fontes, as classes de estrutura, o \texttt{suppressHydrationWarning} e o \en{script} do modo de cor (Código~\ref{lst:modo-cor}); não lê o banco. O tema, o título e a descrição passam a ser de quem os possui: o layout de \texttt{/\{handle\}} (aparência do dono) e os do portal, do login e do painel (configuração do site), pelo envoltório \texttt{vitrine-tema} e pelo \texttt{generateMetadata} de cada um. O \texttt{template} \texttt{"\%s | <nome>"} acompanha o proprietário da página.
 
 O \en{layout} do painel (\arq{src/app/admin/layout.js}) lê a mesma configuração, na mesma consulta, e entrega ao \texttt{AdminShell} apenas o nome do site, depois de validar a sessão; o componente nunca recebe o registro. O logotipo, o \en{favicon} e os links sociais ainda não são lidos: entram quando houver componente que os exiba (M07 e M11), e os metadados por página são do M12.
 
@@ -793,10 +1025,16 @@ XSS armazenado & Markdown com HTML ou URL \texttt{javascript:} & Sem HTML bruto 
 CSRF & Requisição de outro site com o \en{cookie} do administrador & \en{Cookie} \texttt{SameSite=Lax}; verificação de origem nas mutações (um \texttt{Origin} diferente do próprio site, ou \texttt{null}, responde \texttt{401} \arq{UNAUTHENTICATED} e nada é gravado; \adr{ADR-018}); rotas de escrita aceitam apenas JSON\\[1pt]
 Injeção de SQL & Entradas em consultas & Prisma parametriza; proibido \texttt{\$queryRawUnsafe}\\[1pt]
 Força bruta e enumeração & Tentativas repetidas de login & No máximo cinco tentativas por minuto por IP (resposta 429); mensagem genérica de erro, igual para e-mail inexistente e senha errada (UC08, CT02); o \en{proxy} deve definir \texttt{x-forwarded-for} (Seção~\ref{sec:arq-auth})\\[1pt]
-Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21), antes de ler o corpo; Proxy apenas otimista\\[1pt]
-Rotas padrão do better-auth & Rotas de \arq{/api/auth/*} além do login (por exemplo, troca de senha e listagem de sessões) & Exigem sessão e passam pela mesma limitação de requisições; o cadastro público está desabilitado (RF22)\\[1pt]
+Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21), antes de ler o corpo; Proxy apenas otimista; com o M16, autorização por dono depois da sessão\\[1pt]
+Rotas padrão do better-auth & Rotas de \arq{/api/auth/*} além do login (por exemplo, troca de senha e listagem de sessões) & Hoje exigem sessão e passam pela mesma limitação de requisições; o cadastro público está desabilitado (RF22). Com o M16, todas fora de \texttt{get-session}, \texttt{sign-in/email} e \texttt{sign-out} respondem 404 (CT38; \adr{ADR-029})\\[1pt]
+Acesso a recurso de outro dono & Trocar o identificador em uma rota de conteúdo, aparência, usuário ou notificação & \texttt{authorize} em toda rota, com a matriz falhando fechada; \texttt{authorId} da sessão; lote de reordenação recusado por inteiro; o banco impõe o dono único da árvore (CT35, CT37, CT39; RN19)\\[1pt]
+Escalada de papel & Usuário que altera o próprio \texttt{role} ou \texttt{handle}, ou usa rotas do \en{plugin} \texttt{admin} & Campos do papel e do \en{handle} com \texttt{input: false}; sem \texttt{auth.api.*} sem \texttt{headers}; rotas \arq{/api/users} só para o administrador (CT37, CT38)\\[1pt]
+Conta suspensa ou senha provisória & Sessão e \en{cookie} continuam valendo; senha provisória vazada ou nunca trocada & Sem \en{cache} de \en{cookie}; suspensão revoga as sessões e vence sozinha; senha exibida uma vez, nunca registrada, e troca obrigatória antes de qualquer outra ação (CT40, CT41; RN21, RN23)\\[1pt]
+Enchimento do disco & Milhares de URLs inexistentes geram páginas em \en{cache} (cerca de 12 a 16~kB e 7 arquivos cada) & Proxy reescreve primeiros segmentos desconhecidos para uma página dinâmica que responde 404 (CT45); documento inexistente em espaço válido é risco aceito, com limite de taxa no \en{proxy} reverso e monitoramento do disco (Apêndice~\ref{ap:implantacao}; \adr{ADR-030})\\[1pt]
+Abuso de escrita & Um usuário cria conteúdo ou corpos enormes & Cotas por usuário (500 conteúdos; 256~KiB em \emph{bytes}), 413 antes de ler o corpo e limite de escritas por usuário (RN25; CT39)\\[1pt]
+Abuso do administrador & Edição indevida da aparência ou leitura das notificações de outro usuário & Mínimo privilégio (RN19, a confirmar); toda ação sobre outro usuário exige o motivo e notifica o dono (RN26; CT51)\\[1pt]
 Exposição de segredos & \arq{.env} no repositório, na imagem Docker ou variáveis no navegador & \arq{.env} ignorado pelo Git e excluído da imagem por \arq{.dockerignore}, fornecido ao contêiner em tempo de execução; nenhuma variável com prefixo \arq{NEXT_PUBLIC_} para segredos\\[1pt]
-Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou por página em cache & Filtro de publicação na camada de dados (RN15); revalidação do \en{layout} ao alterar o estado (RN16); testes CT31 e CT32\\[1pt]
+Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou por página em cache & Filtro de publicação na camada de dados (RN15), que também oculta o espaço de usuário suspenso (RN23); revalidação do espaço ao alterar o estado (RN10, RN16); testes CT31, CT32 e CT43\\[1pt]
 Link social malicioso & URL \texttt{javascript:} ou \texttt{data:} em um dos seis campos do rodapé & Validação de protocolo \texttt{http}/\texttt{https} no servidor (RN17); atributos \texttt{noopener} e \texttt{noreferrer}; teste CT33\\[1pt]
 Injeção de CSS & Valor de cor malicioso & Validação \texttt{\#RRGGBB} no servidor (RN09)\\[1pt]
 Dependências vulneráveis & Pacotes desatualizados, com vulnerabilidade conhecida ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit} a cada entrega; \en{lockfile} versionado; os quatro alertas atuais foram avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019})\\[1pt]
@@ -943,15 +1181,16 @@ Os requisitos normativos sobre a imagem, atendidos pelo módulo M13 (merge M-008
   \item \textbf{Rede.} A porta 3000 é publicada somente em \arq{127.0.0.1}; o acesso público é do \en{proxy} reverso;
   \item \textbf{Cabeçalhos de segurança.} A CSP e os demais cabeçalhos (Seção~\ref{sec:arq-csp}) vêm da própria aplicação e não dependem do \en{proxy}, que não deve alterá-los;
   \item \textbf{Espaço em disco.} A construção da imagem exige pelo menos 6~GB livres no disco do Docker (Apêndice~\ref{ap:implantacao}, Seção ``Pré-requisitos'');
-  \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore}.
+  \item \textbf{Segredos.} \arq{.env} e \arq{data/} constam do \arq{.dockerignore} e do \arq{.gitignore};
+  \item \textbf{Escopo multiusuário (M15 a M17; Apêndice~\ref{ap:implantacao}).} O banco roda em WAL, com os arquivos \texttt{-wal} e \texttt{-shm} ao lado dele, em volume \emph{local} (nunca de rede), e a cópia de segurança continua sendo o \texttt{VACUUM INTO} (Seção~\ref{sec:arq-wal}); as variáveis \texttt{MAX\_CONTENTS\_PER\_USER}, \texttt{MAX\_BODY\_BYTES} e, opcionalmente, \texttt{ADMIN\_HANDLE} entram no \arq{.env}; o \en{proxy} reverso aplica limite de taxa por endereço às rotas públicas, como mitigação do documento inexistente em espaço válido (\adr{ADR-030}), e o disco do volume do \arq{.next} é monitorado; o \texttt{admin:reset-password} recupera uma conta e o \texttt{admin:create} recupera o acesso sem administrador ativo (RN22).
 \end{itemize}
 
 O relatório de IC citava a plataforma Vercel como exemplo de implantação \cite{reis2026ic}. O sistema de arquivos de funções \emph{serverless} é efêmero, de modo que um arquivo SQLite local não persistiria entre invocações nesse tipo de ambiente; a decisão por uma VPS com volume elimina esse obstáculo, que constava como risco R01, para esta versão. Plataformas dessa natureza só seriam viáveis com a troca do \en{driver adapter} por um banco remoto compatível (por exemplo, libSQL/Turso), o que está fora do escopo (\adr{ADR-011}).
 
 \section{Desempenho e Escalabilidade}\label{sec:arq-desempenho}
 
-O perfil de carga é dominado por leituras. A ISR evita consultas ao banco na maioria das requisições públicas; quando há regeneração, a consulta da árvore é linear no número de nós e a resolução do caminho é proporcional à profundidade. O SQLite em modo WAL permite leitores simultâneos à escrita, que é serializada \cite{sqlitewal}; como as escritas ocorrem apenas por ação do administrador, a limitação de um escritor por vez não é relevante para o perfil esperado \cite{sqlitewhentouse}. Os limites práticos --- tamanho da árvore, número de documentos pré-renderizados no \en{build} e tempo de regeneração do \en{layout} raiz --- serão medidos no Capítulo~\ref{cap:testes}.
+O perfil de carga é dominado por leituras. A ISR evita consultas ao banco na maioria das requisições públicas; quando há regeneração, a consulta da árvore é linear no número de nós e a resolução do caminho é proporcional à profundidade. O SQLite em modo WAL permite leitores simultâneos à escrita, que é serializada \cite{sqlitewal}; como as escritas ocorrem por ação de poucos autores (de um a algumas dezenas, cada um limitado a 500 conteúdos e a um limite de taxa; RN25), a limitação de um escritor por vez não é relevante para o perfil esperado \cite{sqlitewhentouse}, e a latência de cada escrita é a do \texttt{fsync} do disco (Seção~\ref{sec:arq-wal}). A invalidação por espaço (\adr{ADR-030}) tem custo desprezível: cerca de 500 chamadas por evento, abaixo de 10~ms. Os limites práticos --- tamanho da árvore de um dono, número de documentos pré-renderizados, o crescimento do \arq{.next} com páginas inexistentes e o custo de o Proxy consultar o documento --- serão medidos no Capítulo~\ref{cap:testes} e pelo Core, na implementação do M17.
 
 \section{Síntese do Capítulo}
 
-O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados (com o estado de publicação e os links sociais), autenticação em camadas, estratégia de cache e de visibilidade, pipeline de conteúdo, tematização, contrato de API, segurança e implantação por imagem Docker. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e os valores padrão da \adr{ADR-017} formam a lista de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.
+O capítulo especificou o monólito modular, suas visões, regras de dependência, modelo de dados (com o estado de publicação e os links sociais), autenticação em camadas, estratégia de cache e de visibilidade, pipeline de conteúdo, tematização, contrato de API, segurança e implantação por imagem Docker. Com a ampliação de escopo (\adr{ADR-023} a \adr{ADR-031}), especificou também, como \emph{alvo} a implementar pelos módulos M15 a M20, o modelo de dados multiusuário, a autorização por dono, o espaço público por usuário com revalidação por caminhos literais, a aparência por proprietário com paletas e neutros por modo e as notificações; o texto distingue em cada seção o que está integrado do que é alvo. As observações sobre o esquema atual (Tabela~\ref{tab:obs-schema}) e os valores padrão da \adr{ADR-017} formam a lista de tarefas de refinamento dos agentes; o Capítulo~\ref{cap:implementacao} acompanha a execução.

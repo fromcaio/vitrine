@@ -14,6 +14,14 @@
 //   - D-15: enum ContentStatus (DRAFT | PUBLISHED, padrão PUBLISHED) em contents.status;
 //   - D-19: seis links sociais opcionais do rodapé em configurations;
 //   - D-01: o nome oficial do projeto é "Vitrine".
+// MODELO-ALVO MULTIUSUÁRIO (ADR-023 a ADR-028 e ADR-031; módulo M15, ainda sem código):
+//   - user ganha role, banned, banReason, banExpires, handle e mustChangePassword;
+//   - session ganha impersonatedBy (plugin admin, sem uso);
+//   - contents: dono único por árvore (FK composta), índice parcial da raiz por dono;
+//   - configurations (o site) ganha a paleta noturna, homeBody e directoryEnabled;
+//   - tabelas novas: appearances (uma por usuário) e notifications;
+//   - padrões das cores: ADR-031 (clara) e Cap. 5 §5.9 (noturna).
+// Enquanto o M15 não for integrado, prisma/schema.prisma tem o esquema anterior.
 // Renderizar: https://dbdiagram.io (colar o conteúdo e exportar PNG) - ver README.
 // ////////////////////////////////////////////////////////
 
@@ -31,6 +39,12 @@ Table user {
   email varchar [unique, not null]
   emailVerified boolean [not null]
   image varchar [note: 'URL da foto do perfil']
+  role varchar [not null, default: 'user', note: 'admin | user (plugin admin; RN19)']
+  banned boolean [not null, default: false, note: 'Conta suspensa (RN23)']
+  banReason varchar [note: 'Motivo da suspensão, visto pelo usuário']
+  banExpires timestamp [note: 'Fim da suspensão; vencido, a conta volta sozinha']
+  handle varchar [unique, note: 'Identificador público do espaço (RN20); nulo até o administrador defini-lo']
+  mustChangePassword boolean [not null, default: false, note: 'Troca de senha obrigatória (RN21)']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, note: '@updatedAt']
 }
@@ -43,6 +57,7 @@ Table session {
   updatedAt timestamp [not null]
   ipAddress varchar
   userAgent varchar
+  impersonatedBy varchar [note: 'Exigido pelo plugin admin; sem uso (sem permissão impersonate)']
   userId varchar [not null]
 }
 
@@ -94,14 +109,15 @@ Table contents {
   // Auto-relacionamento para estrutura de árvore
   parentId varchar [note: 'ID do conteúdo pai (null se for raiz)']
 
-  authorId varchar [not null, note: 'Autor; excluir um usuário com conteúdo é bloqueado (Restrict, RNF10)']
+  authorId varchar [not null, note: 'Dono da árvore inteira (RN13); excluir um usuário com conteúdo é bloqueado (Restrict, RNF10)']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null]
 
   indexes {
     (parentId, slug) [unique, name: 'contents_parentId_slug_key', note: 'RN03: slug único entre irmãos']
-    slug [unique, name: 'contents_root_slug_key', note: 'Índice parcial (migração SQL manual): UNIQUE (slug) WHERE parentId IS NULL; cobre a raiz, onde o SQLite trata NULL como distinto (D-05)']
-    (parentId, order) [name: 'contents_parentId_order_idx', note: 'RNF02, RN05: consulta da árvore e ordenação dos irmãos']
+    (authorId, slug) [unique, name: 'contents_root_owner_slug_key', note: 'Índice parcial (migração SQL manual): UNIQUE (authorId, slug) WHERE parentId IS NULL; raiz por dono, onde o SQLite trata NULL como distinto (D-05, ADR-028)']
+    (id, authorId) [unique, name: 'contents_id_authorId_key', note: 'Alvo da chave estrangeira composta (parentId, authorId) -> (id, authorId)']
+    (authorId, parentId, order) [name: 'contents_authorId_parentId_order_idx', note: 'RNF02, RN05: árvore de um dono e ordenação dos irmãos']
   }
 }
 
@@ -114,9 +130,17 @@ Table configurations {
   siteDescription text
 
   // Variáveis de identidade visual
-  primaryColor varchar [not null, default: '#3b82f6']
+  // Paleta clara (ADR-031) e noturna (Cap. 5, 5.9); o site é o do administrador (portal, login, painel)
+  primaryColor varchar [not null, default: '#2563eb']
   secondaryColor varchar [not null, default: '#1e293b']
-  accentColor varchar [not null, default: '#f59e0b']
+  accentColor varchar [not null, default: '#b45309']
+  darkPrimaryColor varchar [not null, default: '#60a5fa']
+  darkSecondaryColor varchar [not null, default: '#cbd5e1']
+  darkAccentColor varchar [not null, default: '#fbbf24']
+
+  // Portal "/" (RF30, RN28)
+  homeBody text [note: 'Texto do portal, em Markdown']
+  directoryEnabled boolean [not null, default: true, note: 'Liga o diretório de espaços']
 
   // Metadados adicionais
   logoUrl varchar
@@ -135,6 +159,60 @@ Table configurations {
 }
 
 // ////////////////////////////////////////////////////////
+// APARÊNCIA POR USUÁRIO (ADR-025, ADR-028): uma linha por usuário, criada sob demanda;
+// sem linha, valem os padrões. Mesmas colunas de identidade, links e paletas de
+// configurations, sem os campos do portal.
+// ////////////////////////////////////////////////////////
+Table appearances {
+  ownerId varchar [pk]
+  siteName varchar [not null, default: 'Vitrine']
+  siteDescription text
+  primaryColor varchar [not null, default: '#2563eb']
+  secondaryColor varchar [not null, default: '#1e293b']
+  accentColor varchar [not null, default: '#b45309']
+  darkPrimaryColor varchar [not null, default: '#60a5fa']
+  darkSecondaryColor varchar [not null, default: '#cbd5e1']
+  darkAccentColor varchar [not null, default: '#fbbf24']
+  logoUrl varchar
+  faviconUrl varchar
+  discordUrl varchar
+  githubUrl varchar
+  youtubeUrl varchar
+  instagramUrl varchar
+  linkedinUrl varchar
+  twitchUrl varchar
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+}
+
+// ////////////////////////////////////////////////////////
+// NOTIFICAÇÕES INTERNAS (ADR-026, ADR-028)
+// ////////////////////////////////////////////////////////
+Enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+Table notifications {
+  id varchar [pk]
+  userId varchar [not null, note: 'Destinatário; só ele vê (RN19, RN26)']
+  type varchar [not null, note: 'CONTRAST | MODERATION | ACCOUNT (validado na aplicação)']
+  severity NotificationSeverity [not null, default: 'INFO']
+  dedupeKey varchar [note: 'Ex.: contrast:dark; única por usuário']
+  data text [not null, note: 'JSON com os parâmetros do evento']
+  readAt timestamp
+  resolvedAt timestamp [note: 'A causa deixou de existir']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  indexes {
+    (userId, dedupeKey) [unique, name: 'notifications_userId_dedupeKey_key']
+    (userId, readAt, updatedAt) [name: 'notifications_userId_readAt_updatedAt_idx']
+  }
+}
+
+// ////////////////////////////////////////////////////////
 // RELAÇÕES (como em prisma/schema.prisma; migração 20261001034824_init)
 // Cascata em session, account e no auto-relacionamento de contents;
 // Restrict no autor do conteúdo (M-002, RNF10).
@@ -142,7 +220,12 @@ Table configurations {
 Ref: session.userId > user.id [delete: cascade]
 Ref: account.userId > user.id [delete: cascade]
 Ref: contents.authorId > user.id [delete: restrict]
+Ref: appearances.ownerId - user.id [delete: cascade]
+Ref: notifications.userId > user.id [delete: cascade]
+// Dono único por árvore (ADR-028): FK composta (parentId, authorId) -> (id, authorId), Cascade
+Ref: contents.(parentId, authorId) > contents.(id, authorId) [delete: cascade]
 
-// Auto-relacionamento: um conteúdo pode ter vários "filhos".
+// Auto-relacionamento (no modelo-alvo, a FK composta acima substitui parentId > id):
+// um conteúdo pode ter vários "filhos".
 // Permite: Tutorial (COLLECTION) > Introdução (DOCUMENT)
-Ref: contents.parentId > contents.id [delete: cascade]
+// Ref: contents.parentId > contents.id [delete: cascade]   (esquema anterior ao M15)

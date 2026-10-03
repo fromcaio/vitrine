@@ -2,7 +2,9 @@
 ' ===========================================================================
 ' Vitrine - Modelo de domínio (diagrama de classes)
 ' Figura: fig:classes-dominio (doc/tex/capitulos/cap5_arquitetura.tex)
-' Espelha prisma/schema.prisma. Atualizar junto com er-vitrine.dbml.
+' Modelo-alvo multiusuário (ADR-023 a ADR-028 e ADR-031; módulo M15): espelha
+' er-vitrine.dbml. Enquanto o M15 não for integrado, prisma/schema.prisma tem
+' o esquema anterior. Atualizar junto com er-vitrine.dbml.
 ' ===========================================================================
 skinparam shadowing false
 skinparam classAttributeIconSize 0
@@ -23,12 +25,24 @@ enum ContentStatus <<enum do Prisma>> {
   PUBLISHED
 }
 
+enum NotificationSeverity <<enum do Prisma>> {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 class User {
   id : String <<cuid>>
   name : String
   email : String <<único>>
   emailVerified : Boolean
   image : String [0..1]
+  role : String = "user" <<admin | user>>
+  banned : Boolean = false
+  banReason : String [0..1]
+  banExpires : DateTime [0..1]
+  handle : String [0..1] <<único>>
+  mustChangePassword : Boolean = false
   createdAt : DateTime
   updatedAt : DateTime
 }
@@ -39,6 +53,7 @@ class Session {
   expiresAt : DateTime
   ipAddress : String [0..1]
   userAgent : String [0..1]
+  impersonatedBy : String [0..1]
   createdAt : DateTime
   updatedAt : DateTime
 }
@@ -75,13 +90,18 @@ class Content {
   updatedAt : DateTime
 }
 
-class Configuration <<registro único>> {
+class Configuration <<o site; registro único>> {
   id : String = "default"
   siteName : String = "Vitrine"
   siteDescription : String [0..1]
-  primaryColor : String = "#3b82f6"
+  primaryColor : String = "#2563eb"
   secondaryColor : String = "#1e293b"
-  accentColor : String = "#f59e0b"
+  accentColor : String = "#b45309"
+  darkPrimaryColor : String = "#60a5fa"
+  darkSecondaryColor : String = "#cbd5e1"
+  darkAccentColor : String = "#fbbf24"
+  homeBody : String [0..1]
+  directoryEnabled : Boolean = true
   logoUrl : String [0..1]
   faviconUrl : String [0..1]
   discordUrl : String [0..1]
@@ -93,21 +113,55 @@ class Configuration <<registro único>> {
   updatedAt : DateTime
 }
 
+class Appearance <<uma por usuário, sob demanda>> {
+  ownerId : String <<PK, FK>>
+  siteName : String
+  siteDescription : String [0..1]
+  primaryColor, secondaryColor, accentColor : String
+  darkPrimaryColor, darkSecondaryColor, darkAccentColor : String
+  logoUrl, faviconUrl : String [0..1]
+  seis links sociais : String [0..1]
+  updatedAt : DateTime
+}
+
+class Notification {
+  id : String <<cuid>>
+  type : String <<CONTRAST | MODERATION | ACCOUNT>>
+  severity : NotificationSeverity = INFO
+  dedupeKey : String [0..1] <<único por usuário>>
+  data : String <<JSON>>
+  readAt : DateTime [0..1]
+  resolvedAt : DateTime [0..1]
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
 User "1" *-- "0..*" Session : possui
 User "1" *-- "0..*" Account : possui
-User "1" *-- "0..*" Content : autor de
+User "1" *-- "0..*" Content : dono de
+User "1" *-- "0..1" Appearance : aparência de
+User "1" *-- "0..*" Notification : destinatário de
+Notification ..> NotificationSeverity : severity
 Content "0..1" *-- "0..*" Content : pai de
 Content ..> ContentType : type
 Content ..> ContentStatus : status
 
 note bottom of Content
-  Regras: apenas COLLECTION pode ter filhos;
+  Regras: o dono (authorId) é o mesmo em toda a árvore,
+  imposto pela FK composta (parentId, authorId) -> (id, authorId);
+  apenas COLLECTION pode ter filhos;
   exclusão de um nó remove seus descendentes (cascata);
   excluir um usuário com conteúdo é bloqueado (Restrict);
   slug único entre irmãos: índice (parentId, slug) mais
-  índice parcial para a raiz, em SQL (D-05, ADR-017);
+  índice parcial da raiz por dono (authorId, slug), em SQL
+  (D-05, ADR-028);
   visível ao público somente se o nó e todos os
-  ancestrais forem PUBLISHED (RN15).
+  ancestrais forem PUBLISHED e o espaço do dono estiver
+  ativo (RN15, RN23).
+end note
+note right of Appearance
+  Sem linha, valem os padrões (RN08). A aparência do
+  site fica em Configuration; a do usuário, aqui.
 end note
 note right of Configuration
   Links sociais: seis campos opcionais e

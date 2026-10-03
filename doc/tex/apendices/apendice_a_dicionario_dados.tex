@@ -99,3 +99,87 @@ A Tabela~\ref{tab:indices} lista os índices de \texttt{contents}, criados pela 
 \end{tabularx}
 \fonte{Elaborado pelos autores, a partir da migração inicial.}
 \end{table}
+
+\section*{Modelo-alvo multiusuário (M15)}
+
+As tabelas acima descrevem o esquema \emph{em vigor}. A Tabela~\ref{tab:dicionario-alvo} lista, para o módulo M15 (\adr{ADR-028}, \adr{ADR-031}), apenas o que \emph{muda ou nasce}; ela é normativa para o agente Dados e passa a integrar o dicionário acima quando o merge ocorrer. Os valores padrão das cores são os da Tabela~\ref{tab:padroes-cor}.
+
+\begin{longtable}{@{}L{3.9cm}L{1.8cm}L{3.3cm}L{5.0cm}@{}}
+\caption{Dicionário de dados: o que o M15 acrescenta ou altera}\label{tab:dicionario-alvo}\\
+\toprule
+\textbf{Coluna} & \textbf{Tipo} & \textbf{Restrição / padrão} & \textbf{Descrição}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Coluna} & \textbf{Tipo} & \textbf{Restrição / padrão} & \textbf{Descrição}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{user} --- colunas novas}}\\[2pt]
+\texttt{role} & String & \texttt{"user"} & \texttt{admin} ou \texttt{user} (\en{plugin} \texttt{admin}; RN19)\\
+\texttt{banned} & Boolean & \texttt{false} & Conta suspensa (RN23)\\
+\texttt{banReason}, \texttt{banExpires} & String?; DateTime? & Opcionais & Motivo (visto pelo usuário) e fim da suspensão; vencido, a conta volta sozinha\\
+\texttt{handle} & String? & Único; nulo até o administrador defini-lo & Identificador público do espaço (RN20); \texttt{input: false}\\
+\texttt{mustChangePassword} & Boolean & \texttt{false} & Troca de senha obrigatória (RN21); \texttt{input: false}\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{session} --- coluna nova}}\\[2pt]
+\texttt{impersonatedBy} & String? & Opcional & Exigida pelo \en{plugin}; o Vitrine não o usa (sem permissão \texttt{impersonate})\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{contents} --- alterações}}\\[2pt]
+\texttt{authorId} & String & FK $\rightarrow$ \arq{user.id}; \texttt{Restrict} & Dono da árvore inteira (RN13); com \texttt{parentId}, forma a FK composta $\rightarrow$ (\texttt{id}, \texttt{authorId}), \texttt{Cascade}\\
+\texttt{(id, authorId)} & --- & \texttt{@@unique} & Alvo da chave estrangeira composta\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \arq{configurations} (o site) --- colunas novas}}\\[2pt]
+\arq{darkPrimaryColor} & String & \texttt{"\#60a5fa"} & Primária do modo noturno (RN27)\\
+\arq{darkSecondaryColor} & String & \texttt{"\#cbd5e1"} & Secundária do modo noturno\\
+\arq{darkAccentColor} & String & \texttt{"\#fbbf24"} & Destaque do modo noturno\\
+\texttt{homeBody} & String? & Opcional & Texto do portal em Markdown (RF30)\\
+\arq{directoryEnabled} & Boolean & \texttt{true} & Liga o diretório de espaços no portal (RN28)\\
+\texttt{primaryColor}, \arq{secondaryColor}, \texttt{accentColor} & String & \texttt{"\#2563eb"}, \texttt{"\#1e293b"}, \texttt{"\#b45309"} & Novos padrões da paleta clara (\adr{ADR-031})\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{appearances} (modelo \texttt{Appearance}) --- uma por usuário, criada sob demanda}}\\[2pt]
+\texttt{ownerId} & String & PK; FK $\rightarrow$ \arq{user.id}; \texttt{Cascade} & Proprietário; sem linha, valem os padrões (RN08)\\
+\arq{siteName}, \arq{siteDescription} & String; String? & \texttt{"Vitrine"}; opcional & Nome e descrição do espaço (nome padrão: o nome do usuário, a critério do Dados e do Core)\\
+\arq{primaryColor}, \arq{secondaryColor}, \arq{accentColor} & String & Padrões claros & Paleta clara\\
+\arq{darkPrimaryColor}, \arq{darkSecondaryColor}, \arq{darkAccentColor} & String & Padrões noturnos & Paleta noturna\\
+\arq{logoUrl}, \arq{faviconUrl} & String? & Opcionais & Logotipo e \en{favicon}\\
+\arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl}, \arq{twitchUrl} & String? & Opcionais; só http(s) (RN17) & Links sociais do rodapé do espaço\\
+\texttt{createdAt}, \texttt{updatedAt} & DateTime & \texttt{now()}; \texttt{@updatedAt} & Carimbos de tempo\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{notifications} (modelo \texttt{Notification})}}\\[2pt]
+\texttt{id} & String & PK; \texttt{cuid()} & Identificador\\
+\texttt{userId} & String & FK $\rightarrow$ \arq{user.id}; \texttt{Cascade} & Destinatário; só ele vê a notificação (RN19, RN26)\\
+\texttt{type} & String & Obrigatório & \texttt{CONTRAST}, \texttt{MODERATION} ou \texttt{ACCOUNT}; validado na aplicação\\
+\texttt{severity} & NotificationSeverity & \texttt{INFO} & \texttt{INFO}, \texttt{WARNING} ou \texttt{CRITICAL}\\
+\texttt{dedupeKey} & String? & Único por usuário & Chave de deduplicação (por exemplo, \texttt{contrast:dark})\\
+\texttt{data} & String (JSON) & Obrigatório & Parâmetros do evento (campo, razão, motivo, \ldots); o texto exibido é montado a partir de \texttt{type} e \texttt{data}\\
+\texttt{readAt}, \texttt{resolvedAt} & DateTime? & Opcionais & Lida e resolvida (a causa deixou de existir); o contador de não lidas conta as que não têm nenhuma das duas\\
+\texttt{createdAt}, \texttt{updatedAt} & DateTime & \texttt{now()}; \texttt{@updatedAt} & Carimbos de tempo; a reabertura de uma deduplicada zera \texttt{readAt} e \texttt{resolvedAt}\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir das ADR-028 e ADR-031. O Dados pode acrescentar colunas auxiliares por \texttt{[RFC]}; as aqui listadas e suas restrições são o mínimo normativo.}
+
+\begin{table}[htb]
+\caption{Índices e restrições do modelo-alvo}\label{tab:indices-alvo}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.0cm}L{4.2cm}Y@{}}
+\toprule
+\textbf{Índice ou restrição} & \textbf{Colunas} & \textbf{Finalidade}\\
+\midrule
+\arq{contents_parentId_slug_key} & único: (\texttt{parentId}, \texttt{slug}) & RN03 entre irmãos (inalterado)\\
+\addlinespace
+\arq{contents_root_owner_slug_key} & único parcial: (\texttt{authorId}, \texttt{slug}) \texttt{WHERE parentId IS NULL}; SQL manual & RN03 na raiz \emph{por dono}; substitui o \arq{contents_root_slug_key}; recriar em toda migração de \texttt{contents} (CT34)\\
+\addlinespace
+\arq{contents_id_authorId_key} & único: (\texttt{id}, \texttt{authorId}) & Alvo da chave composta do dono único (CT35)\\
+\addlinespace
+\arq{contents_authorId_parentId_order_idx} & (\texttt{authorId}, \texttt{parentId}, \texttt{order}) & Consulta da árvore de um dono; substitui o de (\texttt{parentId}, \texttt{order})\\
+\addlinespace
+\arq{user_handle_key} & único: \texttt{handle} & RN20 (valores nulos não colidem no SQLite)\\
+\addlinespace
+\arq{notifications_userId_dedupeKey_key} & único: (\texttt{userId}, \texttt{dedupeKey}) & Deduplicação (RN26)\\
+\addlinespace
+\arq{notifications_userId_readAt_updatedAt_idx} & (\texttt{userId}, \texttt{readAt}, \texttt{updatedAt}) & Contador de não lidas e listagem\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da \adr{ADR-028}.}
+\end{table}
