@@ -259,6 +259,7 @@ O layout raiz estático (sem dados do banco; ADR-030); `/[handle]` e `/[handle]/
 Condição do P-014 cumprida: o M-013 está na `main` e todas as chamadas em `src/` já passam o dono (`contents/route.js`, `contents/[id]/route.js`, `contents/reorder/route.js`, `_lib/contents.js`). **Tarefa:** em `src/lib/db.js`, `getContentTree({ ownerId, onlyPublished })` e `reorderContents(items, { ownerId })` passam a exigir `ownerId` (`INVALID_INPUT` se faltar), sem a ramificação "todos os donos"; atualize os testes do Dados que ainda chamam sem dono e acrescente o teste da recusa. **Primeiro passo:** clone próprio, sem *worktree*; `git switch -c feat/dados-owner-obrigatorio origin/main`. **Fora do escopo:** qualquer outra mudança de dados. **Verificação:** `lint`, `build`, `npm test` (e confira com `grep -rn "getContentTree\|reorderContents" src` que nenhuma chamada deixou de passar o dono) e as mutações do teste novo; pedido de merge no modelo de `DESENVOLVEDORES.md` §4. Não toca `src/app/**`: pode andar em paralelo com a Parte 2 do Core e com a etapa 1 da UI.
 
 **Status:** **ABERTO** (2026-10-04).
+
 ---
 
 ## Solicitações de merge
