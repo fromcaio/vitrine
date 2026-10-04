@@ -7,8 +7,10 @@
 // não revela quais identificadores existem. O 404 vem depois da autorização.
 import { findUserById } from "@/lib/auth";
 import { deleteUser, updateUserProfile } from "@/lib/db";
+import { revalidatePortal, revalidateSnapshots } from "@/lib/revalidate";
 import { userDeleteQuerySchema, userUpdateSchema } from "@/lib/validators";
-import { ApiError, noContent, ok, parse } from "../../_lib/http";
+import { ApiError, ok, parse } from "../../_lib/http";
+import { captureSpace, revalidateWholeSpace } from "../../_lib/revalidation";
 import { route } from "../../_lib/route";
 import { publicUser } from "../../_lib/users";
 
@@ -30,14 +32,22 @@ export const GET = route({ action: "users:read", load: target, allowForeign: tru
 /**
  * PATCH: edita nome, handle e papel (RF27). O último administrador ativo não é rebaixado (409
  * `LAST_ADMIN`, na transação); handle repetido: 409 `USER_CONFLICT`. Mudar o handle quebra as URLs do
- * espaço, sem redirecionamento (RN20, ADR-024).
+ * espaço, sem redirecionamento (RN20, ADR-024): o espaço inteiro é revalidado, com o handle antigo e o
+ * novo, e o portal (RN10, ADR-030). Mudar só o nome revalida o portal, que o exibe no diretório.
  */
 export const PATCH = route(
   { action: "users:update", mutation: true, rate: "users", load: target, allowForeign: true },
   async ({ params, readJson }) => {
     const patch = parse(userUpdateSchema, await readJson());
-    await requireUser(params.id);
+    const current = await requireUser(params.id);
+    const before = patch.handle !== undefined ? await captureSpace(params.id) : null;
     const updated = await updateUserProfile(params.id, patch);
+
+    if (before && (current.handle ?? null) !== (updated.handle ?? null)) {
+      await revalidateWholeSpace({ ownerId: params.id, before: [before], directory: true });
+    } else if (patch.name !== undefined && updated.name !== current.name) {
+      revalidatePortal();
+    }
     return ok(publicUser(/** @type {any} */ (updated)));
   },
 );
@@ -46,16 +56,21 @@ export const PATCH = route(
  * DELETE: exclui a conta (RN24). Com conteúdo, é preciso escolher `?content=transfer&to=<id>` (com
  * `&onConflict=rename` para renomear a raiz de slug repetido; o padrão recusa tudo) ou
  * `?content=delete`; sem a escolha, 409 `USER_HAS_CONTENT`. A operação é atômica. Ninguém exclui a
- * si mesmo, e o último administrador ativo não é excluído (409 `LAST_ADMIN`). Responde 204.
+ * si mesmo (403 `FORBIDDEN`), e o último administrador ativo não é excluído (409 `LAST_ADMIN`).
+ * Responde 200 com `data: { id, content, roots, renamed }` (exceção à convenção do 204: o administrador
+ * vê as raízes renomeadas na transferência; R-009). O espaço do excluído e o do destino da
+ * transferência são revalidados, e o portal também (RN10, ADR-030).
  */
 export const DELETE = route(
   { action: "users:remove", mutation: true, rate: "users", load: target, allowForeign: true },
   async ({ actor, params, request }) => {
     const options = parse(userDeleteQuerySchema, Object.fromEntries(new URL(request.url).searchParams));
-    await requireUser(params.id);
     if (params.id === actor.id) {
-      throw new ApiError(409, "LAST_ADMIN", "Você não pode excluir a própria conta.", [{ userId: actor.id }]);
+      throw new ApiError(403, "FORBIDDEN", "Você não pode excluir a própria conta.");
     }
+    const target = await requireUser(params.id);
+    /** @type {import("@/lib/revalidate").SpaceSnapshot | null} */
+    let destinationBefore = null;
     if (options.content === "transfer") {
       if (options.to === params.id) {
         throw new ApiError(422, "VALIDATION_ERROR", "Dados inválidos.", [
@@ -63,9 +78,18 @@ export const DELETE = route(
         ]);
       }
       await requireUser(/** @type {string} */ (options.to));
+      destinationBefore = await captureSpace(/** @type {string} */ (options.to));
     }
 
-    await deleteUser(params.id, options);
-    return noContent();
+    // Os caminhos do espaço que vai sair do ar, de antes da exclusão.
+    const before = await captureSpace(params.id);
+    const result = await deleteUser(params.id, options);
+
+    revalidateSnapshots(before);
+    if (target.handle) revalidatePortal();
+    if (destinationBefore) {
+      await revalidateWholeSpace({ ownerId: /** @type {string} */ (options.to), before: [destinationBefore], directory: true });
+    }
+    return ok(result);
   },
 );

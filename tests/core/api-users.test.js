@@ -543,21 +543,21 @@ describe("POST/DELETE /api/users/:id/ban: suspensão (CT41; RN23)", () => {
     expect((await row(ana.id)).banned).toBe(false);
   });
 
-  it("ninguém suspende a si mesmo: 409", async () => {
+  it("ninguém suspende a si mesmo: 403 FORBIDDEN (R-009)", async () => {
     const response = await ban(admin.userId, { reason: "x" });
 
-    expect(response.status).toBe(409);
-    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect(response.status).toBe(403);
+    expect((await errorOf(response)).code).toBe("FORBIDDEN");
     expect((await row(admin.userId)).banned).toBe(false);
   });
 
-  it("ninguém suspende a si mesmo, nem havendo outro administrador ativo: 409 e a sessão continua", async () => {
+  it("ninguém suspende a si mesmo, nem havendo outro administrador ativo: 403 e a sessão continua", async () => {
     const second = await createUserSession({ email: "admin2@exemplo.test", role: "admin" });
 
     const response = await ban(second.id, { reason: "x" }, second.cookie);
 
-    expect(response.status).toBe(409);
-    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect(response.status).toBe(403);
+    expect((await errorOf(response)).code).toBe("FORBIDDEN");
     expect((await row(second.id)).banned).toBe(false);
     expect(await getSession(new Headers({ cookie: second.cookie }))).not.toBeNull();
   });
@@ -598,10 +598,11 @@ describe("POST/DELETE /api/users/:id/ban: suspensão (CT41; RN23)", () => {
 });
 
 describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
-  it("sem conteúdo, exclui a conta e responde 204", async () => {
+  it("sem conteúdo, exclui a conta e responde 200 com { id, content, roots, renamed } (R-009)", async () => {
     const response = await remove(ana.id);
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { id: ana.id, content: "none", roots: 0, renamed: [] } });
     expect(await prisma.user.findUnique({ where: { id: ana.id } })).toBeNull();
     expect(await prisma.session.count({ where: { userId: ana.id } })).toBe(0);
     expect(await prisma.account.count({ where: { userId: ana.id } })).toBe(0);
@@ -626,7 +627,8 @@ describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
 
     const response = await remove(ana.id, `?content=transfer&to=${beto.id}`);
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { id: ana.id, content: "transferred", roots: 1, renamed: [] } });
     expect(await prisma.user.findUnique({ where: { id: ana.id } })).toBeNull();
     expect(await prisma.content.count({ where: { authorId: beto.id } })).toBe(2);
   });
@@ -641,7 +643,13 @@ describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
     expect(await prisma.content.count({ where: { authorId: ana.id } })).toBe(1);
 
     const renamed = await remove(ana.id, `?content=transfer&to=${beto.id}&onConflict=rename`);
-    expect(renamed.status).toBe(204);
+    expect(renamed.status).toBe(200);
+    // O administrador vê a raiz renomeada na própria resposta.
+    expect((await renamed.json()).data).toMatchObject({
+      content: "transferred",
+      roots: 1,
+      renamed: [expect.objectContaining({ from: "sobre", to: "sobre-2" })],
+    });
     expect(await prisma.content.count({ where: { authorId: beto.id } })).toBe(2);
     expect((await prisma.content.findMany({ where: { authorId: beto.id }, select: { slug: true } })).map((c) => c.slug).sort()).toEqual(["sobre", "sobre-2"]);
   });
@@ -650,7 +658,9 @@ describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
     const root = await createContent({ title: "Raiz", slug: "raiz", type: "COLLECTION", authorId: ana.id });
     await createContent({ title: "Filho", slug: "filho", type: "DOCUMENT", authorId: ana.id, parentId: root.id });
 
-    expect((await remove(ana.id, "?content=delete")).status).toBe(204);
+    const response = await remove(ana.id, "?content=delete");
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ id: ana.id, content: "deleted", roots: 1, renamed: [] });
     expect(await prisma.content.count()).toBe(0);
     expect(await prisma.user.findUnique({ where: { id: ana.id } })).toBeNull();
   });
@@ -666,27 +676,29 @@ describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
     expect(await prisma.content.count({ where: { authorId: ana.id } })).toBe(1);
   });
 
-  it("ninguém exclui a si mesmo: 409, e a conta continua", async () => {
+  it("ninguém exclui a si mesmo: 403 FORBIDDEN, e a conta continua (R-009)", async () => {
     const response = await remove(admin.userId);
 
-    expect(response.status).toBe(409);
-    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect(response.status).toBe(403);
+    expect((await errorOf(response)).code).toBe("FORBIDDEN");
     expect(await prisma.user.findUnique({ where: { id: admin.userId } })).not.toBeNull();
   });
 
-  it("ninguém exclui a si mesmo, nem havendo outro administrador ativo: 409 e a conta continua", async () => {
+  it("ninguém exclui a si mesmo, nem havendo outro administrador ativo: 403 e a conta continua", async () => {
     const second = await createUserSession({ email: "admin2@exemplo.test", role: "admin" });
 
     const response = await remove(second.id, "", second.cookie);
 
-    expect(response.status).toBe(409);
-    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect(response.status).toBe(403);
+    expect((await errorOf(response)).code).toBe("FORBIDDEN");
     expect(await prisma.user.findUnique({ where: { id: second.id } })).not.toBeNull();
   });
 
   it("um administrador exclui o outro quando há mais de um ativo", async () => {
     const second = await createTestUser({ email: "admin2@exemplo.test", role: "admin" });
-    expect((await remove(second.id)).status).toBe(204);
+    const response = await remove(second.id);
+    expect(response.status).toBe(200);
+    expect((await response.json()).data).toMatchObject({ id: second.id, content: "none" });
   });
 
   it("usuário comum recebe 403, anônimo 401, inexistente 404; nada é excluído", async () => {
