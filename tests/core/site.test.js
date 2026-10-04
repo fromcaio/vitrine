@@ -125,7 +125,7 @@ describe("getSiteConfiguration", () => {
   });
 
   it("sem registro, devolve a configuração padrão da RN08", async () => {
-    expect(await getSiteConfiguration()).toMatchObject({ siteName: "Vitrine", primaryColor: "#3b82f6" });
+    expect(await getSiteConfiguration()).toMatchObject({ siteName: "Vitrine", primaryColor: "#2563eb" });
   });
 
   it("no next build devolve null e não consulta o banco", async () => {

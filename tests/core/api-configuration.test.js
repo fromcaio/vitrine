@@ -44,9 +44,9 @@ describe("GET /api/configuration", () => {
     expect(body.data).toMatchObject({
       id: "default",
       siteName: "Vitrine",
-      primaryColor: "#3b82f6",
+      primaryColor: "#2563eb",
       secondaryColor: "#1e293b",
-      accentColor: "#f59e0b",
+      accentColor: "#b45309",
       githubUrl: null,
     });
     expect(await prisma.configuration.count()).toBe(1);
@@ -151,12 +151,16 @@ describe("PUT /api/configuration", () => {
 
 describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
   // Pares sempre contra o branco (Cap. 5 §5.9.1): primária e secundária, mínimo 4,5:1; destaque,
-  // mínimo 3:1. `ratio` vem truncado em duas casas. A paleta padrão da RN08 reprova na primária
-  // (#3b82f6) e no destaque (#f59e0b); por isso todo teste afirma campo, razão e mínimo.
+  // mínimo 3:1. `ratio` vem truncado em duas casas. A paleta padrão anterior à ADR-031 (primária
+  // #3b82f6 e destaque #f59e0b, que ainda vale em instalações que a personalizaram assim) reprova na
+  // primária e no destaque; a paleta padrão atual não reprova em nada. Por isso os testes que
+  // precisam de avisos gravam a paleta antiga e todo teste afirma campo, razão e mínimo.
   const DEFAULT_PALETTE_WARNINGS = [
     { field: "primaryColor", ratio: 3.67, minimum: 4.5 },
     { field: "accentColor", ratio: 2.14, minimum: 3 },
   ];
+  const PREVIOUS_DEFAULT_PALETTE = { primaryColor: "#3b82f6", secondaryColor: "#1e293b", accentColor: "#f59e0b" };
+  const storePreviousDefaultPalette = () => prisma.configuration.upsert({ where: { id: "default" }, update: PREVIOUS_DEFAULT_PALETTE, create: { id: "default", ...PREVIOUS_DEFAULT_PALETTE } });
   const SAFE_PALETTE = { primaryColor: "#1d4ed8", secondaryColor: "#1e293b", accentColor: "#b45309" };
   const BAD_PALETTE = { primaryColor: "#facc15", secondaryColor: "#94a3b8", accentColor: "#fde68a" };
   const BAD_PALETTE_WARNINGS = [
@@ -168,7 +172,8 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
   /** Campo avisado, razão e mínimo de cada aviso, na ordem em que vieram. */
   const summarize = (warnings) => warnings.map(({ field, ratio, minimum }) => ({ field, ratio, minimum }));
 
-  it("sem cores no corpo, avalia a paleta padrão gravada: primária e destaque, nessa ordem", async () => {
+  it("sem cores no corpo, avalia a paleta gravada (a padrão anterior): primária e destaque, nessa ordem", async () => {
+    await storePreviousDefaultPalette();
     const response = await put({ siteName: "Notas de Aula" });
 
     expect(response.status).toBe(200);
@@ -178,7 +183,15 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect(summarize(body.warnings)).toEqual(DEFAULT_PALETTE_WARNINGS);
   });
 
+  it("sem cores no corpo, a paleta padrão atual (ADR-031) não gera nenhum aviso", async () => {
+    const body = await (await put({ siteName: "Notas de Aula" })).json();
+
+    expect(body.data).toMatchObject({ primaryColor: "#2563eb", secondaryColor: "#1e293b", accentColor: "#b45309" });
+    expect(body.warnings).toEqual([]);
+  });
+
   it("cada aviso segue o formato { code, field, ratio, minimum, message }", async () => {
+    await storePreviousDefaultPalette();
     const { warnings } = await (await put({ siteName: "Notas de Aula" })).json();
 
     for (const warning of warnings) {
@@ -199,7 +212,8 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect(body.warnings).toEqual([]);
   });
 
-  it("corrigir só a primária mantém o aviso do destaque padrão", async () => {
+  it("corrigir só a primária mantém o aviso do destaque padrão anterior", async () => {
+    await storePreviousDefaultPalette();
     const body = await (await put({ primaryColor: SAFE_PALETTE.primaryColor })).json();
 
     expect(summarize(body.warnings)).toEqual([{ field: "accentColor", ratio: 2.14, minimum: 3 }]);
@@ -226,6 +240,7 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
   });
 
   it("recebe do banco as três cores gravadas, e não o corpo da requisição", async () => {
+    await storePreviousDefaultPalette();
     await put({ accentColor: "#b45309", siteName: "Notas" });
 
     expect(contrastWarnings).toHaveBeenCalledExactlyOnceWith({
