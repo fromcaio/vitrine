@@ -14,8 +14,13 @@
 ' ===========================================================================
 left to right direction
 skinparam shadowing false
-skinparam packageBorderColor transparent
-skinparam packageBackgroundColor transparent
+skinparam rectangle {
+  BorderColor #94A3B8
+  BackgroundColor #FFFFFF
+  RoundCorner 12
+}
+skinparam nodesep 25
+skinparam ranksep 60
 skinparam ArrowColor #475569
 skinparam usecase {
   BackgroundColor #F8FAFC
@@ -93,5 +98,5 @@ Autor --> UC_Notif
 Admin --> UC_Users
 Admin --> UC_Moderate
 Admin --> UC_EditPortal
-Sistema --> UC_ISR
+UC_ISR <-- Sistema
 @enduml

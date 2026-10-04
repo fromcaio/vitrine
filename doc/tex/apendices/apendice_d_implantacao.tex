@@ -16,6 +16,8 @@ Este apêndice descreve como instalar, executar, atualizar e proteger uma instâ
 
 \vitrinependencia{Arquiteto}{Registrar o resultado da instalação em uma VPS Linux limpa, com HTTPS (caso CT29 no ambiente-alvo, a cargo do Engenheiro Chefe), e corrigir este guia conforme ele: o \texttt{chown 1000:1000} do diretório \arq{data/} em um \en{bind mount} Linux, o \en{cookie} \texttt{Secure}, o \texttt{x-forwarded-for} único do Caddy e do Nginx (Seção~\ref{sec:proxy}, trechos ainda não ensaiados) e o HSTS enviado pelo \en{proxy}.}
 
+\textbf{Verificação em Linux sem contorno (04/10/2026).} Com a rede do ambiente de verificação liberada para \texttt{deb.debian.org}, o Arquiteto construiu a imagem com o \arq{Dockerfile} do repositório e a base \texttt{node:24-bookworm-slim} (141~s, 1,95~GB; o \texttt{apt} do \en{proxy} do ambiente precisou de \texttt{https} e do CA dele, ajuste feito só na base de verificação), aplicou \texttt{prisma migrate deploy}, \texttt{prisma db seed} e \texttt{npm run admin:create} em contêineres descartáveis, subiu o contêiner (porta só em \texttt{127.0.0.1}, usuário \texttt{node}, \texttt{HTTP 200} em \arq{/login} com a CSP e os demais cabeçalhos, 404 em uma rota inexistente) e confirmou o \en{login} do administrador, inclusive depois de recriar o contêiner com o mesmo volume. Segue pendente só a instalação em uma VPS Linux limpa, com HTTPS (CT29).
+
 \section{Pré-requisitos}
 
 \begin{itemize}
