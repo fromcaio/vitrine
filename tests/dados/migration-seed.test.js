@@ -53,12 +53,13 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
         "verification",
         "contents",
         "configurations",
+        "appearances",
+        "notifications",
         "contents_parentId_slug_key",
-        "contents_parentId_order_idx",
-        "contents_root_slug_key",
+        "contents_root_owner_slug_key",
       ]),
     );
-    const partial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "contents_root_slug_key"));
+    const partial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "contents_root_owner_slug_key"));
     expect(partial.sql).toMatch(/WHERE\s+"parentId"\s+IS\s+NULL/i);
   });
 
@@ -83,20 +84,44 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
     expect(first[0]).toMatchObject({
       id: "default",
       siteName: "Vitrine",
-      primaryColor: "#3b82f6",
+      primaryColor: "#2563eb",
       secondaryColor: "#1e293b",
-      accentColor: "#f59e0b",
+      accentColor: "#b45309",
+      darkPrimaryColor: "#60a5fa",
+      darkSecondaryColor: "#cbd5e1",
+      darkAccentColor: "#fbbf24",
+      directoryEnabled: 1,
+      homeBody: null,
       githubUrl: null,
     });
 
-    // O administrador personaliza o site; o seed não pode desfazer isso.
+    // O administrador personaliza o site (inclusive os campos do M15); o seed não pode desfazer isso.
     const rw = new Database(dbFile);
-    rw.prepare("update configurations set siteName = 'Personalizado' where id = 'default'").run();
+    rw.prepare(
+      "update configurations set siteName = 'Personalizado', primaryColor = '#123456', darkPrimaryColor = '#654321', " +
+        "directoryEnabled = 0, homeBody = 'Texto do portal' where id = 'default'",
+    ).run();
     rw.close();
 
     runPrisma(["db", "seed"], url);
     const second = inspect((db) => db.prepare("select * from configurations").all());
     expect(second).toHaveLength(1);
-    expect(second[0]).toMatchObject({ id: "default", siteName: "Personalizado" });
+    expect(second[0]).toMatchObject({
+      id: "default",
+      siteName: "Personalizado",
+      primaryColor: "#123456",
+      darkPrimaryColor: "#654321",
+      directoryEnabled: 0,
+      homeBody: "Texto do portal",
+    });
+  });
+
+  it("o seed não cria usuário, aparência nem notificação (o administrador é do admin:create; a aparência nasce sob demanda)", () => {
+    const counts = inspect((db) => ({
+      users: /** @type {any} */ (db.prepare('select count(*) as n from "user"').get()).n,
+      appearances: /** @type {any} */ (db.prepare("select count(*) as n from appearances").get()).n,
+      notifications: /** @type {any} */ (db.prepare("select count(*) as n from notifications").get()).n,
+    }));
+    expect(counts).toEqual({ users: 0, appearances: 0, notifications: 0 });
   });
 });

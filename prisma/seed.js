@@ -17,7 +17,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // update vazio: reexecutar o seed nunca sobrescreve personalizações do administrador.
-  // Os demais campos (siteName "Vitrine", cores padrão, links nulos) vêm dos @default do schema.
+  // Os demais campos (siteName "Vitrine", as duas paletas padrão da ADR-031, directoryEnabled e os
+  // links nulos) vêm dos @default do schema. A Appearance de cada usuário não é criada aqui: nasce
+  // sob demanda, e sem linha valem os mesmos padrões (RN08).
   const configuration = await prisma.configuration.upsert({
     where: { id: CONFIGURATION_ID },
     update: {},

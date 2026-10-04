@@ -99,10 +99,10 @@ describe("RootLayout", () => {
     const style = declarationsOf(attributesOf(await renderRootLayout(), "html").style);
 
     expect(style).toEqual({
-      "--vitrine-primary": "#3b82f6",
-      "--vitrine-on-primary": readableTextOn("#3b82f6"),
+      "--vitrine-primary": "#2563eb",
+      "--vitrine-on-primary": readableTextOn("#2563eb"),
       "--vitrine-secondary": "#1e293b",
-      "--vitrine-accent": "#f59e0b",
+      "--vitrine-accent": "#b45309",
     });
   });
 

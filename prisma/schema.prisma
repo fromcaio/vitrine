@@ -21,11 +21,26 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Plugin admin do better-auth (ADR-023, ADR-028): papel e suspensão (RN19, RN23)
+  role       String    @default("user") // "admin" ou "user"; validado na aplicação (como Content.type)
+  banned     Boolean   @default(false)
+  banReason  String? // motivo da suspensão, visto pelo usuário
+  banExpires DateTime? // fim da suspensão; vencido, a conta volta sozinha (a coluna `banned` só é limpa no login)
+
+  // Identificador público do espaço /{handle} (RN20, ADR-024). Campo próprio, não o `username` do
+  // plugin (o usuário o alteraria); só o administrador o define. Nulo até lá; único quando definido.
+  handle String? @unique
+
+  // Senha provisória (RN21, ADR-029): enquanto verdadeiro, a conta só troca a senha e lê o perfil
+  mustChangePassword Boolean @default(false)
+
   sessions Session[]
   accounts Account[]
 
   // Relacionamento com o conteúdo do Vitrine
-  contents Content[]
+  contents      Content[]
+  notifications Notification[]
+  appearance    Appearance?
 
   @@map("user")
 }
@@ -40,6 +55,9 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Exigida pelo plugin admin; o Vitrine não personifica usuários (sem a permissão `impersonate`)
+  impersonatedBy String?
 
   @@map("session")
 }
@@ -93,34 +111,52 @@ model Content {
   status ContentStatus @default(PUBLISHED)
   order  Int           @default(0)
 
+  // Dono único por árvore (RN13, ADR-028): a chave estrangeira é composta e o banco recusa um filho
+  // cujo authorId difere do pai. O `onUpdate: Cascade` leva os descendentes quando o authorId da
+  // raiz muda, e é assim que a transferência entre donos é um único UPDATE (RN24).
   parentId String?
-  parent   Content?  @relation("ContentHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  parent   Content?  @relation("ContentHierarchy", fields: [parentId, authorId], references: [id, authorId], onDelete: Cascade, onUpdate: Cascade)
   children Content[] @relation("ContentHierarchy")
 
-  // Restrict: excluir um usuário com conteúdo é bloqueado, em vez de apagar o conteúdo dele (RNF10)
+  // O dono da árvore inteira. Restrict: excluir um usuário com conteúdo é bloqueado, em vez de
+  // apagar o conteúdo dele (RNF10); a exclusão com transferência ou apagamento é feita por db.js.
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // RN03: slug único entre irmãos. No SQLite o NULL é distinto de NULL, então a unicidade
-  // na raiz (parentId nulo) é coberta por um índice parcial na migração SQL (D-05).
+  // Alvo da chave estrangeira composta (parentId, authorId) -> (id, authorId)
+  @@unique([id, authorId])
+  // RN03: slug único entre irmãos. No SQLite o NULL é distinto de NULL, então a unicidade na raiz
+  // (parentId nulo) é coberta, por dono, pelo índice parcial da migração SQL (D-05, ADR-028):
+  //   CREATE UNIQUE INDEX "contents_root_owner_slug_key"
+  //     ON "contents"("authorId", "slug") WHERE "parentId" IS NULL;
+  // O Prisma não o modela e o APAGA sem avisar quando redefine a tabela: toda migração que
+  // redefina "contents" deve recriá-lo (risco R16; tests/dados/indexes.test.js confere a presença).
   @@unique([parentId, slug])
-  // RNF02: consulta da árvore e ordenação dos irmãos (RN05)
-  @@index([parentId, order])
+  // RNF02, RN05: árvore de um dono e ordenação dos irmãos
+  @@index([authorId, parentId, order])
   @@map("contents")
 }
 
-// Registro único (RN08): o id é fixo e o acesso é sempre por upsert nesse id.
+// O SITE (portal "/", login e painel): registro único (RN08). O id é fixo e o acesso é sempre por
+// upsert nesse id. A aparência de cada usuário fica em `Appearance` (ADR-028).
+// Padrões das paletas: Cap. 5 §5.9 (Tabela de paletas padrão; ADR-031). São os mesmos de Appearance
+// e do seed, e a migração só os troca na linha existente quando ainda valem os padrões antigos.
 model Configuration {
   id              String  @id @default("default")
   siteName        String  @default("Vitrine")
   siteDescription String?
 
-  primaryColor   String @default("#3b82f6")
+  // Paleta clara
+  primaryColor   String @default("#2563eb")
   secondaryColor String @default("#1e293b")
-  accentColor    String @default("#f59e0b")
+  accentColor    String @default("#b45309")
+  // Paleta noturna (RN27)
+  darkPrimaryColor   String @default("#60a5fa")
+  darkSecondaryColor String @default("#cbd5e1")
+  darkAccentColor    String @default("#fbbf24")
 
   logoUrl    String?
   faviconUrl String?
@@ -133,7 +169,81 @@ model Configuration {
   linkedinUrl  String?
   twitchUrl    String?
 
+  // Portal "/" (RF30, RN28): só do site, não existem em Appearance
+  homeBody         String? // texto do portal, em Markdown
+  directoryEnabled Boolean @default(true) // liga o diretório de espaços
+
   updatedAt DateTime @updatedAt
 
   @@map("configurations")
+}
+
+// Aparência do espaço de um usuário (RF31, ADR-025, ADR-028): as mesmas colunas de identidade,
+// links e paletas de Configuration, sem os campos do portal. A linha nasce sob demanda (upsert
+// no primeiro salvamento); sem linha, valem os padrões (RN08), e a leitura não escreve.
+model Appearance {
+  ownerId String @id
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // O padrão de um espaço novo é o nome do usuário; db.js o preenche ao criar a linha
+  siteName        String  @default("Vitrine")
+  siteDescription String?
+
+  primaryColor       String @default("#2563eb")
+  secondaryColor     String @default("#1e293b")
+  accentColor        String @default("#b45309")
+  darkPrimaryColor   String @default("#60a5fa")
+  darkSecondaryColor String @default("#cbd5e1")
+  darkAccentColor    String @default("#fbbf24")
+
+  logoUrl    String?
+  faviconUrl String?
+
+  discordUrl   String?
+  githubUrl    String?
+  youtubeUrl   String?
+  instagramUrl String?
+  linkedinUrl  String?
+  twitchUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("appearances")
+}
+
+// Gravidade de uma notificação. O SQLite não impõe o enum no banco; o Prisma o valida no cliente.
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// Notificações internas (RF33, RN26, ADR-026): só o destinatário as vê. O texto exibido não é
+// guardado: é montado a partir de `type` e `data`.
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type     String // CONTRAST, MODERATION ou ACCOUNT; validado na aplicação
+  severity NotificationSeverity @default(INFO)
+
+  // Chave de deduplicação (ex.: "contrast:dark"), única por usuário; nula = sem deduplicação.
+  // O NULL é distinto de NULL no SQLite, então as notificações sem chave não colidem.
+  dedupeKey String?
+
+  // Parâmetros do evento (campo, razão, motivo, ...) em JSON, como texto. Obrigatório; quem grava
+  // e lê é db.js (serializa e desserializa).
+  data String
+
+  readAt     DateTime? // lida
+  resolvedAt DateTime? // resolvida: a causa deixou de existir
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt // a reabertura de uma deduplicada zera readAt e resolvedAt
+
+  @@unique([userId, dedupeKey])
+  // Contador de não lidas e listagem
+  @@index([userId, readAt, updatedAt])
+  @@map("notifications")
 }
