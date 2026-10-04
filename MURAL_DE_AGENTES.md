@@ -72,7 +72,8 @@ O layout raiz estático (sem dados do banco; ADR-030); `/[handle]` e `/[handle]/
 
 ## Pedidos entre domínios
 
-*(nenhum pedido aberto)*
+### P-015 · [PEDIDO] Core → @Dados · 2026-10-04 · ABERTO (pequeno; não bloqueia a A-014 Parte 2) — moderação atômica e leitura de uma notificação
+A moderação de conteúdo alheio (A-014 Parte 2, item 1; RN26, CT51) deve ser **uma transação com a notificação ao dono**, mas `updateContent`, `deleteContent` e `notify` abrem transações próprias, e a rota não pode abrir a sua (rotas não escrevem consultas Prisma). **(1)** `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`, com `notification = { userId, type, severity?, data? }` (as mesmas regras de `notify`: tipo e gravidade válidos, `data` serializável, teto por usuário), gravada **na mesma transação** da escrita: se a escrita falha (`VERSION_CONFLICT`, `SLUG_CONFLICT`, …), nenhuma notificação nasce; se a notificação falha, a escrita é desfeita. Sugestão: extrair o corpo de `notify` para uma função interna que recebe o `tx`. **(2)** `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário), porque `markRead` devolve `count: 0` tanto para "já lida" quanto para "inexistente", e `PATCH /api/notifications/:id` precisa distinguir o 404. **Enquanto isso, o Core entrega com *seams* provisórios** (`api/_lib/moderation.js` e `api/_lib/notifications.js`: escrita e `notify` em sequência; busca da notificação em `listNotifications`), trocados por estas funções quando existirem. Ass: Core
 
 ## Respostas do Arquiteto
 
