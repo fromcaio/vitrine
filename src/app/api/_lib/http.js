@@ -1,13 +1,16 @@
-// Convenções HTTP da API (Cap. 5 §5.10), compartilhadas por todos os Route Handlers:
-// envelope de resposta, formato único de erro, tradução de DataError, leitura do corpo JSON,
-// verificação de origem e de sessão. A pasta `_lib` é privada: não gera rota.
-import { getSession } from "@/lib/auth";
+// Convenções HTTP da API (Cap. 5 §5.10), compartilhadas por todos os Route Handlers: envelope de
+// resposta, formato único de erro, tradução de DataError, leitura do corpo JSON com limite e
+// verificação de origem. A sessão e a autorização por dono estão em ./route.js. A pasta `_lib` é
+// privada: não gera rota.
 import { DataError } from "@/lib/db";
 import { validate } from "@/lib/validators";
 
 /**
- * Códigos de erro da API (Cap. 5 §5.10).
- * @typedef {"VALIDATION_ERROR" | "UNAUTHENTICATED" | "NOT_FOUND" | "SLUG_CONFLICT" | "INVALID_PARENT" | "CYCLE_DETECTED" | "INTERNAL_ERROR"} ApiErrorCode
+ * Códigos de erro da API (Cap. 5 §5.10; ADR-018 e ADR-029).
+ * @typedef {"VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "NOT_FOUND"
+ *   | "SLUG_CONFLICT" | "INVALID_PARENT" | "CYCLE_DETECTED" | "VERSION_CONFLICT" | "QUOTA_EXCEEDED"
+ *   | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "USER_CONFLICT" | "LAST_ADMIN" | "USER_HAS_CONTENT" | "BUSY"
+ *   | "INTERNAL_ERROR"} ApiErrorCode
  */
 
 /** Erro com resposta HTTP definida; qualquer outro erro vira 500 em `toErrorResponse`. */
@@ -17,13 +20,15 @@ export class ApiError extends Error {
    * @param {ApiErrorCode} code
    * @param {string} message
    * @param {Array<Record<string, unknown>>} [details]
+   * @param {Record<string, string>} [headers] cabeçalhos da resposta (ex.: `Retry-After`)
    */
-  constructor(status, code, message, details = []) {
+  constructor(status, code, message, details = [], headers = {}) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.headers = headers;
   }
 }
 
@@ -46,18 +51,26 @@ export function noContent() {
 
 /**
  * Tabela de mapeamento de DataError para a resposta HTTP (Cap. 5 §5.10.1.1, `tab:dataerror`).
- * `field` é o campo de entrada associado ao erro, usado em `details`.
- * @type {Record<string, { status: number, code: ApiErrorCode, field: string }>}
+ * `field` é o campo de entrada associado ao erro, usado em `details`; `message`, quando presente,
+ * substitui o texto de db.js (o pai de outro dono é indistinguível do pai inexistente, RN19).
+ * @type {Record<string, { status: number, code: ApiErrorCode, field: string, message?: string }>}
  */
 export const DATA_ERROR_MAP = {
   NOT_FOUND: { status: 404, code: "NOT_FOUND", field: "id" },
   SLUG_CONFLICT: { status: 409, code: "SLUG_CONFLICT", field: "slug" },
   PARENT_NOT_FOUND: { status: 422, code: "INVALID_PARENT", field: "parentId" },
   PARENT_NOT_COLLECTION: { status: 422, code: "INVALID_PARENT", field: "parentId" },
+  OWNER_MISMATCH: { status: 422, code: "INVALID_PARENT", field: "parentId", message: "O conteúdo pai não existe." },
   CYCLE: { status: 422, code: "CYCLE_DETECTED", field: "parentId" },
   TYPE_HAS_CHILDREN: { status: 422, code: "VALIDATION_ERROR", field: "type" },
   AUTHOR_NOT_FOUND: { status: 422, code: "VALIDATION_ERROR", field: "authorId" },
   INVALID_INPUT: { status: 422, code: "VALIDATION_ERROR", field: "" },
+  QUOTA_EXCEEDED: { status: 422, code: "QUOTA_EXCEEDED", field: "" },
+  VERSION_CONFLICT: { status: 409, code: "VERSION_CONFLICT", field: "version" },
+  USER_HAS_CONTENT: { status: 409, code: "USER_HAS_CONTENT", field: "" },
+  USER_CONFLICT: { status: 409, code: "USER_CONFLICT", field: "" },
+  LAST_ADMIN: { status: 409, code: "LAST_ADMIN", field: "" },
+  BUSY: { status: 503, code: "BUSY", field: "" },
 };
 
 const INTERNAL_ERROR = /** @type {const} */ ({
@@ -77,6 +90,35 @@ export function isDataError(error) {
 }
 
 /**
+ * Item de `details` de um DataError: o campo e o valor recusado, mais o que db.js informa.
+ * @param {DataError} error
+ * @param {{ field: string }} rule
+ * @returns {Record<string, unknown>}
+ */
+function detailOf(error, rule) {
+  const { field: errorField, ...rest } = /** @type {Record<string, unknown>} */ (error.details ?? {});
+
+  // RN18: a versão atual vai em `details[0].value`, para o editor mostrar o texto do servidor.
+  if (error.code === "VERSION_CONFLICT") return { field: rule.field, value: rest.currentVersion };
+
+  // RN25: o campo é a cota estourada (`body` ou `contents`); o resto (bytes, total, max) acompanha.
+  if (error.code === "QUOTA_EXCEEDED") {
+    const { quota, ...numbers } = rest;
+    return { field: typeof quota === "string" ? quota : "", ...numbers };
+  }
+
+  const field = typeof errorField === "string" && errorField !== "" ? errorField : rule.field;
+  /** @type {Record<string, unknown>} */
+  const detail = field ? { field } : {};
+  // O valor recusado, quando db.js o informa na chave do próprio campo (ex.: { parentId }).
+  if (field && field in rest) {
+    detail.value = rest[field];
+    delete rest[field];
+  }
+  return Object.assign(detail, rest);
+}
+
+/**
  * Traduz um DataError de src/lib/db.js para a resposta da API. Um código desconhecido é tratado
  * como erro interno.
  * @param {DataError} error
@@ -86,21 +128,11 @@ export function mapDataError(error) {
   const rule = DATA_ERROR_MAP[error.code];
   if (!rule) return INTERNAL_ERROR;
 
-  const { field: errorField, ...rest } = /** @type {Record<string, unknown>} */ (error.details ?? {});
-  const field = typeof errorField === "string" && errorField !== "" ? errorField : rule.field;
-  /** @type {Record<string, unknown>} */
-  const detail = field ? { field } : {};
-  // O valor recusado, quando db.js o informa na chave do próprio campo (ex.: { parentId }).
-  if (field && field in rest) {
-    detail.value = rest[field];
-    delete rest[field];
-  }
-  Object.assign(detail, rest);
-
+  const detail = detailOf(error, rule);
   return {
     status: rule.status,
     code: rule.code,
-    message: error.message,
+    message: rule.message ?? error.message,
     details: Object.keys(detail).length > 0 ? [detail] : [],
   };
 }
@@ -115,8 +147,10 @@ export function mapDataError(error) {
 export function toErrorResponse(error) {
   /** @type {{ status: number, code: ApiErrorCode, message: string, details: Array<Record<string, unknown>> }} */
   let body;
+  let headers = {};
   if (error instanceof ApiError) {
     body = { status: error.status, code: error.code, message: error.message, details: error.details };
+    headers = error.headers;
   } else if (isDataError(error)) {
     body = mapDataError(error);
   } else {
@@ -125,22 +159,84 @@ export function toErrorResponse(error) {
   if (body.status >= 500) console.error("[api] erro não previsto:", error);
 
   const { status, ...payload } = body;
-  return Response.json({ error: payload }, { status, headers: NO_STORE });
+  return Response.json({ error: payload }, { status, headers: { ...NO_STORE, ...headers } });
+}
+
+/** Limite do corpo JSON das rotas que não recebem texto longo (usuários, aparência, senha). */
+export const DEFAULT_JSON_MAX_BYTES = 64 * 1024;
+
+/**
+ * Limite do corpo JSON das rotas que recebem um texto de conteúdo (ADR-029, item 9): duas vezes a
+ * cota do corpo mais 64 KiB, folga para o escape do JSON e os demais campos. Acima disso a requisição
+ * é recusada com 413 sem ser lida por inteiro; a cota exata, em bytes do texto, é conferida depois
+ * (422 `QUOTA_EXCEEDED`, RN25).
+ * @param {{ maxBodyBytes: number }} limits
+ */
+export function contentJsonMaxBytes(limits) {
+  return 2 * limits.maxBodyBytes + 64 * 1024;
+}
+
+/** @param {number} maxBytes */
+function payloadTooLarge(maxBytes) {
+  return new ApiError(413, "PAYLOAD_TOO_LARGE", "O corpo da requisição é grande demais.", [
+    { field: "body", max: maxBytes },
+  ]);
+}
+
+/**
+ * Lê o corpo como texto, parando assim que passa de `maxBytes`: a requisição que declara um corpo
+ * maior (`Content-Length`) é recusada sem ler nada, e a que não declara (ou mente) é cortada no
+ * limite, sem encher a memória.
+ * @param {Request} request
+ * @param {number} maxBytes
+ */
+async function readLimitedText(request, maxBytes) {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await request.body?.cancel().catch(() => {});
+    throw payloadTooLarge(maxBytes);
+  }
+  if (!request.body) return "";
+
+  const reader = request.body.getReader();
+  /** @type {Uint8Array[]} */
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw payloadTooLarge(maxBytes);
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 /**
  * Lê o corpo como JSON. As rotas de escrita aceitam apenas `application/json` (controle de CSRF,
- * Cap. 5 §5.12); outro tipo de conteúdo ou JSON malformado respondem 400.
+ * Cap. 5 §5.12); outro tipo de conteúdo ou JSON malformado respondem 400, e um corpo acima do limite,
+ * 413 (RN25).
  * @param {Request} request
+ * @param {{ maxBytes?: number }} [options]
  * @returns {Promise<unknown>}
  */
-export async function readJson(request) {
+export async function readJson(request, { maxBytes = DEFAULT_JSON_MAX_BYTES } = {}) {
   const contentType = request.headers.get("content-type") ?? "";
   if (!/^application\/json\b/i.test(contentType.trim())) {
     throw new ApiError(400, "VALIDATION_ERROR", "O corpo da requisição deve ser JSON (Content-Type: application/json).");
   }
+  const text = await readLimitedText(request, maxBytes);
   try {
-    return await request.json();
+    return JSON.parse(text);
   } catch {
     throw new ApiError(400, "VALIDATION_ERROR", "JSON malformado no corpo da requisição.");
   }
@@ -195,40 +291,4 @@ export function isSameOrigin(request) {
     }
   }
   return false;
-}
-
-/**
- * Barreira real da API (RF21, RN01): exige sessão válida no servidor, independente do Proxy.
- * Uma mutação vinda de outra origem não tem o cookie aceito e é tratada como não autenticada.
- * @param {Request} request
- * @param {{ mutation?: boolean }} [options]
- */
-export async function requireSession(request, { mutation = false } = {}) {
-  if (mutation && !isSameOrigin(request)) {
-    throw new ApiError(401, "UNAUTHENTICATED", "Requisição de origem não permitida.");
-  }
-  const session = await getSession(request.headers);
-  if (!session) {
-    throw new ApiError(401, "UNAUTHENTICATED", "Autenticação necessária.");
-  }
-  return session;
-}
-
-/**
- * Envolve um Route Handler: valida a sessão ANTES de qualquer ação, resolve `params` (assíncrono
- * no Next.js 16) e converte qualquer erro na resposta padrão.
- * @param {(context: { request: Request, params: Record<string, string>, session: NonNullable<Awaited<ReturnType<typeof getSession>>> }) => Promise<Response>} handler
- * @param {{ mutation?: boolean }} [options] `mutation: true` nas rotas de escrita
- * @returns {(request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<Response>}
- */
-export function route(handler, options = {}) {
-  return async function routeHandler(request, context) {
-    try {
-      const session = await requireSession(request, options);
-      const params = (await context?.params) ?? {};
-      return await handler({ request, params, session });
-    } catch (error) {
-      return toErrorResponse(error);
-    }
-  };
 }

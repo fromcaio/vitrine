@@ -1,6 +1,7 @@
 // Utilitários dos testes do Core: requisições à API com sessão REAL do better-auth, criada no
 // banco temporário do arquivo de teste (tests/setup/per-file.js). Dados fictícios.
 import "./env";
+import { resetRateLimits } from "@/app/api/_lib/rate-limit";
 import { auth, ensureInitialAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -14,6 +15,7 @@ export const PASSWORD = "senha-ficticia-123";
 
 /** Remove conteúdos e configuração, mantendo usuários e sessões. */
 export async function resetContent() {
+  resetRateLimits();
   await prisma.content.deleteMany();
   await prisma.configuration.deleteMany();
 }

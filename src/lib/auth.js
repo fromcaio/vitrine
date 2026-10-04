@@ -142,6 +142,18 @@ export async function getSession(headers) {
 }
 
 /**
+ * Usuário pelo identificador, ou `null`. SEM autorização: quem chama (as rotas de /api/users) já
+ * autorizou pela matriz de src/lib/authz.js. Não devolve a senha nem as contas.
+ * @param {string} id
+ * @returns {Promise<SessionUser | null>}
+ */
+export async function findUserById(id) {
+  if (typeof id !== "string" || id === "") return null;
+  const ctx = await auth.$context;
+  return /** @type {any} */ (await ctx.internalAdapter.findUserById(id)) ?? null;
+}
+
+/**
  * Resultado de `ensureInitialAdmin`:
  * - `created`: o administrador foi criado;
  * - `exists`: o e-mail já é de um administrador ativo (nada foi alterado, nem a senha);

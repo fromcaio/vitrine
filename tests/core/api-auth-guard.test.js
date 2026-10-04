@@ -42,7 +42,11 @@ const writeRoutes = [
     "PATCH /api/contents/:id",
     (o) =>
       contentRoute.PATCH(
-        apiRequest(`/api/contents/${existing.id}`, { method: "PATCH", body: { body: "alterado" }, ...o }),
+        apiRequest(`/api/contents/${existing.id}`, {
+          method: "PATCH",
+          body: { body: "alterado", version: existing.updatedAt.toISOString() },
+          ...o,
+        }),
         routeContext({ id: existing.id }),
       ),
   ],

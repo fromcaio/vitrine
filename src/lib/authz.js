@@ -41,9 +41,10 @@ export const POLICY = deepFreeze({
   "content:update": { scope: "resource", admin: "any", user: "own" }, // inclui estado, pai e ordem
   "content:delete": { scope: "resource", admin: "any", user: "own" },
   "content:reorder": { scope: "resource", admin: "any", user: "own" }, // cada item do lote é verificado
-  // Configuração do site (portal, login e painel): só o administrador (RF30, RF31)
-  "site:read": { scope: "resource", admin: "any", user: "none" },
-  "site:update": { scope: "resource", admin: "any", user: "none" },
+  // Configuração do site (portal, login e painel): um registro único, sem dono; só o administrador
+  // (RF30, RF31). Por isso a ação é de coleção: não há "recurso alheio" a distinguir.
+  "site:read": { scope: "collection", admin: "any", user: "none" },
+  "site:update": { scope: "collection", admin: "any", user: "none" },
   // Aparência do usuário (ADR-025): a de outro responde 403, também para o administrador
   "appearance:read": { scope: "resource", admin: "any", user: "own" },
   "appearance:update": { scope: "resource", admin: "own", user: "own" },

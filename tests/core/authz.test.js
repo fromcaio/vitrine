@@ -8,7 +8,7 @@ import { ALLOWED_WHILE_MUST_CHANGE, POLICY, ROLES, authorize, isSuspended } from
 // Colunas: anônimo | usuário no próprio | usuário no alheio | admin no próprio | admin no alheio |
 // suspenso no próprio | senha provisória no próprio.
 //   A = permitido · 401 = UNAUTHENTICATED · 403 = FORBIDDEN · P = 403 PASSWORD_CHANGE_REQUIRED
-//   - = não se aplica (ação de coleção: não há "dono alheio")
+//   - = não se aplica (ação de coleção, ou de recurso único como a configuração do site: não há "dono alheio")
 const SITUATIONS = [
   "anônimo",
   "usuário, próprio",
@@ -27,8 +27,8 @@ const EXPECTED = {
   "content:update": ["401", "A", "403", "A", "A", "401", "P"],
   "content:delete": ["401", "A", "403", "A", "A", "401", "P"],
   "content:reorder": ["401", "A", "403", "A", "A", "401", "P"],
-  "site:read": ["401", "403", "403", "A", "A", "401", "P"],
-  "site:update": ["401", "403", "403", "A", "A", "401", "P"],
+  "site:read": ["401", "403", "-", "A", "-", "401", "P"],
+  "site:update": ["401", "403", "-", "A", "-", "401", "P"],
   "appearance:read": ["401", "A", "403", "A", "A", "401", "P"],
   "appearance:update": ["401", "A", "403", "A", "403", "401", "P"],
   "users:list": ["401", "403", "-", "A", "-", "401", "P"],
@@ -44,7 +44,15 @@ const EXPECTED = {
   "notifications:update": ["401", "A", "403", "A", "403", "401", "P"],
 };
 
-const COLLECTION_ACTIONS = new Set(["content:list", "content:create", "users:list", "users:create", "notifications:list"]);
+const COLLECTION_ACTIONS = new Set([
+  "content:list",
+  "content:create",
+  "site:read",
+  "site:update",
+  "users:list",
+  "users:create",
+  "notifications:list",
+]);
 
 const ana = { id: "ana", role: "user" };
 const admin = { id: "adm", role: "admin" };
