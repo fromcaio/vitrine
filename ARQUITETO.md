@@ -127,4 +127,6 @@ Desde 2026-10-03 o Arquiteto também roda em uma sessão na nuvem (VM Ubuntu 24.
 
 **PDF.** Instalar, sob demanda e como `root`: `latexmk texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra texlive-pictures texlive-publishers texlive-lang-portuguese texlive-bibtex-extra poppler-utils` **e `lmodern`** (o único acréscimo: sem ele falta o `lmodern.sty`). Depois, `bash doc/tex/build-isolado.sh --limpar`, com `TMPDIR` fora do repositório. Estado de 2026-10-03: 252 páginas, sem referência indefinida, com avisos de largura (*overfull*) só cosméticos.
 
+**Diagramas.** `apt-get install plantuml default-jre-headless graphviz` (PlantUML 1.2020.02 do Ubuntu 24.04, suficiente para os 15 `.puml`). Validar: `plantuml -charset UTF-8 -syntax < arquivo.puml`; renderizar: `plantuml -charset UTF-8 -tpng -o <saída fora do repositório> doc/diagrams/src/*.puml`. O DBML não tem renderizador local (dbdiagram.io).
+
 **Limite de uso.** A conta é compartilhada: trabalhe em passos curtos, não releia arquivos grandes sem necessidade e, perto do limite, registre o estado no mural e encerre.

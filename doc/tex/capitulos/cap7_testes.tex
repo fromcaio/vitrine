@@ -158,6 +158,7 @@ CT49 & Salvar a aparência do usuário revalida só o espaço dele; ler a aparê
 CT50 & Cada usuário vê, marca e dispensa só as suas notificações; a mesma paleta ruim, salva duas vezes, gera uma só notificação por modo (reaberta a cada ocorrência); a paleta corrigida a resolve; a retenção remove na ordem da RN26 & RF33; RN26 & API/Integração & Core, Dados\\[2pt]
 CT51 & Despublicar, editar ou excluir conteúdo alheio, e suspender conta, exigem o motivo (422 sem ele), aplicam-se em transação, invalidam o espaço e geram a notificação ao dono com o motivo; o administrador vê os rascunhos de qualquer usuário só no painel & RF34; RN19; RN26 & E2E & Core, UI\\[2pt]
 CT52 & A criação de conta exibe a senha provisória uma única vez; editar, redefinir, suspender, reativar e excluir funcionam pela interface, sem oferecer ação que a matriz recusaria; o perfil troca a própria senha e o nome & RF27; RF28; RN21 & E2E & UI\\[2pt]
+CT53 & Editar com a versão desatualizada (duas abas, ou o administrador e o dono) responde 409 \arq{VERSION_CONFLICT} com a versão atual e não altera nada; sem o campo \texttt{version}, o \texttt{PATCH} do corpo responde 422; o editor mostra o texto do servidor e o do autor, e reenviar com a versão atual sobrescreve por escolha explícita & RN18; RF16; RF34 & API/E2E & Core, UI\\[2pt]
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
@@ -219,4 +220,4 @@ A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos 
 
 \section{Síntese do Capítulo}
 
-O capítulo definiu a estratégia de verificação e validação, cinquenta e dois casos de teste (CT01 a CT52; os CT34 a CT52 cobrem o escopo multiusuário e ainda não têm código) rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.
+O capítulo definiu a estratégia de verificação e validação, cinquenta e três casos de teste (CT01 a CT53; os CT34 a CT53 cobrem o escopo multiusuário e ainda não têm código) rastreados a requisitos e regras, os procedimentos não funcionais (desempenho e ISR, segurança, acessibilidade e usabilidade) e os critérios de saída. A execução e a análise dos resultados são apresentadas no capítulo seguinte.
