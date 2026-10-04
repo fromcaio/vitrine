@@ -8,6 +8,8 @@ import { slugSchema } from "@/lib/validators";
 import {
   ApiError,
   DATA_ERROR_MAP,
+  DEFAULT_JSON_MAX_BYTES,
+  contentJsonMaxBytes,
   isSameOrigin,
   mapDataError,
   noContent,
@@ -32,10 +34,20 @@ describe("mapeamento de DataError para HTTP (tab:dataerror)", () => {
     ["TYPE_HAS_CHILDREN", 422, "VALIDATION_ERROR"],
     ["AUTHOR_NOT_FOUND", 422, "VALIDATION_ERROR"],
     ["INVALID_INPUT", 422, "VALIDATION_ERROR"],
+    ["OWNER_MISMATCH", 422, "INVALID_PARENT"],
+    ["QUOTA_EXCEEDED", 422, "QUOTA_EXCEEDED"],
+    ["VERSION_CONFLICT", 409, "VERSION_CONFLICT"],
+    ["USER_HAS_CONTENT", 409, "USER_HAS_CONTENT"],
+    ["USER_CONFLICT", 409, "USER_CONFLICT"],
+    ["LAST_ADMIN", 409, "LAST_ADMIN"],
+    ["BUSY", 503, "BUSY"],
   ])("%s → %i %s", async (dataCode, status, apiCode) => {
     const error = new DataError(/** @type {any} */ (dataCode), "Mensagem da regra de negócio.");
 
-    expect(mapDataError(error)).toMatchObject({ status, code: apiCode, message: "Mensagem da regra de negócio." });
+    const mapped = mapDataError(error);
+    expect(mapped).toMatchObject({ status, code: apiCode });
+    // OWNER_MISMATCH troca o texto: o pai de outro dono é indistinguível do pai inexistente (RN19).
+    if (dataCode !== "OWNER_MISMATCH") expect(mapped.message).toBe("Mensagem da regra de negócio.");
 
     const response = toErrorResponse(error);
     expect(response.status).toBe(status);
@@ -46,13 +58,20 @@ describe("mapeamento de DataError para HTTP (tab:dataerror)", () => {
     expect(Object.keys(DATA_ERROR_MAP).sort()).toEqual(
       [
         "AUTHOR_NOT_FOUND",
+        "BUSY",
         "CYCLE",
         "INVALID_INPUT",
+        "LAST_ADMIN",
         "NOT_FOUND",
+        "OWNER_MISMATCH",
         "PARENT_NOT_COLLECTION",
         "PARENT_NOT_FOUND",
+        "QUOTA_EXCEEDED",
         "SLUG_CONFLICT",
         "TYPE_HAS_CHILDREN",
+        "USER_CONFLICT",
+        "USER_HAS_CONTENT",
+        "VERSION_CONFLICT",
       ].sort(),
     );
   });
@@ -211,5 +230,151 @@ describe("verificação de origem das mutações (CSRF)", () => {
   it("aceita cliente que não é navegador (sem Origin nem Sec-Fetch-Site)", () => {
     expect(isSameOrigin(request({ host: "localhost:3000" }))).toBe(true);
     expect(isSameOrigin(request({ "sec-fetch-site": "same-origin", host: "localhost:3000" }))).toBe(true);
+  });
+});
+
+describe("detalhes dos DataError do M15 e do M16 (ADR-029; RN18, RN19, RN25)", () => {
+  it("VERSION_CONFLICT devolve a versão atual em details[0].value (RN18)", () => {
+    const error = new DataError("VERSION_CONFLICT", "mudou", { id: "c1", currentVersion: "2026-10-04T12:00:00.000Z" });
+    expect(mapDataError(error)).toEqual({
+      status: 409,
+      code: "VERSION_CONFLICT",
+      message: "mudou",
+      details: [{ field: "version", value: "2026-10-04T12:00:00.000Z" }],
+    });
+  });
+
+  it("QUOTA_EXCEEDED aponta a cota estourada (body ou contents) e os números", () => {
+    expect(mapDataError(new DataError("QUOTA_EXCEEDED", "x", { quota: "body", bytes: 300, max: 256 })).details).toEqual([
+      { field: "body", bytes: 300, max: 256 },
+    ]);
+    expect(mapDataError(new DataError("QUOTA_EXCEEDED", "x", { quota: "contents", total: 500, max: 500 })).details).toEqual([
+      { field: "contents", total: 500, max: 500 },
+    ]);
+  });
+
+  it("USER_CONFLICT aponta email ou handle", () => {
+    expect(mapDataError(new DataError("USER_CONFLICT", "x", { field: "handle" })).details).toEqual([{ field: "handle" }]);
+    expect(mapDataError(new DataError("USER_CONFLICT", "x", { field: "email" })).details).toEqual([{ field: "email" }]);
+  });
+
+  it("OWNER_MISMATCH é indistinguível do pai inexistente: mesmo código, mesma mensagem e mesmo campo (RN19)", () => {
+    const foreign = mapDataError(new DataError("OWNER_MISMATCH", "O pai pertence a outro dono.", { parentId: "p1" }));
+    const missing = mapDataError(new DataError("PARENT_NOT_FOUND", "O conteúdo pai não existe.", { parentId: "p1" }));
+    expect(foreign).toEqual(missing);
+    expect(JSON.stringify(foreign)).not.toContain("outro dono");
+  });
+
+  it("LAST_ADMIN, USER_HAS_CONTENT e BUSY respondem 409, 409 e 503", () => {
+    expect(mapDataError(new DataError("LAST_ADMIN", "x", { userId: "u1" })).status).toBe(409);
+    expect(mapDataError(new DataError("USER_HAS_CONTENT", "x", { owned: 3 }))).toMatchObject({ status: 409, details: [{ owned: 3 }] });
+    expect(mapDataError(new DataError("BUSY", "x"))).toMatchObject({ status: 503, code: "BUSY", details: [] });
+  });
+
+  it("ApiError leva cabeçalhos próprios à resposta (Retry-After do 429)", async () => {
+    const response = toErrorResponse(new ApiError(429, "RATE_LIMITED", "Muitas requisições.", [], { "Retry-After": "12" }));
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBe("12");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect((await response.json()).error.code).toBe("RATE_LIMITED");
+  });
+});
+
+describe("leitura do corpo com limite (RN25; 413 antes de ler)", () => {
+  /** @param {BodyInit | null} body @param {Record<string, string>} [headers] */
+  const post = (body, headers = {}) =>
+    new Request("http://localhost:3000/api/x", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body,
+      // @ts-expect-error necessário no Node para corpo em fluxo
+      duplex: "half",
+    });
+
+  it("o limite do conteúdo é duas vezes a cota mais 64 KiB (ADR-029, item 9)", () => {
+    expect(contentJsonMaxBytes({ maxBodyBytes: 262_144 })).toBe(2 * 262_144 + 65_536);
+    expect(DEFAULT_JSON_MAX_BYTES).toBe(65_536);
+  });
+
+  it("aceita um corpo dentro do limite", async () => {
+    expect(await readJson(post(JSON.stringify({ a: 1 })))).toEqual({ a: 1 });
+  });
+
+  it("recusa com 413 quando o Content-Length declara mais que o limite, sem ler o corpo", async () => {
+    const request = post("x".repeat(100), { "content-length": "100" });
+    const error = await readJson(request, { maxBytes: 50 }).catch((e) => e);
+    expect(error).toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    expect(error.details).toEqual([{ field: "body", max: 50 }]);
+  });
+
+  it("com o Content-Length acima do limite, nenhum pedaço do fluxo é puxado (recusa ANTES de ler)", async () => {
+    let pulled = 0;
+    // highWaterMark 0: o fluxo só é puxado por quem lê
+    const stream = new ReadableStream(
+      {
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new TextEncoder().encode("x".repeat(40)));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const error = await readJson(post(stream, { "content-length": "999999" }), { maxBytes: 100 }).catch((e) => e);
+
+    expect(error).toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    expect(pulled).toBe(0);
+  });
+
+  it("sem o Content-Length, o fluxo é puxado até passar do limite e para (não lê o resto)", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream(
+      {
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new TextEncoder().encode("x".repeat(40)));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const error = await readJson(post(stream), { maxBytes: 100 }).catch((e) => e);
+
+    expect(error).toMatchObject({ status: 413 });
+    expect(pulled).toBeGreaterThanOrEqual(3); // 40 + 40 + 40 > 100
+    expect(pulled).toBeLessThan(6);
+  });
+
+  it("recusa com 413 o corpo em fluxo sem Content-Length que passa do limite, cortando a leitura", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream({
+      pull(controller) {
+        pulled += 1;
+        controller.enqueue(new TextEncoder().encode("x".repeat(40)));
+        if (pulled > 1000) controller.close();
+      },
+    });
+    const error = await readJson(post(stream), { maxBytes: 100 }).catch((e) => e);
+    expect(error).toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    // parou perto do limite: não puxou o fluxo inteiro
+    expect(pulled).toBeLessThan(10);
+  });
+
+  it("mede em bytes UTF-8, e não em caracteres", async () => {
+    const accented = JSON.stringify({ t: "ç".repeat(40) }); // ~ 100 bytes, 51 caracteres
+    const error = await readJson(post(accented), { maxBytes: 60 }).catch((e) => e);
+    expect(error).toMatchObject({ status: 413 });
+  });
+
+  it("o tipo de conteúdo continua sendo conferido antes: 400, não 413", async () => {
+    const request = new Request("http://localhost:3000/api/x", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "x".repeat(500),
+    });
+    expect(await readJson(request, { maxBytes: 10 }).catch((e) => e)).toMatchObject({ status: 400, code: "VALIDATION_ERROR" });
+  });
+
+  it("corpo vazio ou JSON malformado respondem 400", async () => {
+    expect(await readJson(post(null)).catch((e) => e)).toMatchObject({ status: 400 });
+    expect(await readJson(post("{ a: ")).catch((e) => e)).toMatchObject({ status: 400 });
   });
 });

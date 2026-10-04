@@ -3,6 +3,9 @@
 // dependem do estado do banco (unicidade, tipo do pai, ciclo) são de db.js e chegam como DataError.
 // Módulo puro: não importa db.js nem o Next.js, de modo que a interface também pode reutilizá-lo.
 import * as z from "zod";
+// Só o módulo do português do Brasil, e não `z.locales` (todos os idiomas, ~37 kB a mais no pacote do
+// navegador); `zod/v4/locales/pt.js` é o português de Portugal e dá mensagens diferentes (R-007).
+import ptBRLocale from "zod/v4/locales/pt-BR.js";
 
 // --------------------------------------------------------
 // Constantes das regras de negócio
@@ -12,8 +15,6 @@ import * as z from "zod";
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** RN03: tamanho máximo do slug. */
 export const SLUG_MAX_LENGTH = 80;
-/** RN03 (D-05): slugs reservados no nível raiz, pois colidem com rotas da aplicação. */
-export const RESERVED_ROOT_SLUGS = /** @type {const} */ (["admin", "api", "login", "_next"]);
 /** RN09: cor no formato #RRGGBB. */
 export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 /** RN02: tipos de conteúdo (os mesmos valores de CONTENT_TYPES em db.js). */
@@ -32,18 +33,50 @@ export const SOCIAL_URL_FIELDS = /** @type {const} */ ([
 /** Limites de senha (os padrões do better-auth, repetidos em src/lib/auth.js). */
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
+/** RN20: o handle tem de 3 a 30 caracteres [a-z0-9-], sem hífen nas pontas nem repetido. */
+export const HANDLE_MIN_LENGTH = 3;
+export const HANDLE_MAX_LENGTH = 30;
+export const HANDLE_PATTERN = SLUG_PATTERN;
+/**
+ * RN20: nomes que o handle não pode ter, porque colidem com rotas da aplicação: `admin`, `api`,
+ * `login`, `logout` e `_next` (este, por segurança: a classe [a-z0-9-] já o recusa). É a ÚNICA fonte
+ * em código: o plugin do better-auth, as rotas e o teste de colisão (tests/core/handles.test.js, que
+ * falha quando uma pasta de `public/` ou uma rota estática nova colide) leem daqui.
+ */
+export const RESERVED_HANDLES = Object.freeze(["admin", "api", "login", "logout", "_next"]);
 
 // --------------------------------------------------------
 // Funções puras
 // --------------------------------------------------------
 
 /**
- * RN03: o slug é reservado quando o conteúdo fica no nível raiz.
- * @param {string} slug
- * @param {string | null | undefined} parentId
+ * Forma canônica do handle: sem espaços nas pontas e em minúsculas (RN20). Texto vazio, `null` e
+ * `undefined` viram `null` (usuário sem handle); qualquer outro tipo passa sem alteração para a
+ * validação recusá-lo.
+ * @param {unknown} value
  */
-export function isReservedRootSlug(slug, parentId) {
-  return (parentId ?? null) === null && RESERVED_ROOT_SLUGS.includes(/** @type {any} */ (slug));
+export function normalizeHandle(value) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "" ? null : normalized;
+}
+
+/**
+ * RN20: mensagem de erro do handle (já normalizado), ou `null` se for válido.
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+export function handleError(value) {
+  if (typeof value !== "string") return "O handle deve ser um texto.";
+  if (value.length < HANDLE_MIN_LENGTH || value.length > HANDLE_MAX_LENGTH) {
+    return `O handle deve ter de ${HANDLE_MIN_LENGTH} a ${HANDLE_MAX_LENGTH} caracteres.`;
+  }
+  if (!HANDLE_PATTERN.test(value)) {
+    return "O handle deve conter apenas letras minúsculas, dígitos e hífens, sem hífen nas pontas nem repetido.";
+  }
+  if (RESERVED_HANDLES.includes(/** @type {any} */ (value))) return `O handle "${value}" é reservado.`;
+  return null;
 }
 
 /**
@@ -124,6 +157,15 @@ export const slugSchema = z
   .max(SLUG_MAX_LENGTH, { error: `O slug deve ter no máximo ${SLUG_MAX_LENGTH} caracteres.` })
   .regex(SLUG_PATTERN, { error: "O slug deve conter apenas letras minúsculas, dígitos e hífens." });
 
+/** Handle (RN20): normalizado, 3 a 30 caracteres [a-z0-9-] e fora dos nomes reservados. */
+export const handleSchema = z.preprocess(
+  normalizeHandle,
+  z.string({ error: "O handle é obrigatório." }).superRefine((value, ctx) => {
+    const message = handleError(value);
+    if (message) ctx.addIssue({ code: "custom", message });
+  }),
+);
+
 export const hexColorSchema = z
   .string()
   .regex(HEX_COLOR_PATTERN, { error: "A cor deve estar no formato #RRGGBB." });
@@ -167,27 +209,33 @@ const EMPTY_PATCH = { error: "Informe ao menos um campo para atualizar." };
 
 /**
  * POST /api/contents. O autor não é aceito na entrada: vem da sessão (RN13). Campos desconhecidos
- * são descartados.
+ * são descartados. O slug da raiz não tem nomes reservados: ele fica sob `/{handle}` (RN03), e os
+ * nomes reservados valem para o handle (RN20).
  */
-export const contentCreateSchema = z
-  .object({
-    title: titleSchema,
-    slug: slugSchema,
-    type: typeSchema,
-    parentId: idSchema.nullable().optional(),
-    body: z.string().nullable().optional(),
-    order: orderSchema.optional(),
-    status: statusSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (isReservedRootSlug(value.slug, value.parentId)) {
-      ctx.addIssue({ code: "custom", path: ["slug"], message: reservedSlugMessage(value.slug) });
-    }
+export const contentCreateSchema = z.object({
+  title: titleSchema,
+  slug: slugSchema,
+  type: typeSchema,
+  parentId: idSchema.nullable().optional(),
+  body: z.string().nullable().optional(),
+  order: orderSchema.optional(),
+  status: statusSchema.optional(),
+});
+
+/**
+ * RN18: a versão em que o autor se baseou, o `updatedAt` do conteúdo que ele abriu (ISO 8601, como
+ * a API o devolve).
+ */
+export const versionSchema = z
+  .string({ error: "Informe a versão em que o texto se baseou (campo version)." })
+  .refine((value) => /^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(Date.parse(value)), {
+    error: "A versão deve ser a data ISO 8601 (updatedAt) do conteúdo que foi aberto.",
   });
 
 /**
- * PATCH /api/contents/:id (atualização parcial). O slug reservado na raiz depende do pai
- * resultante e é conferido pela rota com `isReservedRootSlug`.
+ * PATCH /api/contents/:id (atualização parcial). `version` não é um campo do conteúdo: é a versão
+ * em que o autor se baseou (RN18), e o `PATCH` que altera o corpo a exige (422 sem ela, conferido
+ * pela rota). Ao menos um campo do conteúdo é obrigatório.
  */
 export const contentUpdateSchema = z
   .object({
@@ -198,8 +246,9 @@ export const contentUpdateSchema = z
     body: z.string().nullable().optional(),
     order: orderSchema.optional(),
     status: statusSchema.optional(),
+    version: versionSchema.optional(),
   })
-  .refine(hasAnyField, EMPTY_PATCH);
+  .refine(({ version: _version, ...fields }) => hasAnyField(fields), EMPTY_PATCH);
 
 /** PATCH /api/contents/reorder: lote `[{ id, parentId?, order }]`; `parentId` omitido mantém o pai. */
 export const contentReorderSchema = z
@@ -213,56 +262,208 @@ export const contentReorderSchema = z
   )
   .min(1, { error: "O lote não pode ser vazio." });
 
-/** PUT /api/configuration: identidade, cores e os seis links sociais; campos ausentes não mudam. */
+/** Campos de identidade, paletas (clara e noturna, RN09, RN27) e links sociais (RN17), comuns ao site e à aparência. */
+const appearanceFields = {
+  siteName: z.string().trim().min(1, { error: "O nome do site é obrigatório." }).optional(),
+  siteDescription: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+  primaryColor: hexColorSchema.optional(),
+  secondaryColor: hexColorSchema.optional(),
+  accentColor: hexColorSchema.optional(),
+  darkPrimaryColor: hexColorSchema.optional(),
+  darkSecondaryColor: hexColorSchema.optional(),
+  darkAccentColor: hexColorSchema.optional(),
+  logoUrl: assetUrlSchema.optional(),
+  faviconUrl: assetUrlSchema.optional(),
+  discordUrl: socialUrlSchema.optional(),
+  githubUrl: socialUrlSchema.optional(),
+  youtubeUrl: socialUrlSchema.optional(),
+  instagramUrl: socialUrlSchema.optional(),
+  linkedinUrl: socialUrlSchema.optional(),
+  twitchUrl: socialUrlSchema.optional(),
+};
+
+/**
+ * PUT /api/configuration (só o administrador): a identidade e as paletas do site, o texto do portal
+ * (`homeBody`, Markdown) e o diretório de espaços; campos ausentes não mudam. O tamanho do
+ * `homeBody` em bytes (RN25) é conferido pela rota.
+ */
 export const configurationUpdateSchema = z
   .object({
-    siteName: z.string().trim().min(1, { error: "O nome do site é obrigatório." }).optional(),
-    siteDescription: z.preprocess(emptyToNull, z.string().nullable()).optional(),
-    primaryColor: hexColorSchema.optional(),
-    secondaryColor: hexColorSchema.optional(),
-    accentColor: hexColorSchema.optional(),
-    logoUrl: assetUrlSchema.optional(),
-    faviconUrl: assetUrlSchema.optional(),
-    discordUrl: socialUrlSchema.optional(),
-    githubUrl: socialUrlSchema.optional(),
-    youtubeUrl: socialUrlSchema.optional(),
-    instagramUrl: socialUrlSchema.optional(),
-    linkedinUrl: socialUrlSchema.optional(),
-    twitchUrl: socialUrlSchema.optional(),
+    ...appearanceFields,
+    homeBody: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+    directoryEnabled: z.boolean({ error: "O diretório deve ser verdadeiro ou falso." }).optional(),
   })
   .refine(hasAnyField, EMPTY_PATCH);
 
-/** Credenciais do administrador inicial (RF22), lidas do ambiente por `npm run admin:create`. */
-export const adminBootstrapSchema = z.object({
+/** PUT /api/appearance (o próprio usuário): a identidade e as paletas do espaço; campos ausentes não mudam. */
+export const appearanceUpdateSchema = z.object(appearanceFields).refine(hasAnyField, EMPTY_PATCH);
+
+// --------------------------------------------------------
+// Usuários e senhas (RN19 a RN24; ADR-029)
+// --------------------------------------------------------
+
+/** Papéis aceitos nas rotas de usuários. */
+export const USER_ROLE_VALUES = /** @type {const} */ (["admin", "user"]);
+/** RN19, RN22: motivo de uma ação do administrador sobre outro usuário (1 a 500 caracteres). */
+export const REASON_MAX_LENGTH = 500;
+/** Tamanho da senha provisória gerada pelo servidor (RN21). */
+export const TEMPORARY_PASSWORD_LENGTH = 16;
+/** Limite do nome de exibição de um usuário (campos do pacote não têm limite próprio). */
+export const NAME_MAX_LENGTH = 100;
+
+const roleSchema = z.enum(USER_ROLE_VALUES, { error: "O papel deve ser admin ou user." });
+const userNameSchema = z
+  .string({ error: "O nome é obrigatório." })
+  .trim()
+  .min(1, { error: "O nome é obrigatório." })
+  .max(NAME_MAX_LENGTH, { error: `O nome deve ter no máximo ${NAME_MAX_LENGTH} caracteres.` });
+const passwordFieldSchema = z
+  .string({ error: "A senha é obrigatória." })
+  .min(PASSWORD_MIN_LENGTH, { error: `A senha deve ter ao menos ${PASSWORD_MIN_LENGTH} caracteres.` })
+  .max(PASSWORD_MAX_LENGTH, { error: `A senha deve ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.` });
+
+/** Motivo obrigatório das ações do administrador sobre outro usuário (RN19). */
+export const reasonSchema = z
+  .string({ error: "Informe o motivo." })
+  .trim()
+  .min(1, { error: "Informe o motivo." })
+  .max(REASON_MAX_LENGTH, { error: `O motivo deve ter no máximo ${REASON_MAX_LENGTH} caracteres.` });
+
+/**
+ * POST /api/users: e-mail, nome, handle e papel; senha opcional (o servidor gera a provisória de 16
+ * caracteres, RN21). Nenhum outro campo é aceito (`banned`, `mustChangePassword` e afins são
+ * descartados): quem define o estado da conta é o servidor.
+ */
+export const userCreateSchema = z.object({
   email: z.preprocess(
-    blankToUndefined,
-    z
-      .string({ error: "Defina ADMIN_EMAIL." })
-      .trim()
-      .toLowerCase()
-      .pipe(z.email({ error: "ADMIN_EMAIL não é um e-mail válido." })),
+    (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+    z.string({ error: "O e-mail é obrigatório." }).max(254, { error: "O e-mail é longo demais." }).pipe(z.email({ error: "Informe um e-mail válido." })),
   ),
-  password: z.preprocess(
-    // A senha não é aparada: espaços podem fazer parte dela.
-    (value) => (value === "" ? undefined : value),
-    z
-      .string({ error: "Defina ADMIN_PASSWORD." })
-      .min(PASSWORD_MIN_LENGTH, { error: `ADMIN_PASSWORD deve ter ao menos ${PASSWORD_MIN_LENGTH} caracteres.` })
-      .max(PASSWORD_MAX_LENGTH, { error: `ADMIN_PASSWORD deve ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.` }),
-  ),
+  name: userNameSchema,
+  handle: handleSchema.nullable().optional(),
+  role: roleSchema.default("user"),
+  password: passwordFieldSchema.optional(),
+});
+
+/** PATCH /api/users/:id (administrador): nome, handle e papel; ao menos um. */
+export const userUpdateSchema = z
+  .object({
+    name: userNameSchema.optional(),
+    handle: handleSchema.nullable().optional(),
+    role: roleSchema.optional(),
+  })
+  .refine(hasAnyField, EMPTY_PATCH);
+
+/** PATCH /api/users/me: o usuário edita só o próprio nome. */
+export const profileUpdateSchema = z.object({ name: userNameSchema });
+
+/** POST /api/users/me/password: a senha atual e a nova, que não pode ser igual à atual (RN21). */
+export const passwordChangeSchema = z
+  .object({
+    current: z.string({ error: "Informe a senha atual." }).min(1, { error: "Informe a senha atual." }).max(PASSWORD_MAX_LENGTH),
+    next: passwordFieldSchema,
+  })
+  .superRefine((value, ctx) => {
+    if (value.next === value.current) {
+      ctx.addIssue({ code: "custom", path: ["next"], message: "A nova senha deve ser diferente da atual." });
+    }
+  });
+
+/** PUT /api/users/:id/password (administrador): senha opcional; sem ela, o servidor gera a provisória. */
+export const passwordResetSchema = z.object({ password: passwordFieldSchema.optional() });
+
+/**
+ * POST /api/users/:id/ban: suspende a conta (RN23). O motivo é obrigatório e o prazo (`expiresAt`,
+ * ISO 8601, no futuro), opcional; sem prazo, a suspensão dura até o administrador reativar.
+ */
+export const banSchema = z.object({
+  reason: reasonSchema,
+  expiresAt: z
+    .string()
+    .nullable()
+    .optional()
+    .superRefine((value, ctx) => {
+      if (value === null || value === undefined) return;
+      const time = Date.parse(value);
+      if (!/^\d{4}-\d{2}-\d{2}T/.test(value) || Number.isNaN(time)) {
+        ctx.addIssue({ code: "custom", message: "O prazo deve ser uma data ISO 8601." });
+      } else if (time <= Date.now()) {
+        ctx.addIssue({ code: "custom", message: "O prazo da suspensão deve estar no futuro." });
+      }
+    }),
+});
+
+/**
+ * DELETE /api/users/:id (parâmetros de consulta): o destino do conteúdo do usuário (RN24):
+ * `content=transfer&to=<id>[&onConflict=rename]` ou `content=delete`. Sem o conteúdo, o `content`
+ * é dispensado.
+ */
+export const userDeleteQuerySchema = z
+  .object({
+    content: z.enum(["transfer", "delete"], { error: "O conteúdo deve ser transfer ou delete." }).optional(),
+    to: idSchema.optional(),
+    onConflict: z.enum(["fail", "rename"], { error: "onConflict deve ser fail ou rename." }).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.content === "transfer" && value.to === undefined) {
+      ctx.addIssue({ code: "custom", path: ["to"], message: "Informe o usuário de destino (to)." });
+    }
+    if (value.content !== "transfer" && (value.to !== undefined || value.onConflict !== undefined)) {
+      ctx.addIssue({ code: "custom", path: ["content"], message: "to e onConflict só valem com content=transfer." });
+    }
+  });
+
+/** GET /api/users (parâmetros de consulta): paginação e busca por e-mail ou nome. */
+export const userListQuerySchema = z.object({
+  limit: z.coerce.number({ error: "limit deve ser um número." }).int().min(1).max(100).default(50),
+  offset: z.coerce.number({ error: "offset deve ser um número." }).int().min(0).default(0),
+  search: z.string().trim().max(100).optional(),
+});
+
+/** E-mail das variáveis de ambiente dos comandos: aparado, em minúsculas e válido. */
+const commandEmail = z.preprocess(
+  blankToUndefined,
+  z
+    .string({ error: "Defina ADMIN_EMAIL." })
+    .trim()
+    .toLowerCase()
+    .pipe(z.email({ error: "ADMIN_EMAIL não é um e-mail válido." })),
+);
+
+/** Senha das variáveis de ambiente dos comandos; não é aparada: espaços podem fazer parte dela. */
+const commandPassword = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z
+    .string({ error: "Defina ADMIN_PASSWORD." })
+    .min(PASSWORD_MIN_LENGTH, { error: `ADMIN_PASSWORD deve ter ao menos ${PASSWORD_MIN_LENGTH} caracteres.` })
+    .max(PASSWORD_MAX_LENGTH, { error: `ADMIN_PASSWORD deve ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.` }),
+);
+
+/**
+ * Credenciais do administrador inicial (RF22), lidas do ambiente por `npm run admin:create`:
+ * `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME` e `ADMIN_HANDLE` (os dois últimos opcionais).
+ */
+export const adminBootstrapSchema = z.object({
+  email: commandEmail,
+  password: commandPassword,
   name: z.preprocess(blankToUndefined, z.string().trim().default("Administrador")),
+  handle: z.preprocess(blankToUndefined, handleSchema.optional()),
+});
+
+/**
+ * Conta e nova senha do `npm run admin:reset-password` (ADR-029, item 8), lidas das mesmas
+ * variáveis `ADMIN_EMAIL` (e-mail da conta, de qualquer papel) e `ADMIN_PASSWORD` (a nova senha).
+ */
+export const passwordResetCommandSchema = z.object({
+  email: commandEmail,
+  password: commandPassword,
 });
 
 // --------------------------------------------------------
 // Execução
 // --------------------------------------------------------
 
-/** @param {string} slug */
-export function reservedSlugMessage(slug) {
-  return `O slug "${slug}" é reservado no nível raiz.`;
-}
-
-const ptBR = z.locales.ptBR().localeError;
+const ptBR = ptBRLocale().localeError;
 
 /**
  * Mensagens em português para os erros sem texto próprio no esquema.

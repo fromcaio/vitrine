@@ -12,6 +12,9 @@ import path from "node:path";
 /** Raiz do repositório (o Playwright e o npm rodam a partir dela). */
 export const projectRoot = process.cwd();
 
+/** Prefixo do nome do diretório temporário de uma rodada (e só ele pode ser apagado). */
+export const RUN_DIR_PREFIX = "vitrine-e2e-";
+
 const RUN_DIR = "VITRINE_E2E_DIR";
 const RUN_PORT = "VITRINE_E2E_PORT";
 const RUN_SECRET = "VITRINE_E2E_SECRET";
@@ -22,6 +25,17 @@ export const ADMIN = Object.freeze({
   password: "senha-e2e-ficticia-123",
   name: "Administrador E2E",
 });
+
+/**
+ * O diretório é de uma rodada? Só `vitrine-e2e-*` DIRETAMENTE em `os.tmpdir()`. É a única salvaguarda
+ * que decide o que `removeRunDirectory` e `remove-later.mjs` podem apagar (R-003, ressalva 1): um
+ * `VITRINE_E2E_DIR` herdado do ambiente que não a satisfaça é recusado, em vez de apagado no fim.
+ * @param {string} dir
+ */
+export function isRunDirectory(dir) {
+  const resolved = path.resolve(dir);
+  return path.dirname(resolved) === path.resolve(os.tmpdir()) && path.basename(resolved).startsWith(RUN_DIR_PREFIX);
+}
 
 /** Pede ao sistema operacional uma porta livre em 127.0.0.1. */
 function findFreePort() {
@@ -43,13 +57,21 @@ function toFileUrl(filePath) {
 export function e2eEnvironment() {
   if (!process.env[RUN_DIR] || !process.env[RUN_PORT]) {
     // Só o nome: o diretório é criado por prepare-database.mjs, e listar os testes não deixa lixo.
-    process.env[RUN_DIR] = path.join(os.tmpdir(), `vitrine-e2e-${randomUUID().slice(0, 8)}`);
+    process.env[RUN_DIR] = path.join(os.tmpdir(), `${RUN_DIR_PREFIX}${randomUUID().slice(0, 8)}`);
     process.env[RUN_PORT] = String(findFreePort());
     // Aleatório a cada rodada (e nunca gravado): evita os avisos de segredo fraco do better-auth.
     process.env[RUN_SECRET] = randomBytes(32).toString("base64");
   }
   const dir = /** @type {string} */ (process.env[RUN_DIR]);
   const port = Number(process.env[RUN_PORT]);
+
+  // Salvaguarda do teardown: o diretório da rodada é apagado no fim, então um valor herdado do
+  // ambiente (`VITRINE_E2E_DIR`) que não seja `vitrine-e2e-*` direto em os.tmpdir() é recusado.
+  if (!isRunDirectory(dir)) {
+    throw new Error(
+      `VITRINE_E2E_DIR deve ser um diretório ${RUN_DIR_PREFIX}* diretamente em ${os.tmpdir()}; recebido: ${dir}`,
+    );
+  }
 
   // Salvaguarda: o banco da rodada jamais pode ficar dentro do repositório (nem ser o dev.db).
   if (path.resolve(dir).startsWith(path.resolve(projectRoot) + path.sep)) {

@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { e2eEnvironment, projectRoot } from "./env.js";
+import { e2eEnvironment, isRunDirectory, projectRoot } from "./env.js";
 
 /**
  * Esvazia todas as tabelas de dados (usuários, sessões, contas, conteúdos e configuração), na
@@ -23,6 +23,8 @@ export function clearDatabase() {
     db.pragma("busy_timeout = 10000");
     db.exec(`
       DELETE FROM contents;
+      DELETE FROM notifications;
+      DELETE FROM appearances;
       DELETE FROM session;
       DELETE FROM account;
       DELETE FROM verification;
@@ -38,10 +40,14 @@ export function clearDatabase() {
  * Apaga o diretório temporário da rodada (banco e arquivos auxiliares). O Playwright só encerra o
  * servidor depois do `globalTeardown`: no Windows, o SQLite aberto impede a remoção (EPERM/EBUSY).
  * Nesse caso, entrega a tarefa a `remove-later.mjs`, um processo solto que espera o servidor
- * morrer. O diretório é sempre do sistema operacional (`os.tmpdir()`), nunca do repositório.
+ * morrer. O diretório é sempre `vitrine-e2e-*` direto em `os.tmpdir()` (`isRunDirectory`), nunca do repositório.
  */
 export function removeRunDirectory() {
   const { dir } = e2eEnvironment();
+  // Salvaguarda própria (além da de e2eEnvironment): nunca apaga o que não seja uma pasta de rodada.
+  if (!isRunDirectory(dir)) {
+    throw new Error(`Recusado: ${dir} não é um diretório de rodada (vitrine-e2e-* em os.tmpdir()).`);
+  }
   try {
     fs.rmSync(dir, { recursive: true, force: true });
   } catch {

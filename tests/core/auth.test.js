@@ -59,16 +59,25 @@ describe("administrador inicial (RF22, D-03)", () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it("não cria um segundo administrador com outro e-mail (D-13)", async () => {
+  it("não cria outro administrador com outro e-mail enquanto houver um ativo (RN22, ADR-029)", async () => {
     await ensureInitialAdmin(ADMIN);
     const other = await ensureInitialAdmin({ ...ADMIN, email: "outro@exemplo.test" });
 
-    expect(other).toEqual({ status: "conflict", user: null });
+    expect(other).toEqual({ status: "conflict", reason: "admin-exists", user: null });
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it("completa a credencial de um usuário criado por execução interrompida", async () => {
-    await prisma.user.create({ data: { name: ADMIN.name, email: ADMIN.email, emailVerified: true } });
+  it("cria o usuário com o papel admin e sem a troca de senha obrigatória", async () => {
+    await ensureInitialAdmin(ADMIN);
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { email: ADMIN.email } });
+    expect(user.role).toBe("admin");
+    expect(user.mustChangePassword).toBe(false);
+    expect(user.banned).toBe(false);
+  });
+
+  it("completa a credencial de um administrador criado por execução interrompida", async () => {
+    await prisma.user.create({ data: { name: ADMIN.name, email: ADMIN.email, emailVerified: true, role: "admin" } });
 
     const result = await ensureInitialAdmin(ADMIN);
 

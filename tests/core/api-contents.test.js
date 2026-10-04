@@ -33,8 +33,17 @@ beforeEach(async () => {
 const listTree = () => contentsRoute.GET(apiRequest("/api/contents", { cookie }));
 const create = (body) => contentsRoute.POST(apiRequest("/api/contents", { method: "POST", body, cookie }));
 const getOne = (id) => contentRoute.GET(apiRequest(`/api/contents/${id}`, { cookie }), routeContext({ id }));
-const update = (id, body) =>
-  contentRoute.PATCH(apiRequest(`/api/contents/${id}`, { method: "PATCH", body, cookie }), routeContext({ id }));
+/**
+ * PATCH. Quando altera o corpo e não traz `version` (RN18), este atalho acrescenta a versão atual do
+ * conteúdo, como o editor faria; passe `version` explícito (ou `{ raw: true }`) para testar a recusa.
+ */
+const update = async (id, body, { raw = false } = {}) => {
+  if (!raw && body && typeof body === "object" && "body" in body && !("version" in body)) {
+    const row = await prisma.content.findUnique({ where: { id }, select: { updatedAt: true } });
+    if (row) body = { ...body, version: row.updatedAt.toISOString() };
+  }
+  return contentRoute.PATCH(apiRequest(`/api/contents/${id}`, { method: "PATCH", body, cookie }), routeContext({ id }));
+};
 const remove = (id) =>
   contentRoute.DELETE(apiRequest(`/api/contents/${id}`, { method: "DELETE", cookie }), routeContext({ id }));
 const reorder = (body) =>
@@ -160,7 +169,6 @@ describe("POST /api/contents", () => {
 
   it.each([
     ["slug fora do formato", { slug: "Com Espaço" }, "slug"],
-    ["slug reservado na raiz", { slug: "admin" }, "slug"],
     ["estado fora do domínio", { status: "ARCHIVED" }, "status"],
     ["tipo fora do domínio", { type: "PAGE" }, "type"],
     ["ordem negativa", { order: -1 }, "order"],
@@ -176,7 +184,10 @@ describe("POST /api/contents", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("slug reservado é aceito fora da raiz", async () => {
+  it("o slug da raiz não tem nomes reservados: fica sob /{handle} (RN03)", async () => {
+    for (const slug of ["admin", "api", "login", "logout"]) {
+      expect((await create({ title: slug, slug, type: "DOCUMENT" })).status, slug).toBe(201);
+    }
     const parent = await collection("docs");
     expect((await create({ title: "API", slug: "api", type: "DOCUMENT", parentId: parent.id })).status).toBe(201);
   });
@@ -348,21 +359,14 @@ describe("PATCH /api/contents/:id", () => {
     expect(await errorOf(response)).toMatchObject({ code: "VALIDATION_ERROR", details: [{ field: "type" }] });
   });
 
-  it("slug reservado: recusa renomear na raiz e recusa mover para a raiz", async () => {
+  it("o slug da raiz não tem nomes reservados: renomear e mover para a raiz aceitam admin e login (RN03)", async () => {
     const parent = await collection("docs");
     const nested = await document("api", { parentId: parent.id });
     const rootDoc = await document("sobre");
 
-    const renamed = await update(rootDoc.id, { slug: "login" });
-    expect(renamed.status).toBe(422);
-    expect((await errorOf(renamed)).details).toEqual([
-      { field: "slug", message: 'O slug "login" é reservado no nível raiz.' },
-    ]);
-
-    const moved = await update(nested.id, { parentId: null });
-    expect(moved.status).toBe(422);
-    expect((await errorOf(moved)).details[0].field).toBe("parentId");
-    expect((await prisma.content.findUniqueOrThrow({ where: { id: nested.id } })).parentId).toBe(parent.id);
+    expect((await update(rootDoc.id, { slug: "login" })).status).toBe(200);
+    expect((await update(nested.id, { parentId: null })).status).toBe(200);
+    expect((await prisma.content.findUniqueOrThrow({ where: { id: nested.id } })).parentId).toBeNull();
   });
 
   it("identificador inexistente responde 404", async () => {
@@ -495,17 +499,14 @@ describe("PATCH /api/contents/reorder", () => {
     expect((await errorOf(repeated)).code).toBe("VALIDATION_ERROR");
   });
 
-  it("não deixa um slug reservado chegar à raiz", async () => {
+  it("mover para a raiz um conteúdo de slug admin é aceito: não há nomes reservados na raiz (RN03)", async () => {
     const parent = await collection("docs");
     const nested = await document("admin", { parentId: parent.id });
 
     const response = await reorder([{ id: nested.id, parentId: null, order: 0 }]);
 
-    expect(response.status).toBe(422);
-    expect((await errorOf(response)).details).toEqual([
-      { field: "0.parentId", message: 'O slug "admin" é reservado no nível raiz.' },
-    ]);
-    expect((await prisma.content.findUniqueOrThrow({ where: { id: nested.id } })).parentId).toBe(parent.id);
+    expect(response.status).toBe(200);
+    expect((await prisma.content.findUniqueOrThrow({ where: { id: nested.id } })).parentId).toBeNull();
   });
 });
 
