@@ -7,7 +7,9 @@ e imprime só DETECTADA / ESCAPOU e o total. "NÃO ACHOU" significa que o códig
 Uma mutação que ESCAPA é um achado: ou o teste é fraco (peça reforço ao agente), ou a mutação é equivalente
 (justifique no pedido de merge). Rode SEMPRE em um worktree de revisão, nunca na cópia principal.
 """
-import argparse, subprocess, sys
+import argparse, shutil, subprocess, sys
+
+NPX = shutil.which("npx") or "npx"  # no Windows, `npx` é `npx.cmd` e o subprocess não o acha sem o caminho
 
 CORE=[
  ("src/lib/authz.js","  if (!ROLES.includes(/** @type {any} */ (actor.role))) return FORBIDDEN;\n","","M1 papel desconhecido deixa de falhar fechado"),
@@ -49,16 +51,16 @@ MUT, ALVO, TEMPO = (CORE, "tests/core", 400) if a.dominio == "core" else (DADOS,
 res = []
 for f, old, new, name in MUT:
     p = f"{a.repo}/{f}"
-    s = open(p, encoding="utf-8").read()
+    s = open(p, encoding="utf-8", newline="").read()
     if s.count(old) != 1:
         print("NÃO ACHOU", name, s.count(old), flush=True)
         continue
-    open(p, "w", encoding="utf-8").write(s.replace(old, new))
+    open(p, "w", encoding="utf-8", newline="").write(s.replace(old, new))
     try:
-        r = subprocess.run(["npx", "vitest", "run", ALVO], cwd=a.repo, capture_output=True, text=True, timeout=TEMPO)
+        r = subprocess.run([NPX, "vitest", "run", ALVO], cwd=a.repo, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TEMPO)
         killed = r.returncode != 0
     finally:
-        open(p, "w", encoding="utf-8").write(s)
+        open(p, "w", encoding="utf-8", newline="").write(s)
     res.append((name, killed))
     print(("DETECTADA " if killed else "ESCAPOU   ") + name, flush=True)
 print(sum(k for _, k in res), "de", len(res), "detectadas")
