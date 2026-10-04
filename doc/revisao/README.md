@@ -8,6 +8,8 @@ Scripts reutilizáveis para a **verificação por amostragem independente** (`AR
 | `ensaio-autorizacao.mjs` | As 84 verificações do M-013 sobre a API: rotas brutas do *plugin*, origem alheia, senha provisória, dois usuários, `authorId` forjado, lote misto, RN18, corpos grandes, suspensão, último administrador, taxa. **Ao integrar uma mudança de contrato, atualize as expectativas aqui, no mesmo ciclo.** |
 | `mutacoes.py --dominio core\|dados --repo <worktree>` | Aplica uma mutação por vez nos pontos de segurança (16 do Core, 10 dos Dados), roda `npx vitest run tests/<domínio>`, restaura o arquivo e imprime `DETECTADA`/`ESCAPOU`. `NÃO ACHOU` = o código mudou, atualize a lista. Uma mutação que escapa é um achado (teste fraco) ou é equivalente (justifique). |
 
+**Windows:** rode no **WSL** (o `ensaio-http.sh` depende de `ps -eo`, `nohup` e `mktemp`); no Git Bash, o Python se chama `python`. Não misture ambientes no mesmo clone (o `better-sqlite3` é nativo).
+
 Uso típico, depois de `git worktree add --detach ../vitrine-review <branch>`, `npm ci` e `npx prisma generate` nele:
 
 ```bash
