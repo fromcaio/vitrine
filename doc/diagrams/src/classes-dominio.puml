@@ -2,9 +2,9 @@
 ' ===========================================================================
 ' Vitrine - Modelo de domínio (diagrama de classes)
 ' Figura: fig:classes-dominio (doc/tex/capitulos/cap5_arquitetura.tex)
-' Modelo-alvo multiusuário (ADR-023 a ADR-028 e ADR-031; módulo M15): espelha
-' er-vitrine.dbml. Enquanto o M15 não for integrado, prisma/schema.prisma tem
-' o esquema anterior. Atualizar junto com er-vitrine.dbml.
+' Modelo multiusuário (ADR-023 a ADR-028 e ADR-031; módulo M15, merge M-012): espelha
+' er-vitrine.dbml e prisma/schema.prisma (migração 20261004120000_multiusuario).
+' Atualizar junto com er-vitrine.dbml.
 ' ===========================================================================
 skinparam shadowing false
 skinparam classAttributeIconSize 0

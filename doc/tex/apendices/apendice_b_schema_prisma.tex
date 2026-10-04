@@ -5,7 +5,7 @@
 %% ===================================================================================
 \chapter{Esquema e Configuração do Prisma}\label{ap:schema}
 
-Este apêndice reproduz, diretamente do repositório, o esquema do Prisma e o arquivo de configuração da CLI em vigor na data de compilação deste documento. O conteúdo é incluído por referência aos arquivos, de modo que sempre reflete a \texttt{main}. O estado de conformidade com as práticas do Prisma 7 está na Tabela~\ref{tab:prisma7} e as observações sobre o modelo, na Tabela~\ref{tab:obs-schema}. Até o módulo M15 ser integrado, o esquema reproduzido é o \emph{anterior} ao escopo multiusuário; o modelo-alvo (usuário com papel e \en{handle}, \texttt{appearances}, \texttt{notifications}, dono único por árvore e índices por dono) está no Apêndice~\ref{ap:dicionario} (Tabelas~\ref{tab:dicionario-alvo} e~\ref{tab:indices-alvo}) e na Seção~\ref{sec:arq-dados}, e substitui estes arquivos no merge. A migração do M15 terá SQL escrito à mão (índice parcial por dono, \texttt{UPDATE} condicional das cores), que o Prisma não enxerga.
+Este apêndice reproduz, diretamente do repositório, o esquema do Prisma e o arquivo de configuração da CLI em vigor na data de compilação deste documento. O conteúdo é incluído por referência aos arquivos, de modo que sempre reflete a \texttt{main}. O estado de conformidade com as práticas do Prisma 7 está na Tabela~\ref{tab:prisma7} e as observações sobre o modelo, na Tabela~\ref{tab:obs-schema}. Desde o merge M-012 (módulo M15), o esquema reproduzido é o multiusuário (usuário com papel e \en{handle}, \texttt{appearances}, \texttt{notifications}, dono único por árvore e índices por dono; Apêndice~\ref{ap:dicionario}, Tabelas~\ref{tab:dicionario-alvo} e~\ref{tab:indices-alvo}, e Seção~\ref{sec:arq-dados}). A migração \arq{20261004120000_multiusuario}, reproduzida abaixo, tem SQL escrito à mão (normalização do dono, índice parcial por dono, promoção do administrador, \texttt{UPDATE} condicional das cores), que o Prisma não enxerga.
 
 \lstinputlisting[language=VPrisma, caption={Conteúdo de prisma/schema.prisma}, label={lst:schema-prisma}]{../../prisma/schema.prisma}
 
@@ -14,3 +14,7 @@ Este apêndice reproduz, diretamente do repositório, o esquema do Prisma e o ar
 A migração inicial, reproduzida a seguir, contém o SQL gerado pelo Prisma e, ao final, o índice parcial escrito à mão (Seção~\ref{sec:arq-indice-parcial}).
 
 \lstinputlisting[caption={Conteúdo de prisma/migrations/20261001034824\_init/migration.sql}, label={lst:migracao-init}]{../../prisma/migrations/20261001034824_init/migration.sql}
+
+A migração multiusuário (M15) é reproduzida a seguir; os blocos marcados ``(manual)'' são os que o Prisma não gera e que não podem ser omitidos nem reordenados (Seção~\ref{sec:arq-indice-parcial}).
+
+\lstinputlisting[caption={Conteúdo de prisma/migrations/20261004120000\_multiusuario/migration.sql}, label={lst:migracao-multiusuario}]{../../prisma/migrations/20261004120000_multiusuario/migration.sql}

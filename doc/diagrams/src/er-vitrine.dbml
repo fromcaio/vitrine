@@ -14,14 +14,14 @@
 //   - D-15: enum ContentStatus (DRAFT | PUBLISHED, padrão PUBLISHED) em contents.status;
 //   - D-19: seis links sociais opcionais do rodapé em configurations;
 //   - D-01: o nome oficial do projeto é "Vitrine".
-// MODELO-ALVO MULTIUSUÁRIO (ADR-023 a ADR-028 e ADR-031; módulo M15, ainda sem código):
+// MODELO MULTIUSUÁRIO (ADR-023 a ADR-028 e ADR-031; módulo M15, integrado no merge M-012, 2026-10-04):
 //   - user ganha role, banned, banReason, banExpires, handle e mustChangePassword;
 //   - session ganha impersonatedBy (plugin admin, sem uso);
 //   - contents: dono único por árvore (FK composta), índice parcial da raiz por dono;
 //   - configurations (o site) ganha a paleta noturna, homeBody e directoryEnabled;
 //   - tabelas novas: appearances (uma por usuário) e notifications;
 //   - padrões das cores: ADR-031 (clara) e Cap. 5 §5.9 (noturna).
-// Enquanto o M15 não for integrado, prisma/schema.prisma tem o esquema anterior.
+// Espelha prisma/schema.prisma e a migração 20261004120000_multiusuario.
 // Renderizar: https://dbdiagram.io (colar o conteúdo e exportar PNG) - ver README.
 // ////////////////////////////////////////////////////////
 
@@ -228,4 +228,4 @@ Ref: contents.(parentId, authorId) > contents.(id, authorId) [delete: cascade]
 // Auto-relacionamento (no modelo-alvo, a FK composta acima substitui parentId > id):
 // um conteúdo pode ter vários "filhos".
 // Permite: Tutorial (COLLECTION) > Introdução (DOCUMENT)
-// Ref: contents.parentId > contents.id [delete: cascade]   (esquema anterior ao M15)
+// Ref: contents.parentId > contents.id [delete: cascade]   (esquema anterior ao M15, substituída pela FK composta)
