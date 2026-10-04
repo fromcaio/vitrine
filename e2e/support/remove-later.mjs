@@ -6,13 +6,11 @@
 //
 //   node e2e/support/remove-later.mjs <diretório>
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { isRunDirectory } from "./env.js";
 
 const target = process.argv[2];
-const tmp = path.resolve(os.tmpdir());
-// Salvaguarda: só apaga diretórios vitrine-e2e-* diretamente dentro do diretório temporário.
-if (!target || path.dirname(path.resolve(target)) !== tmp || !path.basename(target).startsWith("vitrine-e2e-")) {
+// Salvaguarda (a mesma de removeRunDirectory): só apaga vitrine-e2e-* diretamente em os.tmpdir().
+if (!target || !isRunDirectory(target)) {
   process.exit(1);
 }
 
