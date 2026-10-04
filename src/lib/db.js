@@ -1316,13 +1316,15 @@ export async function notify(input, { now = new Date() } = {}) {
   const row = await guarded(() =>
     prisma.$transaction(async (tx) => {
       const fields = { type, severity, data: serialized, readAt: null, resolvedAt: null };
+      // `now` é a única fonte de tempo: a criação e a reabertura marcam `updatedAt` com o mesmo instante.
+      const stamps = { createdAt: now, updatedAt: now };
       const saved =
         dedupeKey === null
-          ? await tx.notification.create({ data: { userId, ...fields } })
+          ? await tx.notification.create({ data: { userId, ...fields, ...stamps } })
           : await tx.notification.upsert({
               where: { userId_dedupeKey: { userId, dedupeKey } },
               update: { ...fields, updatedAt: now },
-              create: { userId, dedupeKey, ...fields },
+              create: { userId, dedupeKey, ...fields, ...stamps },
             });
       await enforceNotificationCap(tx, userId, saved.id);
       return saved;
