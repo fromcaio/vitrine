@@ -9,6 +9,9 @@ export const BASE_URL = "http://localhost:3000";
 /** Administrador fictício. */
 export const ADMIN = { name: "Ada Fictícia", email: "admin@exemplo.test", password: "senha-ficticia-123" };
 
+/** Senha fictícia comum aos usuários de teste. */
+export const PASSWORD = "senha-ficticia-123";
+
 /** Remove conteúdos e configuração, mantendo usuários e sessões. */
 export async function resetContent() {
   await prisma.content.deleteMany();
@@ -19,6 +22,8 @@ export async function resetContent() {
 export async function resetDatabase() {
   await resetContent();
   await prisma.verification.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.appearance.deleteMany();
   await prisma.user.deleteMany();
 }
 
@@ -78,6 +83,42 @@ export async function createAdminSession() {
   const { response, cookie } = await signIn();
   if (response.status !== 200) throw new Error(`Login de teste falhou: ${response.status}`);
   return { cookie, userId: /** @type {{ id: string }} */ (user).id };
+}
+
+/**
+ * Cria um usuário de teste diretamente (sem sessão de administrador), com credencial de senha. Só
+ * para preparar o cenário: nenhuma rota do produto chama `auth.api.*` sem `headers`.
+ * @param {{
+ *   email: string, name?: string, role?: "admin" | "user", handle?: string | null, password?: string,
+ *   mustChangePassword?: boolean, banned?: boolean, banReason?: string | null, banExpires?: Date | null
+ * }} spec
+ * @returns {Promise<{ id: string, email: string, password: string }>}
+ */
+export async function createTestUser(spec) {
+  const { email, name = spec.email.split("@")[0], role = "user", handle, password = PASSWORD } = spec;
+  /** @type {Record<string, unknown>} */
+  const data = {};
+  if (handle) data.handle = handle;
+  if (spec.mustChangePassword) data.mustChangePassword = true;
+  if (spec.banned) {
+    data.banned = true;
+    data.banReason = spec.banReason ?? null;
+    data.banExpires = spec.banExpires ?? null;
+  }
+  const { user } = await auth.api.createUser({ body: { email, name, password, role, data } });
+  return { id: user.id, email, password };
+}
+
+/**
+ * Cria um usuário de teste e entra com ele pela rota real do better-auth.
+ * @param {Parameters<typeof createTestUser>[0]} spec
+ * @returns {Promise<{ id: string, email: string, password: string, cookie: string }>}
+ */
+export async function createUserSession(spec) {
+  const user = await createTestUser(spec);
+  const { response, cookie } = await signIn({ email: user.email, password: user.password });
+  if (response.status !== 200) throw new Error(`Login de teste falhou (${spec.email}): ${response.status}`);
+  return { ...user, cookie };
 }
 
 /**

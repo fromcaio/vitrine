@@ -29,6 +29,29 @@ function runCreateAdmin(variables) {
       ADMIN_EMAIL: "",
       ADMIN_PASSWORD: "",
       ADMIN_NAME: "",
+      ADMIN_HANDLE: "",
+      ...variables,
+    },
+  });
+  return { status: result.status, output: `${result.stdout}${result.stderr}` };
+}
+
+/**
+ * Executa o comando como o `npm run admin:reset-password` faria.
+ * @param {Record<string, string>} variables ADMIN_EMAIL e ADMIN_PASSWORD
+ */
+function runResetPassword(variables) {
+  const noEnvFile = path.join(projectRoot, "nao-existe.env");
+  const result = spawnSync(process.execPath, [tsxCli, "--tsconfig", "jsconfig.json", "scripts/reset-password.js"], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      DOTENV_PATH: noEnvFile,
+      DOTENV_CONFIG_PATH: noEnvFile,
+      NODE_ENV: "production",
+      ADMIN_EMAIL: "",
+      ADMIN_PASSWORD: "",
       ...variables,
     },
   });
@@ -91,13 +114,92 @@ describe("npm run admin:create", () => {
     expect(await prisma.user.count()).toBe(0);
   });
 
-  it("não cria um segundo administrador com outro e-mail", async () => {
+  it("cria o administrador com o papel admin e, se informado, o handle (ADMIN_HANDLE)", async () => {
+    const { status, output } = runCreateAdmin({ ...credentials, ADMIN_HANDLE: "Portal" });
+
+    expect(status).toBe(0);
+    expect(output).not.toContain(ADMIN.password);
+    expect(await prisma.user.findFirstOrThrow()).toMatchObject({ role: "admin", handle: "portal", mustChangePassword: false });
+  });
+
+  it("recusa ADMIN_HANDLE inválido ou reservado, sem criar usuário", async () => {
+    for (const handle of ["admin", "Ab", "com espaço", "-x-"]) {
+      const { status, output } = runCreateAdmin({ ...credentials, ADMIN_HANDLE: handle });
+      expect(status, handle).toBe(1);
+      expect(output, handle).toContain("ADMIN_HANDLE:");
+    }
+    expect(await prisma.user.count()).toBe(0);
+  });
+
+  it("não cria outro administrador com outro e-mail enquanto houver um ativo", async () => {
     expect(runCreateAdmin(credentials).status).toBe(0);
 
     const { status, output } = runCreateAdmin({ ...credentials, ADMIN_EMAIL: "outro@exemplo.test" });
 
     expect(status).toBe(1);
-    expect(output).toContain("Já existe um usuário com outro e-mail");
+    expect(output).toContain("Já existe um administrador ativo com outro e-mail");
     expect(await prisma.user.count()).toBe(1);
+  });
+
+  it("recupera o acesso quando não resta administrador ativo (RN22)", async () => {
+    expect(runCreateAdmin(credentials).status).toBe(0);
+    await prisma.user.update({ where: { email: ADMIN.email }, data: { role: "user" } });
+
+    const { status, output } = runCreateAdmin(credentials);
+
+    expect(status).toBe(0);
+    expect(output).toContain("Acesso recuperado");
+    expect((await prisma.user.findFirstOrThrow()).role).toBe("admin");
+  });
+});
+
+describe("npm run admin:reset-password", () => {
+  const reset = { ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: "nova-senha-provisoria-1" };
+
+  it("redefine a senha, revoga as sessões, liga a troca obrigatória e não imprime a senha", async () => {
+    expect(runCreateAdmin(credentials).status).toBe(0);
+    const { cookie } = await signIn(ADMIN);
+    expect(cookie).toContain("session_token");
+    expect(await prisma.session.count()).toBe(1);
+
+    const { status, output } = runResetPassword(reset);
+
+    expect(status).toBe(0);
+    expect(output).toContain(`Senha de ${ADMIN.email} redefinida; 1 sessão(ões) revogada(s).`);
+    expect(output).toContain("/admin/senha");
+    expect(output).not.toContain(reset.ADMIN_PASSWORD);
+    expect(await prisma.session.count()).toBe(0);
+    expect((await prisma.user.findFirstOrThrow()).mustChangePassword).toBe(true);
+    expect((await signIn(ADMIN)).response.status).toBe(401);
+    expect((await signIn({ email: ADMIN.email, password: reset.ADMIN_PASSWORD })).response.status).toBe(200);
+  });
+
+  it("e-mail inexistente: falha com instrução e não cria conta", async () => {
+    const { status, output } = runResetPassword({ ...reset, ADMIN_EMAIL: "ninguem@exemplo.test" });
+
+    expect(status).toBe(1);
+    expect(output).toContain("Não existe conta com o e-mail ninguem@exemplo.test");
+    expect(await prisma.user.count()).toBe(0);
+  });
+
+  it("sem as variáveis ou com senha curta, explica o problema sem imprimir a senha", async () => {
+    const missing = runResetPassword({});
+    expect(missing.status).toBe(1);
+    expect(missing.output).toContain("Defina ADMIN_EMAIL.");
+    expect(missing.output).toContain("Defina ADMIN_PASSWORD.");
+
+    const short = runResetPassword({ ...reset, ADMIN_PASSWORD: "curta-1" });
+    expect(short.status).toBe(1);
+    expect(short.output).not.toContain("curta-1");
+  });
+
+  it("avisa quando a conta segue suspensa", async () => {
+    expect(runCreateAdmin(credentials).status).toBe(0);
+    await prisma.user.update({ where: { email: ADMIN.email }, data: { banned: true, banReason: "x" } });
+
+    const { status, output } = runResetPassword(reset);
+
+    expect(status).toBe(0);
+    expect(output).toContain("segue suspensa");
   });
 });
