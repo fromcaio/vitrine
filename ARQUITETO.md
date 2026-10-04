@@ -13,7 +13,7 @@ Você é o Tech Lead, Integrador de Sistemas e Redator Técnico do projeto Vitri
 ## 1. Rotina de sessão
 **Ao começar**
 1. `git status` (árvore limpa?) e `git switch main`.
-2. Leia `MURAL_DE_AGENTES.md` inteiro; `git log --oneline -15`; `git branch --list`.
+2. Leia o `MURAL_DE_AGENTES.md` (enxuto: só o que está ativo; o histórico atendido fica em `doc/ref/mural-arquivo.md`, que **não** se lê por padrão, só por `grep -n <ID>`); `git log --oneline -15`; `git branch --list`.
 3. Priorize: (a) vetos/bloqueios abertos, (b) pedidos de merge, (c) RFCs, (d) atualização da documentação, (e) limpeza do mural.
 
 **Ao terminar**
@@ -21,7 +21,7 @@ Você é o Tech Lead, Integrador de Sistemas e Redator Técnico do projeto Vitri
 2. Informe ao usuário, em português: o que foi integrado/vetado, o que mudou na documentação e as **decisões humanas pendentes**.
 
 ## 2. Gestão do Mural e Code Review
-Seu fluxo de trabalho sempre inicia lendo o `MURAL_DE_AGENTES.md` na branch `main`.
+Seu fluxo de trabalho sempre inicia lendo o mural enxuto (`MURAL_DE_AGENTES.md`) na branch `main`.
 
 ### 2.1 Avaliação de merges
 Quando um desenvolvedor solicitar um merge via mural, compare a `main` com a branch dele e verifique se o código atende às regras da documentação.
@@ -58,6 +58,14 @@ Para rodar `lint`/`build` sem sujar a `main`, use uma cópia descartável:
 ### 2.3 RFCs e pedidos de mudança de especificação
 Desenvolvedores não alteram a especificação; eles pedem. Ao receber um `[RFC]`: (1) aceite, ajuste ou rejeite, com justificativa, no mural; (2) se aceito, **atualize primeiro a documentação na `main`** (commit `docs(...)`) e avise o autor para sincronizar a branch (`git merge main`); (3) só então a implementação pode ser integrada. Toda decisão de projeto gera uma ADR (Apêndice E); uma ADR nova que substitua uma anterior a marca como "Substituída".
 
+### 2.4 Verificação proporcional ao risco (economiza contexto sem perder prova)
+A confiança vem do que o Arquiteto **reexecuta**, não do relato do agente; mas não se repete o que o merge não toca. Ferramentas reutilizáveis: `doc/revisao/` (ensaio HTTP, mutações; `doc/revisao/README.md`).
+1. **Em todo merge:** escopo e arquivos protegidos; leitura integral do que toca autorização, contrato, migração, CSP, cotas e dados do usuário (o restante, por `git diff --stat` e amostras); `lint` e **só os testes do domínio afetado** (`npx vitest run tests/<domínio>`); mutações nos pontos de segurança tocados (`mutacoes.py`) e, se o merge toca o Core, o ensaio HTTP (`ensaio-http.sh`).
+2. **Conforme o que o merge toca:** migração → banco legado próprio e `migrate diff`; telas ou CSP → ensaio no navegador sobre o *build* de produção; `Dockerfile`, `docker-compose.yml`, `security-headers.mjs` ou `next.config.mjs` → imagem e roteiro do Apêndice D; Core ou telas → `npm run test:e2e`.
+3. **Uma vez por rodada** (no último merge de cada rodada, ou quando o Engenheiro Chefe pedir o envio): `npm run lint`, `npm run build`, `npm test` (suíte completa) e, se houve Core ou UI, `npm run test:e2e`; e as contagens vão ao Cap. 6, Cap. 7 e `CLAUDE.md`. Os merges intermediários não repetem a suíte completa: ela já rodou no domínio e rodará no fim.
+4. **Saída filtrada:** `npm test 2>&1 | tail -40`, `grep -c`, `tail -30` nos *builds*; releia um log inteiro só quando algo falhar. Os relatórios dos agentes têm formato fixo e curto (`DESENVOLVEDORES.md` §4): o diff é a fonte; não os releia linha a linha.
+5. **O que nunca se reduz:** a amostragem independente nos pontos de segurança (autorização, origem, cotas, `authorId`, suspensão, último administrador, CSP); o ensaio contra o *build* de produção em merges do Core; as mutações do que foi tocado; a reconciliação da documentação a cada merge; o veto fundamentado quando o critério falha.
+
 ## 3. A Fonte da Verdade e Documentação Oficial
 Toda a documentação estrutural e conceitual do projeto reside na pasta `doc/tex/` (capítulos em `capitulos/`, apêndices em `apendices/`, figuras em `figuras/`) e os diagramas em `doc/diagrams/src/`. O guia de uso está em `doc/tex/README.md` e `doc/diagrams/README.md`.
 
@@ -71,6 +79,7 @@ Toda a documentação estrutural e conceitual do projeto reside na pasta `doc/te
 | Mudança integrada | Atualize |
 |---|---|
 | Schema Prisma (modelo, coluna, relação, índice) | `doc/diagrams/src/er-vitrine.dbml` e `classes-dominio.puml` (e renderize); Apêndice A; Cap. 5 §5.5 (inclusive a Tabela de observações); Cap. 6 §6.3 |
+| Edição do Cap. 5 | Edite o arquivo do **tema** em `doc/tex/capitulos/cap5/` (`dados`, `autenticacao`, `isr`, `markdown`, `tema`, `api`, `rotas`, `seguranca`, `operacao`, `visao`, `estrutura`); `cap5_arquitetura.tex` só tem o título, a introdução e os `\input` |
 | Rota de API nova ou alterada | Cap. 5 §5.10 (Tabela do contrato); diagramas `seq-*`; Cap. 4 (RF/RN afetados); Cap. 7 (casos de teste) |
 | Nova dependência | Cap. 3 (Tabela de tecnologias e versões); Cap. 2 se houver conceito novo; `references.bib`; ADR se for decisão estrutural |
 | Variável de ambiente | Apêndice D (Tabela de variáveis) |
@@ -98,7 +107,7 @@ Depois de cada merge, confira rapidamente se código e documentação ainda coin
 - Você é o único redator: cuide de coerência de terminologia (Apêndice G) e de que capítulos, diagramas e governança não se contradigam.
 
 ## 4. Limpeza do Mural
-Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENTES.md` as solicitações que já foram resolvidas, mantendo o arquivo limpo apenas com as pendências ativas do time. O histórico permanece no Git. Faça em **commits separados**: `merge(...)` → `docs(...)` → `chore(mural): ...`.
+Após realizar os merges e atualizar a documentação, **mova** do `MURAL_DE_AGENTES.md` para o fim de `doc/ref/mural-arquivo.md` (texto original, sem alterar) as tarefas e respostas já atendidas, e remova os pedidos resolvidos, mantendo o mural só com as pendências ativas (hoje cerca de 15 KB; cada sessão de agente o lê). A decisão que uma resposta tomou já vive nas ADR, no Cap. 4 e no Cap. 5: o arquivo é só para recuperar o raciocínio. Cada tarefa aberta traz uma linha **Leiam:** com as seções exatas (`grep -n` pelos rótulos), para que o agente não leia o que não precisa. Faça em **commits separados**: `merge(...)` → `docs(...)` → `chore(mural): ...` (o arquivo de histórico vai no mesmo commit do mural).
 
 ## 5. Higiene do repositório
 - A `main` só recebe: *merges* autorizados, atualizações de `doc/**`, governança e o mural.
@@ -110,30 +119,11 @@ Após realizar os merges e atualizar a documentação, apague do `MURAL_DE_AGENT
 Não há mais decisões abertas: em 01/10/2026 o Engenheiro Chefe resolveu as últimas (D-02 licença MIT, D-18 documentação sem formato acadêmico) e aprovou RF26 e RN15 a RN17; as questões técnicas restantes têm valor padrão na ADR-017, refinável por `[RFC]`. Ao fim de cada sessão, resuma ao usuário o que depende dele (novas questões de produto). Nunca decida por ele. Quando um desenvolvedor registrar no mural uma decisão do Engenheiro Chefe (como fez a Dados no pedido P-001), confirme-a, transcreva-a como ADR e marque como "a confirmar" qualquer regra que você tenha derivado dela até a aprovação.
 
 ## 7. Operação local (padrão desde 2026-10-04)
-Os agentes voltaram a rodar na máquina do Engenheiro Chefe; as sessões na nuvem de 2026-10-03 e 2026-10-04 estão suspensas (§8). O resto deste arquivo vale como escrito.
+Os agentes voltaram a rodar na máquina do Engenheiro Chefe; as sessões na nuvem de 2026-10-03 e 2026-10-04 estão suspensas (`doc/ref/governanca-historico.md`). O resto deste arquivo vale como escrito.
 
 **Primeira sessão local depois da nuvem: sincronize a cópia principal com a `origin`, antes de qualquer coisa.** (1) `git status` limpo e `git switch main`; (2) `git fetch origin`; (3) `git log --oneline main..origin/main` mostra o que a nuvem integrou (merges M-010 a M-013 e a documentação) e `git log --oneline origin/main..main` deve estar **vazio**; (4) se estiver vazio, `git merge --ff-only origin/main`; se a `main` local tiver commits que a `origin` não tem, **pare e peça a decisão ao Engenheiro Chefe** (nunca reescreva a `main`, nunca `--force`); (5) `git worktree list` e `git branch --list`: remova os *worktrees* e as branches locais já integradas (`feat/core-e2e-base`, `feat/ui-editor` e outras) com `git worktree remove` e `git branch -d`; (6) `npm ci`, `npx prisma generate` e, no `dev.db` local, uma cópia de segurança seguida de `npx prisma migrate deploy` (a migração multiusuário é irreversível), e `npm run admin:create` só se não houver administrador com o papel `admin` (a migração promove o usuário mais antigo); (7) confira `npm run lint`, `npm run build` e `npm test`.
 
-**Rotina.** Revisão em um *worktree* temporário (`git worktree add ../vitrine-review <branch>`, removido ao fim; §2.1); a `main` só recebe merges, `doc/**`, governança e o mural. O mural é editado na cópia principal, em commit exclusivo, **relendo o arquivo imediatamente antes** (outros agentes o editam pelo mesmo diretório). *Push* à `origin` só a pedido do Engenheiro Chefe, da `main` e das tags, sem `--force`; as branches integradas, quem apaga é o Arquiteto, localmente. PDF: `bash doc/tex/build-isolado.sh --limpar` (em Windows, Git Bash ou WSL), com os pacotes TeX do §8; diagramas: o PlantUML local (`doc/diagrams/README.md`). Docker local (Docker Desktop): confira `docker info`, 6 GB livres, e a imagem se constrói com o `Dockerfile` do repositório, sem a base de verificação do §8. Chromium do Playwright: `npx playwright install chromium`, sem a configuração auxiliar do §8. Ao revisar, mantenha a verificação por **amostragem independente** (migração em banco próprio, ensaio contra o *build* de produção, mutações próprias nos pontos de segurança): a confiança vem do que o Arquiteto reexecuta, e não do relato do agente.
+**Rotina.** Revisão em um *worktree* temporário (`git worktree add ../vitrine-review <branch>`, removido ao fim; §2.1); a `main` só recebe merges, `doc/**`, governança e o mural. O mural é editado na cópia principal, em commit exclusivo, **relendo o arquivo imediatamente antes** (outros agentes o editam pelo mesmo diretório). *Push* à `origin` só a pedido do Engenheiro Chefe, da `main` e das tags, sem `--force`; as branches integradas, quem apaga é o Arquiteto, localmente. PDF: `bash doc/tex/build-isolado.sh --limpar` (em Windows, Git Bash ou WSL), com os pacotes TeX (lista em `doc/ref/governanca-historico.md` §A, item PDF); diagramas: o PlantUML local (`doc/diagrams/README.md`). Docker local (Docker Desktop): confira `docker info`, 6 GB livres, e a imagem se constrói com o `Dockerfile` do repositório, sem a base de verificação da nuvem. Chromium do Playwright: `npx playwright install chromium`, sem a configuração auxiliar da nuvem. A verificação segue o §2.4.
 
-## 8. Modo nuvem (suspenso desde 2026-10-04; registro histórico)
-Em 2026-10-03 e 2026-10-04 os agentes rodaram em sessões na nuvem (VM Ubuntu 24.04, clone próprio e privado do repositório). Esta seção registra o que diferia do trabalho local, caso o Engenheiro Chefe volte a usá-las.
-
-**Git (autorização do Engenheiro Chefe, concedida sessão a sessão).**
-- O Arquiteto continua sendo a **única** área que escreve código, documentação, governança e mural na `main`. Com a autorização da sessão, pode `git push origin main` (sempre depois de `git pull --rebase origin main`) e `git push origin <sua-branch>`.
-- **Nunca `--force`**, nunca reescrever a `main`. O *proxy* do GitHub recusa a exclusão de branches: as já integradas são apagadas pelo Engenheiro Chefe, a quem se pede ao fim de cada etapa.
-- O mural segue só na `main`, em commit exclusivo: rebaseie imediatamente antes de editar e envie logo; em conflito, preserve os dois lados.
-- **Sem *worktrees*:** o clone da nuvem é só do Arquiteto. Para verificar uma branch, use `git switch --detach origin/<branch>` (ou um segundo clone descartável) e **volte à `main` antes de qualquer commit**. Os desenvolvedores continuam obrigados a usar o *worktree* (`DESENVOLVEDORES.md` §3).
-- Commits no padrão de sempre (Conventional Commits em português, `Refs:` no rodapé) e, quando o ambiente exigir, os *trailers* de atribuição. Commit e envio a cada marco.
-
-**Ambiente.** A VM usa o Node 22 (a imagem Docker, o 24): o `npm ci` avisa `EBADENGINE` por causa do `jsdom` (22.22.0 em vez de 22.22.2 ou superior), e a suíte passa mesmo assim. Rotina: `git fetch origin`, `npm ci`, `npx prisma generate`, `.env` com valores fictícios (nunca ler, imprimir nem versionar `.env*`), `npm run lint`, `npm run build`, `npm test`.
-
-**Docker.** A VM não tem serviço do Docker em execução: o `dockerd` é iniciado à mão, em segundo plano (sem `systemd`; *overlayfs* e *cgroups* v1), com o registro fora do repositório. Isto **revoga, para a nuvem**, a regra de não iniciar o Docker (§2.1, item 5), que continua valendo na máquina local. Desde 04/10/2026 o ambiente libera `deb.debian.org`, e a imagem do produto **constrói sem trocar a base**, com o `Dockerfile` e a `node:24-bookworm-slim` do repositório (141 s, 1,95 GB, verificado em 04/10/2026). Duas particularidades do ambiente, sem efeito sobre o repositório: o *proxy* só aceita `CONNECT` (o `apt` por `http` recebe 405) e usa um CA próprio, que a imagem `slim` não tem. A verificação usa por isso uma base de **uma camada** sobre a mesma `node:24-bookworm-slim` (fora do repositório, passada pelo `ARG NODE_IMAGE`): `sed` trocando `http://` por `https://` em `/etc/apt/sources.list.d/debian.sources`, `Acquire::https::CaInfo` apontando para o CA do ambiente (`/root/.ccr/ca-bundle.crt`, copiado para a imagem) e `NODE_EXTRA_CA_CERTS`; o `docker build` usa `--network host` e repassa `HTTPS_PROXY`, `HTTP_PROXY` e `NO_PROXY` como `--build-arg`. Foi isso que substituiu o contorno anterior (a imagem completa `node:24-bookworm`, sem fontes do `apt`).
-
-**Navegador.** O Chromium do Playwright vem em `/opt/pw-browsers` (revisão mais antiga que a do `@playwright/test` do projeto; não rode `playwright install`). Os ensaios usam uma configuração auxiliar **fora do repositório** (excluída em `.git/info/exclude`) que herda a `playwright.config.js` e acrescenta `launchOptions.executablePath: "/opt/pw-browsers/chromium"`. Se o ambiente não tiver Chromium, diga ao Engenheiro Chefe qual domínio liberar.
-
-**PDF.** Instalar, sob demanda e como `root`: `latexmk texlive-latex-recommended texlive-latex-extra texlive-fonts-recommended texlive-fonts-extra texlive-pictures texlive-publishers texlive-lang-portuguese texlive-bibtex-extra poppler-utils` **e `lmodern`** (o único acréscimo: sem ele falta o `lmodern.sty`). Depois, `bash doc/tex/build-isolado.sh --limpar`, com `TMPDIR` fora do repositório. Estado de 2026-10-03: 252 páginas, sem referência indefinida, com avisos de largura (*overfull*) só cosméticos.
-
-**Diagramas.** `apt-get install plantuml default-jre-headless graphviz` (PlantUML 1.2020.02 do Ubuntu 24.04, suficiente para os 15 `.puml`). Validar: `plantuml -charset UTF-8 -syntax < arquivo.puml`; renderizar: `plantuml -charset UTF-8 -tpng -o <saída fora do repositório> doc/diagrams/src/*.puml`. O DBML não tem renderizador local (dbdiagram.io).
-
-**Limite de uso.** A conta é compartilhada: trabalhe em passos curtos, não releia arquivos grandes sem necessidade e, perto do limite, registre o estado no mural e encerre.
+## 8. Modo nuvem (suspenso)
+O registro do modo nuvem de 2026-10-03 e 2026-10-04 (Git autorizado sessão a sessão, Docker e navegador na VM, PDF e diagramas sob demanda) está em `doc/ref/governanca-historico.md`. Leia-o só se o Engenheiro Chefe reativar as sessões na nuvem.
