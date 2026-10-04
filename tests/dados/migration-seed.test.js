@@ -95,14 +95,33 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
       githubUrl: null,
     });
 
-    // O administrador personaliza o site; o seed não pode desfazer isso.
+    // O administrador personaliza o site (inclusive os campos do M15); o seed não pode desfazer isso.
     const rw = new Database(dbFile);
-    rw.prepare("update configurations set siteName = 'Personalizado' where id = 'default'").run();
+    rw.prepare(
+      "update configurations set siteName = 'Personalizado', primaryColor = '#123456', darkPrimaryColor = '#654321', " +
+        "directoryEnabled = 0, homeBody = 'Texto do portal' where id = 'default'",
+    ).run();
     rw.close();
 
     runPrisma(["db", "seed"], url);
     const second = inspect((db) => db.prepare("select * from configurations").all());
     expect(second).toHaveLength(1);
-    expect(second[0]).toMatchObject({ id: "default", siteName: "Personalizado" });
+    expect(second[0]).toMatchObject({
+      id: "default",
+      siteName: "Personalizado",
+      primaryColor: "#123456",
+      darkPrimaryColor: "#654321",
+      directoryEnabled: 0,
+      homeBody: "Texto do portal",
+    });
+  });
+
+  it("o seed não cria usuário, aparência nem notificação (o administrador é do admin:create; a aparência nasce sob demanda)", () => {
+    const counts = inspect((db) => ({
+      users: /** @type {any} */ (db.prepare('select count(*) as n from "user"').get()).n,
+      appearances: /** @type {any} */ (db.prepare("select count(*) as n from appearances").get()).n,
+      notifications: /** @type {any} */ (db.prepare("select count(*) as n from notifications").get()).n,
+    }));
+    expect(counts).toEqual({ users: 0, appearances: 0, notifications: 0 });
   });
 });
