@@ -173,7 +173,7 @@ describe("db.js: conteúdo", () => {
       const intro = await make("introducao", { parentId: c.id });
       await make("o-que-e-c", { type: "DOCUMENT", parentId: intro.id, body: "# O que é C" });
 
-      const found = await getContentByPath(["c", "introducao", "o-que-e-c"], { onlyPublished: true });
+      const found = await getContentByPath(authorId, ["c", "introducao", "o-que-e-c"], { onlyPublished: true });
 
       expect(found).toMatchObject({ slug: "o-que-e-c", body: "# O que é C" });
     });
@@ -181,36 +181,36 @@ describe("db.js: conteúdo", () => {
     it("devolve null para caminho inexistente ou entrada inválida", async () => {
       await make("c");
 
-      expect(await getContentByPath(["nao-existe"], { onlyPublished: true })).toBeNull();
-      expect(await getContentByPath(["c", "nao-existe"], { onlyPublished: true })).toBeNull();
-      expect(await getContentByPath([], { onlyPublished: true })).toBeNull();
-      expect(await getContentByPath(/** @type {any} */ ("c"))).toBeNull();
+      expect(await getContentByPath(authorId, ["nao-existe"], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, ["c", "nao-existe"], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, [], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, /** @type {any} */ ("c"))).toBeNull();
     });
 
     it("público: um rascunho resolve para null, e o painel o encontra (RN15)", async () => {
       const c = await make("c");
       await make("rasc", { type: "DOCUMENT", parentId: c.id, status: "DRAFT" });
 
-      expect(await getContentByPath(["c", "rasc"], { onlyPublished: true })).toBeNull();
-      expect(await getContentByPath(["c", "rasc"])).toMatchObject({ slug: "rasc", status: "DRAFT" });
+      expect(await getContentByPath(authorId, ["c", "rasc"], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, ["c", "rasc"])).toMatchObject({ slug: "rasc", status: "DRAFT" });
     });
 
     it("público: um publicado sob ancestral em rascunho resolve para null (RN15)", async () => {
       const rasc = await make("rasc", { status: "DRAFT" });
       await make("filho", { type: "DOCUMENT", parentId: rasc.id });
 
-      expect(await getContentByPath(["rasc", "filho"], { onlyPublished: true })).toBeNull();
-      expect(await getContentByPath(["rasc", "filho"])).toMatchObject({ slug: "filho" });
+      expect(await getContentByPath(authorId, ["rasc", "filho"], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, ["rasc", "filho"])).toMatchObject({ slug: "filho" });
     });
 
     it("RN16: voltar a coleção para PUBLISHED reexibe a subárvore sem alterar os descendentes", async () => {
       const c = await make("c", { status: "DRAFT" });
       await make("d", { type: "DOCUMENT", parentId: c.id });
-      expect(await getContentByPath(["c", "d"], { onlyPublished: true })).toBeNull();
+      expect(await getContentByPath(authorId, ["c", "d"], { onlyPublished: true })).toBeNull();
 
       await updateContent(c.id, { status: "PUBLISHED" });
 
-      expect(await getContentByPath(["c", "d"], { onlyPublished: true })).toMatchObject({ slug: "d" });
+      expect(await getContentByPath(authorId, ["c", "d"], { onlyPublished: true })).toMatchObject({ slug: "d" });
     });
   });
 

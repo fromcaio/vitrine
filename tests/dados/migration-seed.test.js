@@ -53,12 +53,13 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
         "verification",
         "contents",
         "configurations",
+        "appearances",
+        "notifications",
         "contents_parentId_slug_key",
-        "contents_parentId_order_idx",
-        "contents_root_slug_key",
+        "contents_root_owner_slug_key",
       ]),
     );
-    const partial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "contents_root_slug_key"));
+    const partial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "contents_root_owner_slug_key"));
     expect(partial.sql).toMatch(/WHERE\s+"parentId"\s+IS\s+NULL/i);
   });
 
@@ -83,9 +84,14 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
     expect(first[0]).toMatchObject({
       id: "default",
       siteName: "Vitrine",
-      primaryColor: "#3b82f6",
+      primaryColor: "#2563eb",
       secondaryColor: "#1e293b",
-      accentColor: "#f59e0b",
+      accentColor: "#b45309",
+      darkPrimaryColor: "#60a5fa",
+      darkSecondaryColor: "#cbd5e1",
+      darkAccentColor: "#fbbf24",
+      directoryEnabled: 1,
+      homeBody: null,
       githubUrl: null,
     });
 
