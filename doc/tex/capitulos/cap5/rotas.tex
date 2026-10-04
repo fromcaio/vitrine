@@ -1,0 +1,112 @@
+% capitulos/cap5/rotas.tex -- §5.11: roteamento, navegação e inventário de componentes.
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Roteamento e Navegação}\label{sec:arq-rotas}
+
+A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\texttt{admin}, \texttt{login}, \texttt{api}) têm precedência sobre o \en{catch-all} \arq{[...slug]}, razão pela qual esses nomes são reservados no nível raiz (RN03). No alvo (\adr{ADR-024}, M17), o primeiro segmento dinâmico é o \texttt{[handle]}, e os nomes reservados valem para o \en{handle} (RN20), de modo que um \en{slug} de raiz, que fica sob \texttt{/\{handle\}}, não colide com rota alguma. A Tabela~\ref{tab:rotas-alvo} lista as rotas-alvo. A estrutura visual de cada página segue os protótipos da IC (Seção~\ref{sec:prototipagem}): barra superior com logotipo, nome e coleções raiz; \en{sidebar} da coleção corrente; área de conteúdo; e rodapé.
+
+\vitrinefigura[tipo=diagrama, arquivo=nav-mapa-do-site, agente=Arquiteto, largura=0.9,
+  origem={doc/diagrams/src/nav-mapa-do-site.puml},
+  descricao={Mapa mental das rotas: área pública (início e leitura de documento), login, painel administrativo (visão geral, árvore, novo conteúdo, editor, configurações) e API.}]
+  {Mapa de rotas e navegação}{fig:nav-mapa-do-site}
+
+\begin{table}[htb]
+\caption{Rotas de páginas no alvo multiusuário}\label{tab:rotas-alvo}
+\small
+\begin{tabularx}{\linewidth}{@{}L{4.3cm}L{2.3cm}Y@{}}
+\toprule
+\textbf{Rota} & \textbf{Acesso} & \textbf{Conteúdo}\\
+\midrule
+\arq{/} & Público & Portal: texto do administrador e diretório dos espaços (RF30)\\
+\addlinespace
+\arq{/[handle]} e \arq{/[handle]/[...slug]} & Público & Espaço de um usuário ativo: início, coleção e documento (RF29); 404 se suspenso, removido ou sem \en{handle}\\
+\addlinespace
+\arq{/login} & Público & Entrar (UC08); conta suspensa vê o motivo\\
+\addlinespace
+\arq{/admin} & Sessão & Visão geral do próprio usuário e as notificações pendentes\\
+\addlinespace
+\arq{/admin/conteudo}, \arq{/admin/conteudo/novo} e \arq{/admin/conteudo/[id]} & Dono & Árvore do próprio usuário, novo conteúdo e editor (\texttt{?pai=} só aceita coleção do próprio usuário)\\
+\addlinespace
+\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, links e as duas paletas\\
+\addlinespace
+\arq{/admin/senha} & Sessão & Troca de senha (UC14); alvo do redirecionamento com senha provisória (R-006)\\
+\addlinespace
+\arq{/admin/perfil} & Sessão & Nome de exibição do próprio usuário\\
+\addlinespace
+\arq{/admin/notificacoes} & Dono & Lista de notificações\\
+\addlinespace
+\arq{/admin/configuracoes} & Admin & Configuração do site e do portal\\
+\addlinespace
+\arq{/admin/usuarios} e \arq{/admin/usuarios/[id]} & Admin & Lista e formulário de usuários (UC13)\\
+\addlinespace
+\arq{/admin/usuarios/[id]/conteudo} & Admin & Árvore de outro usuário, com os rascunhos, para a moderação (UC15)\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir das ADR-023 e ADR-024. Cada página protegida repete a verificação de sessão e de dono no servidor (RN19).}
+\end{table}
+
+\begingroup\small
+\begin{longtable}{@{}L{3.3cm}L{2.9cm}L{6.0cm}L{2.2cm}@{}}
+\caption{Inventário de componentes de interface e situação após o merge M-011}\label{tab:componentes-ui}\\
+\toprule
+\textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade} & \textbf{Situação}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Diretório} & \textbf{Responsabilidade} & \textbf{Situação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Navbar & \arq{components/layout} & Logotipo, nome do site e coleções raiz (RF13) & Planejado\\
+Sidebar & \arq{components/layout} & Árvore da coleção corrente, item ativo, recolher níveis (RF12) & Planejado\\
+Footer, SocialLinks & \arq{components/layout} & Rodapé: direitos gerados a partir do nome do site e do ano, e ícones apenas das redes com link preenchido, com os atributos \texttt{noopener} e \texttt{noreferrer} (RF24, RN17) & Planejado\\
+MarkdownRenderer & \arq{components/markdown} & Pipeline de Markdown, matemática e código (RF09 a RF11) & Implementado (M-009)\\
+ContentEditor, Editor, Toolbar, Preview & \arq{components/editor} & Edição de um documento com painel dividido, rascunho local e publicação (RF08, RF15, RF16). O \arq{ContentEditor} (\texttt{ssr: false}) liga o editor à API e recebe só dados simples; o \arq{Editor} traz título, \en{slug}, estado e texto; a \arq{Toolbar} tem 17 botões rotulados; o \arq{Preview} usa o \arq{MarkdownRenderer} sob demanda. Módulos puros: \arq{format.js} (comandos de formatação), \arq{draft.js} (rascunho local), \arq{content-client.js} (\texttt{POST} e \texttt{PATCH} e a tradução das respostas), \arq{schema.js} e \arq{zod-config.js} (Zod sem JIT, Seção~\ref{sec:arq-csp}) & Implementado (M-011); a página é do Core (P-012)\\
+AdminShell & \arq{components/admin} & Casca do painel: atalho para o conteúdo, barra superior, navegação e área principal; \en{Server Component} de apresentação, que não valida a sessão (M10) & Implementado\\
+AdminHeader & \arq{components/admin} & Barra superior: nome do site, nome e e-mail do usuário e botão ``Sair'', que recebe a \en{Server Function} \texttt{signOut} por \en{prop} (RF20) & Implementado\\
+AdminSidebar & \arq{components/admin} & Navegação do painel, com item ativo pela rota e recolhível em telas estreitas (RNF06); Componente Cliente; seções sem página aparecem como ``em breve'' & Implementado\\
+AdminOverview & \arq{components/admin} & Visão geral provisória: identifica a sessão e anuncia as seções futuras & Implementado\\
+ContentTree & \arq{components/admin} & Árvore do painel com criar, editar, mover e excluir, mostrando o estado de cada nó (RF03, RF06, RF07, RF26) & Planejado\\
+ContentForm & \arq{components/admin} & Formulário de título, \en{slug}, pai e estado de publicação (RF05, RF26) & Planejado\\
+StatusToggle, StatusBadge & \arq{components/admin} & Indicador e alternância \texttt{DRAFT}/\texttt{PUBLISHED} na árvore e no editor, com destaque para rascunhos, sempre com ícone e nome do estado, e não só pela cor (RF26, RN16) & Implementado no editor (M-011); a árvore é do M10\\
+SignOutForm & \arq{components/admin} & Botão ``Sair'' (RF20): a \en{action} continua sendo a \en{Server Function}, e o \texttt{onSubmit} apaga os rascunhos locais do editor, de qualquer usuário; Componente Cliente & Implementado (M-011)\\
+ThemeForm & \arq{components/admin} & Identidade, cores e links sociais, com pré-visualização e aviso de contraste (RF18, RF19, RF24) & Planejado\\
+LoginForm & \arq{components/admin} & Formulário de autenticação (RF01, UC08): mensagem de erro única, aviso de excesso de tentativas e falha de conexão; Componente Cliente & Implementado\\
+Button, Field, icons & \arq{components/ui} & Botão com as variantes \texttt{primary}, \texttt{inverse} e \texttt{outline}, só com tokens de tema; campo de formulário com rótulo, ajuda e erro ligados por \texttt{aria-describedby}; e ícones em SVG embutido, decorativos (RF19) & Implementado\\
+Demais primitivos & \arq{components/ui} & Diálogo de confirmação, \en{toast}, campo de cor & Planejado\\
+SpaceLayout & \arq{components/layout} & Layout do espaço: envoltório \texttt{vitrine-tema} com a aparência do dono, barra superior, \en{sidebar} e rodapé (RF29; M17) & Planejado\\
+ColorModeToggle & \arq{components/layout} & Seletor Claro, Escuro ou Automático; Componente Cliente que grava \texttt{vitrine:modo} (RF32; M18) & Planejado\\
+AppearanceForm (substitui o ThemeForm) & \arq{components/admin} & Identidade, links e duas paletas, com pré-visualização nos dois modos e aviso de contraste por modo (RF31; M18) & Planejado\\
+NotificationBell, NotificationList & \arq{components/admin} & Contador de não lidas no cabeçalho e lista com marcar e dispensar (RF33; M19) & Planejado\\
+UserTable, UserForm, ProvisionalPassword & \arq{components/admin} & Lista e formulário de usuários e exibição única da senha provisória (RF27; M20) & Planejado\\
+ModerationDialog & \arq{components/admin} & Confirmação com o motivo obrigatório, para as ações sobre conteúdo e conta de outro usuário (RF34; M20) & Planejado\\
+PasswordChangeForm & \arq{components/admin} & Troca de senha, inclusive a obrigatória, na rota \arq{/admin/senha} (RF28; M20) & Planejado\\
+PortalDirectory & \arq{components/layout} & Diretório de espaços do portal (RF30, RN28; M17) & Planejado\\
+\end{longtable}
+\fonte{Elaborado pelos autores. O inventário nasceu como proposta para o agente UI; os componentes ``Implementado'' vieram do merge M-005.}
+\endgroup
+
+\vitrinefigura[tipo=diagrama, arquivo=seq-reordenacao-arvore, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/seq-reordenacao-arvore.puml},
+  descricao={Sequência de reordenação e movimentação na árvore: atualização otimista, PATCH em lote, validação de pai, ciclos e slugs, transação e revalidação do layout.}]
+  {Sequência de reordenação e movimentação de conteúdos}{fig:seq-reordenacao-arvore}
+
+\subsection{Layout Raiz: Tema, Metadados e Página 404}\label{sec:arq-layout-raiz}
+
+O \en{layout} raiz (\arq{src/app/layout.js}, arquivo de rota do Core) envolve todas as páginas. Desde os merges M-006 e M-007, ele define:
+
+\begin{itemize}
+  \item \textbf{o idioma do documento}, \texttt{<html lang="pt-BR">} (RNF05): é por esse atributo que os leitores de tela escolhem a pronúncia e os navegadores, o corretor ortográfico e a hifenização. É apenas o atributo de idioma: o sistema tem uma única língua de interface, e a internacionalização (\req{RNF12}) é evolução futura, sem biblioteca nem dicionários;
+  \item \textbf{o tema}, no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}): as variáveis \arq{--vitrine-primary}, \arq{--vitrine-on-primary}, \arq{--vitrine-secondary} e \arq{--vitrine-accent}, lidas da configuração; o atributo é omitido quando não há cor válida a injetar;
+  \item \textbf{os metadados do site}, por \texttt{generateMetadata}: \texttt{title} com \texttt{default} igual ao nome do site e \texttt{template} \texttt{"\%s | <nome>"}, que vale para os segmentos filhos que definem o próprio título --- \arq{/login} aparece como ``Entrar | <nome>'', \arq{/admin} como ``Painel administrativo | <nome>'' e a página 404 como ``Página não encontrada | <nome>'' ---, e \texttt{description} igual à descrição configurada. Sem configuração, valem o nome ``Vitrine'' (RN08) e uma descrição em português, derivada da definição do produto (Capítulo~\ref{cap:intro}): ``Plataforma de código aberto para blogs e portfólios acadêmicos, com editor Markdown, fórmulas em LaTeX e estrutura hierárquica de conteúdo.'' O modelo do Next.js substitui todo \texttt{\%s}: um nome de site que contenha literalmente \texttt{\%s} seria alterado nos títulos (caso desprezível, sem tratamento);
+  \item \textbf{as fontes e as classes de estrutura}: as variáveis das fontes Geist e as classes do \texttt{<html>} (\texttt{h-full antialiased}) e do \texttt{<body>} (\texttt{min-h-full flex flex-col}), de que a casca do painel e o cartão de login dependem para ocupar a altura da janela.
+\end{itemize}
+
+\textbf{Alvo (\adr{ADR-030}, \adr{ADR-025}).} O layout raiz passa a ser único e estático: define só o idioma, as fontes, as classes de estrutura, o \texttt{suppressHydrationWarning} e o \en{script} do modo de cor (Código~\ref{lst:modo-cor}); não lê o banco. O tema, o título e a descrição passam a ser de quem os possui: o layout de \texttt{/\{handle\}} (aparência do dono) e os do portal, do login e do painel (configuração do site), pelo envoltório \texttt{vitrine-tema} e pelo \texttt{generateMetadata} de cada um. O \texttt{template} \texttt{"\%s | <nome>"} acompanha o proprietário da página.
+
+O \en{layout} do painel (\arq{src/app/admin/layout.js}) lê a mesma configuração, na mesma consulta, e entrega ao \texttt{AdminShell} apenas o nome do site, depois de validar a sessão; o componente nunca recebe o registro. O logotipo, o \en{favicon} e os links sociais ainda não são lidos: entram quando houver componente que os exiba (M07 e M11), e os metadados por página são do M12.
+
+A página 404 é o arquivo \arq{src/app/not-found.js} (RF14), que substitui a página padrão do Next.js, em inglês, e vale para as URLs sem rota e para toda chamada a \texttt{notFound()}. Em português, tem título próprio e uma mensagem \emph{única} --- ``O endereço que você abriu não existe ou não está disponível.'' ---, que não distingue uma página que nunca existiu de um conteúdo em rascunho ou com ancestral em rascunho, que também responde 404 (RN15), além do link ``Voltar ao início''. O Next.js responde o status 404 e acrescenta o \texttt{noindex} sozinho. A marcação do Core é mínima e usa só os tokens de tema; a aparência definitiva é da UI (M07). A página inicial (\arq{src/app/page.js}) ainda é a do \en{scaffold}, em inglês, até o M07.
+
+A verificação é feita no HTML pré-renderizado: depois de \texttt{npm run build}, \arq{.next/server/app/index.html} e \arq{_not-found.html} trazem o \texttt{lang} e o \texttt{<title>} padrão, e nenhum \texttt{style} (Seção~\ref{sec:arq-tema-estatico}).

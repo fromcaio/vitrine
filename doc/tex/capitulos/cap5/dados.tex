@@ -1,0 +1,149 @@
+% capitulos/cap5/dados.tex -- §5.5: modelo de dados (domínio, físico, hierarquia, índices, migrações, modo do banco).
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Modelo de Dados}\label{sec:arq-dados}
+
+\subsection{Modelo de Domínio}
+
+Até o merge M-003, o esquema tinha seis entidades: quatro de autenticação, gerenciadas pelo better-auth (\texttt{User}, \texttt{Session}, \texttt{Account}, \texttt{Verification}), e duas de negócio do Vitrine (\texttt{Content} e \texttt{Configuration}), além do enumerado \texttt{ContentStatus}. \texttt{Content} possui um auto-relacionamento que forma a árvore de documentos e coleções, um estado de publicação (\texttt{DRAFT} ou \texttt{PUBLISHED}, padrão \texttt{PUBLISHED}; \adr{ADR-012}) e se relaciona com o autor (\texttt{User}). \texttt{Configuration} é um registro único e guarda também os seis links sociais do rodapé, todos opcionais (\adr{ADR-013}).
+
+Desde o merge M-012 (04/10/2026; módulo M15), o esquema (Figura~\ref{fig:classes-dominio}; \adr{ADR-023} a \adr{ADR-028}) acrescenta o escopo multiusuário e tem oito entidades de negócio e de autenticação, mais dois enumerados:
+\begin{itemize}
+  \item \texttt{User} ganha o \texttt{role} (\texttt{admin} ou \texttt{user}), o \texttt{banned}, o \texttt{banReason} e o \texttt{banExpires} (do \en{plugin} \texttt{admin} do better-auth), o \texttt{handle} (único, nulo até o administrador defini-lo) e o \texttt{mustChangePassword}; \texttt{Session} ganha o \texttt{impersonatedBy}, que o Vitrine não usa;
+  \item \texttt{Content} tem \emph{um único dono por árvore}: o \texttt{authorId} de um nó é sempre o de seu pai, e o banco o impõe (Seção~\ref{sec:arq-indice-parcial});
+  \item \texttt{Configuration} continua sendo \emph{o site} (registro único, RN08) e ganha as três cores noturnas, o \texttt{homeBody} (texto do portal) e o \texttt{directoryEnabled}; \texttt{Appearance} (tabela \texttt{appearances}, chave \texttt{ownerId}) guarda a aparência de cada usuário, com as mesmas colunas de identidade, links e paletas e sem os campos do portal;
+  \item \texttt{Notification} (tabela \texttt{notifications}) guarda os avisos internos, com o enumerado \texttt{NotificationSeverity} (\texttt{INFO}, \texttt{WARNING}, \texttt{CRITICAL}); o tipo (\texttt{CONTRAST}, \texttt{MODERATION}, \texttt{ACCOUNT}) é texto validado na aplicação, como o \texttt{type} de \texttt{Content}.
+\end{itemize}
+O Apêndice~\ref{ap:schema} reproduz o esquema vigente e o Apêndice~\ref{ap:dicionario}, o dicionário (as tabelas do esquema inicial e as Tabelas~\ref{tab:dicionario-alvo} e~\ref{tab:indices-alvo}, do M15).
+
+\vitrinefigura[tipo=diagrama, arquivo=classes-dominio, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/classes-dominio.puml},
+  descricao={Diagrama de classes do domínio, no modelo-alvo multiusuário: User (com papel, suspensão, handle e troca de senha obrigatória), Session, Account, Verification, Content (auto-relacionamento pai e filhos, com status e dono único por árvore), Configuration (o site, com paleta noturna e portal), Appearance (aparência do usuário), Notification, os enumerados ContentStatus e NotificationSeverity e o valor lógico ContentType.}]
+  {Modelo de domínio do Vitrine}{fig:classes-dominio}
+
+\subsection{Modelo Físico}
+
+O modelo físico (Figura~\ref{fig:er-vitrine}) é implementado por \arq{prisma/schema.prisma}. O dicionário de dados completo está no Apêndice~\ref{ap:dicionario} e o esquema no Apêndice~\ref{ap:schema}. As convenções adotadas são: identificadores \texttt{cuid}; nomes de tabela pela diretiva \texttt{@@map} (\texttt{user}, \texttt{session}, \texttt{account}, \texttt{verification}, \texttt{contents}, \arq{configurations}); nomes de coluna iguais aos campos do modelo (\emph{camelCase}); carimbos \texttt{createdAt} e \texttt{updatedAt}; e exclusão em cascata nas relações, exceto o autor do conteúdo (\texttt{Content.author}), que usa \texttt{Restrict}: excluir um usuário que tenha conteúdo é bloqueado (RNF10). O enumerado \texttt{ContentStatus} é gravado como texto; o SQLite não impõe o conjunto de valores, de modo que a verificação cabe ao Prisma e à aplicação. Os seis links sociais são colunas de texto opcionais da tabela \arq{configurations}: \arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl} e \arq{twitchUrl}.
+
+No modelo-alvo (\adr{ADR-028}), as convenções valem também para as tabelas novas (\texttt{appearances} e \texttt{notifications}), e as relações novas são: \texttt{Appearance.owner} e \texttt{Notification.user} com \texttt{Cascade} (apagar o usuário apaga a aparência e os avisos, mas só depois de seu conteúdo ter sido transferido ou excluído, pois \texttt{Content.author} segue \texttt{Restrict}); e a chave estrangeira \emph{composta} \texttt{(parentId, authorId)} $\rightarrow$ \texttt{(id, authorId)} em \texttt{contents}, com \texttt{@@unique([id, authorId])} como alvo. As colunas de cor são texto \texttt{\#RRGGBB}; as da aparência clara e noturna têm os padrões da Seção~\ref{sec:arq-tema-padrao}, que são também os do \en{seed}. O índice \texttt{(parentId, order)} é substituído por \texttt{(authorId, parentId, order)}, e a tabela \texttt{notifications} tem o índice \texttt{(userId, readAt, updatedAt)} e a unicidade de \texttt{(userId, dedupeKey)}. O banco roda em modo WAL com \texttt{synchronous=NORMAL} (Seção~\ref{sec:arq-wal}).
+
+\vitrinefigura[tipo=diagrama, arquivo=er-vitrine, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/er-vitrine.dbml},
+  descricao={Diagrama entidade-relacionamento gerado no dbdiagram.io a partir de er-vitrine.dbml (modelo-alvo multiusuário): tabelas user (com role, suspensão, handle e mustChangePassword), session, account, verification, contents (auto-relacionamento, status e chave composta de dono), configurations (o site: seis links, paleta clara e noturna e portal), appearances e notifications.}]
+  {Diagrama entidade-relacionamento do Vitrine}{fig:er-vitrine}
+
+A Figura~\ref{fig:ic-er} reproduz o modelo do relatório de IC, com três tabelas. A evolução consiste em substituir a tabela genérica \texttt{users} pelas tabelas do better-auth e em explicitar as relações de cascata.
+
+\vitrinefigura[tipo=ic, arquivo=ic-fig2-er, largura=0.35,
+  fonte={Relatório de IC \cite{reis2026ic}, Figura 2.}]
+  {Diagrama entidade-relacionamento original, do relatório de IC}{fig:ic-er}
+
+\subsection{Hierarquia de Conteúdo}\label{sec:arq-hierarquia}
+
+A árvore de conteúdos é representada pelo campo \texttt{parentId} (nulo para nós raiz). A URL pública é o \en{handle} do dono seguido da cadeia de \en{slugs} da raiz ao nó (RN04). Com vários usuários, cada árvore pertence a um só dono, a navegação carrega a árvore \emph{de um dono} (a consulta filtra por \texttt{authorId} e usa o índice \texttt{(authorId, parentId, order)}), e a resolução de um caminho começa pelo \en{handle}: o dono é localizado por ele, e o restante do caminho percorre a árvore dele, de modo que dois usuários podem ter raízes com o mesmo \en{slug}. O esboço abaixo, de \arq{buildTree} e \arq{resolvePath}, não muda: recebe as linhas de um dono. Para a navegação, a árvore é carregada por \textbf{uma única consulta}, sem o corpo dos documentos, e montada em memória em tempo linear; a resolução de um caminho percorre os níveis comparando \en{slugs}. O Código~\ref{lst:algoritmo-arvore} é um \emph{esboço} do algoritmo a ser implementado em \arq{src/lib/content-tree.js}. O parâmetro \texttt{onlyPublished} implementa a RN15: um nó \texttt{DRAFT} é removido junto com toda a sua subárvore, de modo que um descendente publicado de um ancestral em rascunho também não aparece. A área pública usa a árvore podada; o painel usa a árvore completa.
+
+\begin{lstlisting}[language=VJS, caption={Esboço: montagem da árvore e resolução de caminho}, label={lst:algoritmo-arvore}]
+// rows: [{ id, title, slug, type, status, order, parentId, createdAt }] (sem o corpo)
+export function buildTree(rows, { onlyPublished = false } = {}) {
+  const byId = new Map(rows.map((r) => [r.id, { ...r, children: [] }]));
+  const roots = [];
+  for (const node of byId.values()) {
+    const parent = node.parentId ? byId.get(node.parentId) : null;
+    (parent ? parent.children : roots).push(node);
+  }
+  // RN15: nó não publicado oculta toda a sua subárvore
+  const prune = (list) =>
+    list
+      .filter((n) => !onlyPublished || n.status === "PUBLISHED")
+      .map((n) => ({ ...n, children: prune(n.children) }));
+  const sortLevel = (list) => {
+    list.sort((a, b) => a.order - b.order || a.createdAt - b.createdAt); // RN05
+    list.forEach((n) => sortLevel(n.children));
+  };
+  const visible = prune(roots);
+  sortLevel(visible);
+  return visible;
+}
+
+export function resolvePath(roots, slugs) {
+  let level = roots;
+  let node = null;
+  for (const slug of slugs) {
+    node = level.find((n) => n.slug === slug) ?? null;
+    if (!node) return null; // 404 (RF14, RN15)
+    level = node.children;
+  }
+  return node;
+}
+\end{lstlisting}
+
+A alternativa de gravar o caminho materializado em cada nó foi descartada nesta versão, pois exigiria atualizar todos os descendentes a cada renomeação ou movimentação; fica registrada como evolução possível, para o caso de o volume de conteúdo o justificar (\decisao{D-06}, \adr{ADR-017}).
+
+\subsection{Observações sobre o Esquema Atual}\label{sec:arq-observacoes-schema}
+
+A revisão do esquema (\arq{prisma/schema.prisma}) contra esta especificação resultou nas observações da Tabela~\ref{tab:obs-schema}, que foram entradas para o agente Dados. O merge M-001, aprovado em 30/09/2026, integrou a conformidade com o Prisma 7 (\adr{ADR-014}), o enumerado \texttt{ContentStatus} com a coluna \texttt{status} (\adr{ADR-012}) e os seis links sociais de \texttt{Configuration} (\adr{ADR-013}). O merge M-002, aprovado em 01/10/2026, resolveu as observações 1, 3, 4 e 5 na migração inicial e manteve a 2 como validação na aplicação; o merge M-003 aplicou a observação 8 na camada de dados (filtro \texttt{PUBLISHED} nas leituras públicas, Seção~\ref{sec:arq-visibilidade}).
+
+\begin{longtable}{@{}L{0.8cm}L{5.6cm}L{2.2cm}L{4.8cm}@{}}
+\caption{Observações sobre o esquema atual do Prisma}\label{tab:obs-schema}\\
+\toprule
+\textbf{\#} & \textbf{Observação} & \textbf{Regra ou RNF} & \textbf{Recomendação}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{Observação} & \textbf{Regra ou RNF} & \textbf{Recomendação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+1 & \texttt{slug} sem restrição de unicidade & RN03 & \emph{Resolvido (M-002)}: índice único (\texttt{parentId}, \texttt{slug}) mais índice parcial para a raiz, em SQL (Seção~\ref{sec:arq-indice-parcial}; D-05)\\[1pt]
+2 & \texttt{type} é texto livre, ao passo que \texttt{status} já é um enumerado & RN02 & \emph{Mantido como texto}: DOCUMENT e COLLECTION são validados na aplicação (Zod, Core), pois o SQLite não impõe enumerados e um \texttt{enum} do Prisma só duplicaria a regra\\[1pt]
+3 & Sem índice em \texttt{parentId} & RNF02 & \emph{Resolvido (M-002)}: índice (\texttt{parentId}, \texttt{order}) para a consulta da árvore\\[1pt]
+4 & \arq{Content.author} com \texttt{onDelete: Cascade}: excluir o usuário apaga todo o seu conteúdo & RNF10 & \emph{Resolvido (M-002)}: \texttt{onDelete: Restrict}; excluir um usuário que tenha conteúdo é bloqueado pelo banco\\[1pt]
+5 & \texttt{Configuration} sem garantia de registro único & RN08 & \emph{Resolvido (M-002)}: identificador fixo \texttt{default} (padrão do esquema) e acesso por \emph{upsert}\\[1pt]
+6 & Datas e booleanos sem valor padrão em \arq{User.emailVerified} & --- & Manter: o valor é fornecido pelo better-auth\\[1pt]
+7 & Tabela \texttt{verification} sem relação com \texttt{user} & --- & Manter: desenho do better-auth\\[1pt]
+8 & \texttt{status} tem padrão \texttt{PUBLISHED}: um conteúdo recém-criado torna-se público de imediato (decisão D-15) & RN15, RN16, risco R11 & Manter o padrão; a API deve aceitar a criação já como \texttt{DRAFT}, a interface deve exibir o estado com destaque e a camada de dados deve filtrar por \texttt{PUBLISHED} nas leituras públicas\\[1pt]
+9 & \texttt{Configuration} serve ao site, mas cada usuário precisa de uma aparência & RN08, RF31 & \emph{Resolvido (M-012)}: tabela \texttt{appearances} (\adr{ADR-028}); não usar \texttt{ownerId} opcional em \texttt{Configuration}, que não garante o registro único do site (no SQLite, \texttt{NULL} difere de \texttt{NULL})\\[1pt]
+10 & Nada impede um filho com \texttt{authorId} diferente do pai & RN13, RN19 & \emph{Resolvido (M-012)}: chave estrangeira composta \texttt{(parentId, authorId)} $\rightarrow$ \texttt{(id, authorId)}\\[1pt]
+11 & O índice parcial da raiz vale para o banco todo, e não por dono & RN03 & \emph{Resolvido (M-012)}: índice parcial sobre \texttt{(authorId, slug)} onde \texttt{parentId} é nulo (Seção~\ref{sec:arq-indice-parcial})\\[1pt]
+12 & O \arq{db.js} não define o modo do banco, que roda em \texttt{DELETE} com \texttt{synchronous=FULL}, ao contrário da \adr{ADR-002} & RNF02 & \emph{Resolvido (M-012)}: WAL e \texttt{synchronous=NORMAL} (Seção~\ref{sec:arq-wal})\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores. As observações 9 a 12 vêm da \adr{ADR-028}.}
+
+\subsection{Índice Parcial da Raiz}\label{sec:arq-indice-parcial}
+
+A regra RN03 exige \en{slug} único entre irmãos. O índice único composto (\texttt{parentId}, \texttt{slug}) resolve a regra para todos os nós com pai, mas não para a raiz: no SQLite, \texttt{NULL} é distinto de \texttt{NULL}, de modo que dois conteúdos de raiz (\texttt{parentId} nulo) com o mesmo \en{slug} passariam pelo índice composto. O agente Dados resolveu a lacuna com um \textbf{índice único parcial} escrito à mão no SQL da migração inicial (Código~\ref{lst:indice-parcial}), que cobre apenas as linhas da raiz. O Prisma não modela índices parciais, mas também não os trata como divergência (\en{drift}): \texttt{migrate diff} contra as migrações e contra o banco não acusa diferenças. O resultado é a garantia de unicidade no próprio banco, sem depender só da validação na aplicação, que permanece como primeira barreira (\decisao{D-05}, \adr{ADR-017}).
+
+\begin{lstlisting}[caption={Índice parcial da raiz (trecho da migração inicial)}, label={lst:indice-parcial}]
+CREATE UNIQUE INDEX "contents_parentId_slug_key"
+  ON "contents"("parentId", "slug");
+
+-- manual: cobre somente a raiz
+CREATE UNIQUE INDEX "contents_root_slug_key"
+  ON "contents"("slug") WHERE "parentId" IS NULL;
+\end{lstlisting}
+
+\textbf{Por dono (M15; \adr{ADR-028}).} Com vários usuários, a raiz de cada um é independente, e o índice parcial passa a ser por dono (Código~\ref{lst:indice-parcial-dono}); o índice composto entre irmãos não muda. O dono único por árvore é imposto pela chave estrangeira composta, cujo alvo exige uma unicidade redundante \texttt{(id, authorId)}. Com ela, transferir uma árvore a outro usuário é um único \texttt{UPDATE} do \texttt{authorId} da raiz: a cascata da chave composta leva os descendentes, e o índice parcial faz a operação falhar \emph{inteira} se o \en{slug} da raiz já existir no destino (RN24).
+
+\begin{lstlisting}[caption={Índices do modelo multiusuário (trecho da migração do merge M-012)}, label={lst:indice-parcial-dono}]
+-- manual: o Prisma não modela índice parcial e a migração de redefinir
+-- "contents" o descartaria sem avisar; recriar SEMPRE, e testar
+CREATE UNIQUE INDEX "contents_root_owner_slug_key"
+  ON "contents"("authorId", "slug") WHERE "parentId" IS NULL;
+
+-- alvo da chave composta (parentId, authorId) -> (id, authorId)
+CREATE UNIQUE INDEX "contents_id_authorId_key"
+  ON "contents"("id", "authorId");
+\end{lstlisting}
+
+Como a migração é SQL versionado, qualquer nova migração gerada pelo Prisma deve preservar esse índice; o agente Dados deve conferir isso ao alterar o esquema (a migração multiusuário, que redefine \texttt{contents}, o recriou, e \arq{tests/dados/indexes.test.js} falha se ele sumir). Em banco descartável, o agente Dados verificou que um \en{slug} repetido na raiz e entre irmãos é recusado e que o mesmo \en{slug} em pais diferentes é aceito; os testes de integração correspondentes (casos CT08 e CT28) ainda devem ser automatizados.
+
+\subsection{Migrações e Dados Iniciais}
+
+As alterações de esquema são versionadas por migrações do Prisma (\arq{prisma/migrations}), geradas em desenvolvimento e aplicadas em produção por um comando não interativo (Apêndice~\ref{ap:implantacao}). O \en{seed} insere a configuração padrão (RF23) e cria, sob controle, o primeiro administrador (RF22). A primeira migração (\arq{20261001034824_init}), o \en{seed} idempotente da configuração padrão (\arq{prisma/seed.js}, executado por \texttt{tsx} porque o cliente gerado é TypeScript) e a instância do cliente em \arq{src/lib/db.js} foram integrados pelo merge M-002; as funções de acesso a dados foram integradas pelo merge M-003; o administrador inicial não passa pelo \en{seed}: é criado pelo comando \texttt{npm run admin:create} do Core, integrado no merge M-004 (\decisao{D-03}, \adr{ADR-018}). Como \arq{prisma} e \arq{dotenv} estão em \texttt{dependencies}, a imagem de produção aplica as migrações com \texttt{prisma migrate deploy}. No Prisma 7, o comando \texttt{migrate dev} não gera o cliente nem executa o \en{seed} automaticamente, e o \en{seed} é declarado em \arq{prisma.config.ts} (chave \texttt{migrations.seed}), não mais no \arq{package.json}; por isso \texttt{prisma generate} e \texttt{prisma db seed} são passos explícitos. Um cuidado adicional: um caminho relativo em \arq{DATABASE_URL} pode ser resolvido de forma diferente pela CLI e pelo adaptador em tempo de execução, criando silenciosamente um segundo banco; o agente Dados verificou que, com \texttt{file:./dev.db} e execução a partir da raiz, a CLI e o adaptador abrem o mesmo arquivo; o adaptador resolve o caminho a partir do diretório de trabalho do processo, e em produção o caminho deve ser absoluto (por exemplo, \texttt{file:/data/vitrine.db}). As instruções de CLI da versão 7 estão nas \en{skills} do Prisma instaladas em \arq{.claude/skills/}.
+
+\textbf{Migração multiusuário (M15; integrada pelo merge M-012, \arq{20261004120000_multiusuario}).} Uma única migração (a normalização do dono precisa vir antes da cópia dos dados) cria as colunas, as tabelas e os índices da \adr{ADR-028}, recria o índice parcial e a chave composta e, no mesmo arquivo, faz o \texttt{UPDATE} condicional das cores: a linha do site recebe a nova paleta clara (\adr{ADR-031}) \emph{somente} nas colunas que ainda valem o padrão antigo, e nunca nas que o administrador personalizou. Deve aplicar-se em banco vazio e sobre cópias de bancos legados populados, e o \en{harness} dos oito bancos do RFC P-008 virou teste (CT34).
+
+\subsection{Modo do Banco e Escrita}\label{sec:arq-wal}
+
+O \arq{db.js} abre o banco em modo WAL com \texttt{synchronous=NORMAL} (\adr{ADR-002}, \adr{ADR-028}). A medida, em uma VM de teste com disco virtual, de 300 escritas isoladas deu 0,77~ms em \texttt{DELETE} com \texttt{FULL}, 0,31~ms em WAL com \texttt{FULL} e 0,02~ms em WAL com \texttt{NORMAL}; o valor depende do \texttt{fsync} do disco da VPS-alvo, e a medição lá, se o disco for lento, decide entre \texttt{NORMAL} e \texttt{FULL}. O WAL traz dois arquivos auxiliares (\texttt{-wal} e \texttt{-shm}) ao lado do banco e exige \emph{volume local} (nunca de rede); a cópia de segurança usa \texttt{VACUUM INTO}, que é consistente em WAL (Apêndice~\ref{ap:implantacao}). Em queda de energia, o modo \texttt{NORMAL} pode perder as últimas escritas confirmadas, mas não corrompe o banco; a perda é aceita, com as cópias periódicas e o rascunho local do navegador como rede (RF15).

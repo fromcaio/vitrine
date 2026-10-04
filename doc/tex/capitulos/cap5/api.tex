@@ -1,0 +1,135 @@
+% capitulos/cap5/api.tex -- §5.10: interface HTTP (convenções e contrato dos endpoints).
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Interface de Programação HTTP}\label{sec:arq-api}
+
+\subsection{Convenções}
+
+As rotas JSON seguem um REST pragmático (Seção~\ref{sec:fund-renderizacao}). Toda rota de conteúdo e de configuração exige sessão válida, verificada no servidor antes de qualquer outra ação. Entradas e saídas são JSON em UTF-8; as rotas de escrita aceitam apenas \texttt{Content-Type: application/json}, e todas as respostas levam \texttt{Cache-Control: no-store}. Códigos de status: \texttt{200}/\texttt{201}/\texttt{204} para sucesso; \texttt{400} para JSON malformado ou \texttt{Content-Type} diferente de JSON (código \arq{VALIDATION_ERROR}); \texttt{401} sem sessão válida ou com mutação vinda de outra origem; \texttt{404} recurso inexistente; \texttt{409} conflito (por exemplo, \en{slug} duplicado); \texttt{422} falha de validação; \texttt{429} excesso de tentativas de login (resposta do better-auth); \texttt{500} erro interno. Essas convenções foram aprovadas na \adr{ADR-018}. A \adr{ADR-029} acrescenta, para o M16: \texttt{403} (recurso de outro dono ou senha provisória), \texttt{413} (corpo grande demais, recusado antes da leitura), \texttt{429} também para o limite de escritas por usuário (com \texttt{Retry-After}) e \texttt{503} (\arq{BUSY}); e o campo \texttt{reason} (1 a 500 caracteres) é obrigatório nas ações do administrador sobre outro usuário (RN19), no corpo JSON e, no \texttt{DELETE}, no parâmetro de consulta \texttt{reason}.
+
+\textbf{Resposta de sucesso.} Toda resposta de sucesso com corpo usa o envelope \texttt{\{ "data": ... \}}, que deixa espaço para campos adicionais ao lado de \texttt{data}, como \texttt{warnings} (Seção~\ref{sec:arq-contraste}). O \texttt{POST} de criação responde \texttt{201} e o cabeçalho \texttt{Location} com o caminho do novo recurso; o \texttt{DELETE} responde \texttt{204} sem corpo; e a reordenação devolve em \texttt{data} a árvore atualizada.
+
+\begin{lstlisting}[language=VJSON, caption={Formato padrão de sucesso}, label={lst:sucesso-json}]
+{
+  "data": { "id": "cm...", "title": "Introdução", "slug": "introducao", "status": "PUBLISHED" }
+}
+\end{lstlisting}
+
+\textbf{Resposta de erro.} Os erros têm formato único; \texttt{details} é uma lista com um item por campo, no formato \texttt{\{ field, message \}} (validação) ou \texttt{\{ field, value \}} (valor recusado). Um \texttt{409} de \en{slug} traz em \texttt{details[0].suggestion} um \en{slug} livre entre os irmãos de destino (UC05, fluxo A1).
+
+\begin{lstlisting}[language=VJSON, caption={Formato padrão de erro}, label={lst:erro-json}]
+{
+  "error": {
+    "code": "SLUG_CONFLICT",
+    "message": "Já existe um conteúdo com este slug na mesma coleção.",
+    "details": [{ "field": "slug", "value": "introducao", "suggestion": "introducao-2" }]
+  }
+}
+\end{lstlisting}
+
+Códigos de erro integrados: \arq{VALIDATION_ERROR}, \arq{UNAUTHENTICATED}, \arq{NOT_FOUND}, \arq{SLUG_CONFLICT}, \arq{INVALID_PARENT}, \arq{CYCLE_DETECTED} e \arq{INTERNAL_ERROR}. Códigos novos (M16, em uso desde o merge M-013; \adr{ADR-029}): \arq{FORBIDDEN} (403), \arq{PASSWORD_CHANGE_REQUIRED} (403), \arq{QUOTA_EXCEEDED} (422), \arq{PAYLOAD_TOO_LARGE} (413), \arq{RATE_LIMITED} (429), \arq{USER_CONFLICT} (409, com \texttt{details[0].field} igual a \texttt{email} ou \texttt{handle}), \arq{LAST_ADMIN} (409), \arq{USER_HAS_CONTENT} (409) e \arq{BUSY} (503). O código \arq{VERSION_CONFLICT} (409), da RN18 (aprovada em 04/10/2026), também integra o contrato: o \texttt{PATCH} de um conteúdo recebe o campo \texttt{version} (o \texttt{updatedAt} que o autor abriu), responde 409 quando o conteúdo mudou depois, com a versão atual em \texttt{details[0].value}, e 422 quando o corpo é alterado sem o campo.
+
+\textbf{Regras comuns de entrada.} Campos desconhecidos são descartados, inclusive \texttt{authorId}, que vem sempre da sessão (RN13). Um \texttt{PATCH} ou \texttt{PUT} sem nenhum campo conhecido responde \texttt{422}. O \en{slug} reservado também é conferido ao mover um conteúdo para a raiz (por \texttt{PATCH} ou em lote). A mutação cujo cabeçalho \texttt{Origin} indica outro site é recusada com \texttt{401} (\arq{UNAUTHENTICATED}), pois o cookie de sessão não é aceito em requisições de outra origem e o contrato não prevê \texttt{403} (Seção~\ref{sec:arq-seguranca}).
+
+\subsubsection{Erros da Camada de Dados}\label{sec:arq-dataerror}
+
+As funções de \arq{src/lib/db.js} lançam a classe \texttt{DataError} (com os campos \texttt{code}, \texttt{message} e \texttt{details}) quando uma regra que depende do estado do banco é violada: existência, unicidade, tipo do pai, ciclo e domínio de \texttt{type}, \texttt{status} e \texttt{order}. A validação de \emph{formato} (expressão regular e \en{slugs} reservados da RN03, URL \texttt{http}/\texttt{https} da RN17, cor \texttt{\#RRGGBB} da RN09) permanece nos validadores do Core (\arq{validators.js}). Cada Route Handler captura o \texttt{DataError} e o traduz conforme a Tabela~\ref{tab:dataerror}; qualquer outro erro vira \texttt{500} com o código \arq{INTERNAL_ERROR} e mensagem genérica, sem expor detalhes internos. As funções de escrita não chamam \arq{revalidatePath} (RN10): a revalidação é da camada de rota.
+
+\begingroup\small
+\begin{longtable}{@{}L{3.9cm}L{1.2cm}L{3.3cm}L{5.8cm}@{}}
+\caption{Mapeamento dos códigos de \texttt{DataError} para a resposta HTTP}\label{tab:dataerror}\\
+\toprule
+\textbf{Código do \texttt{DataError}} & \textbf{HTTP} & \textbf{Código da API} & \textbf{Situação}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Código do \texttt{DataError}} & \textbf{HTTP} & \textbf{Código da API} & \textbf{Situação}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\arq{NOT_FOUND} & 404 & \arq{NOT_FOUND} & Conteúdo (ou, ao reordenar, algum item do lote) inexistente\\
+\addlinespace
+\arq{SLUG_CONFLICT} & 409 & \arq{SLUG_CONFLICT} & \en{Slug} repetido entre irmãos ou na raiz (RN03)\\
+\addlinespace
+\arq{PARENT_NOT_FOUND} & 422 & \arq{INVALID_PARENT} & O pai informado não existe\\
+\addlinespace
+\arq{PARENT_NOT_COLLECTION} & 422 & \arq{INVALID_PARENT} & O pai informado é um documento (RN02)\\
+\addlinespace
+\arq{CYCLE} & 422 & \arq{CYCLE_DETECTED} & O destino é o próprio nó ou um descendente (RN06)\\
+\addlinespace
+\arq{TYPE_HAS_CHILDREN} & 422 & \arq{VALIDATION_ERROR} & Coleção com filhos não pode virar documento (\texttt{details.field} = \texttt{type})\\
+\addlinespace
+\arq{AUTHOR_NOT_FOUND} & 422 & \arq{VALIDATION_ERROR} & Autor inexistente; como o autor vem da sessão, indica sessão inconsistente\\
+\addlinespace
+\arq{INVALID_INPUT} & 422 & \arq{VALIDATION_ERROR} & Campo obrigatório ausente ou fora do domínio (\texttt{type}, \texttt{status}, \texttt{order}, lote de reordenação)\\
+\addlinespace
+(outro erro) & 500 & \arq{INTERNAL_ERROR} & Falha não prevista; registrar no servidor, resposta genérica\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir dos códigos de \arq{src/lib/db.js} e da sugestão do agente Dados (merge M-003).}
+\endgroup
+
+Duas observações de implementação. Em \texttt{reorderContents}, os itens do lote são aplicados em sequência e validados contra o estado resultante dos anteriores, de modo que a ordem dos itens importa quando há ciclo intermediário. E o redirecionamento de uma coleção ao primeiro documento publicado (RN14) não tem função própria: o Core usa \texttt{getContentTree} com \texttt{onlyPublished} e \texttt{resolvePath}.
+
+\subsection{Contrato dos \emph{Endpoints}}
+
+\begin{longtable}{@{}L{1.5cm}L{3.9cm}L{1.6cm}L{4.4cm}L{2.4cm}@{}}
+\caption{Contrato das rotas HTTP (normativo)}\label{tab:api}\\
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Sessão} & \textbf{Descrição} & \textbf{Sucesso}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Sessão} & \textbf{Descrição} & \textbf{Sucesso}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{GET} & \arq{/api/contents} & Sim & Árvore completa, inclusive rascunhos, sem o corpo dos documentos e com o \texttt{status} de cada nó & 200\\[1pt]
+\texttt{POST} & \arq{/api/contents} & Sim & Cria conteúdo (\texttt{title}, \texttt{slug}, \texttt{type}, \texttt{parentId}, \texttt{body}, \texttt{order}, \texttt{status}; este, se omitido, assume \texttt{PUBLISHED}); o autor vem da sessão & 201 e \texttt{Location}\\[1pt]
+\texttt{GET} & \arq{/api/contents/:id} & Sim & Detalhe, incluindo o corpo e o \texttt{status} & 200\\[1pt]
+\texttt{PATCH} & \arq{/api/contents/:id} & Sim & Atualização parcial, inclusive de \texttt{status}; dispara revalidação (RN10, RN16) & 200\\[1pt]
+\texttt{DELETE} & \arq{/api/contents/:id} & Sim & Exclui o nó e seus descendentes (RN07) & 204\\[1pt]
+\texttt{PATCH} & \arq{/api/contents/reorder} & Sim & Lote \texttt{[\{id, parentId, order\}]}, em transação (RN05, RN06); devolve a árvore atualizada & 200\\[1pt]
+\texttt{GET} & \arq{/api/configuration} & Sim & Configuração vigente, sem \texttt{warnings} & 200\\[1pt]
+\texttt{PUT} & \arq{/api/configuration} & Sim & Atualização \emph{parcial} (campos ausentes não mudam) de identidade, cores e dos seis links sociais (RN17); logotipo e \en{favicon} aceitam URL \texttt{http(s)} ou caminho de \arq{public/} iniciado por uma única barra (D-10); devolve sempre \texttt{warnings} de contraste, calculados sobre a paleta gravada depois de gravar e revalidar (\texttt{500} se o cálculo falhar; Seção~\ref{sec:arq-contraste}) & 200\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-in/email} & Não & Login (rota do better-auth), com limite de 5 tentativas por minuto por IP & 200 (429 acima do limite)\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-up/email} & Não & Recusado: cadastro público desabilitado (RF22) & 400 (\arq{EMAIL_PASSWORD_SIGN_UP_DISABLED})\\[1pt]
+\texttt{POST} & \arq{/api/auth/sign-out} & Sim & Encerra a sessão (RF20); o painel usa, em seu lugar, a \en{Server Function} \texttt{signOut} (\arq{admin/_lib/actions.js}) & 200\\[1pt]
+\texttt{GET} & \arq{/api/auth/get-session} & Não & Sessão corrente ou nula & 200\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores. As rotas \arq{/api/auth/*} são as padrão do better-auth, conferidas na versão 1.7.6 (merge M-004); as demais rotas padrão da biblioteca (por exemplo, troca de senha) também ficam expostas em \arq{/api/auth/*} e exigiam sessão \emph{até o M16}, que as fechou: o \en{catch-all} responde só a \texttt{get-session}, \texttt{sign-in/email} e \texttt{sign-out} (Seção~\ref{sec:arq-autorizacao}).}
+
+A leitura pública da árvore, dos documentos e da configuração \textbf{não} usa essas rotas: ocorre em Server Components, por chamadas diretas às funções de \arq{db.js}, o que mantém as páginas estáticas e aplica o filtro de publicação (RN15). As rotas de conteúdo e de configuração servem ao painel.
+
+\textbf{Contrato do escopo multiusuário (M16 a M20; as rotas de usuários, de aparência e de conteúdo por dono estão integradas desde o merge M-013; as de notificações e a moderação, na Parte 2 da A-014).} A Tabela~\ref{tab:api} descreve as rotas iniciais; a Tabela~\ref{tab:api-alvo} acrescenta e ajusta as do escopo multiusuário (\adr{ADR-029}), com a mesma ordem de verificação da Seção~\ref{sec:arq-autorizacao}. Sempre no envelope da \adr{ADR-018}.
+
+\begin{longtable}{@{}L{1.5cm}L{4.1cm}L{2.1cm}L{6.1cm}@{}}
+\caption{Contrato-alvo das rotas do escopo multiusuário (normativo; M16 a M20)}\label{tab:api-alvo}\\
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Quem} & \textbf{Descrição}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Método} & \textbf{Caminho} & \textbf{Quem} & \textbf{Descrição}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{GET} & \arq{/api/contents} & Dono; admin com \texttt{?ownerId=} & Árvore \emph{do dono} da sessão, com rascunhos; o administrador lista a de outro usuário informando \texttt{ownerId} (moderação)\\[1pt]
+\texttt{POST}, \texttt{PATCH}, \texttt{DELETE} & \arq{/api/contents}, \arq{/api/contents/:id}, \arq{/api/contents/reorder} & Dono; admin com \texttt{reason} sobre conteúdo alheio & Como na Tabela~\ref{tab:api}; o \texttt{PATCH} exige \texttt{version} e responde 409 \arq{VERSION_CONFLICT} se o conteúdo mudou (RN18); \texttt{authorId} da sessão (RN13); pai de outro dono: 422 \arq{INVALID_PARENT}, indistinguível do pai inexistente (UC05, A2); item de outro dono (o \texttt{id} da rota ou um item do lote): 403, e o lote inteiro é recusado; cotas (RN25); no conteúdo alheio, o administrador \emph{lê} desde o M16 e, a partir da Parte 2 da A-014, despublica, edita e exclui, com \texttt{reason}, e o dono é notificado (RN26); reordenar o conteúdo alheio nunca é moderação\\[1pt]
+\texttt{GET}, \texttt{PUT} & \arq{/api/appearance} & Dono (qualquer papel) & Aparência \emph{do próprio usuário}: identidade, seis links, paleta clara e noturna; \texttt{PUT} parcial; devolve \texttt{warnings} por modo (Seção~\ref{sec:arq-contraste}); revalida só o espaço do dono. A de outro usuário responde 403 (RN19)\\[1pt]
+\texttt{GET}, \texttt{PUT} & \arq{/api/configuration} & Admin & Configuração \emph{do site} (identidade, links, paletas, \texttt{homeBody}, \texttt{directoryEnabled}); usuário comum recebe 403; revalida só \texttt{/} (\adr{ADR-030})\\[1pt]
+\texttt{GET}, \texttt{POST} & \arq{/api/users} & Admin & Lista, com \texttt{total}, \texttt{limit} e \texttt{offset} ao lado de \texttt{data} (\texttt{?limit=} de 1 a 100, padrão 50; \texttt{?offset=}; \texttt{?search=} por parte do e-mail); cria conta (\texttt{email}, \texttt{name} de 1 a 100 caracteres, \texttt{handle}, \texttt{role}, senha opcional) com troca obrigatória e devolve a senha provisória \emph{uma única vez} em \texttt{data.temporaryPassword} (201 e \texttt{Location}; \texttt{null} se o administrador a informou)\\[1pt]
+\texttt{GET}, \texttt{PATCH} & \arq{/api/users/me} & Próprio usuário & Perfil; edita o nome. Permitido com senha provisória (RN21)\\[1pt]
+\texttt{POST} & \arq{/api/users/me/password} & Próprio usuário & Troca a senha (\texttt{current}, \texttt{next}; resposta \texttt{data: \{ changed: true \}}); recusa a igual à atual; revoga as outras sessões; limpa \texttt{mustChangePassword}\\[1pt]
+\texttt{GET}, \texttt{PATCH}, \texttt{DELETE} & \arq{/api/users/:id} & Admin & Detalhe; edita nome, \en{handle} e papel (invalida o espaço); exclui, com \texttt{?content=transfer\&to=<id>[\&onConflict=rename]} ou \texttt{?content=delete}; 409 \arq{USER_HAS_CONTENT} sem a escolha; 409 \arq{LAST_ADMIN} para o último administrador e 403 \arq{FORBIDDEN} para a própria conta; \textbf{responde 200 com} \texttt{data: \{ id, content, roots, renamed \}}, exceção à convenção do 204 para que o administrador veja as raízes renomeadas (ajuste do Core na Parte 2)\\[1pt]
+\texttt{PUT} & \arq{/api/users/:id/password} & Admin & Redefine a senha (provisória, exibida uma vez); revoga todas as sessões; notifica o usuário\\[1pt]
+\texttt{POST}, \texttt{DELETE} & \arq{/api/users/:id/ban} & Admin & Suspende (\texttt{reason} obrigatório, \texttt{expiresAt} opcional) e reativa; revoga as sessões; invalida o espaço; notifica\\[1pt]
+\texttt{GET} & \arq{/api/notifications} & Próprio usuário & Lista (\texttt{?unread=1}) e \texttt{unreadCount}; só as suas (RN26)\\[1pt]
+\texttt{PATCH} & \arq{/api/notifications/:id} & Próprio usuário & Marca como lida (\texttt{read}) ou dispensa (\texttt{dismissed}); a de outro usuário responde 404\\[1pt]
+\texttt{POST} & \arq{/api/notifications/read-all} & Próprio usuário & Marca todas as suas como lidas\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir das ADR-023 a ADR-029 e do merge M-013. Os nomes dos parâmetros de corpo são normativos; o Core os fixa nos validadores e pode propor ajustes por \texttt{[RFC]}. Valores que o Core fixou no M-013, aceitos pelo Arquiteto: o corpo das rotas sem texto longo é limitado a 64~KiB (e o das de conteúdo, a duas vezes a cota mais 64~KiB); o administrador pode redefinir a própria senha por \texttt{PUT /api/users/:id/password}, o que revoga as próprias sessões; \texttt{homeBody} respeita \texttt{MAX\_BODY\_BYTES} (422 \arq{QUOTA_EXCEEDED}); os \texttt{details} novos são \texttt{QUOTA\_EXCEEDED} \{ \texttt{field}, \texttt{bytes} ou \texttt{total}, \texttt{max} \}, \texttt{PAYLOAD\_TOO\_LARGE} \{ \texttt{field}, \texttt{max} \} e \texttt{VERSION\_CONFLICT} \{ \texttt{field}, \texttt{value} \}. A suspensão grava a notificação \texttt{MODERATION} (\texttt{ACCOUNT\_SUSPENDED}, com o motivo e o prazo), e a reativação e a senha redefinida gravam \texttt{ACCOUNT} (\texttt{ACCOUNT\_REACTIVATED} e \texttt{PASSWORD\_RESET}); as rotas de notificações, na Parte 2, montam o texto a partir de \texttt{type} e \texttt{data}.}
+
+Os campos de entrada têm as seguintes regras de validação no servidor (\texttt{422} em caso de falha): \texttt{status} deve ser \texttt{DRAFT} ou \texttt{PUBLISHED}; cada link social, quando preenchido, deve ser uma URL absoluta com protocolo \texttt{http} ou \texttt{https}, e a cadeia vazia equivale a \texttt{null} (RN17); as cores devem ser \texttt{\#RRGGBB} (RN09); o \en{slug} segue a RN03 (1 a 80 caracteres, sem \en{slugs} reservados na raiz). A resposta de \texttt{422} traz um item de \texttt{details} por campo inválido.

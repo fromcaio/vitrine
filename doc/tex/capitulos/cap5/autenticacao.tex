@@ -1,0 +1,135 @@
+% capitulos/cap5/autenticacao.tex -- §5.6: autenticação e autorização (configuração, camadas, autorização por dono, papéis).
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Autenticação e Autorização}\label{sec:arq-auth}
+
+\subsection{Configuração}
+
+O better-auth 1.7.6 é configurado em \arq{src/lib/auth.js} (merge M-004) com o adaptador do Prisma para SQLite, autenticação por e-mail e senha, sessão persistida no banco, cadastro público desabilitado e o \en{plugin} de integração de \en{cookies} para o Next.js. As rotas são expostas por um único Route Handler em \arq{src/app/api/auth/[...all]/route.js}. A sessão no servidor é obtida por \texttt{getSession(headers)}, usada pelos Route Handlers e pelas páginas do painel. O cliente React (\arq{src/lib/auth-client.js}) usa a mesma origem da página e dispensa variáveis \texttt{NEXT\_PUBLIC\_*}. Variáveis de ambiente: \arq{DATABASE_URL}, \arq{BETTER_AUTH_SECRET} e \arq{BETTER_AUTH_URL} (nomes confirmados na versão instalada, que as lê sozinha) e, lidas somente pelo comando do administrador inicial, \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e \arq{ADMIN_NAME}. A Tabela~\ref{tab:auth-config} resume a configuração efetiva, aprovada na \adr{ADR-018}.
+
+\begingroup\small
+\begin{longtable}{@{}L{3.0cm}L{9.6cm}L{1.9cm}@{}}
+\caption{Configuração efetiva do better-auth}\label{tab:auth-config}\\
+\toprule
+\textbf{Aspecto} & \textbf{Configuração} & \textbf{Origem}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Aspecto} & \textbf{Configuração} & \textbf{Origem}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Cadastro & Desabilitado (\texttt{disableSignUp}); \texttt{POST /api/auth/sign-up/email} responde 400 & RF22\\
+\addlinespace
+Senha & De 8 a 128 caracteres; o \en{hash} é do próprio better-auth, o mesmo no login e no comando do administrador & RNF03\\
+\addlinespace
+Sessão & Persistida no banco; expira em 7 dias e, em uso, é renovada no máximo uma vez por dia & RN12\\
+\addlinespace
+\en{Cookie} & \arq{better-auth.session_token}, \texttt{HttpOnly} e \texttt{SameSite=Lax}; com \arq{BETTER_AUTH_URL} em \texttt{https}, ganha \texttt{Secure} e o prefixo \texttt{\_\_Secure-} & RNF03\\
+\addlinespace
+Limitação de tentativas & Ligada em todos os ambientes, com contadores em memória por endereço IP (cabeçalho \texttt{x-forwarded-for}) e por rota: 100 requisições por 60 s no geral e \textbf{5 por 60 s em \texttt{/sign-in/email}} (resposta 429) & RNF03\\
+\addlinespace
+Telemetria & Desligada & RNF15\\
+\addlinespace
+Segredo & \arq{BETTER_AUTH_SECRET} obrigatório em produção; sem ele, as rotas de autenticação e de API respondem 500 (falha fechada: nenhuma rota protegida é servida) e o \en{build} registra o erro do segredo padrão sem falhar & RNF03\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{src/lib/auth.js} e da verificação do Arquiteto no merge M-004.}
+\endgroup
+
+\begin{lstlisting}[language=VJS, caption={Configuração efetiva do servidor de autenticação (resumo de src/lib/auth.js)}, label={lst:auth-esboco}]
+export const auth = betterAuth({
+  appName: "Vitrine",
+  database: prismaAdapter(prisma, { provider: "sqlite" }),
+  emailAndPassword: {
+    enabled: true,
+    disableSignUp: true,            // RF22
+    minPasswordLength: 8,
+    maxPasswordLength: 128,
+  },
+  session: { expiresIn: 7 * 86400, updateAge: 86400 },   // RN12
+  rateLimit: {
+    enabled: true, window: 60, max: 100,
+    customRules: { "/sign-in/email": { window: 60, max: 5 } },
+  },
+  telemetry: { enabled: false },    // RNF15
+  plugins: [nextCookies()],         // deve ser o último
+});
+// src/app/api/auth/[...all]/route.js
+export const { GET, POST } = toNextJsHandler(auth);
+\end{lstlisting}
+
+\textbf{Configuração do M16 (integrada pelo merge M-013, 04/10/2026; \adr{ADR-029}).} A Tabela~\ref{tab:auth-config} e o Código~\ref{lst:auth-esboco} descrevem a configuração inicial. O módulo M16 acrescentou o \en{plugin} \texttt{admin()}, com \texttt{defaultRole} \texttt{user}, \texttt{adminRoles} \texttt{admin}, papéis personalizados (o \texttt{admin} sem a permissão \texttt{impersonate}; o \texttt{user} sem nenhuma) e \texttt{bannedUserMessage} como função, e declara o \texttt{handle} e o \texttt{mustChangePassword} em \texttt{additionalFields} com \texttt{input: false}, para que nenhuma rota do \en{plugin} os altere. O cadastro público segue desabilitado, e o \en{plugin} \texttt{username} \emph{não} é usado, porque deixaria o usuário alterar o próprio \en{handle}. O \en{cache} de \en{cookie} de sessão fica desligado (um usuário suspenso continuaria autenticado até o \en{cookie} vencer), ao custo de uma consulta por requisição, aceita no perfil de uso. As variáveis novas, \texttt{MAX\_CONTENTS\_PER\_USER}, \texttt{MAX\_BODY\_BYTES} e \texttt{ADMIN\_HANDLE} (opcional, lida só pelo \texttt{admin:create}), constam do \arq{.env.example} e do Apêndice~\ref{ap:implantacao}.
+
+A limitação de tentativas identifica o cliente pelo cabeçalho \texttt{x-forwarded-for}, que o better-auth 1.7.6 só aceita quando contém um \emph{único} endereço (um valor com vários endereços pode ter sido forjado pelo cliente). Quando o endereço não pode ser determinado, todos os clientes passam a compartilhar um único contador por rota --- por exemplo, apenas cinco tentativas de login por minuto no total ---, o que mantém a proteção, mas deixa um atacante bloquear momentaneamente o login do administrador. Por isso o \en{proxy} reverso deve \emph{definir} esse cabeçalho com o endereço real do cliente, substituindo o valor recebido, e não acrescentar-lhe um segundo endereço (Apêndice~\ref{ap:implantacao}).
+
+\subsection{Fluxo e Proteção em Camadas}
+
+O fluxo de login e de acesso à área administrativa está na Figura~\ref{fig:seq-autenticacao}. A proteção é feita em camadas, porque o Proxy é, por documentação do Next.js, uma verificação otimista e não uma solução completa de autorização \cite{nextjsdocs}:
+
+\begin{table}[htb]
+\caption{Camadas de proteção das rotas administrativas}\label{tab:camadas-protecao}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.3cm}L{5.2cm}Y@{}}
+\toprule
+\textbf{Camada} & \textbf{Mecanismo} & \textbf{Finalidade}\\
+\midrule
+1. Proxy & \arq{src/proxy.js} (casador \arq{/admin/:path*}) lê o \en{cookie} de sessão, sem consultar o banco, e redireciona para \arq{/login?redirectTo=...} se ausente & Melhor experiência: evita renderizar a página para quem não tem sessão\\
+\addlinespace
+2. Layout/página do painel & Server Component valida a sessão no servidor e redireciona se inválida; a página repete a validação, pois layouts não são renderizados de novo a cada navegação & Barreira real para páginas\\
+\addlinespace
+3. Route Handlers & Cada handler valida a sessão no banco antes de qualquer ação (RF21) e, nas mutações, antes disso, a origem da requisição; só então lê o corpo; desde o M16, aplicam também a autorização por dono, na ordem da Seção~\ref{sec:arq-autorizacao} & Barreira real para a API\\
+\addlinespace
+4. Validação de entrada & Esquemas de entrada rejeitam dados inválidos antes da camada de dados & Integridade e segurança\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores.}
+\end{table}
+
+\textbf{Interface do login e do encerramento da sessão.} O formulário de login é o componente \texttt{LoginForm} (\arq{src/components/admin/LoginForm.js}, Componente Cliente), que chama \texttt{authClient.signIn.email}: em qualquer erro de credencial mostra uma única mensagem genérica (UC08, fluxo A1); no status \texttt{429} avisa que as tentativas foram excedidas; sem resposta do servidor, informa a falha de conexão; e, em caso de sucesso, faz a navegação completa para o destino que o servidor já validou (\texttt{safeRedirectPath}). O encerramento da sessão (RF20) \emph{não} passa pela rota \arq{/api/auth/sign-out}: o botão ``Sair'' do cabeçalho do painel envia um formulário à \en{Server Function} \texttt{signOut}, definida em \arq{src/app/admin/_lib/actions.js} (diretiva \texttt{"use server"}), que chama \texttt{auth.api.signOut} com os cabeçalhos da requisição --- apaga a sessão do banco e remove o \en{cookie} --- e redireciona para \arq{/login}. O layout do painel, que é um arquivo de rota do Core, entrega a função ao cabeçalho por \en{prop}; assim, os componentes da UI não importam o módulo de autenticação do servidor (regras de dependência, Seção~\ref{sec:arq-visoes}). Toda função exportada de um arquivo \texttt{"use server"} é um ponto de entrada HTTP, alcançável por uma requisição direta; por isso esse arquivo só pode conter funções que validem no servidor tudo o que exigem (a \texttt{signOut} não recebe argumentos).
+
+\vitrinefigura[tipo=diagrama, arquivo=seq-autenticacao, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/seq-autenticacao.puml},
+  descricao={Sequência de autenticação: acesso a /admin sem cookie, redirecionamento a /login, POST de credenciais ao better-auth, criação de sessão, Set-Cookie e acesso autorizado.}]
+  {Sequência de autenticação do administrador}{fig:seq-autenticacao}
+
+\subsection{Autorização por Dono}\label{sec:arq-autorizacao}
+
+Esta seção descreve o módulo M16 (\adr{ADR-023}, \adr{ADR-027}, \adr{ADR-029}), integrado pelo merge M-013 (04/10/2026): toda rota da API passa pelo auxiliar \texttt{route(spec, handler)}, e a trava da \adr{ADR-023} (nenhuma conta além do administrador antes da autorização por dono) está cumprida. A moderação do conteúdo alheio (escrita do administrador, com motivo e aviso ao dono) é a Parte 2 da A-014: até lá, \texttt{PATCH}, \texttt{DELETE} e reordenação de conteúdo de outro dono respondem 403 também ao administrador, que só \emph{lê}.
+
+\textbf{Matriz.} A autorização é um módulo puro, \arq{src/lib/authz.js}, que expõe \texttt{authorize(sessão, ação, recurso)} sobre uma \emph{tabela} papel $\times$ recurso $\times$ ação (Tabela~\ref{tab:matriz-authz}). Papel ou ação desconhecidos, ou sessão ausente onde se exige uma, \emph{falham fechados}. O \en{helper} de rota recebe a ação e a função que carrega o recurso, e aplica sempre a mesma \textbf{ordem}: (1) origem da requisição (nas mutações); (2) sessão, com a suspensão vencida a \texttt{banExpires}; (3) senha provisória (RN21); (4) limite de taxa (por usuário); (5) carregar o recurso (404 se não existe); (6) autorização (403); (7) corpo (400 e 422); (8) cotas (422). O \texttt{authorId} gravado vem \emph{sempre} da sessão, mesmo quando é o administrador quem escreve (RN13).
+
+\begin{table}[htb]
+\caption{Matriz de autorização (resumo; a tabela completa está em \arq{authz.js})}\label{tab:matriz-authz}
+\small
+\begin{tabularx}{\linewidth}{@{}L{3.6cm}L{2.7cm}L{2.7cm}Y@{}}
+\toprule
+\textbf{Recurso e ação} & \textbf{Anônimo} & \textbf{Usuário} & \textbf{Administrador}\\
+\midrule
+Conteúdo: ler no painel, criar, alterar, mover, excluir & 401 & só os seus; de outro, 403 & os seus; de outro, só com motivo (RN19, RN26)\\
+\addlinespace
+Aparência: ler e alterar & 401 & só a sua & só a sua; a de outro, 403 (RN19)\\
+\addlinespace
+Configuração do site e portal & 401 & 403 & permitido\\
+\addlinespace
+Usuários: listar, criar, editar, redefinir, suspender, excluir & 401 & 403 (só o próprio perfil e a própria senha) & permitido, com as proteções de RN22\\
+\addlinespace
+Notificações: listar, marcar, dispensar & 401 & só as suas & só as suas\\
+\addlinespace
+Leitura pública (\arq{/\{handle\}/\ldots}) & permitido, só o publicado e de espaço ativo & idem & idem\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da \adr{ADR-029}. ``Com senha provisória'', todas as ações do usuário e do administrador respondem 403 \arq{PASSWORD_CHANGE_REQUIRED}, exceto a troca da própria senha e a leitura do próprio perfil (RN21).}
+\end{table}
+
+\textbf{Superfície do better-auth.} O \en{catch-all} \arq{/api/auth/[...all]} do pacote expõe 45 rotas brutas, 15 delas do \en{plugin} \texttt{admin}, que gravam texto sem validar. Por isso o Route Handler responde só a \texttt{GET get-session}, \texttt{POST sign-in/email} e \texttt{POST sign-out}; o resto responde 404 no envelope da \adr{ADR-018}, sem chegar ao roteador do pacote. As operações sobre usuários passam por rotas próprias (Tabela~\ref{tab:api}), que autorizam primeiro, chamam o \en{plugin} depois, \emph{sempre com os \texttt{headers} do pedido} (chamado sem eles, \texttt{auth.api.*} não verifica nada; só o \en{bootstrap} \texttt{admin:create} o faz) e traduzem os erros do pacote.
+
+\textbf{Operações que o pacote não protege e o Vitrine protege.} O último administrador ativo (RN22) e a exclusão de usuário com conteúdo (RN24) passam por funções transacionais: o \texttt{remove-user} do pacote apaga as sessões e a credencial \emph{antes} de falhar quando o usuário tem conteúdo; a redefinição de senha (\texttt{set-user-password}) não revoga as sessões, e a rota própria o faz (RN12, RN21); a suspensão revoga as sessões e a conta volta sozinha quando o prazo vence (RN23).
+
+\textbf{Desvio da ordem nas rotas \texttt{/api/users/:id}.} Nessas rotas a autorização vem \emph{antes} de procurar o usuário (o recurso é o próprio identificador): o usuário comum recebe 403 para um \texttt{id} que existe e para um que não existe, e a rota não revela identificadores; o 404 vem depois, só para o administrador. É a única exceção à ordem ``recurso (404) $\rightarrow$ autorização (403)''; nas rotas de conteúdo vale a ordem do texto, e o 403 do conteúdo alheio confirma a existência do \texttt{cuid}, como a \adr{ADR-029} aceita.
+
+\textbf{Limite de taxa e cotas.} As escritas têm limite por usuário, em memória (zera a cada reinício e vale por instância; aceito): 60 por minuto em conteúdo e aparência, 20 em usuários e 5 na troca de senha, constantes de um módulo (e não variáveis de ambiente); o corpo muito acima de \texttt{MAX\_BODY\_BYTES} é recusado antes de ser lido (413) e as cotas respondem 422 \arq{QUOTA_EXCEEDED} (RN25). Um recurso de outro dono responde 403, que confirma a existência do identificador (\texttt{cuid}, de baixo risco; trocar por 404 é uma linha em \texttt{authorize}).
+
+\subsection{Política de Cadastro e Papéis}
+
+Até o merge M-013 havia um único perfil, o administrador; desde o M16 há os papéis \texttt{admin} e \texttt{user}, e as contas são criadas só pelo administrador, por \arq{POST /api/users}, com senha provisória (RN21). O primeiro usuário é criado pelo comando \texttt{npm run admin:create} (\decisao{D-03}, \adr{ADR-018}), executado por quem instala o sistema: ele lê \arq{ADMIN_EMAIL}, \arq{ADMIN_PASSWORD} e, opcionalmente, \arq{ADMIN_NAME}, valida o formato e chama \texttt{ensureInitialAdmin} (\arq{src/lib/auth.js}), que usa o adaptador interno do better-auth --- com o mesmo \en{hash} de senha do login --- porque a rota de cadastro está desabilitada. O comando é \textbf{idempotente}: com o mesmo e-mail, nada muda (nem a senha) e a saída é 0; recusa um segundo usuário com outro e-mail, pois há um único administrador (\decisao{D-13}; saída 1); completa a credencial de um usuário que ficou sem ela por uma execução interrompida; e nunca imprime a senha. Não há página aberta de primeiro acesso, para evitar o sequestro da instalação. As credenciais não passam pelo \arq{prisma/seed.js}, que cria apenas a configuração padrão (RF23); o comando roda com o \texttt{tsx}, como o \en{seed}. Na imagem Docker: \texttt{docker compose run -{}-rm vitrine npm run admin:create} (Apêndice~\ref{ap:implantacao}). O \en{plugin} \texttt{admin} do better-auth é o caminho adotado para os papéis (\decisao{D-13}, \adr{ADR-029}). Com vários administradores possíveis, o \texttt{admin:create} deixa de recusar um segundo usuário: passa a criar um administrador com o \texttt{ADMIN\_HANDLE} (opcional), continua idempotente pelo e-mail e serve também para recuperar o acesso quando não resta administrador ativo (RN22); um segundo comando, \texttt{admin:reset-password}, redefine a senha de qualquer conta e exige nova troca. A \textbf{senha provisória} (RN21) é gerada com 16 caracteres aleatórios, exibida uma única vez pela rota que a criou e nunca registrada em \en{log}; o marcador \texttt{mustChangePassword} é limpo só pela rota de troca.

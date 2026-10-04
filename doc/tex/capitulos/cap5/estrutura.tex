@@ -1,0 +1,78 @@
+% capitulos/cap5/estrutura.tex -- §5.4: estrutura do repositório e convenções.
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Estrutura do Repositório e Convenções}\label{sec:arq-estrutura}
+
+O Código~\ref{lst:arvore-atual} mostra a estrutura verificada no repositório na data desta redação, após os merges M-001 a M-008: o \en{scaffold} do Next.js, o esquema do Prisma 7 com a migração inicial e o \en{seed}, as funções de dados, a autenticação, as rotas de API de conteúdo e de configuração, o comando do administrador, o tema e os primeiros componentes da UI (\arq{src/components/admin/} e \arq{src/components/ui/}), a imagem Docker e os cabeçalhos de segurança, os testes e a governança. O Código~\ref{lst:arvore-alvo} mostra a estrutura-alvo, que os agentes constroem por módulo, já com as pastas criadas pelos agentes fora do desenho inicial: \arq{scripts/}, \arq{tests/} (\arq{setup/}, \arq{dados/}, \arq{core/} e \arq{ui/}), \arq{src/app/api/_lib/} e \arq{src/app/admin/_lib/}. Os diretórios \arq{_lib} começam por sublinhado e, no App Router do Next.js, são \emph{pastas privadas}: não geram rota e guardam o código compartilhado pelos Route Handlers e pelas páginas da mesma área. O alias \arq{@/} aponta para \arq{src/} (definido em \arq{jsconfig.json}).
+
+\begin{lstlisting}[caption={Estrutura atual do repositório (verificada)}, label={lst:arvore-atual}]
+.
+|-- CLAUDE.md  ARQUITETO.md  DESENVOLVEDORES.md  MURAL_DE_AGENTES.md  LICENSE
+|-- doc/                      # documentação (ref/, tex/, diagrams/)
+|-- prisma/                   # schema.prisma, migrations/ (init) e seed.js (Dados)
+|-- prisma.config.ts          # configuração da CLI (datasource.url vem de DATABASE_URL)
+|-- scripts/create-admin.js   # npm run admin:create (Core)
+|-- tests/                    # setup/ (comum), dados/, core/ e ui/ (Vitest)
+|-- vitest.config.mjs         # configuração do Vitest (alias @, banco temporário)
+|-- Dockerfile  docker-compose.yml  .dockerignore   # imagem e serviço (M13, Core)
+|-- security-headers.mjs      # cabeçalhos de segurança e CSP (Core; ADR-022)
+|-- .env.example              # nomes das variáveis de ambiente, sem valores
+|-- public/                   # ativos estáticos do scaffold
+|-- src/proxy.js              # verificação otimista de sessão em /admin (Core)
+|-- src/app/                  # layout.js (tema, metadados), not-found.js, globals.css (UI)
+|   |-- _lib/site.js          # configuração do site e variáveis do tema (Core)
+|   |-- page.js               # página inicial (scaffold, até o M07)
+|   |-- login/                # page.js (cartão de login; usa o LoginForm)
+|   |-- admin/                # layout.js, page.js e _lib/ (session, actions)
+|   `-- api/                  # auth/[...all], contents/, configuration/ e _lib/
+|-- src/components/           # admin/ (painel, LoginForm) e ui/ (Button, icons)
+|-- src/lib/                  # db.js, content-tree.js (Dados); auth.js, auth-client.js,
+|                             #   validators.js, revalidate.js (Core); theme.js (UI)
+|-- src/generated/prisma/     # cliente gerado; ignorado pelo Git (ADR-014)
+|-- eslint.config.mjs  jsconfig.json  next.config.mjs  postcss.config.mjs
+|-- package.json  package-lock.json  skills-lock.json
+`-- .agents/ .claude/ .windsurf/   # skills do Prisma para os agentes
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Estrutura-alvo do código (normativa)}, label={lst:arvore-alvo}]
+src/
+|-- proxy.js                      # verificação otimista de sessão (Core)
+|-- app/
+|   |-- layout.js                 # RootLayout: fontes, lang="pt-BR", tema (Core+UI)
+|   |-- _lib/site.js              # leitura da configuração e variáveis do tema (Core)
+|   |-- globals.css               # Tailwind 4 + tokens de tema (UI)
+|   |-- page.js                   # página inicial
+|   |-- [...slug]/page.js         # leitura de documento/coleção (ISR)
+|   |-- not-found.js
+|   |-- login/page.js             # cartão de login; usa o LoginForm (UI)
+|   |-- admin/                    # painel (dinâmico): layout, page, conteudo/, configuracoes/
+|   |   `-- _lib/                 # pasta privada (Core)
+|   |       |-- session.js        # requireAdminSession
+|   |       `-- actions.js        # Server Function signOut ("use server")
+|   `-- api/
+|       |-- _lib/                 # http.js (envelope, erros, sessão, origem) e contents.js
+|       |-- auth/[...all]/route.js
+|       |-- contents/route.js
+|       |-- contents/[id]/route.js
+|       |-- contents/reorder/route.js
+|       `-- configuration/route.js
+|-- components/                   # layout/, markdown/, editor/, admin/, ui/ (UI)
+`-- lib/
+    |-- db.js                     # único ponto de acesso ao Prisma (Dados)
+    |-- content-tree.js           # montagem da árvore e resolução de caminhos (Dados)
+    |-- auth.js  auth-client.js   # better-auth servidor e cliente (Core)
+    |-- validators.js             # esquemas de entrada (Core)
+    |-- revalidate.js             # regras de revalidação (Core)
+    `-- theme.js                  # contraste e cor do texto (UI)
+src/generated/prisma/             # cliente gerado por "prisma generate" (não versionado)
+prisma/                           # schema.prisma, migrations/, seed.js (Dados)
+prisma.config.ts                  # CLI do Prisma: schema, migrations, seed, DATABASE_URL
+scripts/create-admin.js           # npm run admin:create: administrador inicial (Core)
+tests/                            # setup/ (comum), dados/, core/ e ui/ (Vitest)
+vitest.config.mjs                 # configuração dos testes
+Dockerfile  docker-compose.yml  .dockerignore   # implantação (M13)
+security-headers.mjs              # cabeçalhos de segurança e CSP, usados por next.config.mjs (Core)
+.env.example                      # nomes das variáveis de ambiente, sem valores
+\end{lstlisting}
+
+Convenções: identificadores em inglês; comentários e textos de interface em português; módulos ES (\texttt{import}/\texttt{export}); funções públicas de \arq{src/lib} documentadas com JSDoc (\adr{ADR-008}); o arquivo \arq{.env.example} lista os nomes das variáveis de ambiente, sem valores (o \arq{.gitignore} ignora \arq{.env*} e traz a exceção \arq{!.env.example}). Código compartilhado por Route Handlers ou páginas de uma mesma área fica em uma pasta privada \arq{_lib} dessa área, e não em \arq{src/lib}, que é reservado aos módulos de uso geral. Scripts de linha de comando ficam em \arq{scripts/} e são executados com o \texttt{tsx}, pois os módulos de \arq{src/} usam o alias \arq{@/} e o cliente gerado do Prisma é TypeScript. O cliente do Prisma é gerado em \arq{src/generated/prisma}, diretório ignorado pelo Git, e importado de \arq{@/generated/prisma/client} somente por \arq{db.js}; por isso \texttt{prisma generate} deve rodar depois de \texttt{npm install} e antes de \texttt{next build} (\adr{ADR-014}).

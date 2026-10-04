@@ -19,7 +19,7 @@ decisões do Vitrine. Ela é escrita *antes* do código e atualizada *depois* de
 | `vitrine.sty` | Macros do projeto: figuras com *placeholder*, pendências por agente, selos de status, listagens |
 | `acronyms.tex` | Lista de siglas |
 | `references.bib` | Bibliografia (somente fontes reais e verificadas) |
-| `capitulos/cap1_introducao.tex` … `cap8_resultados.tex` | Capítulos |
+| `capitulos/cap1_introducao.tex` … `cap8_resultados.tex` | Capítulos. O Cap. 5 é um arquivo raiz (`cap5_arquitetura.tex`) que inclui, por `\input`, um arquivo por tema em `capitulos/cap5/` (`visao`, `estrutura`, `dados`, `autenticacao`, `isr`, `markdown`, `tema`, `api`, `rotas`, `seguranca`, `operacao`; seções §5.1 a §5.3, §5.4, §5.5, …, §5.13 em diante): **edite e leia o arquivo do tema**, não o raiz |
 | `apendices/apendice_a_…` … `apendice_g_…` | Dicionário de dados, schema, fontes de diagramas, implantação (Docker), ADRs (todas as decisões), mapa de pendências (gerado), glossário |
 | `figuras/telas/` | Capturas de tela do sistema (PNG) — **substituem placeholders** |
 | `figuras/diagramas/` | Diagramas renderizados a partir de `doc/diagrams/src/` (PNG) |

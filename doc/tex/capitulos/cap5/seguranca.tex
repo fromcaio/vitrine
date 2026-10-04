@@ -1,0 +1,151 @@
+% capitulos/cap5/seguranca.tex -- §5.12: segurança (ameaças, cabeçalhos e CSP, vulnerabilidades em dependências).
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Segurança}\label{sec:arq-seguranca}
+
+A Tabela~\ref{tab:ameacas} relaciona as ameaças consideradas aos controles previstos, tomando como referência o OWASP Top 10 \cite{owasptop10} e as práticas de verificação do ASVS \cite{owaspasvs}.
+
+\begin{longtable}{@{}L{3.3cm}L{4.4cm}L{5.4cm}@{}}
+\caption{Ameaças e controles}\label{tab:ameacas}\\
+\toprule
+\textbf{Ameaça} & \textbf{Vetor} & \textbf{Controle}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Ameaça} & \textbf{Vetor} & \textbf{Controle}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+XSS armazenado & Markdown com HTML ou URL \texttt{javascript:} & Sem HTML bruto (RN11); manter a transformação de URL do \arq{react-markdown}; revisar qualquer \en{plugin} novo; a CSP é uma segunda camada: barra \en{scripts} de outras origens e \texttt{eval}, mas não um \en{script} inline injetado, por causa do \texttt{'unsafe-inline'} (Seção~\ref{sec:arq-csp}, \adr{ADR-022})\\[1pt]
+CSRF & Requisição de outro site com o \en{cookie} do administrador & \en{Cookie} \texttt{SameSite=Lax}; verificação de origem nas mutações (um \texttt{Origin} diferente do próprio site, ou \texttt{null}, responde \texttt{401} \arq{UNAUTHENTICATED} e nada é gravado; \adr{ADR-018}); rotas de escrita aceitam apenas JSON\\[1pt]
+Injeção de SQL & Entradas em consultas & Prisma parametriza; proibido \texttt{\$queryRawUnsafe}\\[1pt]
+Força bruta e enumeração & Tentativas repetidas de login & No máximo cinco tentativas por minuto por IP (resposta 429); mensagem genérica de erro, igual para e-mail inexistente e senha errada (UC08, CT02); o \en{proxy} deve definir \texttt{x-forwarded-for} (Seção~\ref{sec:arq-auth})\\[1pt]
+Acesso indevido à API & Chamada direta sem passar pelo painel & Sessão verificada em cada Route Handler (RF21), antes de ler o corpo; Proxy apenas otimista; desde o M16, autorização por dono depois da sessão\\[1pt]
+Rotas padrão do better-auth & Rotas de \arq{/api/auth/*} além do login (por exemplo, troca de senha e listagem de sessões) & Hoje exigem sessão e passam pela mesma limitação de requisições; o cadastro público está desabilitado (RF22). Desde o M16, todas fora de \texttt{get-session}, \texttt{sign-in/email} e \texttt{sign-out} respondem 404 (CT38; \adr{ADR-029})\\[1pt]
+Acesso a recurso de outro dono & Trocar o identificador em uma rota de conteúdo, aparência, usuário ou notificação & \texttt{authorize} em toda rota, com a matriz falhando fechada; \texttt{authorId} da sessão; lote de reordenação recusado por inteiro; o banco impõe o dono único da árvore (CT35, CT37, CT39; RN19)\\[1pt]
+Escalada de papel & Usuário que altera o próprio \texttt{role} ou \texttt{handle}, ou usa rotas do \en{plugin} \texttt{admin} & Campos do papel e do \en{handle} com \texttt{input: false}; sem \texttt{auth.api.*} sem \texttt{headers}; rotas \arq{/api/users} só para o administrador (CT37, CT38)\\[1pt]
+Conta suspensa ou senha provisória & Sessão e \en{cookie} continuam valendo; senha provisória vazada ou nunca trocada & Sem \en{cache} de \en{cookie}; suspensão revoga as sessões e vence sozinha; senha exibida uma vez, nunca registrada, e troca obrigatória antes de qualquer outra ação (CT40, CT41; RN21, RN23)\\[1pt]
+Enchimento do disco & Milhares de URLs inexistentes geram páginas em \en{cache} (cerca de 12 a 16~kB e 7 arquivos cada) & Proxy reescreve primeiros segmentos desconhecidos para uma página dinâmica que responde 404 (CT45); documento inexistente em espaço válido é risco aceito, com limite de taxa no \en{proxy} reverso e monitoramento do disco (Apêndice~\ref{ap:implantacao}; \adr{ADR-030})\\[1pt]
+Abuso de escrita & Um usuário cria conteúdo ou corpos enormes & Cotas por usuário (500 conteúdos; 256~KiB em \emph{bytes}), 413 antes de ler o corpo e limite de escritas por usuário (RN25; CT39)\\[1pt]
+Abuso do administrador & Edição indevida da aparência ou leitura das notificações de outro usuário & Mínimo privilégio (RN19, aprovado em 04/10/2026); toda ação sobre outro usuário exige o motivo e notifica o dono (RN26; CT51)\\[1pt]
+Exposição de segredos & \arq{.env} no repositório, na imagem Docker ou variáveis no navegador & \arq{.env} ignorado pelo Git e excluído da imagem por \arq{.dockerignore}, fornecido ao contêiner em tempo de execução; nenhuma variável com prefixo \arq{NEXT_PUBLIC_} para segredos\\[1pt]
+Vazamento de rascunho & Nó \texttt{DRAFT} acessível por URL, pela árvore ou por página em cache & Filtro de publicação na camada de dados (RN15), que também oculta o espaço de usuário suspenso (RN23); revalidação do espaço ao alterar o estado (RN10, RN16); testes CT31, CT32 e CT43\\[1pt]
+Link social malicioso & URL \texttt{javascript:} ou \texttt{data:} em um dos seis campos do rodapé & Validação de protocolo \texttt{http}/\texttt{https} no servidor (RN17); atributos \texttt{noopener} e \texttt{noreferrer}; teste CT33\\[1pt]
+Injeção de CSS & Valor de cor malicioso & Validação \texttt{\#RRGGBB} no servidor (RN09)\\[1pt]
+Dependências vulneráveis & Pacotes desatualizados, com vulnerabilidade conhecida ou maliciosos & Revisão de cada nova dependência pelo Arquiteto; \texttt{npm audit} a cada entrega; \en{lockfile} versionado; os alertas atuais foram avaliados e aceitos (Seção~\ref{sec:arq-npm-audit}, \adr{ADR-019} e \adr{ADR-032})\\[1pt]
+\en{Clickjacking} & Página incorporada em \texttt{iframe} & CSP \texttt{frame-ancestors 'none'} e \arq{X-Frame-Options: DENY} (Seção~\ref{sec:arq-csp})\\[1pt]
+Exclusão acidental & Cascata indevida & Confirmação explícita; \en{backup} (RNF10)\\[1pt]
+Perda do banco & Remoção do diretório de dados, falha do disco da VPS ou atualização que descarta o volume & Banco em \en{bind mount} fora da imagem; \en{backup} periódico com \texttt{VACUUM INTO} e cópia externa (Apêndice~\ref{ap:implantacao}; risco R12)\\[1pt]
+\end{longtable}
+\fonte{Elaborado pelos autores.}
+
+\subsection{Cabeçalhos de Segurança e Política de Segurança de Conteúdo}\label{sec:arq-csp}
+
+Além dos controles acima, o Vitrine envia cabeçalhos de segurança em \emph{todas} as respostas --- páginas, API e arquivos estáticos. Eles estão definidos em \arq{security-headers.mjs} (na raiz do repositório; módulo puro, sem imports, testado sem o Next.js) e são aplicados pela função \texttt{headers} do \arq{next.config.mjs}, que também desliga o \texttt{X-Powered-By}. A decisão e as alternativas estão na \adr{ADR-022}. A Tabela~\ref{tab:cabecalhos} lista os cabeçalhos, e a Tabela~\ref{tab:csp-diretivas}, as diretivas da \en{Content Security Policy} (CSP).
+
+\begingroup\small
+\begin{longtable}{@{}L{3.6cm}L{4.4cm}L{5.2cm}@{}}
+\caption{Cabeçalhos de segurança enviados}\label{tab:cabecalhos}\\
+\toprule
+\textbf{Cabeçalho} & \textbf{Valor} & \textbf{Finalidade}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Cabeçalho} & \textbf{Valor} & \textbf{Finalidade}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\arq{X-Content-Type-Options} & \texttt{nosniff} & O navegador não interpreta uma resposta com tipo diferente do declarado\\
+\addlinespace
+\arq{Referrer-Policy} & \texttt{strict-origin-when-\allowbreak cross-origin} & Outros sites recebem só a origem, e não a URL completa\\
+\addlinespace
+\arq{X-Frame-Options} & \texttt{DENY} & Impede o enquadramento (\en{clickjacking}) em navegadores que ignoram \texttt{frame-ancestors}\\
+\addlinespace
+\arq{Permissions-Policy} & \texttt{camera=(), microphone=(), geolocation=(), payment=(), usb=()} & Desliga recursos do navegador que o Vitrine não usa\\
+\addlinespace
+\arq{Content-Security-Policy} & Tabela~\ref{tab:csp-diretivas} & Restringe a origem de cada tipo de recurso; enviado \emph{somente em produção}\\
+\addlinespace
+\emph{Não enviados} & \arq{Strict-Transport-Security} e \texttt{upgrade-insecure-requests} & TLS, HSTS e o redirecionamento para HTTPS são do \en{proxy} reverso (Apêndice~\ref{ap:implantacao})\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{security-headers.mjs} (merge M-008).}
+\endgroup
+
+\begingroup\small
+\begin{longtable}{@{}L{2.8cm}L{3.3cm}L{7.1cm}@{}}
+\caption{Diretivas da CSP adotada e justificativas (ADR-022)}\label{tab:csp-diretivas}\\
+\toprule
+\textbf{Diretiva} & \textbf{Valor} & \textbf{Justificativa}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Diretiva} & \textbf{Valor} & \textbf{Justificativa}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\texttt{default-src} & \texttt{'self'} & Ponto de partida restritivo: o que não tem diretiva própria só carrega do próprio site\\
+\addlinespace
+\texttt{script-src} & \texttt{'self' 'unsafe-inline'} & \textbf{Primeiro uso de \texttt{'unsafe-inline'}.} O Next.js emite \en{scripts} inline de hidratação em todas as páginas; sem ele, a página não hidrata e o formulário de login cai no envio nativo do navegador, por GET, com o e-mail e a senha na URL. Sem \texttt{'unsafe-eval'} e sem \en{nonce}\\
+\addlinespace
+\texttt{style-src} & \texttt{'self'} & Folhas de estilo só do próprio site (os arquivos do \en{build}); folhas e elementos \texttt{<style>} inline continuam proibidos\\
+\addlinespace
+\texttt{style-src-attr} & \texttt{'unsafe-inline'} & \textbf{Segundo uso.} Só para atributos \texttt{style}: o tema do banco vai no atributo \texttt{style} do \texttt{<html>} (Seção~\ref{sec:arq-tema-estatico}), e as fórmulas do KaTeX também os usam; atributos de estilo não aceitam \en{nonce}. Sem a diretiva, a paleta do banco é ignorada em silêncio\\
+\addlinespace
+\texttt{img-src} & \texttt{'self' data: https:} & O logotipo e as imagens do Markdown são URLs externas (D-10); \texttt{http:} é bloqueado\\
+\addlinespace
+\texttt{font-src} & \texttt{'self'} & As fontes do site e do KaTeX devem vir empacotadas no \en{build}: a folha do KaTeX é importada pelo \en{bundle}, e não de uma CDN\\
+\addlinespace
+\texttt{connect-src} & \texttt{'self'} & A interface só chama a própria API\\
+\addlinespace
+\texttt{object-src} & \texttt{'none'} & Sem plugins (\texttt{object} e \texttt{embed})\\
+\addlinespace
+\texttt{base-uri} & \texttt{'self'} & Impede trocar o \texttt{<base>} para redirecionar URLs relativas\\
+\addlinespace
+\texttt{form-action} & \texttt{'self'} & Formulários só enviam dados ao próprio site\\
+\addlinespace
+\texttt{frame-ancestors} & \texttt{'none'} & Nenhuma página pode ser incorporada em \texttt{iframe} (\en{clickjacking})\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir de \arq{security-headers.mjs} e do guia de CSP do Next.js 16 \cite{nextjsdocs}.}
+\endgroup
+
+\textbf{Por que não há \en{nonce}.} Segundo o guia de CSP do Next.js 16 \cite{nextjsdocs}, o \en{nonce} é gerado a cada visita e só pode ser aplicado na renderização no servidor: todas as páginas teriam de ser dinâmicas, a otimização estática e a ISR (Seção~\ref{sec:arq-isr}) ficariam desligadas e as páginas públicas deixariam de ser servidas do cache, o que contraria a \adr{ADR-005} e o RNF02. O Vitrine adota, então, a forma que o próprio guia indica para quem mantém a geração estática, porém mais estrita que o exemplo dele: as folhas de estilo continuam restritas a \texttt{'self'}, e apenas os atributos \texttt{style} são liberados, por \texttt{style-src-attr}. Os \emph{hashes} com Subresource Integrity, que dispensariam o \texttt{'unsafe-inline'} dos \en{scripts}, ainda são experimentais no Next.js 16.
+
+\textbf{O que a CSP protege e o risco aceito.} Com \texttt{script-src 'unsafe-inline'}, a CSP \emph{não} detém um \en{script} inline injetado; a defesa primária contra XSS continua sendo a ausência de HTML bruto (RN11), a transformação de URLs do \arq{react-markdown} (que recusa \texttt{javascript:}), o escape do React e a validação dos links sociais (RN17). A CSP é a segunda camada: barra \en{scripts} de outras origens, \texttt{eval}, folhas de estilo inline, imagens em \texttt{http:}, conexões e formulários para outros sites, plugins, troca do \texttt{<base>} e enquadramento em \texttt{iframe}. O risco residual de \texttt{img-src https:} é uma imagem de rastreamento de qualquer domínio, aceito porque o conteúdo referencia imagens externas (D-10).
+
+\textbf{Somente em produção e como verificar.} O \texttt{next dev} precisa de \texttt{'unsafe-eval'} (o React o usa para depuração), que a política não concede; por isso a CSP \emph{não} é enviada fora de produção, e um recurso novo pode funcionar no desenvolvimento e ser bloqueado em produção. Todo recurso novo que carregue \en{script}, estilo, fonte, imagem, quadro ou conexão (o editor e o KaTeX, as páginas públicas, o rodapé) deve ser verificado no navegador sobre \texttt{npm run build} e \texttt{npm run start}, com o console aberto: o formulário de login hidrata, a paleta do banco é aplicada e não aparece nenhuma mensagem de violação de CSP. A verificação do merge M-008 está na Seção~\ref{sec:testes-seguranca}.
+
+\textbf{O Zod no navegador e o \texttt{eval}.} Achado do merge M-011, só visível no \en{build} de produção: ao criar o primeiro esquema de objeto, o Zod 4 sonda \texttt{new Function("")} para saber se pode compilar um validador mais rápido (JIT). O Zod captura o erro e segue, mas a CSP, sem \texttt{'unsafe-eval'}, faz o navegador registrar a tentativa como violação (o evento \texttt{securitypolicyviolation} e um erro no console), a cada carga. O editor chama \texttt{z.config(\{ jitless: true \})} em \arq{zod-config.js}, que o \arq{schema.js} importa \emph{antes} do \arq{validators.js} (a ordem de avaliação dos módulos é o que garante a configuração a tempo); a validação dá o mesmo resultado, sem o atalho compilado. A configuração vale só para o código do navegador: o servidor não é afetado. Quem importar o \arq{validators.js} em outro código de navegador deve configurar o Zod antes dele. Um teste (\arq{tests/ui/editor-zod-csp.test.js}) registra toda construção de função a partir de texto e prova que a sonda não acontece.
+
+\textbf{Alterações.} Uma nova origem ou um novo tipo de recurso é um \texttt{[PEDIDO]} ao Core, exige a verificação acima e muda o teste que confere as onze diretivas uma a uma (\arq{tests/core/infra.test.js}); enfraquecer a política exige uma nova ADR. Vídeos e quadros incorporados, fontes e \en{scripts} de CDN e ferramentas de análise de acesso ficam fora do escopo desta versão. HSTS e TLS ficam a cargo do \en{proxy} reverso, que também não deve substituir nem remover os cabeçalhos da aplicação (Seção~\ref{sec:proxy}).
+
+\subsection{Vulnerabilidades Conhecidas em Dependências}\label{sec:arq-npm-audit}
+
+Em 01/10/2026, na revisão do merge M-004, o \texttt{npm audit} acusou \textbf{quatro vulnerabilidades de severidade alta}, todas em dependências transitivas do Prisma 7 (Tabela~\ref{tab:npm-audit}). O npm só as corrige com \texttt{npm audit fix -{}-force}, que instalaria o \texttt{prisma@6.19.3}: um rebaixamento de versão maior, incompatível com o que o projeto adota (\arq{prisma.config.ts}, gerador \texttt{prisma-client} e \en{driver adapter}; \adr{ADR-014}). A \texttt{7.10.0}, instalada, é a última versão 7 publicada, e o \texttt{npm audit} lista como afetada toda a faixa do \arq{prisma} até a \texttt{8.1.0-dev.6}; portanto, não há versão 7 corrigida. Decidiu-se \textbf{manter o Prisma 7 e não aplicar a correção automática}, aceitando os alertas, pelas razões da tabela (\adr{ADR-019}). Como \arq{prisma} agora está em \texttt{dependencies} (para aplicar migrações na imagem), esses pacotes também estão presentes na imagem de produção, embora não sejam exercidos.
+
+\begingroup\small
+\begin{longtable}{@{}L{3.3cm}L{5.4cm}L{5.5cm}@{}}
+\caption{Alertas do \texttt{npm audit} aceitos em 01/10/2026}\label{tab:npm-audit}\\
+\toprule
+\textbf{Pacote} & \textbf{Aviso} & \textbf{Avaliação para o Vitrine}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Pacote} & \textbf{Aviso} & \textbf{Avaliação para o Vitrine}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\arq{deepmerge-ts} (antes da 8.0.0; usado por \arq{@prisma/config}) & Esgotamento de pilha ao mesclar grafos de objetos recursivos (GHSA-ggr8-5vv4-36mx) & Roda na CLI do Prisma, ao mesclar a configuração de \arq{prisma.config.ts}, escrita pela equipe; não recebe entrada de usuário nem é exercido pelo servidor\\
+\addlinespace
+\arq{@prisma/config} e \arq{prisma} & Alertas em cadeia, por dependerem do \arq{deepmerge-ts} e do \arq{mysql2} & O mesmo das linhas vizinhas; sem correção em nenhuma versão 7 disponível\\
+\addlinespace
+\arq{mysql2} (até a 3.23.0; dependência do \arq{prisma} e do \arq{better-auth}) & Rebaixamento do plugin de autenticação para \arq{mysql_clear_password}, com vazamento de credenciais (GHSA-3f6p-5ww8-9rcr), e descompressão (\en{inflate}) sem limite no protocolo comprimido, com negação de serviço (GHSA-rgwj-5xj2-c3m3) & Só é exercido ao conectar a um servidor MySQL; o Vitrine usa SQLite por \arq{better-sqlite3} e nunca abre conexão MySQL\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir da saída do \texttt{npm audit} e de \texttt{npm ls} (merge M-004).}
+\endgroup
+
+A decisão será reavaliada a cada entrega (o \texttt{npm audit} é critério de saída, Seção~\ref{sec:testes-saida}) e sempre que o Prisma publicar uma versão 7 com as dependências corrigidas. Enquanto isso, os alertas aceitos não contam como vulnerabilidade crítica pendente.
+
+\textbf{Complemento de 03/10/2026.} Na primeira execução do projeto em Linux (ambiente de nuvem do Arquiteto), o \texttt{npm audit} acusou \textbf{nove} alertas de severidade alta, e não quatro. Os quatro da Tabela~\ref{tab:npm-audit} continuam os mesmos; os cinco novos vêm de um único aviso, publicado depois, sobre o \arq{braces} (até a 3.0.3; esgotamento de pilha com padrões aninhados em excesso, GHSA-vfj7-8cjw-p6xm), que chega pela cadeia do \arq{eslint-config-next}, do \arq{@next/eslint-plugin-next}, do \arq{fast-glob}, do \arq{micromatch} e do \arq{braces}. É uma cadeia exclusiva de ferramenta de desenvolvimento (\texttt{devDependencies}): o servidor não a executa, e o \texttt{eslint} só avalia padrões escritos pela equipe. O npm só a corrige com \texttt{-{}-force}, que rebaixaria o \arq{eslint-config-next} para a 14.2.35, e não há versão corrigida do \arq{braces} na faixa que o \arq{micromatch} aceita. A comparação com a lista acima, que a \adr{ADR-019} exige justamente para que os alertas aceitos não mascarem os novos, mostrou o mesmo conjunto de nove alertas na \texttt{main}, no merge M-010 e no M-011: nenhum merge acrescentou alerta. O Engenheiro Chefe aceitou os cinco alertas em 04/10/2026, pelo mesmo critério da \adr{ADR-019} (pacote não exercido pelo produto), com uma condição verificável: o \arq{braces} só pode aparecer na cadeia de desenvolvimento. O \texttt{npm ls braces -{}-omit=dev} imprime a árvore vazia, e o \texttt{npm audit -{}-omit=dev} acusa só os quatro alertas do Prisma; a aceitação está na \adr{ADR-032}, e a reavaliação ocorre quando o \arq{eslint-config-next} ou o \arq{micromatch} publicarem versão corrigida, ou se a condição deixar de valer.

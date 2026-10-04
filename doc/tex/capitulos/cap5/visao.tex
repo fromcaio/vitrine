@@ -1,0 +1,111 @@
+% capitulos/cap5/visao.tex -- §5.1 a §5.3: visão, princípios, decisões e visões da arquitetura.
+% Parte do Capítulo 5 (capitulos/cap5_arquitetura.tex); os rótulos \label e os números de seção não mudaram.
+
+\section{Visão Arquitetural e Princípios}\label{sec:arq-visao}
+
+A arquitetura é um \textbf{monólito modular}: um único repositório, um único processo Node.js e um único arquivo de banco de dados. Os principais direcionadores são a portabilidade e a simplicidade de implantação (\req{RNF01}), o desempenho de leitura (\req{RNF02}), a segurança (\req{RNF03}) e a manutenibilidade por domínios (\req{RNF08}). Esses direcionadores se traduzem nos princípios a seguir.
+
+\begin{enumerate}[label=\textbf{PA\arabic*.}, leftmargin=1.6cm]
+  \item \textbf{Monólito modular.} Um processo, um banco, um repositório; módulos separados por domínio (Dados, Core, UI), com dependências unidirecionais (Figura~\ref{fig:arq-camadas}).
+  \item \textbf{Pré-renderizar por padrão.} Páginas públicas são estáticas e regeneradas de forma incremental; o dinamismo fica restrito ao painel administrativo e à API.
+  \item \textbf{Acesso a dados centralizado.} Somente \arq{src/lib/db.js} instancia o cliente do Prisma; rotas e componentes não escrevem consultas.
+  \item \textbf{Segurança em profundidade.} Verificação otimista no \en{Proxy}, verificação de sessão em cada Route Handler e Server Component protegido, e validação de entrada no servidor.
+  \item \textbf{Configuração por ambiente.} Segredos e parâmetros de implantação em variáveis de ambiente, nunca no repositório \cite{twelvefactor}.
+  \item \textbf{Conteúdo é dado, não código.} O corpo é Markdown; HTML bruto é proibido (RN11).
+  \item \textbf{Personalização por dados.} Identidade e cores vêm do banco e chegam ao CSS por variáveis, sem novo \en{build}.
+  \item \textbf{Simplicidade operacional.} Sem fila, cache externo ou serviço adicional obrigatório; a implantação é um contêiner Docker com um volume para o banco (\adr{ADR-011}).
+\end{enumerate}
+
+\section{Decisões Arquiteturais}\label{sec:arq-decisoes}
+
+As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}. A Tabela~\ref{tab:resumo-adr} as resume. As ADR-011 a ADR-014 foram acrescentadas em 30/09/2026, após o merge M-001 e a atualização P-001, as ADR-015 a ADR-017 em 01/10/2026, quando o Engenheiro Chefe encerrou as decisões que restavam, as ADR-018 e ADR-019 em 01/10/2026, após o merge M-004, as ADR-020 e ADR-021 em 01/10/2026, após os merges M-005 e M-007, a ADR-022 em 02/10/2026, após o merge M-008, as ADR-023 a ADR-027 em 02/10/2026, quando o Engenheiro Chefe ampliou o escopo para vários usuários (decisões D-20 a D-28), as ADR-028 a ADR-030 em 03/10/2026, decisões técnicas do Arquiteto sobre os RFC do Dados e do Core, a ADR-031 em 03/10/2026, a paleta padrão clara (decisão D-29 do Engenheiro Chefe), e a ADR-032 em 04/10/2026, a aceitação dos alertas do \texttt{braces}; os identificadores D-xx das decisões iniciais continuam citados no texto e levam à ADR que as registra.
+
+\begingroup\small\renewcommand{\arraystretch}{1.25}
+\begin{longtable}{@{}L{2.0cm}L{5.6cm}L{6.4cm}@{}}
+\caption{Resumo das decisões arquiteturais aceitas}\label{tab:resumo-adr}\\
+\toprule
+\textbf{ADR} & \textbf{Decisão} & \textbf{Motivo principal}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ADR} & \textbf{Decisão} & \textbf{Motivo principal}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\adr{ADR-001} & Monólito modular com Next.js (App Router) & Simplicidade operacional; uma unidade de implantação\\
+\adr{ADR-002} & SQLite como banco embutido & Portabilidade; arquivo único; custo zero\\
+\adr{ADR-003} & Prisma ORM 7 como camada de acesso & Modelo declarativo, migrações e cliente tipado\\
+\adr{ADR-004} & better-auth no lugar do Auth.js previsto na IC & E-mail e senha com sessão em banco e adaptador Prisma\\
+\adr{ADR-005} & ISR com revalidação sob demanda & Desempenho estático com atualização imediata\\
+\adr{ADR-006} & Markdown com remark/rehype e KaTeX & Escrita científica nativa, sem HTML bruto\\
+\adr{ADR-007} & Tematização por variáveis CSS e Tailwind 4 & Personalização sem \en{build}\\
+\adr{ADR-008} & JavaScript com JSDoc, sem TypeScript & Herdado do projeto base; menor fricção\\
+\adr{ADR-009} & Documentation-Driven Development com \LaTeX{} e diagramas como código & Coerência entre agentes\\
+\adr{ADR-010} & Fluxo Git por domínios com mural na \texttt{main} & Coordenação assíncrona rastreável\\
+\adr{ADR-011} & Implantação por imagem Docker em VPS tradicional, com volume para o SQLite & Persistência do arquivo de banco e ambiente reprodutível (resolve D-04)\\
+\adr{ADR-012} & Estado de publicação \texttt{DRAFT}/\texttt{PUBLISHED}, padrão \texttt{PUBLISHED} & Rascunhos sem histórico de versões (resolve D-15)\\
+\adr{ADR-013} & Seis campos opcionais de redes sociais em \texttt{Configuration} & Rodapé configurável sem tabela adicional (resolve D-19)\\
+\adr{ADR-014} & Adaptador \texttt{better-sqlite3} e conformidade com o Prisma 7 & O Prisma 7 exige \en{driver adapter} para o SQLite (resolve D-09)\\
+\adr{ADR-015} & Nome Vitrine e licença MIT & Identidade e licença permissiva do código aberto (resolve D-01 e D-02)\\
+\adr{ADR-016} & Documento de Arquitetura e Requisitos de Software, sem formato acadêmico & Documentação a serviço do produto (resolve D-18)\\
+\adr{ADR-017} & Decisões técnicas com valor padrão adotado & Encerra as questões técnicas iniciais, refináveis por RFC (D-03, D-05 a D-08, D-10 a D-14, D-16, D-17)\\
+\adr{ADR-018} & Administrador por \texttt{npm run admin:create} e contrato da API (envelope \texttt{data}, erros de entrada e de origem) & Aprova as nove propostas do Core (RFC P-002; fecha o D-03)\\
+\adr{ADR-019} & Manter o Prisma 7 apesar de quatro alertas do \texttt{npm audit} & A correção automática rebaixaria o Prisma para a versão 6\\
+\adr{ADR-020} & Texto sobre a cor primária escolhido por \texttt{readableTextOn} e indicador de foco neutro & O branco fixo reprova o nível AA com a paleta padrão, e o foco não pode depender de uma cor configurável\\
+\adr{ADR-021} & Configuração do site lida em execução, nunca no \en{build} & O estágio de \en{build} da imagem não tem banco, e uma consulta ali faz o \texttt{next build} falhar\\
+\adr{ADR-022} & Cabeçalhos de segurança e CSP sem \en{nonce}, só em produção & O \en{nonce} exigiria renderização dinâmica de todas as páginas e desligaria a ISR; os \en{scripts} de hidratação e o tema pedem \texttt{'unsafe-inline'}\\
+\adr{ADR-023} & Papéis \texttt{admin} e \texttt{user}, contas criadas só pelo administrador, autorização por dono e limites por usuário & O produto passa a ter vários autores, e hoje a API só exige uma sessão (substitui o D-13)\\
+\adr{ADR-024} & Um espaço por usuário em \texttt{/\{handle\}} e a página \texttt{/} como portal do administrador & Evita colisão de \en{slugs} e permite aparência e revalidação por autor (ajusta o D-16)\\
+\adr{ADR-025} & Aparência por proprietário, com paleta clara e noturna & Cada autor controla a própria identidade, e o modo noturno precisa de contraste verificável (substitui o D-17)\\
+\adr{ADR-026} & Notificações internas, geradas pelo servidor & O aviso de contraste se perdia ao recarregar, e a plataforma não envia e-mail\\
+\adr{ADR-027} & Moderação pelo administrador, com notificação ao dono & Autores não confiáveis exigem retirar conteúdo e suspender contas sem perder dados\\
+\adr{ADR-028} & Modelo de dados multiusuário: \en{handle} próprio, aparência em tabelas separadas, dono único por árvore, notificações e WAL & O RFC do Dados verificou no SQLite e no Prisma o que as ADR-023 a ADR-027 exigem\\
+\adr{ADR-029} & Autorização por dono, rotas \texttt{/api/users}, lista de permitidas do better-auth e senha provisória & As rotas brutas do \en{plugin} não validam nem protegem o último administrador; a API só exigia sessão\\
+\adr{ADR-030} & Revalidação por espaço por caminhos literais e layout raiz sem dados do banco (ajusta a ADR-024, item 5, e a ADR-021) & A revalidação do layout de um \en{handle} não funciona como escrita e a de um layout invalida todos os espaços\\
+\adr{ADR-031} & Paleta padrão clara acessível: \texttt{\#2563eb}, \texttt{\#1e293b} e \texttt{\#b45309} (D-29) & A paleta anterior gerava dois avisos de contraste em toda aparência salva com os padrões\\
+\adr{ADR-032} & Aceitar os cinco alertas altos do \texttt{braces}, restritos à cadeia do ESLint & Ferramenta de desenvolvimento, não exercida pelo produto; condição verificada por \texttt{npm ls braces -{}-omit=dev}\\
+\end{longtable}
+\fonte{Elaborado pelos autores.}
+\endgroup
+
+\section{Visões da Arquitetura}\label{sec:arq-visoes}
+
+\subsection{Contexto}
+
+O sistema atende dois atores humanos --- Leitor e Administrador --- e depende apenas de uma VPS tradicional com Docker (\decisao{D-04}). O Implantador obtém o código de um repositório Git, constrói a imagem Docker e a executa na VPS (Figura~\ref{fig:arq-contexto}).
+
+\vitrinefigura[tipo=diagrama, arquivo=arq-contexto, agente=Arquiteto, largura=0.9,
+  origem={doc/diagrams/src/arq-contexto.puml},
+  descricao={Diagrama de contexto (C4 nível 1): Leitor, Administrador, Implantador, o sistema Vitrine, a VPS tradicional com Docker e o repositório Git.}]
+  {Diagrama de contexto do Vitrine}{fig:arq-contexto}
+
+\subsection{Contêineres}
+
+Na terminologia do modelo C4, há um único \emph{contêiner} de aplicação --- o servidor Next.js, que na implantação é empacotado em uma imagem Docker (\adr{ADR-011}) --- mais o navegador do usuário e o arquivo SQLite. Dentro do servidor convivem as páginas públicas (Server Components com ISR), o painel administrativo, os Route Handlers, o better-auth, o Proxy, a camada de dados e o cache de ISR (Figura~\ref{fig:arq-conteineres}).
+
+\vitrinefigura[tipo=diagrama, arquivo=arq-conteineres, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/arq-conteineres.puml},
+  descricao={Diagrama de contêineres (C4 nível 2): navegador, servidor Node.js em contêiner Docker com páginas públicas, painel, Route Handlers, better-auth, Proxy, camada de dados (Prisma e adaptador better-sqlite3) e cache ISR, e o banco SQLite em volume.}]
+  {Diagrama de contêineres do Vitrine}{fig:arq-conteineres}
+
+\subsection{Componentes e Regras de Dependência}
+
+A Figura~\ref{fig:arq-componentes} mostra os componentes por diretório e o agente responsável por cada um, e a Figura~\ref{fig:arq-camadas} resume as camadas. As regras de dependência são normativas:
+
+\begin{itemize}
+  \item componentes em \arq{src/components} \textbf{não} importam \arq{src/lib/db.js} nem o cliente gerado do Prisma (\arq{@/generated/prisma}); recebem dados por \en{props} dos Server Components ou os buscam nas rotas \arq{/api};
+  \item rotas em \arq{src/app/api} \textbf{não} escrevem consultas Prisma; chamam funções de \arq{db.js};
+  \item apenas \arq{db.js} instancia o cliente do Prisma na aplicação, com o adaptador \arq{better-sqlite3} (uma instância por processo, \adr{ADR-014}); a única exceção é o \en{script} \arq{prisma/seed.js}, executado pela CLI fora do Next.js;
+  \item toda rota de escrita valida a sessão e a entrada antes de chamar a camada de dados.
+\end{itemize}
+
+\vitrinefigura[tipo=diagrama, arquivo=arq-componentes, agente=Arquiteto, largura=0.95,
+  origem={doc/diagrams/src/arq-componentes.puml},
+  descricao={Diagrama de componentes por diretório (src/app, src/components, src/lib, prisma), coloridos por agente responsável, com as regras de dependência.}]
+  {Componentes do monólito e regras de dependência}{fig:arq-componentes}
+
+\vitrinefigura[tipo=diagrama, arquivo=arq-camadas, agente=Arquiteto, largura=0.85,
+  origem={doc/diagrams/src/arq-camadas.puml},
+  descricao={Camadas Apresentação, Aplicação, Dados e Infraestrutura, com o sentido permitido das dependências.}]
+  {Camadas e sentido das dependências}{fig:arq-camadas}
