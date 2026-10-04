@@ -1,6 +1,6 @@
 // Route Handlers de configuração (M05) sobre o SQLite temporário, com sessão real: leitura,
 // atualização, validação de cor e avisos de contraste (CT24, parte de API), links sociais (CT33,
-// parte de API) e revalidação do layout raiz (RN10).
+// parte de API) e revalidação só do portal (RN10, ADR-030).
 import "./env";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,7 +64,7 @@ describe("GET /api/configuration", () => {
 });
 
 describe("PUT /api/configuration", () => {
-  it("atualiza identidade, cores e links, e revalida o layout raiz (RN10)", async () => {
+  it("atualiza identidade, cores e links, e revalida só o portal `/` (RN10, ADR-030)", async () => {
     const response = await put({
       siteName: "Notas de Aula",
       siteDescription: "Material didático de Cálculo",
@@ -83,7 +83,7 @@ describe("PUT /api/configuration", () => {
       logoUrl: "/logo.svg",
     });
     expect(await prisma.configuration.count()).toBe(1);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
   });
 
   it("CT24: cor fora de #RRGGBB responde 422 e nada é gravado", async () => {
@@ -250,13 +250,13 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     });
   });
 
-  it("o aviso não bloqueia: com os três avisos, grava e revalida o layout raiz normalmente", async () => {
+  it("o aviso não bloqueia: com os três avisos, grava e revalida o portal normalmente", async () => {
     const response = await put(BAD_PALETTE);
 
     expect(response.status).toBe(200);
     expect((await response.json()).warnings).toHaveLength(3);
     expect(await prisma.configuration.findUniqueOrThrow({ where: { id: "default" } })).toMatchObject(BAD_PALETTE);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
   });
 
   it("uma falha no cálculo dos avisos não impede a gravação nem a revalidação", async () => {
@@ -272,7 +272,7 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect((await prisma.configuration.findUniqueOrThrow({ where: { id: "default" } })).siteName).toBe(
       "Gravado antes da falha",
     );
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
     log.mockRestore();
   });
 });

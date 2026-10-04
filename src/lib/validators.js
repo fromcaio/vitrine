@@ -203,6 +203,16 @@ const statusSchema = z.enum(CONTENT_STATUSES, { error: "O estado deve ser DRAFT 
 const hasAnyField = (/** @type {Record<string, unknown>} */ value) => Object.keys(value).length > 0;
 const EMPTY_PATCH = { error: "Informe ao menos um campo para atualizar." };
 
+/** RN19, RN22: motivo de uma ação do administrador sobre outro usuário (1 a 500 caracteres). */
+export const REASON_MAX_LENGTH = 500;
+
+/** Motivo obrigatório das ações do administrador sobre outro usuário (RN19, RN26). */
+export const reasonSchema = z
+  .string({ error: "Informe o motivo." })
+  .trim()
+  .min(1, { error: "Informe o motivo." })
+  .max(REASON_MAX_LENGTH, { error: `O motivo deve ter no máximo ${REASON_MAX_LENGTH} caracteres.` });
+
 // --------------------------------------------------------
 // Esquemas das rotas
 // --------------------------------------------------------
@@ -235,7 +245,9 @@ export const versionSchema = z
 /**
  * PATCH /api/contents/:id (atualização parcial). `version` não é um campo do conteúdo: é a versão
  * em que o autor se baseou (RN18), e o `PATCH` que altera o corpo a exige (422 sem ela, conferido
- * pela rota). Ao menos um campo do conteúdo é obrigatório.
+ * pela rota). `reason` tampouco é um campo do conteúdo: é o motivo da moderação (RN19, RN26), que a
+ * rota exige quando o conteúdo é de outro dono e ignora quando é do próprio autor. Ao menos um campo
+ * do conteúdo é obrigatório.
  */
 export const contentUpdateSchema = z
   .object({
@@ -247,8 +259,36 @@ export const contentUpdateSchema = z
     order: orderSchema.optional(),
     status: statusSchema.optional(),
     version: versionSchema.optional(),
+    reason: reasonSchema.optional(),
   })
-  .refine(({ version: _version, ...fields }) => hasAnyField(fields), EMPTY_PATCH);
+  .refine(({ version: _version, reason: _reason, ...fields }) => hasAnyField(fields), EMPTY_PATCH);
+
+/** DELETE /api/contents/:id (parâmetros de consulta): `reason` é o motivo da moderação (RN19, RN26). */
+export const contentDeleteQuerySchema = z.object({ reason: reasonSchema.optional() });
+
+/**
+ * GET /api/notifications (parâmetros de consulta, RF33): `unread=1` traz só as não lidas; `limit` de 1
+ * a 100 (padrão 20); `cursor` é o `nextCursor` da página anterior.
+ */
+export const notificationListQuerySchema = z.object({
+  unread: z
+    .enum(["1", "0"], { error: "unread deve ser 1 ou 0." })
+    .optional()
+    .transform((value) => value === "1"),
+  limit: z.coerce.number({ error: "limit deve ser um número." }).int().min(1).max(100).default(20),
+  cursor: z.string().min(1, { error: "Cursor inválido." }).optional(),
+});
+
+/**
+ * PATCH /api/notifications/:id: exatamente uma ação, `{ "read": true }` (marca como lida) ou
+ * `{ "dismissed": true }` (dispensa). Não há como marcar como não lida.
+ */
+export const notificationUpdateSchema = z
+  .object({
+    read: z.literal(true, { error: "read só aceita true." }).optional(),
+    dismissed: z.literal(true, { error: "dismissed só aceita true." }).optional(),
+  })
+  .refine((value) => Object.keys(value).length === 1, { error: "Informe read ou dismissed (apenas um)." });
 
 /** PATCH /api/contents/reorder: lote `[{ id, parentId?, order }]`; `parentId` omitido mantém o pai. */
 export const contentReorderSchema = z
@@ -304,8 +344,6 @@ export const appearanceUpdateSchema = z.object(appearanceFields).refine(hasAnyFi
 
 /** Papéis aceitos nas rotas de usuários. */
 export const USER_ROLE_VALUES = /** @type {const} */ (["admin", "user"]);
-/** RN19, RN22: motivo de uma ação do administrador sobre outro usuário (1 a 500 caracteres). */
-export const REASON_MAX_LENGTH = 500;
 /** Tamanho da senha provisória gerada pelo servidor (RN21). */
 export const TEMPORARY_PASSWORD_LENGTH = 16;
 /** Limite do nome de exibição de um usuário (campos do pacote não têm limite próprio). */
@@ -321,13 +359,6 @@ const passwordFieldSchema = z
   .string({ error: "A senha é obrigatória." })
   .min(PASSWORD_MIN_LENGTH, { error: `A senha deve ter ao menos ${PASSWORD_MIN_LENGTH} caracteres.` })
   .max(PASSWORD_MAX_LENGTH, { error: `A senha deve ter no máximo ${PASSWORD_MAX_LENGTH} caracteres.` });
-
-/** Motivo obrigatório das ações do administrador sobre outro usuário (RN19). */
-export const reasonSchema = z
-  .string({ error: "Informe o motivo." })
-  .trim()
-  .min(1, { error: "Informe o motivo." })
-  .max(REASON_MAX_LENGTH, { error: `O motivo deve ter no máximo ${REASON_MAX_LENGTH} caracteres.` });
 
 /**
  * POST /api/users: e-mail, nome, handle e papel; senha opcional (o servidor gera a provisória de 16

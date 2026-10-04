@@ -1,7 +1,8 @@
 // Route Handlers de conteúdo (M04) sobre o SQLite temporário, com sessão real do better-auth:
 // CT07 (criar), CT08 (slug duplicado), CT09 (pai inválido), CT10 (ciclo), validação de formato,
-// mapeamento de erros e revalidação (RN10, RN16). `revalidatePath` é substituído para conferir
-// as chamadas, pois só funciona dentro do servidor do Next.js.
+// mapeamento de erros e revalidação POR ESPAÇO, por caminhos literais (RN10, RN16, ADR-030, CT44).
+// `revalidatePath` é substituído para conferir as chamadas, pois só funciona dentro do servidor do
+// Next.js. O dono é o administrador, que ganha o handle "ada": sem handle o espaço não tem URL.
 import "./env";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,7 +22,15 @@ let adminId;
 
 beforeAll(async () => {
   ({ cookie, userId: adminId } = await createAdminSession());
+  await prisma.user.update({ where: { id: adminId }, data: { handle: "ada" } });
 });
+
+/** Páginas literais invalidadas (chamadas de um só argumento), ordenadas; o portal é `("/", "page")`. */
+const pages = () =>
+  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1).map((call) => call[0]).sort();
+const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 2);
+/** Nenhuma chamada usa o tipo "layout" (ADR-030: nunca por mudança de espaço). */
+const noLayout = () => expect(vi.mocked(revalidatePath).mock.calls.some((call) => call[1] === "layout")).toBe(false);
 
 beforeEach(async () => {
   await resetContent();
@@ -107,9 +116,40 @@ describe("POST /api/contents", () => {
     expect(second.parentId).toBe(parent.id);
   });
 
-  it("revalida o layout raiz (RN10)", async () => {
+  it("revalida a página inicial do espaço e o caminho do novo conteúdo, não o layout (RN10, ADR-030)", async () => {
+    const parent = await collection("calculo");
+    vi.mocked(revalidatePath).mockClear();
+
+    await document("limites", { parentId: parent.id });
+
+    // A coleção-pai também: ela redireciona ao primeiro documento publicado (RN14).
+    expect(pages()).toEqual(["/ada", "/ada/calculo", "/ada/calculo/limites"]);
+    expect(portalCalls()).toEqual([]); // criar um filho não altera o diretório
+    noLayout();
+  });
+
+  it("criar uma raiz publicada revalida também o portal, que a lista no diretório (RN28)", async () => {
     await document("a");
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+
+    expect(pages()).toEqual(["/ada", "/ada/a"]);
+    expect(portalCalls()).toEqual([["/", "page"]]);
+    noLayout();
+  });
+
+  it("um rascunho recém-criado só revalida a página inicial do espaço (nada público a invalidar)", async () => {
+    await document("a", { status: "DRAFT" });
+
+    expect(pages()).toEqual(["/ada"]);
+  });
+
+  it("autor sem handle: o espaço não tem URL e nada é revalidado", async () => {
+    await prisma.user.update({ where: { id: adminId }, data: { handle: null } });
+    try {
+      await document("a");
+      expect(pages()).toEqual([]);
+    } finally {
+      await prisma.user.update({ where: { id: adminId }, data: { handle: "ada" } });
+    }
   });
 
   it("CT08: slug duplicado entre irmãos responde 409 SLUG_CONFLICT com sugestão", async () => {
@@ -227,7 +267,15 @@ describe("GET /api/contents", () => {
     expect(root.children).toHaveLength(1);
     expect(root.children[0]).toMatchObject({ slug: "limites", status: "PUBLISHED" });
     expect(root.children[0]).not.toHaveProperty("body");
-    expect(revalidatePath).toHaveBeenCalledTimes(2); // só as duas criações
+  });
+
+  it("a leitura da árvore não revalida nada", async () => {
+    await document("a");
+    vi.mocked(revalidatePath).mockClear();
+
+    await listTree();
+
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("árvore vazia", async () => {
@@ -263,7 +311,16 @@ describe("PATCH /api/contents/:id", () => {
 
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject({ id: doc.id, body: "novo", title: "limites" });
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/calculo/limites");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/ada/calculo/limites");
+  });
+
+  it("alteração só do corpo de um rascunho não revalida página alguma (nada público)", async () => {
+    const doc = await document("rascunho", { body: "antigo", status: "DRAFT" });
+    vi.mocked(revalidatePath).mockClear();
+
+    await update(doc.id, { body: "novo" });
+
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("reenviar os mesmos metadados com o corpo novo ainda revalida só a página", async () => {
@@ -272,15 +329,16 @@ describe("PATCH /api/contents/:id", () => {
 
     await update(doc.id, { title: "sobre", slug: "sobre", status: "PUBLISHED", body: "novo" });
 
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/sobre");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/ada/sobre");
   });
 
   it.each([
-    ["título", { title: "Novo título" }],
-    ["slug", { slug: "novo-slug" }],
-    ["ordem", { order: 7 }],
-    ["estado de publicação (RN16)", { status: "DRAFT" }],
-  ])("mudança de %s revalida o layout raiz", async (_label, patch) => {
+    ["título", { title: "Novo título" }, ["/ada", "/ada/sobre"], 0],
+    ["slug (o caminho antigo e o novo)", { slug: "novo-slug" }, ["/ada", "/ada/novo-slug", "/ada/sobre"], 0],
+    ["ordem", { order: 7 }, ["/ada", "/ada/sobre"], 0],
+    // Despublicar: o caminho antigo sai do ar, e a raiz deixa o diretório do portal (RN28).
+    ["estado de publicação (RN16)", { status: "DRAFT" }, ["/ada", "/ada/sobre"], 1],
+  ])("mudança de %s revalida os caminhos literais do espaço, não o layout", async (_label, patch, expected, portal) => {
     const doc = await document("sobre");
     vi.mocked(revalidatePath).mockClear();
 
@@ -288,10 +346,41 @@ describe("PATCH /api/contents/:id", () => {
 
     expect(response.status).toBe(200);
     expect((await response.json()).data).toMatchObject(patch);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(pages()).toEqual(expected);
+    expect(portalCalls()).toHaveLength(portal);
+    noLayout();
   });
 
-  it("mover para outro pai revalida o layout raiz e põe o nó no fim do nível", async () => {
+  it("renomear uma coleção revalida o caminho antigo e o novo dela e dos descendentes (CT22, CT44)", async () => {
+    const parent = await collection("calculo");
+    await document("limites", { parentId: parent.id });
+    const sub = await collection("integrais", { parentId: parent.id });
+    await document("por-partes", { parentId: sub.id });
+    await document("rascunho", { parentId: parent.id, status: "DRAFT" });
+    vi.mocked(revalidatePath).mockClear();
+
+    await update(parent.id, { slug: "analise" });
+
+    // O rascunho não é público: nenhum caminho dele.
+    const expected = ["/ada"];
+    for (const root of ["calculo", "analise"]) {
+      expected.push(`/ada/${root}`, `/ada/${root}/limites`, `/ada/${root}/integrais`, `/ada/${root}/integrais/por-partes`);
+    }
+    expect(pages()).toEqual(expected.sort());
+    noLayout();
+  });
+
+  it("despublicar uma coleção revalida os descendentes que saem do ar (RN15, RN16)", async () => {
+    const parent = await collection("calculo");
+    await document("limites", { parentId: parent.id });
+    vi.mocked(revalidatePath).mockClear();
+
+    await update(parent.id, { status: "DRAFT" });
+
+    expect(pages()).toEqual(["/ada", "/ada/calculo", "/ada/calculo/limites"]);
+  });
+
+  it("mover para outro pai revalida o caminho antigo e o novo, e põe o nó no fim do nível", async () => {
     const a = await collection("a");
     const b = await collection("b");
     await document("existente", { parentId: b.id });
@@ -301,7 +390,10 @@ describe("PATCH /api/contents/:id", () => {
     const response = await update(doc.id, { parentId: b.id });
 
     expect((await response.json()).data).toMatchObject({ parentId: b.id, order: 1 });
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    // O nó movido, antes e depois, e as duas coleções (a que perdeu e a que ganhou o documento);
+    // o irmão "existente" não mudou de caminho.
+    expect(pages()).toEqual(["/ada", "/ada/a", "/ada/a/movido", "/ada/b", "/ada/b/movido"]);
+    noLayout();
   });
 
   it("CT10: mover um nó para dentro de um descendente responde 422 CYCLE_DETECTED", async () => {
@@ -387,7 +479,7 @@ describe("PATCH /api/contents/:id", () => {
 });
 
 describe("DELETE /api/contents/:id", () => {
-  it("exclui o nó e os descendentes, responde 204 e revalida o layout raiz (RN07)", async () => {
+  it("exclui o nó e os descendentes, responde 204 e revalida os caminhos que saem do ar (RN07, RN10)", async () => {
     const parent = await collection("calculo");
     const child = await collection("integrais", { parentId: parent.id });
     await document("por-partes", { parentId: child.id });
@@ -399,7 +491,11 @@ describe("DELETE /api/contents/:id", () => {
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
     expect((await prisma.content.findMany()).map((row) => row.slug)).toEqual(["sobre"]);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(pages()).toEqual(
+      ["/ada", "/ada/calculo", "/ada/calculo/integrais", "/ada/calculo/integrais/por-partes"].sort(),
+    );
+    expect(portalCalls()).toEqual([["/", "page"]]); // uma raiz saiu do diretório
+    noLayout();
   });
 
   it("identificador inexistente responde 404 e não revalida", async () => {
@@ -412,7 +508,7 @@ describe("DELETE /api/contents/:id", () => {
 });
 
 describe("PATCH /api/contents/reorder", () => {
-  it("persiste a nova ordem, devolve a árvore atualizada e revalida o layout raiz", async () => {
+  it("persiste a nova ordem, devolve a árvore atualizada e revalida o espaço do dono, sem o layout", async () => {
     const a = await document("a");
     const b = await document("b");
     const c = await document("c");
@@ -426,7 +522,9 @@ describe("PATCH /api/contents/reorder", () => {
 
     expect(response.status).toBe(200);
     expect((await response.json()).data.map((node) => node.slug)).toEqual(["c", "a", "b"]);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(pages()).toEqual(["/ada", "/ada/a", "/ada/b", "/ada/c"]);
+    expect(portalCalls()).toEqual([]); // ninguém entrou na raiz nem saiu dela
+    noLayout();
   });
 
   it("move um item para outra coleção", async () => {
