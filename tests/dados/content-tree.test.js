@@ -1,6 +1,6 @@
 // Unidade: montagem da árvore, poda por estado e resolução de caminho (sem banco).
 import { describe, expect, it } from "vitest";
-import { buildTree, resolvePath, wouldCreateCycle } from "@/lib/content-tree";
+import { buildTree, collectPublicPaths, resolvePath, wouldCreateCycle } from "@/lib/content-tree";
 
 let seq = 0;
 /** @param {Record<string, unknown>} fields */
@@ -158,5 +158,50 @@ describe("wouldCreateCycle (RN06)", () => {
     expect(wouldCreateCycle(parentOf, "c", null)).toBe(false);
     expect(wouldCreateCycle(parentOf, "c", "a")).toBe(false);
     expect(wouldCreateCycle(parentOf, "c", "d")).toBe(false);
+  });
+});
+
+describe("collectPublicPaths (ADR-030, RN04, RN15)", () => {
+  const rows = [
+    row({ id: "g", slug: "guia", order: 0 }),
+    row({ id: "i", slug: "intro", parentId: "g", order: 1 }),
+    row({ id: "d", slug: "detalhe", parentId: "i", type: "DOCUMENT" }),
+    row({ id: "a", slug: "anexo", parentId: "g", order: 0, type: "DOCUMENT" }),
+    row({ id: "r", slug: "rascunho", parentId: "g", order: 2, status: "DRAFT" }),
+    row({ id: "f", slug: "filho", parentId: "r", type: "DOCUMENT" }),
+    row({ id: "o", slug: "outra", order: 1 }),
+  ];
+  const published = () => buildTree(/** @type {any} */ (rows), { onlyPublished: true });
+
+  it("sem nó, percorre a floresta em pré-ordem, na ordem dos irmãos", () => {
+    expect(collectPublicPaths(published())).toEqual([
+      ["guia"],
+      ["guia", "anexo"],
+      ["guia", "intro"],
+      ["guia", "intro", "detalhe"],
+      ["outra"],
+    ]);
+  });
+
+  it("com nó, devolve o dele e os descendentes, com a cadeia desde a raiz", () => {
+    expect(collectPublicPaths(published(), "i")).toEqual([["guia", "intro"], ["guia", "intro", "detalhe"]]);
+    expect(collectPublicPaths(published(), "d")).toEqual([["guia", "intro", "detalhe"]]);
+    expect(collectPublicPaths(published(), "o")).toEqual([["outra"]]);
+  });
+
+  it("um nó fora da floresta podada (rascunho, filho de rascunho, inexistente) não tem caminho", () => {
+    expect(collectPublicPaths(published(), "r")).toEqual([]);
+    expect(collectPublicPaths(published(), "f")).toEqual([]);
+    expect(collectPublicPaths(published(), "fantasma")).toEqual([]);
+  });
+
+  it("floresta vazia não tem caminhos, e as entradas não são alteradas", () => {
+    const roots = published();
+    const copia = JSON.stringify(roots);
+
+    expect(collectPublicPaths([])).toEqual([]);
+    expect(collectPublicPaths([], "x")).toEqual([]);
+    collectPublicPaths(roots, "g");
+    expect(JSON.stringify(roots)).toBe(copia);
   });
 });
