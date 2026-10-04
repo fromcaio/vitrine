@@ -225,18 +225,22 @@ describe("senha provisória bloqueia tudo, menos a troca e o perfil (CT40; RN21)
   });
 
   it("qualquer outra rota responde 403 PASSWORD_CHANGE_REQUIRED, antes do recurso e do corpo", async () => {
-    const attempts = [
+    const blocked = [
       await updateMe({ name: "Nova" }, carla.cookie),
-      await detail(carla.id, carla.cookie).catch(() => null),
-      await usersRoute.GET(apiRequest("/api/users", { cookie: carla.cookie })),
-      await usersRoute.POST(apiRequest("/api/users", { method: "POST", body: "lixo", cookie: carla.cookie })),
+      await list(carla.cookie),
+      await create("corpo que nem é JSON", carla.cookie),
+      await patch(beto.id, { name: "x" }, carla.cookie),
+      await ban(beto.id, { reason: "x" }, carla.cookie),
+      await resetPassword(beto.id, {}, carla.cookie),
+      await remove(beto.id, "", carla.cookie),
+      await remove("nao-existe", "", carla.cookie),
     ];
-    for (const response of attempts.filter(Boolean)) {
-      // detail do próprio id é permitido (users:read); as demais são bloqueadas
-      if (response === attempts[1]) continue;
+    for (const response of blocked) {
       expect(response.status).toBe(403);
       expect((await errorOf(response)).code).toBe("PASSWORD_CHANGE_REQUIRED");
     }
+    // ler o próprio registro é leitura de perfil (users:read), que a senha provisória permite
+    expect((await detail(carla.id, carla.cookie)).status).toBe(200);
   });
 
   it("a troca recusa a senha igual à atual, revoga as outras sessões e libera as demais rotas", async () => {
