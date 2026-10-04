@@ -311,11 +311,15 @@ describe("db.js: notificações", () => {
     });
 
     it("a 1001.ª é criada (nunca bloqueada) e sai uma: a de contraste lida ou resolvida mais antiga", async () => {
+      // As candidatas são mais NOVAS que as não lidas: a mais antiga de todas é não lida e, mesmo assim,
+      // a que sai é a de contraste lida ou resolvida mais antiga (a ordem é por estágio, não só por idade).
       await seedMany([
-        { type: "CONTRAST", dedupeKey: "contrast:dark", resolvedAt: minute(2), createdAt: minute(1), updatedAt: minute(1) },
-        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(4), createdAt: minute(3), updatedAt: minute(3) },
         ...unread(998),
+        { type: "CONTRAST", dedupeKey: "contrast:dark", resolvedAt: minute(2001), createdAt: minute(1001), updatedAt: minute(1001) },
+        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(2003), createdAt: minute(1003), updatedAt: minute(1003) },
       ]);
+      const maisAntigaDeTodas = await prisma.notification.findFirstOrThrow({ where: { userId: ana }, orderBy: [{ updatedAt: "asc" }, { id: "asc" }] });
+      expect(maisAntigaDeTodas.type).toBe("MODERATION");
 
       const nova = await notify({ userId: ana, type: "MODERATION", data: { motivo: "nova" } }, { now: LATER });
 
@@ -323,15 +327,18 @@ describe("db.js: notificações", () => {
       expect(await prisma.notification.count({ where: { id: nova.id } })).toBe(1);
       expect(await prisma.notification.count({ where: { dedupeKey: "contrast:dark" } })).toBe(0); // a mais antiga saiu
       expect(await prisma.notification.count({ where: { dedupeKey: "contrast:light" } })).toBe(1);
+      expect(await prisma.notification.count({ where: { id: maisAntigaDeTodas.id } })).toBe(1); // a não lida mais antiga ficou
       expect(await prisma.notification.count({ where: { userId: ana, type: "MODERATION", readAt: null } })).toBe(999);
     });
 
     it("a ordem completa: contraste lida/resolvida, depois moderação e conta já lidas, depois a mais antiga não lida", async () => {
+      // As três candidatas (contraste resolvida, moderação lida, conta lida) são mais novas que todas as
+      // não lidas, para que a ordem dos estágios, e não a idade, decida quem sai primeiro.
       await seedMany([
-        { type: "CONTRAST", dedupeKey: "contrast:dark", resolvedAt: minute(2), createdAt: minute(1), updatedAt: minute(1) },
-        { type: "MODERATION", readAt: minute(4), createdAt: minute(3), updatedAt: minute(3) },
-        { type: "ACCOUNT", readAt: minute(6), createdAt: minute(5), updatedAt: minute(5) },
-        ...unread(997, 20),
+        ...unread(997, 10),
+        { type: "CONTRAST", dedupeKey: "contrast:dark", resolvedAt: minute(1502), createdAt: minute(1501), updatedAt: minute(1501) },
+        { type: "MODERATION", readAt: minute(1504), createdAt: minute(1503), updatedAt: minute(1503) },
+        { type: "ACCOUNT", readAt: minute(1506), createdAt: minute(1505), updatedAt: minute(1505) },
       ]);
       const restantes = async () => ({
         contraste: await prisma.notification.count({ where: { userId: ana, type: "CONTRAST" } }),
@@ -361,9 +368,9 @@ describe("db.js: notificações", () => {
 
     it("nenhuma moderação ou conta não lida é removida enquanto houver outra candidata", async () => {
       await seedMany([
-        { type: "MODERATION", readAt: minute(2), createdAt: minute(1), updatedAt: minute(1) },
-        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(4), createdAt: minute(3), updatedAt: minute(3) },
         ...unread(998, 5),
+        { type: "MODERATION", readAt: minute(1502), createdAt: minute(1501), updatedAt: minute(1501) },
+        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(1504), createdAt: minute(1503), updatedAt: minute(1503) },
       ]);
       const naoLidasAntes = await prisma.notification.findMany({ where: { userId: ana, readAt: null }, select: { id: true } });
 
@@ -377,10 +384,10 @@ describe("db.js: notificações", () => {
 
     it("passando do teto por mais de uma, remove quantas forem necessárias, na mesma ordem", async () => {
       await seedMany([
-        { type: "CONTRAST", dedupeKey: "contrast:dark", readAt: minute(2), createdAt: minute(1), updatedAt: minute(1) },
-        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(4), createdAt: minute(3), updatedAt: minute(3) },
-        { type: "MODERATION", readAt: minute(6), createdAt: minute(5), updatedAt: minute(5) },
         ...unread(999, 20),
+        { type: "CONTRAST", dedupeKey: "contrast:dark", readAt: minute(1502), createdAt: minute(1501), updatedAt: minute(1501) },
+        { type: "CONTRAST", dedupeKey: "contrast:light", readAt: minute(1504), createdAt: minute(1503), updatedAt: minute(1503) },
+        { type: "MODERATION", readAt: minute(1506), createdAt: minute(1505), updatedAt: minute(1505) },
       ]); // 1002 linhas: três acima do teto depois da criação
 
       await notify({ userId: ana, type: "ACCOUNT" }, { now: minute(5000) });
@@ -388,6 +395,15 @@ describe("db.js: notificações", () => {
       expect(await prisma.notification.count({ where: { userId: ana } })).toBe(1000);
       expect(await prisma.notification.count({ where: { userId: ana, type: "CONTRAST" } })).toBe(0);
       expect(await prisma.notification.count({ where: { userId: ana, readAt: { not: null } } })).toBe(0);
+    });
+
+    it("a notificação recém-criada nunca é a removida, mesmo que seja a mais antiga (relógio atrasado)", async () => {
+      await seedMany(unread(1000, 5000)); // todas não lidas e "do futuro" em relação ao `now` abaixo
+
+      const nova = await notify({ userId: ana, type: "ACCOUNT", data: { id: "nova" } }, { now: minute(1) });
+
+      expect(await prisma.notification.count({ where: { userId: ana } })).toBe(1000);
+      expect(await prisma.notification.count({ where: { id: nova.id } })).toBe(1); // criada e mantida
     });
 
     it("o teto é por usuário: as de outro usuário não entram na conta nem são removidas", async () => {

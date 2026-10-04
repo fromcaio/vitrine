@@ -2,10 +2,14 @@
 // DATABASE_URL para o banco temporário deste arquivo).
 import { prisma } from "@/lib/db";
 
-/** Remove todos os conteúdos e usuários, mantendo o schema (isolamento entre testes). */
+/**
+ * Remove todos os conteúdos e usuários, mantendo o schema (isolamento entre testes). Sessões, contas,
+ * aparências e notificações saem pela cascata do usuário; a verificação não tem chave estrangeira.
+ */
 export async function resetDatabase() {
   await prisma.content.deleteMany();
   await prisma.configuration.deleteMany();
+  await prisma.verification.deleteMany();
   await prisma.user.deleteMany();
 }
 
