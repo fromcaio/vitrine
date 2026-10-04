@@ -272,33 +272,23 @@ async function nextOrder(db, ownerId, parentId) {
 }
 
 /**
- * O dono, quando informado, é um texto não vazio.
- * @param {unknown} ownerId
- */
-function assertOptionalOwner(ownerId) {
-  if (ownerId !== undefined) assertNonEmptyString(ownerId, "ownerId");
-}
-
-/**
  * Árvore de conteúdos de **um dono**, sem o corpo (uma única consulta; índice
  * `(authorId, parentId, order)`).
  * - `onlyPublished: true` (leitura pública, RN15): remove todo nó DRAFT e a sua subárvore.
  * - `onlyPublished: false` (painel): devolve tudo, com o `status` de cada nó (RF26).
  *
- * Transitório (M15 → A-014): sem `ownerId`, devolve as árvores de todos os donos, como antes do
- * M15, porque as rotas do Core ainda não passam o dono. A A-014 passa o dono em toda chamada e o
- * parâmetro passa a ser obrigatório; enquanto isso, a trava da ADR-023 (nenhuma conta além do
- * administrador) impede que haja dois donos.
- * @param {{ ownerId?: string, onlyPublished?: boolean }} [options]
+ * O `ownerId` é obrigatório (`INVALID_INPUT` se faltar ou vier vazio): não há leitura da árvore
+ * de todos os donos (A-016).
+ * @param {{ ownerId: string, onlyPublished?: boolean }} options
  * @returns {Promise<import("@/lib/content-tree").ContentNode[]>}
  */
-export async function getContentTree({ ownerId, onlyPublished = false } = {}) {
-  assertOptionalOwner(ownerId);
+export async function getContentTree({ ownerId, onlyPublished = false } = /** @type {any} */ ({})) {
+  assertNonEmptyString(ownerId, "ownerId");
   // Filtrar no banco é equivalente à poda: um publicado cujo ancestral é rascunho fica órfão
   // e buildTree descarta órfãos.
   const rows = await prisma.content.findMany({
     where: {
-      ...(ownerId === undefined ? {} : { authorId: ownerId }),
+      authorId: ownerId,
       ...(onlyPublished ? { status: "PUBLISHED" } : {}),
     },
     select: TREE_SELECT,
@@ -529,19 +519,18 @@ export async function deleteContent(id) {
  * pai existente, do mesmo dono e COLLECTION (RN02, RN13), sem ciclo (RN06), ordem inteira não
  * negativa (RN05) e slug único no destino (RN03). `parentId` omitido mantém o pai atual.
  *
- * Com `ownerId`, só os conteúdos desse dono são visíveis ao lote: um item que não é dele responde
- * `NOT_FOUND`, como se não existisse. Sem `ownerId` (transitório, como em `getContentTree`), o lote
- * não é restrito a um dono, mas um pai de dono diferente do item continua recusado.
+ * O `ownerId` é obrigatório (`INVALID_INPUT` se faltar): só os conteúdos desse dono são visíveis
+ * ao lote, e um item que não é dele responde `NOT_FOUND`, como se não existisse.
  * @param {Array<{ id: string, parentId?: string | null, order: number }>} items
- * @param {{ ownerId?: string }} [options]
+ * @param {{ ownerId: string }} options
  * @returns {Promise<Array<{ id: string, parentId: string | null, order: number }>>}
  * @throws {DataError}
  */
-export async function reorderContents(items, { ownerId } = {}) {
+export async function reorderContents(items, { ownerId } = /** @type {any} */ ({})) {
   if (!Array.isArray(items)) {
     throw new DataError("INVALID_INPUT", "O lote deve ser uma lista.", { field: "items" });
   }
-  assertOptionalOwner(ownerId);
+  assertNonEmptyString(ownerId, "ownerId");
   const ids = items.map((item) => item?.id);
   if (new Set(ids).size !== ids.length) {
     throw new DataError("INVALID_INPUT", "O lote contém ids repetidos.", { field: "items" });
@@ -555,7 +544,7 @@ export async function reorderContents(items, { ownerId } = {}) {
   return guarded(() =>
     prisma.$transaction(async (tx) => {
       const rows = await tx.content.findMany({
-        where: ownerId === undefined ? undefined : { authorId: ownerId },
+        where: { authorId: ownerId },
         select: { id: true, type: true, parentId: true, authorId: true },
       });
       const byId = new Map(rows.map((row) => [row.id, row]));

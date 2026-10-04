@@ -102,13 +102,13 @@ describe("db.js: conteúdo por dono", () => {
       expect(completa[0].children[0].children.map((c) => c.slug)).toEqual(["filho"]);
     });
 
-    it("transitório: sem ownerId, getContentTree devolve as árvores de todos os donos", async () => {
+    it("ownerId é obrigatório: sem dono (ou sem opções), getContentTree lança INVALID_INPUT (A-016)", async () => {
       await make(ana, "a");
       await make(bia, "b");
 
-      const tudo = await getContentTree();
-
-      expect(tudo.map((n) => n.slug).sort()).toEqual(["a", "b"]);
+      expect((await failure(getContentTree(/** @type {any} */ ({})))).code).toBe("INVALID_INPUT");
+      expect((await failure(getContentTree(/** @type {any} */ ({ onlyPublished: true })))).code).toBe("INVALID_INPUT");
+      expect((await failure(getContentTree(/** @type {any} */ (undefined)))).code).toBe("INVALID_INPUT");
     });
   });
 
@@ -345,13 +345,16 @@ describe("db.js: conteúdo por dono", () => {
       expect(fantasma.code).toBe("PARENT_NOT_FOUND");
     });
 
-    it("sem ownerId (transitório), um pai de dono diferente do item continua recusado", async () => {
-      const minha = await make(ana, "minha");
-      const dela = await make(bia, "dela");
+    it("ownerId é obrigatório: sem dono, reorderContents lança INVALID_INPUT e nada muda (A-016)", async () => {
+      const a = await make(ana, "a");
+      const b = await make(ana, "b");
+      const lote = [{ id: a.id, order: 5 }];
 
-      const error = await failure(reorderContents([{ id: minha.id, parentId: dela.id, order: 0 }]));
-
-      expect(error.code).toBe("OWNER_MISMATCH");
+      expect((await failure(reorderContents(lote, /** @type {any} */ ({})))).code).toBe("INVALID_INPUT");
+      expect((await failure(reorderContents(lote, /** @type {any} */ (undefined)))).code).toBe("INVALID_INPUT");
+      expect((await failure(reorderContents(lote, { ownerId: "" }))).code).toBe("INVALID_INPUT");
+      expect((await failure(reorderContents([], /** @type {any} */ ({})))).code).toBe("INVALID_INPUT");
+      expect((await getContentTree({ ownerId: ana })).map((n) => [n.id, n.order])).toEqual([[a.id, 0], [b.id, 1]]);
     });
 
     it("mover dentro do dono segue valendo (RN02, RN06)", async () => {
