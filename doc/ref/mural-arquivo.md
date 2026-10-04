@@ -394,3 +394,26 @@ Se um valor padrão da ADR-017, uma regra aprovada ou o contrato da ADR-018 se m
 **Ordem agora (todas independentes, arquivos diferentes):** A-014 Parte 2 (Core, `src/app/api/**` e `revalidate.js`), A-015 etapa 1 (UI, `src/components/**`, `globals.css`, `theme.js`) e A-016 (Dados, `db.js`). A Parte 3 do Core espera a Parte 2 e a etapa 1 da UI.
 
 **Status:** DECIDIDO. M-013 saiu do mural; A-014 Parte 1 atendida.
+
+---
+
+## M-014 e A-016 (atendidos em 2026-10-04; merge `e0f0436`) — texto original
+
+### A-016 · [TAREFA] Arquiteto → @Dados · 2026-10-04 · ABERTO (pequena) — tornar `ownerId` obrigatório (P-014)
+
+Condição do P-014 cumprida: o M-013 está na `main` e todas as chamadas em `src/` já passam o dono (`contents/route.js`, `contents/[id]/route.js`, `contents/reorder/route.js`, `_lib/contents.js`). **Tarefa:** em `src/lib/db.js`, `getContentTree({ ownerId, onlyPublished })` e `reorderContents(items, { ownerId })` passam a exigir `ownerId` (`INVALID_INPUT` se faltar), sem a ramificação "todos os donos"; atualize os testes do Dados que ainda chamam sem dono e acrescente o teste da recusa. **Primeiro passo (modo local):** `git worktree add ../vitrine-dados -b feat/dados-owner-obrigatorio main`, `npm ci`, `cp .env.example .env` (valores fictícios) e `npx prisma generate`; sem *push*. **Fora do escopo:** qualquer outra mudança de dados. **Verificação:** `lint`, `build`, `npm test` (e confira com `grep -rn "getContentTree\|reorderContents" src` que nenhuma chamada deixou de passar o dono) e as mutações do teste novo; pedido de merge no modelo de `DESENVOLVEDORES.md` §4. Não toca `src/app/**`: pode andar em paralelo com a Parte 2 do Core e com a etapa 1 da UI.
+
+**Status:** **ABERTO** (2026-10-04).
+
+---
+
+### M-014 · [MERGE] Dados → @Arquiteto · 2026-10-04 · branch `feat/dados-owner-obrigatorio` (SHA `4907ce6`)
+- **Módulo(s) / IDs:** A-016 (P-014) · RN13, RN15
+- **Resumo:** em `src/lib/db.js`, `getContentTree({ ownerId, onlyPublished })` e `reorderContents(items, { ownerId })` passam a exigir `ownerId` (`INVALID_INPUT` se faltar ou vier vazio); some a ramificação "todos os donos" e o auxiliar `assertOptionalOwner`. Testes do Dados atualizados (`db-content.test.js` passa o dono; `db-content-owner.test.js` troca os dois testes "transitório" pelos da recusa). Nada além de `db.js` e dos testes do Dados.
+- **Seções da documentação consultadas:** A-016 (mural); nenhuma seção do LaTeX.
+- **Mudanças que exigem atualizar a documentação:** schema (nenhuma), rotas (nenhuma), dependências (nenhuma), variáveis de ambiente (nenhuma). Se o Cap. 5 §5.5 ou o Apêndice A ainda descrevem o `ownerId` como opcional/transitório nessas duas funções, atualizar.
+- **Desvios da especificação:** nenhum.
+- **Verificação:** `grep -rn "getContentTree\|reorderContents" src` → as 5 chamadas de `src/app/**` e `_lib/contents.js` já passam o dono · `npm run lint` ok · `npm run build` ok (com `DATABASE_URL` fictícia na linha de comando: o `.env.example` a traz vazia e o build falha sem ela, o que não vem desta mudança) · `npm test`: 1583 testes ok (223 do Dados) · mutações: aplicadas 3, detectadas 3 (sem a recusa em `getContentTree` com a ramificação "todos os donos"; sem a recusa em `reorderContents` com a ramificação; recusa de `reorderContents` só para dono vazio).
+- **Evidências:** saída dos testes; diff pequeno (3 arquivos).
+
+**Status:** ATENDIDO. Merge `e0f0436` (`ownerId` obrigatório em `getContentTree` e `reorderContents`); o Arquiteto reexecutou os testes do Dados (223) e do Core (873), `lint` e `build`, e aplicou 3 mutações (3 detectadas).
