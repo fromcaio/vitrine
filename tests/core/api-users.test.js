@@ -14,7 +14,7 @@ import * as meRoute from "@/app/api/users/me/route";
 import * as mePasswordRoute from "@/app/api/users/me/password/route";
 import * as usersRoute from "@/app/api/users/route";
 import { RATE_LIMITS } from "@/app/api/_lib/rate-limit";
-import { getSession } from "@/lib/auth";
+import { auth, getSession } from "@/lib/auth";
 import { createContent, prisma } from "@/lib/db";
 import { apiRequest, createAdminSession, createTestUser, createUserSession, resetDatabase, routeContext, signIn } from "./helpers";
 
@@ -148,6 +148,33 @@ describe("POST /api/users: só o administrador cria contas (CT06)", () => {
       details: [{ field: "handle" }],
     });
     expect(await prisma.user.count()).toBe(3);
+  });
+
+  it("a pré-verificação do handle recusa ANTES de tentar criar (inclusive o de conta suspensa)", async () => {
+    const createUser = vi.spyOn(auth.api, "createUser");
+    await prisma.user.update({ where: { id: beto.id }, data: { banned: true, banReason: "x" } });
+
+    expect((await create({ email: "y@exemplo.test", name: "Y", handle: "beto" })).status).toBe(409);
+    expect((await create({ email: "z@exemplo.test", name: "Z", handle: "ana" })).status).toBe(409);
+
+    expect(createUser).not.toHaveBeenCalled();
+    createUser.mockRestore();
+  });
+
+  it("uma corrida: o handle livre na pré-verificação e tomado na criação ainda responde 409 USER_CONFLICT", async () => {
+    // A pré-verificação não vê o handle (simulada com um spy que cria a conta concorrente no meio)
+    const real = auth.api.createUser.bind(auth.api);
+    const createUser = vi.spyOn(auth.api, "createUser").mockImplementationOnce(async (...args) => {
+      await createTestUser({ email: "concorrente@exemplo.test", handle: "corrida" });
+      return real(...args);
+    });
+
+    const response = await create({ email: "novo@exemplo.test", name: "Novo", handle: "corrida" });
+
+    expect(response.status).toBe(409);
+    expect(await errorOf(response)).toMatchObject({ code: "USER_CONFLICT", details: [{ field: "handle" }] });
+    expect(await prisma.user.findUnique({ where: { email: "novo@exemplo.test" } })).toBeNull();
+    createUser.mockRestore();
   });
 
   it("handle reservado, inválido ou normalizável: 422 ou normalizado", async () => {
@@ -472,12 +499,18 @@ describe("POST/DELETE /api/users/:id/ban: suspensão (CT41; RN23)", () => {
 
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ id: ana.id, suspended: true, banReason: "Spam repetido" });
+    // o prazo é gravado no banco (e não só ecoado na resposta e na notificação)
+    expect((await row(ana.id)).banExpires?.toISOString()).toBe(expiresAt);
+    expect(new Date(data.banExpires).toISOString()).toBe(expiresAt);
     expect(await getSession(new Headers({ cookie: ana.cookie }))).toBeNull();
     expect(await prisma.session.count({ where: { userId: ana.id } })).toBe(0);
 
     const login = await signIn({ email: ana.email, password: ana.password });
     expect(login.response.status).toBe(403);
-    expect(await login.response.json()).toMatchObject({ code: "BANNED_USER", message: expect.stringContaining("Motivo: Spam repetido") });
+    expect(await login.response.json()).toMatchObject({
+      code: "BANNED_USER",
+      message: expect.stringMatching(/Motivo: Spam repetido.*A suspensão vai até /),
+    });
 
     const [notification] = await prisma.notification.findMany({ where: { userId: ana.id } });
     expect(notification).toMatchObject({ type: "MODERATION" });
@@ -516,6 +549,17 @@ describe("POST/DELETE /api/users/:id/ban: suspensão (CT41; RN23)", () => {
     expect(response.status).toBe(409);
     expect((await errorOf(response)).code).toBe("LAST_ADMIN");
     expect((await row(admin.userId)).banned).toBe(false);
+  });
+
+  it("ninguém suspende a si mesmo, nem havendo outro administrador ativo: 409 e a sessão continua", async () => {
+    const second = await createUserSession({ email: "admin2@exemplo.test", role: "admin" });
+
+    const response = await ban(second.id, { reason: "x" }, second.cookie);
+
+    expect(response.status).toBe(409);
+    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect((await row(second.id)).banned).toBe(false);
+    expect(await getSession(new Headers({ cookie: second.cookie }))).not.toBeNull();
   });
 
   it("um administrador suspende o outro quando há mais de um ativo", async () => {
@@ -628,6 +672,16 @@ describe("DELETE /api/users/:id: exclusão atômica (CT42; RN24)", () => {
     expect(response.status).toBe(409);
     expect((await errorOf(response)).code).toBe("LAST_ADMIN");
     expect(await prisma.user.findUnique({ where: { id: admin.userId } })).not.toBeNull();
+  });
+
+  it("ninguém exclui a si mesmo, nem havendo outro administrador ativo: 409 e a conta continua", async () => {
+    const second = await createUserSession({ email: "admin2@exemplo.test", role: "admin" });
+
+    const response = await remove(second.id, "", second.cookie);
+
+    expect(response.status).toBe(409);
+    expect((await errorOf(response)).code).toBe("LAST_ADMIN");
+    expect(await prisma.user.findUnique({ where: { id: second.id } })).not.toBeNull();
   });
 
   it("um administrador exclui o outro quando há mais de um ativo", async () => {

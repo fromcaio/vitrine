@@ -307,6 +307,42 @@ describe("leitura do corpo com limite (RN25; 413 antes de ler)", () => {
     expect(error.details).toEqual([{ field: "body", max: 50 }]);
   });
 
+  it("com o Content-Length acima do limite, nenhum pedaço do fluxo é puxado (recusa ANTES de ler)", async () => {
+    let pulled = 0;
+    // highWaterMark 0: o fluxo só é puxado por quem lê
+    const stream = new ReadableStream(
+      {
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new TextEncoder().encode("x".repeat(40)));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const error = await readJson(post(stream, { "content-length": "999999" }), { maxBytes: 100 }).catch((e) => e);
+
+    expect(error).toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    expect(pulled).toBe(0);
+  });
+
+  it("sem o Content-Length, o fluxo é puxado até passar do limite e para (não lê o resto)", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream(
+      {
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new TextEncoder().encode("x".repeat(40)));
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const error = await readJson(post(stream), { maxBytes: 100 }).catch((e) => e);
+
+    expect(error).toMatchObject({ status: 413 });
+    expect(pulled).toBeGreaterThanOrEqual(3); // 40 + 40 + 40 > 100
+    expect(pulled).toBeLessThan(6);
+  });
+
   it("recusa com 413 o corpo em fluxo sem Content-Length que passa do limite, cortando a leitura", async () => {
     let pulled = 0;
     const stream = new ReadableStream({
