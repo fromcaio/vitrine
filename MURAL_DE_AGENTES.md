@@ -78,7 +78,14 @@ Condição do P-014 cumprida: o M-013 está na `main` e todas as chamadas em `sr
 
 ## Solicitações de merge
 
-*(nenhum pedido aberto)*
+### M-014 · [MERGE] Dados → @Arquiteto · 2026-10-04 · branch `feat/dados-owner-obrigatorio` (SHA `4907ce6`)
+- **Módulo(s) / IDs:** A-016 (P-014) · RN13, RN15
+- **Resumo:** em `src/lib/db.js`, `getContentTree({ ownerId, onlyPublished })` e `reorderContents(items, { ownerId })` passam a exigir `ownerId` (`INVALID_INPUT` se faltar ou vier vazio); some a ramificação "todos os donos" e o auxiliar `assertOptionalOwner`. Testes do Dados atualizados (`db-content.test.js` passa o dono; `db-content-owner.test.js` troca os dois testes "transitório" pelos da recusa). Nada além de `db.js` e dos testes do Dados.
+- **Seções da documentação consultadas:** A-016 (mural); nenhuma seção do LaTeX.
+- **Mudanças que exigem atualizar a documentação:** schema (nenhuma), rotas (nenhuma), dependências (nenhuma), variáveis de ambiente (nenhuma). Se o Cap. 5 §5.5 ou o Apêndice A ainda descrevem o `ownerId` como opcional/transitório nessas duas funções, atualizar.
+- **Desvios da especificação:** nenhum.
+- **Verificação:** `grep -rn "getContentTree\|reorderContents" src` → as 5 chamadas de `src/app/**` e `_lib/contents.js` já passam o dono · `npm run lint` ok · `npm run build` ok (com `DATABASE_URL` fictícia na linha de comando: o `.env.example` a traz vazia e o build falha sem ela, o que não vem desta mudança) · `npm test`: 1583 testes ok (223 do Dados) · mutações: aplicadas 3, detectadas 3 (sem a recusa em `getContentTree` com a ramificação "todos os donos"; sem a recusa em `reorderContents` com a ramificação; recusa de `reorderContents` só para dono vazio).
+- **Evidências:** saída dos testes; diff pequeno (3 arquivos).
 
 ## Pedidos entre domínios
 
