@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { RESERVED_HANDLES, handleError } from "@/lib/validators";
 import { projectRoot } from "../setup/prisma-cli.js";
 
+const MIGRATION = path.join(projectRoot, "prisma", "migrations", "20261004120000_multiusuario", "migration.sql");
+
 /**
  * Primeiros segmentos de URL de uma pasta de rotas do App Router. Pastas privadas (`_x`), de rotas
  * paralelas (`@x`) e dinâmicas (`[x]`) não são segmentos estáticos; grupos `(x)` não somam segmento,
@@ -47,6 +49,23 @@ describe("RN20: handles reservados e rotas estáticas", () => {
       if (handleError(candidate) === null) collisions.push(`${name} → um handle "${candidate}" seria válido e colidiria`);
     }
     expect(collisions).toEqual([]);
+  });
+
+  it("a migração do Dados só deriva handle de nomes que a lista do código reserva (pedido do M-012, item 7)", () => {
+    // A migração promove o usuário mais antigo e deriva o handle do e-mail, pulando os nomes do SQL
+    // `h NOT IN (...)`: um retrato da lista. Cada nome do retrato precisa estar na fonte única, para que
+    // a migração nunca grave um handle que o código recusaria.
+    const sql = fs.readFileSync(MIGRATION, "utf8");
+    const match = sql.match(/h NOT IN \(([^)]*)\)/);
+    expect(match, "a migração tem o NOT IN com os nomes reservados").not.toBeNull();
+    const snapshot = [...(match?.[1] ?? "").matchAll(/'([^']+)'/g)].map((item) => item[1]);
+
+    expect(snapshot.length).toBeGreaterThanOrEqual(4);
+    for (const name of snapshot) expect(RESERVED_HANDLES, `${name} está na migração`).toContain(name);
+    // e o contrário, ressalvando o que o GLOB do SQL já recusa: `_next` não casa com [a-z0-9-]
+    for (const name of RESERVED_HANDLES) {
+      if (/^[a-z0-9-]+$/.test(name)) expect(snapshot, `${name} falta na migração`).toContain(name);
+    }
   });
 
   it("as pastas de rota que existem hoje são todas reservadas (admin, api, login)", () => {
