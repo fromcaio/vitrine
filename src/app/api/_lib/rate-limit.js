@@ -12,6 +12,8 @@ export const RATE_LIMITS = Object.freeze({
   users: 20,
   /** Troca e redefinição de senha (derrubam sessões e fazem hash caro). */
   password: 5,
+  /** Notificações: marcar como lida e dispensar (o painel marca uma a uma, ao abrir). */
+  notifications: 60,
 });
 
 /** Duração da janela, em milissegundos. */
