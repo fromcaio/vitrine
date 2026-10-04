@@ -55,11 +55,11 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \addlinespace
 \arq{ADMIN_NAME} & Não & Nome de exibição do administrador; o padrão é \texttt{Administrador}\\
 \addlinespace
-\arq{ADMIN_HANDLE} & Não (alvo, M16) & \en{Handle} do administrador inicial (RN20), lido só pelo \texttt{admin:create}; sem ele, o administrador não tem espaço público até ter um \en{handle}\\
+\arq{ADMIN_HANDLE} & Não & \en{Handle} do administrador inicial (RN20), lido só pelo \texttt{admin:create}; sem ele, o administrador não tem espaço público até ter um \en{handle}\\
 \addlinespace
-\arq{MAX_CONTENTS_PER_USER} & Não (alvo, M16) & Máximo de conteúdos por usuário, em qualquer estado; padrão 500 (RN25)\\
+\arq{MAX_CONTENTS_PER_USER} & Não & Máximo de conteúdos por usuário, em qualquer estado; padrão 500 (RN25)\\
 \addlinespace
-\arq{MAX_BODY_BYTES} & Não (alvo, M16) & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 262144 (256~KiB); um corpo muito acima é recusado com 413 antes de ser lido (RN25)\\
+\arq{MAX_BODY_BYTES} & Não & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 262144 (256~KiB); um corpo muito acima é recusado com 413 antes de ser lido (RN25)\\
 \addlinespace
 \arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção (definida na imagem)\\
 \addlinespace
@@ -68,6 +68,8 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \end{tabularx}
 \fonte{Elaborado pelos autores. Os nomes das variáveis do better-auth foram confirmados na versão 1.7.6 (merge M-004): a biblioteca as lê sozinha. O \arq{.env.example} traz somente os nomes.}
 \end{table}
+
+\textbf{Redefinição de senha (M16).} Para recuperar uma conta, defina \arq{ADMIN_EMAIL} (a conta) e \arq{ADMIN_PASSWORD} (a nova senha, de 8 a 128 caracteres) e execute \texttt{docker compose run -{}-rm vitrine npm run admin:reset-password}: a senha é trocada, todas as sessões da conta são revogadas, a conta passa a exigir a troca no próximo acesso (RN21) e o usuário recebe a notificação de senha redefinida. Remova \arq{ADMIN_PASSWORD} do \arq{.env} depois.
 
 \section{Instalação}
 
@@ -100,7 +102,7 @@ docker compose up -d
 curl -sI http://127.0.0.1:3000/login | head -n 1     # HTTP/1.1 200 OK
 \end{lstlisting}
 
-O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (hoje há um único administrador, \decisao{D-13}; com o M16, o comando passa a criar mais um administrador, com \arq{ADMIN_HANDLE} opcional, e a recuperar o acesso quando não resta nenhum ativo, RN22) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
+O \texttt{admin:create} é idempotente: se o administrador já existe com o mesmo e-mail, nada é alterado (nem a senha) e a saída é 0; se já existe um usuário com outro e-mail, recusa-se a criar um segundo (com o M16, integrado no merge M-013, o comando cria o administrador com o papel \texttt{admin} e o \arq{ADMIN_HANDLE} opcional, e recupera o acesso quando não resta nenhum ativo, RN22; a recusa de um segundo usuário de outro e-mail deixou de existir) e sai com código 1; se faltar variável ou a senha tiver menos de 8 caracteres, explica o problema e sai com código 1, sem imprimir a senha. Prefira definir \arq{ADMIN_PASSWORD} no \arq{.env} (removendo-a depois) a passá-la com a opção \texttt{-e} na linha de comando, que fica no histórico do \en{shell}.
 
 \subsection{Arquivos de Implantação}\label{sec:impl-arquivos}
 
