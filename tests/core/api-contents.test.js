@@ -531,11 +531,17 @@ describe("PATCH /api/contents/reorder", () => {
     const parent = await collection("calculo");
     const doc = await document("limites");
 
+    vi.mocked(revalidatePath).mockClear();
+
     const response = await reorder([{ id: doc.id, parentId: parent.id, order: 0 }]);
 
     expect(response.status).toBe(200);
     const [root] = (await response.json()).data;
     expect(root.children.map((node) => node.slug)).toEqual(["limites"]);
+    // O caminho antigo (/ada/limites) e o novo (/ada/calculo/limites); a raiz saiu do diretório (RN28).
+    expect(pages()).toEqual(["/ada", "/ada/calculo", "/ada/calculo/limites", "/ada/limites"]);
+    expect(portalCalls()).toEqual([["/", "page"]]);
+    noLayout();
   });
 
   it("CT10: ciclo no lote responde 422 CYCLE_DETECTED e rejeita o lote inteiro", async () => {

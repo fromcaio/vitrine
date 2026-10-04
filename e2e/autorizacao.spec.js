@@ -97,7 +97,7 @@ test.describe.serial("autorização por dono", () => {
     expect((await (await ana.get("/api/users/me")).json()).data.mustChangePassword).toBe(false);
   });
 
-  test("cada dono só enxerga e altera o que é seu; o administrador lê, mas não escreve no alheio (CT04, CT39)", async () => {
+  test("cada dono só enxerga e altera o que é seu; o administrador lê e só escreve no alheio como moderação (CT04, CT39, CT51)", async () => {
     const created = await ana.post("/api/contents", { data: { title: "Da Ana", slug: "da-ana", type: "DOCUMENT", body: "texto", authorId: "outro" } });
     expect(created.status()).toBe(201);
     const content = (await created.json()).data;
@@ -106,10 +106,18 @@ test.describe.serial("autorização por dono", () => {
     // a árvore do administrador não traz o conteúdo da Ana, que ele só lê pelo identificador
     expect((await (await admin.get("/api/contents")).json()).data).toEqual([]);
     expect((await admin.get(`/api/contents/${content.id}`)).status()).toBe(200);
+    // moderação (RN19, RN26): sem o motivo, 422; mover e reordenar o alheio, 403; o usuário comum, 403
     const edit = await admin.patch(`/api/contents/${content.id}`, { data: { title: "Invadido" } });
-    expect(edit.status()).toBe(403);
-    expect((await edit.json()).error.code).toBe("FORBIDDEN");
-    expect((await admin.delete(`/api/contents/${content.id}`)).status()).toBe(403);
+    expect(edit.status()).toBe(422);
+    expect((await edit.json()).error.details[0].field).toBe("reason");
+    expect((await admin.delete(`/api/contents/${content.id}`)).status()).toBe(422);
+    expect((await admin.patch("/api/contents/reorder", { data: [{ id: content.id, order: 3 }] })).status()).toBe(403);
+    const move = await admin.patch(`/api/contents/${content.id}`, { data: { order: 3, reason: "arrumando" } });
+    expect(move.status()).toBe(403);
+    expect((await move.json()).error.code).toBe("FORBIDDEN");
+    // as recusas não geram notificação ao dono
+    const before = await (await ana.get("/api/notifications")).json();
+    expect(before.data.some((item) => item.type === "MODERATION")).toBe(false);
 
     // o usuário comum não alcança a gestão de contas nem a configuração do site
     expect((await ana.get("/api/users")).status()).toBe(403);
@@ -126,6 +134,30 @@ test.describe.serial("autorização por dono", () => {
 
     // a aparência é de quem a edita
     expect((await ana.put("/api/appearance", { data: { siteName: "Espaço da Ana" } })).status()).toBe(200);
+  });
+
+  test("o administrador modera o conteúdo alheio, com o motivo, e o dono é notificado em português (CT50, CT51)", async () => {
+    const created = await ana.post("/api/contents", { data: { title: "Para moderar", slug: "para-moderar", type: "DOCUMENT", body: "texto" } });
+    const content = (await created.json()).data;
+
+    const unpublished = await admin.patch(`/api/contents/${content.id}`, { data: { status: "DRAFT", reason: "Teste e2e de moderação" } });
+    expect(unpublished.status()).toBe(200);
+    expect((await unpublished.json()).data).toMatchObject({ status: "DRAFT", authorId: anaId });
+
+    const listed = await (await ana.get("/api/notifications?unread=1")).json();
+    expect(listed.unreadCount).toBeGreaterThanOrEqual(1);
+    expect(listed.data[0]).toMatchObject({ type: "MODERATION", title: "Conteúdo despublicado" });
+    expect(listed.data[0].text).toContain("Teste e2e de moderação");
+
+    // a notificação é só de quem a recebe: o administrador não vê a da Ana, e ela é dispensada pela dona
+    expect(((await (await admin.get("/api/notifications")).json()).data).some((item) => item.id === listed.data[0].id)).toBe(false);
+    expect((await admin.patch(`/api/notifications/${listed.data[0].id}`, { data: { read: true } })).status()).toBe(404);
+    expect((await ana.patch(`/api/notifications/${listed.data[0].id}`, { data: { dismissed: true } })).status()).toBe(200);
+
+    expect((await admin.delete(`/api/contents/${content.id}?reason=Teste%20e2e`)).status()).toBe(204);
+    expect((await (await ana.get("/api/notifications?unread=1")).json()).data[0]).toMatchObject({ title: "Conteúdo excluído" });
+    expect((await ana.post("/api/notifications/read-all")).status()).toBe(200);
+    expect((await (await ana.get("/api/notifications?unread=1")).json()).unreadCount).toBe(0);
   });
 
   test("suspender revoga a sessão, o login diz o motivo e reativar devolve o acesso (CT41)", async ({ playwright }) => {
@@ -146,11 +178,11 @@ test.describe.serial("autorização por dono", () => {
     await again.context.dispose();
   });
 
-  test("o último administrador não se rebaixa, não se suspende e não se exclui (CT42)", async () => {
+  test("o último administrador não se rebaixa (409), e ninguém se suspende nem se exclui (403) (CT42)", async () => {
     const me = (await (await admin.get("/api/users/me")).json()).data;
     expect((await admin.patch(`/api/users/${me.id}`, { data: { role: "user" } })).status()).toBe(409);
-    expect((await admin.post(`/api/users/${me.id}/ban`, { data: { reason: "x" } })).status()).toBe(409);
-    expect((await admin.delete(`/api/users/${me.id}`)).status()).toBe(409);
+    expect((await admin.post(`/api/users/${me.id}/ban`, { data: { reason: "x" } })).status()).toBe(403);
+    expect((await admin.delete(`/api/users/${me.id}`)).status()).toBe(403);
   });
 
   test("a mutação vinda de outro site é recusada com 401, mesmo com a sessão do administrador", async () => {
