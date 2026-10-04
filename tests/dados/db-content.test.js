@@ -143,7 +143,7 @@ describe("db.js: conteúdo", () => {
     it("não carrega o corpo e inclui o status de cada nó (RF26)", async () => {
       await make("a", { body: "texto longo" });
 
-      const [node] = await getContentTree();
+      const [node] = await getContentTree({ ownerId: authorId });
 
       expect(node).not.toHaveProperty("body");
       expect(node).toMatchObject({ slug: "a", status: "PUBLISHED" });
@@ -160,10 +160,10 @@ describe("db.js: conteúdo", () => {
       const slugs = (/** @type {any[]} */ nodes) =>
         nodes.flatMap((n) => [n.slug, ...slugs(n.children)]);
 
-      expect(slugs(await getContentTree())).toEqual(
+      expect(slugs(await getContentTree({ ownerId: authorId }))).toEqual(
         expect.arrayContaining(["pub", "doc", "doc-rasc", "rasc", "filho-publicado", "neto"]),
       );
-      expect(slugs(await getContentTree({ onlyPublished: true }))).toEqual(["pub", "doc"]);
+      expect(slugs(await getContentTree({ ownerId: authorId, onlyPublished: true }))).toEqual(["pub", "doc"]);
     });
   });
 
@@ -338,10 +338,10 @@ describe("db.js: conteúdo", () => {
         { id: c.id, parentId: null, order: 0 },
         { id: a.id, parentId: null, order: 1 },
         { id: b.id, parentId: null, order: 2 },
-      ]);
+      ], { ownerId: authorId });
 
       expect(result.map((r) => r.id)).toEqual([c.id, a.id, b.id]);
-      expect((await getContentTree()).map((n) => n.slug)).toEqual(["c", "a", "b"]);
+      expect((await getContentTree({ ownerId: authorId })).map((n) => n.slug)).toEqual(["c", "a", "b"]);
     });
 
     it("move entre pais e reordena no mesmo lote", async () => {
@@ -353,9 +353,9 @@ describe("db.js: conteúdo", () => {
       await reorderContents([
         { id: y.id, parentId: b.id, order: 0 },
         { id: x.id, parentId: a.id, order: 0 },
-      ]);
+      ], { ownerId: authorId });
 
-      const tree = await getContentTree();
+      const tree = await getContentTree({ ownerId: authorId });
       expect(tree.find((n) => n.slug === "a")?.children.map((n) => n.slug)).toEqual(["x"]);
       expect(tree.find((n) => n.slug === "b")?.children.map((n) => n.slug)).toEqual(["y"]);
     });
@@ -368,9 +368,9 @@ describe("db.js: conteúdo", () => {
       await reorderContents([
         { id: y.id, order: 0 },
         { id: x.id, order: 1 },
-      ]);
+      ], { ownerId: authorId });
 
-      expect((await getContentTree())[0].children.map((n) => n.slug)).toEqual(["y", "x"]);
+      expect((await getContentTree({ ownerId: authorId }))[0].children.map((n) => n.slug)).toEqual(["y", "x"]);
     });
 
     it("é transacional: uma falha no meio do lote desfaz tudo", async () => {
@@ -383,7 +383,7 @@ describe("db.js: conteúdo", () => {
           { id: a.id, parentId: null, order: 5 },
           { id: b.id, parentId: null, order: 6 },
           { id: c.id, parentId: "nao-existe", order: 7 },
-        ]),
+        ], { ownerId: authorId }),
       );
 
       expect(error.code).toBe("PARENT_NOT_FOUND");
@@ -398,7 +398,7 @@ describe("db.js: conteúdo", () => {
         reorderContents([
           { id: b.id, parentId: a.id, order: 0 }, // b passa a filho de a
           { id: a.id, parentId: b.id, order: 0 }, // a sob b fecharia o ciclo
-        ]),
+        ], { ownerId: authorId }),
       );
 
       expect(error.code).toBe("CYCLE");
@@ -409,7 +409,7 @@ describe("db.js: conteúdo", () => {
       const a = await make("a");
       const doc = await make("d", { type: "DOCUMENT" });
 
-      const error = await failure(reorderContents([{ id: a.id, parentId: doc.id, order: 0 }]));
+      const error = await failure(reorderContents([{ id: a.id, parentId: doc.id, order: 0 }], { ownerId: authorId }));
 
       expect(error.code).toBe("PARENT_NOT_COLLECTION");
     });
@@ -424,7 +424,7 @@ describe("db.js: conteúdo", () => {
         reorderContents([
           { id: b.id, parentId: null, order: 9 },
           { id: xRaiz.id, parentId: a.id, order: 0 },
-        ]),
+        ], { ownerId: authorId }),
       );
 
       expect(error.code).toBe("SLUG_CONFLICT");
@@ -434,16 +434,16 @@ describe("db.js: conteúdo", () => {
     it("RN05: recusa ordem inválida, id desconhecido, ids repetidos e lote que não é lista", async () => {
       const a = await make("a");
 
-      expect((await failure(reorderContents([{ id: a.id, order: -1 }]))).code).toBe("INVALID_INPUT");
-      expect((await failure(reorderContents([{ id: "nao-existe", order: 0 }]))).code).toBe("NOT_FOUND");
+      expect((await failure(reorderContents([{ id: a.id, order: -1 }], { ownerId: authorId }))).code).toBe("INVALID_INPUT");
+      expect((await failure(reorderContents([{ id: "nao-existe", order: 0 }], { ownerId: authorId }))).code).toBe("NOT_FOUND");
       expect(
-        (await failure(reorderContents([{ id: a.id, order: 0 }, { id: a.id, order: 1 }]))).code,
+        (await failure(reorderContents([{ id: a.id, order: 0 }, { id: a.id, order: 1 }], { ownerId: authorId }))).code,
       ).toBe("INVALID_INPUT");
-      expect((await failure(reorderContents(/** @type {any} */ ("x")))).code).toBe("INVALID_INPUT");
+      expect((await failure(reorderContents(/** @type {any} */ ("x"), { ownerId: authorId }))).code).toBe("INVALID_INPUT");
     });
 
     it("lote vazio não faz nada", async () => {
-      await expect(reorderContents([])).resolves.toEqual([]);
+      await expect(reorderContents([], { ownerId: authorId })).resolves.toEqual([]);
     });
   });
 });
