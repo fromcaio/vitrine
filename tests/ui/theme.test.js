@@ -243,8 +243,8 @@ describe("contrastWarnings por modo (RN09, RN27; CT24, CT48)", () => {
 
   it("recusa um modo desconhecido", () => {
     for (const mode of ["sepia", "", null, "DARK"]) {
-      expect(() => contrastWarnings(DEFAULTS, /** @type {any} */ (mode))).toThrow(TypeError);
-      expect(() => textColorsOf(DEFAULTS, /** @type {any} */ (mode))).toThrow(TypeError);
+      expect(() => contrastWarnings(DEFAULTS, /** @type {any} */ (mode))).toThrow(/Modo de cor desconhecido/);
+      expect(() => textColorsOf(DEFAULTS, /** @type {any} */ (mode))).toThrow(/Modo de cor desconhecido/);
     }
   });
 });
