@@ -117,7 +117,11 @@ describe("/admin/conteudo/novo", () => {
     const collection = await seed(ana.id, "calculo", { type: "COLLECTION", body: null });
 
     await expect(newPage("nao-existe")).rejects.toThrow("NOT_FOUND");
+
+    // Um valor repetido (?pai=a&pai=b) nem chega a consultar o banco.
+    vi.mocked(getContentById).mockClear();
     await expect(newPage([collection.id, collection.id])).rejects.toThrow("NOT_FOUND");
+    expect(getContentById).not.toHaveBeenCalled();
   });
 
   it("sem sessão, a página não consulta o banco: a sessão vem primeiro", async () => {
