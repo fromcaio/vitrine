@@ -84,13 +84,49 @@ describe("describeNotification: moderação de conteúdo", () => {
   });
 });
 
+describe("describeNotification: contraste por modo (RN26, RN27)", () => {
+  const warnings = [
+    { field: "primaryColor", ratio: 1.53, minimum: 4.5 },
+    { field: "accentColor", ratio: 1.24, minimum: 3 },
+  ];
+
+  it("aparência do usuário, modo claro: as cores, a razão e o mínimo em português", () => {
+    expect(describeEvent({ mode: "light", scope: "appearance", warnings }, "CONTRAST")).toEqual({
+      title: "Contraste insuficiente no modo claro",
+      text: "A paleta do modo claro do seu espaço tem cores abaixo do contraste mínimo (WCAG 2.1 AA): a cor primária com 1,53:1 (mínimo de 4,5:1) e a cor de destaque com 1,24:1 (mínimo de 3:1). Ajuste as cores na aparência do seu espaço; o aviso não impede o salvamento.",
+    });
+  });
+
+  it("site, modo noturno: o prefixo dark do campo vira a mesma cor, e o texto fala do site", () => {
+    const { title, text } = describeEvent(
+      { mode: "dark", scope: "site", warnings: [{ field: "darkSecondaryColor", ratio: 2, minimum: 4.5 }] },
+      "CONTRAST",
+    );
+
+    expect(title).toBe("Contraste insuficiente no modo noturno");
+    expect(text).toContain("A paleta do modo noturno do site");
+    expect(text).toContain("a cor secundária com 2:1 (mínimo de 4,5:1)");
+    expect(text).toContain("na configuração do site");
+  });
+
+  it("campo desconhecido ou razão ausente não derrubam a montagem", () => {
+    const { text } = describeEvent(
+      { mode: "light", scope: "appearance", warnings: [{ field: "primaryColor" }, { field: "outra" }, null] },
+      "CONTRAST",
+    );
+
+    expect(text).toContain("a cor primária");
+    expect(text).not.toContain("outra");
+  });
+});
+
 describe("describeNotification: o que não se conhece", () => {
   it("evento desconhecido e dados vazios caem no aviso genérico", () => {
     expect(describeEvent({ event: "FUTURO" }, "ACCOUNT")).toEqual({ title: "Aviso", text: "Você tem um aviso do sistema." });
     expect(describeEvent({}, "MODERATION").title).toBe("Aviso");
   });
 
-  it("contraste, até existir o texto próprio (P-013), usa o aviso de contraste genérico", () => {
+  it("contraste sem modo ou sem avisos legíveis usa o aviso de contraste genérico", () => {
     expect(describeEvent({}, "CONTRAST")).toEqual({
       title: "Aviso de contraste",
       text: "A paleta do seu espaço tem um aviso de contraste.",

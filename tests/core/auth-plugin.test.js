@@ -135,7 +135,25 @@ describe("suspensão e sessão (RN23; CT41)", () => {
 
   it("bannedUserMessage: sem prazo nem motivo, só a frase base", () => {
     expect(bannedUserMessage({})).toBe("Sua conta está suspensa.");
-    expect(bannedUserMessage({ banReason: "Spam" })).toBe("Sua conta está suspensa. Motivo: Spam");
+    expect(bannedUserMessage({ banReason: "Spam" })).toBe("Sua conta está suspensa. Motivo: Spam.");
+  });
+
+  it("bannedUserMessage: o motivo termina em ponto antes do prazo (ou mantém o seu ponto final)", () => {
+    const banExpires = new Date("2026-10-10T12:00:00Z");
+
+    expect(bannedUserMessage({ banReason: "Violação das regras da plataforma", banExpires })).toBe(
+      "Sua conta está suspensa. Motivo: Violação das regras da plataforma. A suspensão vai até 10/10/2026, 12:00 (UTC).",
+    );
+    for (const ending of [".", "!", "?"]) {
+      const message = bannedUserMessage({ banReason: `Basta${ending}`, banExpires });
+      expect(message).toContain(`Motivo: Basta${ending} A suspensão`);
+      expect(message).not.toContain(`${ending}.`);
+    }
+  });
+
+  it("bannedUserMessage: espaços sobrando no motivo não viram ponto solto", () => {
+    expect(bannedUserMessage({ banReason: "  Spam  " })).toBe("Sua conta está suspensa. Motivo: Spam.");
+    expect(bannedUserMessage({ banReason: "   " })).toBe("Sua conta está suspensa.");
   });
 });
 

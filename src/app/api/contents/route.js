@@ -7,7 +7,7 @@ import { contentCreateSchema } from "@/lib/validators";
 import { withSlugSuggestion } from "../_lib/contents";
 import { ApiError, contentJsonMaxBytes, ok, parse } from "../_lib/http";
 import { currentLimits } from "../_lib/limits";
-import { revalidateStructure } from "../_lib/revalidation";
+import { captureSpace, revalidateStructure } from "../_lib/revalidation";
 import { route } from "../_lib/route";
 
 /**
@@ -28,18 +28,18 @@ export const GET = route({ action: "content:list" }, async ({ request, actor }) 
 /**
  * POST: cria um documento ou uma coleção (RF05, RF06). O autor é o usuário da sessão (RN13), mesmo
  * quando é o administrador quem escreve, e o estado, se omitido, é PUBLISHED (RN16). Respeita as
- * cotas do usuário (RN25). Responde 201 e revalida a página inicial do espaço e os caminhos públicos do
- * novo conteúdo (RN10, ADR-030).
+ * cotas do usuário (RN25). Responde 201 e revalida o espaço inteiro do autor (RN10, ADR-030).
  */
 export const POST = route({ action: "content:create", mutation: true, rate: "content" }, async ({ actor, readJson }) => {
   const limits = currentLimits();
   const input = parse(contentCreateSchema, await readJson({ maxBytes: contentJsonMaxBytes(limits) }));
   const parentId = input.parentId ?? null;
 
+  const snapshot = await captureSpace(actor.id);
   const content = await withSlugSuggestion({ slug: input.slug, parentId, ownerId: actor.id }, () =>
     createContent({ ...input, parentId, authorId: actor.id }, { limits }),
   );
 
-  await revalidateStructure({ ownerId: actor.id, nodeId: content.id, directory: affectsDirectory(null, content) });
+  await revalidateStructure({ ownerId: actor.id, before: snapshot, directory: affectsDirectory(null, content) });
   return ok(content, { status: 201, headers: { Location: `/api/contents/${content.id}` } });
 });

@@ -285,7 +285,8 @@ describe("DELETE /api/contents/:id: moderação (RF34, RN19, RN26, RN07)", () =>
     });
     expect(await notificationsOf(admin.userId)).toEqual([]);
 
-    expect(pages()).toEqual(["/ana", "/ana/calculo", "/ana/calculo/limites"]);
+    // O espaço inteiro: o que saiu do ar e o que ficou.
+    expect(pages()).toEqual(["/ana", "/ana/calculo", "/ana/calculo/limites", "/ana/sobre"]);
     expect(portalCalls()).toEqual([["/", "page"]]); // uma raiz saiu do diretório
   });
 

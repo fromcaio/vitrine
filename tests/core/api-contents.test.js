@@ -351,6 +351,29 @@ describe("PATCH /api/contents/:id", () => {
     noLayout();
   });
 
+  it("renomear o título de um documento invalida também as páginas irmãs, cuja sidebar o lista (A-014 3a)", async () => {
+    const doc = await document("a");
+    await document("b");
+    const parent = await collection("pasta");
+    await document("c", { parentId: parent.id });
+    vi.mocked(revalidatePath).mockClear();
+
+    await update(doc.id, { title: "Novo título de A" });
+
+    expect(pages()).toEqual(["/ada", "/ada/a", "/ada/b", "/ada/pasta", "/ada/pasta/c"]);
+    noLayout();
+  });
+
+  it("alterar só o corpo continua invalidando só a página do documento, sem as irmãs", async () => {
+    const doc = await document("a", { body: "antigo" });
+    await document("b");
+    vi.mocked(revalidatePath).mockClear();
+
+    await update(doc.id, { body: "novo" });
+
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/ada/a");
+  });
+
   it("renomear uma coleção revalida o caminho antigo e o novo dela e dos descendentes (CT22, CT44)", async () => {
     const parent = await collection("calculo");
     await document("limites", { parentId: parent.id });
@@ -390,9 +413,9 @@ describe("PATCH /api/contents/:id", () => {
     const response = await update(doc.id, { parentId: b.id });
 
     expect((await response.json()).data).toMatchObject({ parentId: b.id, order: 1 });
-    // O nó movido, antes e depois, e as duas coleções (a que perdeu e a que ganhou o documento);
-    // o irmão "existente" não mudou de caminho.
-    expect(pages()).toEqual(["/ada", "/ada/a", "/ada/a/movido", "/ada/b", "/ada/b/movido"]);
+    // O espaço inteiro (a sidebar de cada página lista a árvore): o caminho de antes (/ada/a/movido), o
+    // de depois (/ada/b/movido) e as páginas que não mudaram de caminho.
+    expect(pages()).toEqual(["/ada", "/ada/a", "/ada/a/movido", "/ada/b", "/ada/b/existente", "/ada/b/movido"]);
     noLayout();
   });
 
@@ -491,8 +514,9 @@ describe("DELETE /api/contents/:id", () => {
     expect(response.status).toBe(204);
     expect(await response.text()).toBe("");
     expect((await prisma.content.findMany()).map((row) => row.slug)).toEqual(["sobre"]);
+    // O espaço inteiro: o que saiu do ar e o que ficou (a sidebar de "sobre" perdeu a coleção).
     expect(pages()).toEqual(
-      ["/ada", "/ada/calculo", "/ada/calculo/integrais", "/ada/calculo/integrais/por-partes"].sort(),
+      ["/ada", "/ada/calculo", "/ada/calculo/integrais", "/ada/calculo/integrais/por-partes", "/ada/sobre"].sort(),
     );
     expect(portalCalls()).toEqual([["/", "page"]]); // uma raiz saiu do diretório
     noLayout();

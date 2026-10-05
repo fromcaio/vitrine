@@ -104,7 +104,7 @@ describe("aparência do dono (RN10): o espaço inteiro", () => {
 });
 
 describe("conteúdo: um autor não invalida o espaço de outro (CT44)", () => {
-  it("editar o título de um documento da Ana toca só /ana", async () => {
+  it("editar o título de um documento da Ana toca só o espaço /ana, inteiro", async () => {
     await seedSpace(beto.id);
     const target = await prisma.content.findFirstOrThrow({ where: { authorId: ana.id, slug: "sobre" } });
     vi.mocked(revalidatePath).mockClear();
@@ -115,7 +115,8 @@ describe("conteúdo: um autor não invalida o espaço de outro (CT44)", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(pages()).toEqual(["/ana", "/ana/sobre"]);
+    // O espaço inteiro da Ana (a sidebar de cada página muda), e nenhuma página do Beto.
+    expect(pages()).toEqual(ANA_PAGES);
     expect(pages().some((page) => page.startsWith("/beto"))).toBe(false);
     noLayout();
   });

@@ -117,6 +117,17 @@ describe("GET /api/notifications (CT50, RF33)", () => {
     expect(seen).toEqual(created.toReversed());
   });
 
+  it("um cursor que não é uma notificação do próprio usuário responde 422 (o de outro e o inexistente)", async () => {
+    const theirs = await notice(beto.id);
+    await notice(ana.id);
+
+    for (const cursor of [theirs.id, "nao-existe"]) {
+      const response = await list(ana.cookie, `?cursor=${cursor}`);
+      expect(response.status).toBe(422);
+      expect((await errorOf(response)).details).toEqual([expect.objectContaining({ field: "cursor" })]);
+    }
+  });
+
   it("uma página exata não anuncia uma próxima vazia", async () => {
     await notice(ana.id);
     await notice(ana.id);
