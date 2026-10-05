@@ -125,10 +125,39 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
   });
 });
 
+describe("PortalLayout: o título e a descrição do site (a paleta é da página, no SpaceLayout)", () => {
+  it("devolve o filho sem envoltório e não consulta o banco ao renderizar", async () => {
+    expect(PortalLayout({ children: "FILHO" })).toBe("FILHO");
+    expect(getConfiguration).not.toHaveBeenCalled();
+  });
+
+  it("generateMetadata usa o nome e a descrição do site, com o modelo '%s | nome'", async () => {
+    await updateConfiguration({ siteName: "Notas de Aula", siteDescription: "Material didático de Cálculo" });
+
+    expect(await portalMetadata()).toEqual({
+      title: { absolute: "Notas de Aula", template: "%s | Notas de Aula" },
+      description: "Material didático de Cálculo",
+    });
+  });
+
+  it("sem configuração (banco indisponível), usa os padrões; no build, nem consulta", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
+    expect(await portalMetadata()).toEqual({
+      title: { absolute: "Vitrine", template: "%s | Vitrine" },
+      description: DEFAULT_SITE_DESCRIPTION,
+    });
+
+    vi.mocked(getConfiguration).mockClear();
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+    expect((await portalMetadata()).title.absolute).toBe("Vitrine");
+    expect(getConfiguration).not.toHaveBeenCalled();
+  });
+});
+
 describe.each([
-  // O portal tem o título do site e o modelo dos filhos; o login, o título completo "Entrar | nome" (o modelo
-  // do layout não vale para o título da página do mesmo segmento).
-  ["PortalLayout", PortalLayout, portalMetadata, (name) => ({ absolute: name, template: `%s | ${name}` })],
+  // O login tem o título completo "Entrar | nome" (o modelo do layout não vale para o título da página do
+  // mesmo segmento).
   ["LoginLayout", LoginLayout, loginMetadata, (name) => ({ absolute: `Entrar | ${name}` })],
 ])("%s: a aparência do site no envoltório .vitrine-tema", (_name, Layout, metadataOf, titleOf) => {
   const render = async () => renderToStaticMarkup(await Layout({ children: "conteúdo da página" }));
