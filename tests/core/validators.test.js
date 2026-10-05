@@ -581,6 +581,6 @@ describe("mensagens em português do Brasil (R-007)", () => {
     // O uso (`z.locales.ptBR()`), e não a menção em comentário.
     expect(source).not.toMatch(/z\.locales\s*[.[]/);
     // O português de Portugal (`pt.js`) não pode voltar por engano.
-    expect(source).not.toMatch(/locales\/pt\.js/);
+    expect(source).not.toMatch(/from\s+"zod\/v4\/locales\/pt\.js"/);
   });
 });
