@@ -2,10 +2,9 @@
 // PRÓPRIO usuário. A de outro usuário responde 404, como se não existisse: a rota não revela quais
 // identificadores existem (a autorização do recurso é pelo dono da sessão, e a busca só enxerga as
 // do dono).
-import { countUnread, dismiss, markRead } from "@/lib/db";
+import { countUnread, dismiss, getNotification, markRead } from "@/lib/db";
 import { notificationUpdateSchema } from "@/lib/validators";
 import { ApiError, ok, parse } from "../../_lib/http";
-import { findOwnNotification } from "../../_lib/notifications";
 import { route } from "../../_lib/route";
 
 /** O recurso é uma notificação do próprio ator; a existência é conferida abaixo. @param {{ actor: { id: string } }} context */
@@ -20,7 +19,7 @@ export const PATCH = route(
   { action: "notifications:update", mutation: true, rate: "notifications", load: own },
   async ({ actor, params, readJson }) => {
     const action = parse(notificationUpdateSchema, await readJson());
-    if (!(await findOwnNotification(actor.id, params.id))) {
+    if (!(await getNotification(actor.id, params.id))) {
       throw new ApiError(404, "NOT_FOUND", "Notificação não encontrada.", [{ field: "id", value: params.id }]);
     }
 

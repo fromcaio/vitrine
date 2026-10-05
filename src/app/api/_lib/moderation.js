@@ -1,14 +1,9 @@
 // Moderação de conteúdo alheio (RF34, RN19, RN26, ADR-027; CT51): o administrador despublica, edita
 // e exclui o conteúdo de outro dono, com o motivo, e o dono é notificado. Este módulo monta a
-// notificação e aplica a escrita junto dela.
-//
-// PROVISÓRIO (P-015, pedido ao Dados): a moderação deve ser UMA transação com a notificação, mas
-// `updateContent`, `deleteContent` e `notify` de db.js abrem transações próprias. Até o Dados aceitar
-// `{ notification }` nas duas escritas, `updateWithNotice` e `deleteWithNotice` gravam a escrita e,
-// em seguida, a notificação. A troca é de uma linha em cada função. Enquanto isso, se a
-// notificação falhar depois da escrita, o erro é registrado e propagado (500): o conteúdo mudou, mas
-// o dono não foi avisado.
-import { deleteContent, notify, updateContent } from "@/lib/db";
+// notificação; a rota a entrega a `updateContent(id, patch, { notification })` ou a
+// `deleteContent(id, { notification })`, de db.js, que a gravam NA MESMA TRANSAÇÃO da escrita: se a
+// escrita falha (`VERSION_CONFLICT`, `SLUG_CONFLICT`...), nenhuma notificação nasce, e se a
+// notificação falha, a escrita é desfeita.
 
 /** Eventos de moderação de conteúdo; o texto em português é de `notification-text.js`. */
 export const CONTENT_EVENTS = Object.freeze({
@@ -55,49 +50,4 @@ export function contentNotification({ ownerId, event, reason, content, fields })
  */
 export function updateEvent(before, patch) {
   return before.status === "PUBLISHED" && patch.status === "DRAFT" ? CONTENT_EVENTS.unpublished : CONTENT_EVENTS.edited;
-}
-
-/** @param {unknown} error */
-function logNoticeFailure(error) {
-  console.error("[moderação] a escrita foi aplicada, mas a notificação ao dono falhou", error);
-}
-
-/**
- * Atualiza o conteúdo e, se houver `notification`, grava a notificação ao dono (ver o aviso do
- * módulo sobre a atomicidade).
- * @param {string} id
- * @param {Parameters<typeof updateContent>[1]} patch
- * @param {Parameters<typeof updateContent>[2]} options
- * @param {Parameters<typeof notify>[0] | null} notification `null` quando o autor edita o que é dele
- */
-export async function updateWithNotice(id, patch, options, notification) {
-  const updated = await updateContent(id, patch, options);
-  if (notification) {
-    try {
-      await notify(notification);
-    } catch (error) {
-      logNoticeFailure(error);
-      throw error;
-    }
-  }
-  return updated;
-}
-
-/**
- * Exclui o conteúdo (e os descendentes, RN07) e, se houver `notification`, grava a notificação ao
- * dono (ver o aviso do módulo sobre a atomicidade).
- * @param {string} id
- * @param {Parameters<typeof notify>[0] | null} notification `null` quando o autor exclui o que é dele
- */
-export async function deleteWithNotice(id, notification) {
-  const removed = await deleteContent(id);
-  if (notification) {
-    try {
-      await notify(notification);
-    } catch (error) {
-      logNoticeFailure(error);
-      throw error;
-    }
-  }
-  return removed;
 }
