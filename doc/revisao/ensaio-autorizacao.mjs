@@ -98,9 +98,9 @@ check("?limit=2 -> 2 itens e nextCursor", r.status === 200 && p1.length === 2 &&
 r = await call(bob, "GET", `/api/notifications?limit=2&cursor=${r.json?.nextCursor}`); const p2 = r.json?.data ?? [];
 check("?cursor -> o restante, sem repetir, e nextCursor nulo", r.status === 200 && p2.length === 1 && !p1.some((n) => n.id === p2[0].id) && r.json?.nextCursor === null, `${r.status} ${r.text.slice(0,150)}`);
 for (const q of ["limit=0", "limit=101", "limit=abc", "unread=2"]) { r = await call(bob, "GET", `/api/notifications?${q}`); check(`?${q} -> 422`, r.status === 422, `${r.status}`); }
-r = await call(admin, "GET", `/api/notifications?cursor=${nAll[0].id}`); check("cursor de notificação ALHEIA: não vaza as do Bob e não dá 500", r.status < 500 && (r.json?.data ?? []).every((n) => !nAll.some((m) => m.id === n.id)), `${r.status} ${r.text.slice(0,200)}`);
+r = await call(admin, "GET", `/api/notifications?cursor=${nAll[0].id}`); check("cursor de notificação ALHEIA -> 422 (A-017) e não vaza as do Bob", r.status === 422 && (r.json?.data ?? []).every((n) => !nAll.some((m) => m.id === n.id)), `${r.status} ${r.text.slice(0,200)}`);
 console.log("   cursor alheio ->", r.status, "| itens do admin:", (r.json?.data ?? []).length);
-r = await call(bob, "GET", "/api/notifications?cursor=naoexiste123"); check("cursor inexistente: sem 500", r.status < 500, `${r.status} ${r.text.slice(0,150)}`);
+r = await call(bob, "GET", "/api/notifications?cursor=naoexiste123"); check("cursor inexistente -> 422 (A-017)", r.status === 422, `${r.status} ${r.text.slice(0,150)}`);
 console.log("   cursor inexistente ->", r.status);
 r = await call(null, "GET", "/api/notifications"); check("notificações sem sessão -> 401", r.status === 401, `${r.status}`);
 r = await call(bob, "PATCH", `/api/notifications/${nAll[0].id}`, { read: true }, { origin: "https://evil.example" }); check("PATCH de notificação de outra origem -> 401", r.status === 401, `${r.status}`);
