@@ -112,7 +112,7 @@ export function Sidebar({ collection, basePath, activePath = [] }) {
   const setOpen = (/** @type {string} */ id, /** @type {boolean} */ open) => setOverrides((current) => ({ ...current, [id]: open }));
 
   return (
-    <div className="border-b border-border bg-surface md:max-h-screen md:w-72 md:shrink-0 md:self-start md:overflow-y-auto md:border-r md:border-b-0 md:sticky md:top-0">
+    <div className="border-b border-border bg-surface md:w-72 md:shrink-0 md:border-r md:border-b-0">
       <div className="p-2 md:hidden">
         <button
           type="button"
@@ -126,7 +126,7 @@ export function Sidebar({ collection, basePath, activePath = [] }) {
           <ChevronRightIcon className={`size-5 shrink-0 transition-transform ${menuOpen ? "rotate-90" : ""}`} />
         </button>
       </div>
-      <nav id={panelId} aria-label={`Coleção ${collection.title}`} className={`${menuOpen ? "block" : "hidden"} p-3 md:block`}>
+      <nav id={panelId} aria-label={`Coleção ${collection.title}`} className={`${menuOpen ? "block" : "hidden"} p-3 md:sticky md:top-0 md:block md:max-h-screen md:overflow-y-auto`}>
         <p className="mb-2 px-2 text-sm font-semibold break-words">{collection.title}</p>
         <TreeLevel
           nodes={collection.children}
