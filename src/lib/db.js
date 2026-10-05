@@ -428,16 +428,23 @@ function parseVersion(value) {
  * conteúdo mudou depois, a transação lança `VERSION_CONFLICT` com a versão atual em
  * `details.currentVersion`, sem alterar nada. Sem `expectedVersion`, a função não verifica: quem o
  * exige é a rota do Core.
+ *
+ * `notification` (moderação, RN26): se informada, é gravada **na mesma transação** da escrita, com as
+ * regras e o teto de `notify`. Se a escrita falha, nenhuma notificação nasce; se a notificação
+ * falha, a escrita é desfeita. A entrada é validada antes de abrir a transação.
  * @param {string} id
  * @param {{
  *   title?: string, slug?: string, body?: string | null, type?: "DOCUMENT" | "COLLECTION",
  *   status?: "DRAFT" | "PUBLISHED", parentId?: string | null, order?: number
  * }} patch
- * @param {{ limits?: Partial<import("@/lib/limits").Limits>, expectedVersion?: Date | string }} [options]
+ * @param {{
+ *   limits?: Partial<import("@/lib/limits").Limits>, expectedVersion?: Date | string,
+ *   notification?: NotificationInput
+ * }} [options]
  * @returns {Promise<import("@/generated/prisma/client").Content>}
  * @throws {DataError}
  */
-export async function updateContent(id, patch, { limits, expectedVersion } = {}) {
+export async function updateContent(id, patch, { limits, expectedVersion, notification } = {}) {
   /** @type {Record<string, any>} */
   const data = {};
   for (const field of UPDATABLE_FIELDS) {
@@ -453,8 +460,10 @@ export async function updateContent(id, patch, { limits, expectedVersion } = {})
     assertBodyWithinQuota(data.body, resolveLimits(limits));
   }
   const version = expectedVersion === undefined ? null : parseVersion(expectedVersion);
+  const parsedNotification = notification === undefined ? null : parseNotificationInput(notification);
+  const now = new Date();
 
-  return guarded(() =>
+  const updated = await guarded(() =>
     prisma.$transaction(async (tx) => {
       const current = await tx.content.findUnique({
         where: { id },
@@ -494,23 +503,38 @@ export async function updateContent(id, patch, { limits, expectedVersion } = {})
         if (!("order" in data)) data.order = await nextOrder(tx, current.authorId, data.parentId);
       }
 
-      return tx.content.update({ where: { id }, data });
+      const saved = await tx.content.update({ where: { id }, data });
+      if (parsedNotification) await writeNotification(tx, parsedNotification, now);
+      return saved;
     }),
   );
+  if (parsedNotification) await pruneNotificationsLazily(now);
+  return updated;
 }
 
 /**
  * Exclui o conteúdo e todos os seus descendentes (RN07), por exclusão em cascata no banco.
  * A confirmação explícita é responsabilidade do painel.
+ *
+ * `notification` (moderação, RN26): se informada, é gravada na mesma transação da exclusão, com as
+ * regras e o teto de `notify`; se a notificação falha, nada é excluído; se a exclusão falha
+ * (`NOT_FOUND`), nenhuma notificação nasce.
  * @param {string} id
+ * @param {{ notification?: NotificationInput }} [options]
  * @returns {Promise<{ id: string }>}
- * @throws {DataError} `NOT_FOUND`
+ * @throws {DataError} `NOT_FOUND`, `INVALID_INPUT`, `AUTHOR_NOT_FOUND` (dono da notificação inexistente)
  */
-export async function deleteContent(id) {
-  return guarded(async () => {
-    await prisma.content.delete({ where: { id } });
-    return { id };
-  });
+export async function deleteContent(id, { notification } = {}) {
+  const parsedNotification = notification === undefined ? null : parseNotificationInput(notification);
+  const now = new Date();
+  await guarded(() =>
+    prisma.$transaction(async (tx) => {
+      await tx.content.delete({ where: { id } });
+      if (parsedNotification) await writeNotification(tx, parsedNotification, now);
+    }),
+  );
+  if (parsedNotification) await pruneNotificationsLazily(now);
+  return { id };
 }
 
 /**
@@ -1271,21 +1295,21 @@ async function enforceNotificationCap(tx, userId, keepId) {
 }
 
 /**
- * Cria uma notificação para `userId`, ou **reabre** a existente com a mesma `dedupeKey` (RN26): a
- * reabertura zera `readAt` e `resolvedAt`, troca `severity` e `data` e avança `updatedAt`. Sem
- * `dedupeKey`, cada chamada cria uma notificação nova (moderação e conta). O texto exibido não é
- * guardado: o Core o monta a partir de `type` e `data`. Aplica o teto por usuário na mesma
- * transação e dispara a poda preguiçosa (ver `pruneNotifications`).
- * @param {{
+ * Entrada de uma notificação (`notify` e a opção `notification` de `updateContent` e `deleteContent`).
+ * @typedef {{
  *   userId: string, type: "CONTRAST" | "MODERATION" | "ACCOUNT",
  *   severity?: "INFO" | "WARNING" | "CRITICAL", data?: Record<string, unknown>, dedupeKey?: string | null
- * }} input
- * @param {{ now?: Date }} [options]
- * @returns {Promise<NotificationView>}
- * @throws {DataError} `INVALID_INPUT`, `AUTHOR_NOT_FOUND` (usuário inexistente)
+ * }} NotificationInput
  */
-export async function notify(input, { now = new Date() } = {}) {
-  const { userId, type, severity = "INFO", data = {}, dedupeKey = null } = input;
+
+/**
+ * Valida a entrada de uma notificação, sem tocar o banco (um erro de entrada nunca abre transação).
+ * @param {NotificationInput} input
+ * @returns {{ userId: string, type: string, severity: string, serialized: string, dedupeKey: string | null }}
+ * @throws {DataError} `INVALID_INPUT`
+ */
+function parseNotificationInput(input) {
+  const { userId, type, severity = "INFO", data = {}, dedupeKey = null } = input ?? /** @type {any} */ ({});
   assertNonEmptyString(userId, "userId");
   if (!NOTIFICATION_TYPES.includes(/** @type {any} */ (type))) {
     throw new DataError("INVALID_INPUT", "O tipo deve ser CONTRAST, MODERATION ou ACCOUNT.", { field: "type" });
@@ -1301,24 +1325,48 @@ export async function notify(input, { now = new Date() } = {}) {
   } catch {
     throw new DataError("INVALID_INPUT", 'O campo "data" não é serializável em JSON.', { field: "data" });
   }
+  return { userId, type, severity, serialized, dedupeKey };
+}
 
-  const row = await guarded(() =>
-    prisma.$transaction(async (tx) => {
-      const fields = { type, severity, data: serialized, readAt: null, resolvedAt: null };
-      // `now` é a única fonte de tempo: a criação e a reabertura marcam `updatedAt` com o mesmo instante.
-      const stamps = { createdAt: now, updatedAt: now };
-      const saved =
-        dedupeKey === null
-          ? await tx.notification.create({ data: { userId, ...fields, ...stamps } })
-          : await tx.notification.upsert({
-              where: { userId_dedupeKey: { userId, dedupeKey } },
-              update: { ...fields, updatedAt: now },
-              create: { userId, dedupeKey, ...fields, ...stamps },
-            });
-      await enforceNotificationCap(tx, userId, saved.id);
-      return saved;
-    }),
-  );
+/**
+ * Grava (ou reabre, com `dedupeKey`) a notificação já validada e aplica o teto, dentro da transação
+ * `tx` de quem chama.
+ * @param {Db} tx
+ * @param {ReturnType<typeof parseNotificationInput>} parsed
+ * @param {Date} now
+ * @returns {Promise<import("@/generated/prisma/client").Notification>}
+ */
+async function writeNotification(tx, parsed, now) {
+  const { userId, type, severity, serialized, dedupeKey } = parsed;
+  const fields = { type, severity, data: serialized, readAt: null, resolvedAt: null };
+  // `now` é a única fonte de tempo: a criação e a reabertura marcam `updatedAt` com o mesmo instante.
+  const stamps = { createdAt: now, updatedAt: now };
+  const saved =
+    dedupeKey === null
+      ? await tx.notification.create({ data: { userId, ...fields, ...stamps } })
+      : await tx.notification.upsert({
+          where: { userId_dedupeKey: { userId, dedupeKey } },
+          update: { ...fields, updatedAt: now },
+          create: { userId, dedupeKey, ...fields, ...stamps },
+        });
+  await enforceNotificationCap(tx, userId, saved.id);
+  return saved;
+}
+
+/**
+ * Cria uma notificação para `userId`, ou **reabre** a existente com a mesma `dedupeKey` (RN26): a
+ * reabertura zera `readAt` e `resolvedAt`, troca `severity` e `data` e avança `updatedAt`. Sem
+ * `dedupeKey`, cada chamada cria uma notificação nova (moderação e conta). O texto exibido não é
+ * guardado: o Core o monta a partir de `type` e `data`. Aplica o teto por usuário na mesma
+ * transação e dispara a poda preguiçosa (ver `pruneNotifications`).
+ * @param {NotificationInput} input
+ * @param {{ now?: Date }} [options]
+ * @returns {Promise<NotificationView>}
+ * @throws {DataError} `INVALID_INPUT`, `AUTHOR_NOT_FOUND` (usuário inexistente)
+ */
+export async function notify(input, { now = new Date() } = {}) {
+  const parsed = parseNotificationInput(input);
+  const row = await guarded(() => prisma.$transaction((tx) => writeNotification(tx, parsed, now)));
   await pruneNotificationsLazily(now);
   return toNotificationView(row);
 }
@@ -1354,10 +1402,13 @@ export async function countUnread(userId) {
 /**
  * Notificações do usuário, das mais recentes (`updatedAt`) para as mais antigas, com paginação por
  * cursor (o `id` da última linha recebida). `unreadOnly` traz só as não lidas e não resolvidas.
- * Só o dono vê as suas: a função sempre filtra por `userId` (RN19, RN26).
+ * Só o dono vê as suas: a função sempre filtra por `userId` (RN19, RN26). O `cursor` só vale se for
+ * uma notificação **do próprio usuário**; o de outro usuário ou inexistente lança `INVALID_INPUT`
+ * (`details.field: "cursor"`).
  * @param {string} userId
  * @param {{ unreadOnly?: boolean, take?: number, cursor?: string }} [options]
  * @returns {Promise<NotificationView[]>}
+ * @throws {DataError} `INVALID_INPUT`
  */
 export async function listNotifications(userId, { unreadOnly = false, take = 20, cursor } = {}) {
   assertNonEmptyString(userId, "userId");
@@ -1366,6 +1417,12 @@ export async function listNotifications(userId, { unreadOnly = false, take = 20,
       field: "take",
     });
   }
+  if (cursor) {
+    const own = typeof cursor === "string" ? await prisma.notification.count({ where: { id: cursor, userId } }) : 0;
+    if (own === 0) {
+      throw new DataError("INVALID_INPUT", "O cursor não é uma notificação do usuário.", { field: "cursor" });
+    }
+  }
   const rows = await prisma.notification.findMany({
     where: { userId, ...(unreadOnly ? { readAt: null, resolvedAt: null } : {}) },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
@@ -1373,6 +1430,20 @@ export async function listNotifications(userId, { unreadOnly = false, take = 20,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
   return rows.map(toNotificationView);
+}
+
+/**
+ * Uma notificação do usuário. `null` se não existe **ou é de outro usuário** (`markRead` devolve
+ * `count: 0` nos dois casos e não os distingue).
+ * @param {string} userId
+ * @param {string} id
+ * @returns {Promise<NotificationView | null>}
+ */
+export async function getNotification(userId, id) {
+  assertNonEmptyString(userId, "userId");
+  assertNonEmptyString(id, "id");
+  const row = await prisma.notification.findFirst({ where: { id, userId } });
+  return row ? toNotificationView(row) : null;
 }
 
 /**
