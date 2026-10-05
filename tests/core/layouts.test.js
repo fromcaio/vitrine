@@ -109,6 +109,14 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
     expect(COLOR_MODE_SCRIPT).toContain("vitrine:modo");
   });
 
+  it("o <html> leva suppressHydrationWarning: a classe dark muda antes da hidratação (CT47)", () => {
+    const html = RootLayout({ children: null });
+
+    expect(html.type).toBe("html");
+    expect(html.props.suppressHydrationWarning).toBe(true);
+    expect(html.props.lang).toBe("pt-BR");
+  });
+
   it("os metadados padrão são estáticos: o nome 'Vitrine' e a descrição padrão", () => {
     expect(rootMetadata).toEqual({
       title: { default: "Vitrine", template: "%s | Vitrine" },
