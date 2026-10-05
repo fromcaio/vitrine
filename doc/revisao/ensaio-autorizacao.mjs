@@ -1,4 +1,4 @@
-// ensaio-autorizacao.mjs -- ensaio adversarial HTTP do Arquiteto contra o BUILD DE PRODUÇÃO (M-013 e M-015: autorização, moderação, notificações).
+// ensaio-autorizacao.mjs -- ensaio adversarial HTTP do Arquiteto contra o BUILD DE PRODUÇÃO (M-013, M-015, M-019 e M-021: autorização, moderação, notificações, contraste, layouts e editor).
 // Uso: bash doc/revisao/ensaio-http.sh <worktree-de-revisão>   (sobe o app com banco novo e roda este arquivo).
 // Cobre: rotas brutas do better-auth, origem alheia, senha provisória, acesso cruzado entre dois usuários,
 // authorId forjado, lote misto, RN18, corpo grande, suspensão, último administrador e taxa.
@@ -123,6 +123,39 @@ r = await call(admin, "DELETE", `/api/contents/${xId}?reason=${"x".repeat(501)}`
 r = await call(bob, "GET", `/api/contents/${xId}`); check("o conteúdo recusado continua existindo", r.status === 200, `${r.status}`);
 r = await call(admin, "DELETE", `/api/contents/${xId}?reason=${encodeURIComponent("Plágio comprovado")}`); check("admin exclui conteúdo do Bob com ?reason -> 204", r.status === 204, `${r.status} ${r.text.slice(0,100)}`);
 r = await call(bob, "GET", "/api/notifications?unread=1"); check("o dono é avisado da exclusão (texto com o motivo)", r.status === 200 && r.json?.data?.length === 1 && /Pl.gio comprovado/.test(r.json.data[0].text), `${r.status} ${r.text.slice(0,250)}`);
+// --- contraste por modo e notificação CONTRAST (M-019)
+r = await call(admin, "PUT", "/api/configuration", { darkPrimaryColor: "#333333" });
+check("PUT da configuração com a primária noturna escura -> 200 com aviso do modo noturno", r.status === 200 && (r.json?.warnings ?? []).some((w) => w.field === "darkPrimaryColor" && w.minimum === 4.5), `${r.status} ${r.text.slice(0,250)}`);
+check("os avisos têm a forma de sempre (5 chaves, sem mode)", (r.json?.warnings ?? []).every((w) => Object.keys(w).sort().join() === "code,field,message,minimum,ratio"), JSON.stringify(r.json?.warnings?.[0]));
+r = await call(admin, "GET", "/api/notifications?unread=1"); const nSite = (r.json?.data ?? []).find((n) => n.type === "CONTRAST");
+check("o administrador recebe a notificação CONTRAST do modo noturno, em português", !!nSite && /noturno/.test(nSite.title) && /do site/.test(nSite.text) && nSite.data?.scope === "site" && nSite.data?.mode === "dark", JSON.stringify(nSite)?.slice(0, 300));
+r = await call(admin, "PUT", "/api/configuration", { darkPrimaryColor: "#333333" });
+r = await call(admin, "GET", "/api/notifications"); check("salvar de novo reabre a mesma notificação (uma só por modo e escopo)", (r.json?.data ?? []).filter((n) => n.type === "CONTRAST").length === 1, r.text.slice(0, 300));
+r = await call(admin, "PUT", "/api/configuration", { darkPrimaryColor: "#60a5fa" }); check("paleta corrigida -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0,200));
+r = await call(admin, "GET", "/api/notifications?unread=1"); check("a notificação de contraste resolvida sai das não lidas", !(r.json?.data ?? []).some((n) => n.type === "CONTRAST"), r.text.slice(0, 300));
+r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#f0f0f0" }); check("PUT da aparência do Bob com a primária clara demais -> aviso do modo claro", r.status === 200 && (r.json?.warnings ?? []).some((w) => w.field === "primaryColor"), `${r.status} ${r.text.slice(0,200)}`);
+r = await call(bob, "GET", "/api/notifications?unread=1"); const nBob = (r.json?.data ?? []).find((n) => n.type === "CONTRAST");
+check("o Bob recebe a notificação CONTRAST do escopo da aparência", !!nBob && nBob.data?.scope === "appearance" && /do seu espaço/.test(nBob.text), JSON.stringify(nBob)?.slice(0, 300));
+r = await call(admin, "GET", "/api/notifications?unread=1"); check("a notificação do Bob não aparece para o administrador", !(r.json?.data ?? []).some((n) => n.type === "CONTRAST"), r.text.slice(0, 200));
+r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#2563eb" }); check("o Bob corrige a paleta -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0, 200));
+// --- layout raiz estático, tema por envoltório e páginas do editor (M-021)
+for (const [pagina, jar] of [["/", null], ["/login", null], ["/admin", admin]]) {
+  r = await call(jar, "GET", pagina);
+  const htmlTag = (r.text.match(/<html[^>]*>/) ?? [""])[0];
+  check(`${pagina}: 200, <html lang="pt-BR"> sem style, script do modo no <head>`, r.status === 200 && /lang="pt-BR"/.test(htmlTag) && !/style=/.test(htmlTag) && /<head>[\s\S]*vitrine:modo[\s\S]*<\/head>/.test(r.text), `${r.status} ${htmlTag}`);
+}
+r = await call(null, "GET", "/"); check("o portal leva o envoltório .vitrine-tema", /class="[^"]*vitrine-tema/.test(r.text), r.text.slice(0, 200));
+r = await call(null, "GET", "/admin/conteudo/novo"); check("editor sem sessão -> redireciona ao /login com o destino", (r.status === 307 || r.status === 302 || r.status === 308) && /\/login\?redirectTo=/.test(r.headers.get("location") ?? ""), `${r.status} ${r.headers.get("location")}`);
+r = await call(bob, "GET", `/admin/conteudo/${bId}`); check("editor: o dono abre o próprio documento (200)", r.status === 200, `${r.status}`);
+r = await call(bob, "GET", `/admin/conteudo/${aDoc}`); check("editor: documento de outro dono -> 404", r.status === 404, `${r.status}`);
+r = await call(admin, "GET", `/admin/conteudo/${bId}`); check("editor: o administrador também recebe 404 no documento alheio", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", `/admin/conteudo/${aId}`); check("editor: coleção -> 404", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", "/admin/conteudo/idinexistente123"); check("editor: id inexistente -> 404 (igual ao alheio)", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", "/admin/conteudo/novo"); check("novo: 200 para o dono", r.status === 200, `${r.status}`);
+r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}`); check("novo: ?pai= coleção de outro dono -> 404", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", `/admin/conteudo/novo?pai=${bId}`); check("novo: ?pai= documento -> 404", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}&pai=${aId}`); check("novo: ?pai= repetido -> 404", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", "/admin/conteudo/novo?pai=idinexistente123"); check("novo: ?pai= inexistente -> 404", r.status === 404, `${r.status}`);
 // cotas e corpo
 r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo > 256 KiB -> 413 ou 422", r.status === 413 || r.status === 422, `${r.status}`);
 r = await call(bob, "POST", "/api/contents", "x".repeat(2 * 1024 * 1024), { "content-type": "application/json" }); check("corpo de 2 MiB -> 413", r.status === 413, `${r.status}`);
@@ -139,7 +172,7 @@ r = await call(admin, "GET", "/api/appearance"); check("admin lê a própria apa
 r = await call(admin, "POST", `/api/users/${bobId}/ban`, {}); check("suspender sem motivo -> 422", r.status === 422, `${r.status}`);
 r = await call(admin, "POST", `/api/users/${bobId}/ban`, { reason: "Violação das diretrizes" }); check("admin suspende o Bob", r.status === 200 || r.status === 204, `${r.status} ${r.text.slice(0,120)}`);
 r = await call(bob, "GET", "/api/contents"); check("sessão do Bob revogada/suspensa -> 401", r.status === 401, `${r.status}`);
-r = await call(null, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("login suspenso -> 403 BANNED_USER com motivo", r.status === 403 && /BANNED/.test(JSON.stringify(r.json)) && /Viola/.test(r.text), `${r.status} ${r.text.slice(0,200)}`);
+r = await call(null, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("login suspenso -> 403 BANNED_USER com motivo", r.status === 403 && /BANNED/.test(JSON.stringify(r.json)) && /Viola/.test(r.text) && /diretrizes\./.test(r.text), `${r.status} ${r.text.slice(0,200)}`);
 r = await call(admin, "DELETE", `/api/users/${bobId}/ban`); check("admin reativa", r.status === 200 || r.status === 204, `${r.status}`);
 // último administrador
 const adminId = (await call(admin, "GET", "/api/users/me")).json?.data?.id;
