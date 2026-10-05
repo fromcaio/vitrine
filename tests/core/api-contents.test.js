@@ -25,10 +25,10 @@ beforeAll(async () => {
   await prisma.user.update({ where: { id: adminId }, data: { handle: "ada" } });
 });
 
-/** Páginas literais invalidadas (chamadas de um só argumento), ordenadas; o portal é `("/", "page")`. */
+/** Páginas literais invalidadas (chamadas de um só argumento), ordenadas; o portal é a chamada literal `("/")`, à parte. */
 const pages = () =>
-  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1).map((call) => call[0]).sort();
-const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 2);
+  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1 && call[0] !== "/").map((call) => call[0]).sort();
+const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call[0] === "/");
 /** Nenhuma chamada usa o tipo "layout" (ADR-030: nunca por mudança de espaço). */
 const noLayout = () => expect(vi.mocked(revalidatePath).mock.calls.some((call) => call[1] === "layout")).toBe(false);
 
@@ -132,7 +132,7 @@ describe("POST /api/contents", () => {
     await document("a");
 
     expect(pages()).toEqual(["/ada", "/ada/a"]);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
     noLayout();
   });
 
@@ -518,7 +518,7 @@ describe("DELETE /api/contents/:id", () => {
     expect(pages()).toEqual(
       ["/ada", "/ada/calculo", "/ada/calculo/integrais", "/ada/calculo/integrais/por-partes", "/ada/sobre"].sort(),
     );
-    expect(portalCalls()).toEqual([["/", "page"]]); // uma raiz saiu do diretório
+    expect(portalCalls()).toEqual([["/"]]); // uma raiz saiu do diretório
     noLayout();
   });
 
@@ -564,7 +564,7 @@ describe("PATCH /api/contents/reorder", () => {
     expect(root.children.map((node) => node.slug)).toEqual(["limites"]);
     // O caminho antigo (/ada/limites) e o novo (/ada/calculo/limites); a raiz saiu do diretório (RN28).
     expect(pages()).toEqual(["/ada", "/ada/calculo", "/ada/calculo/limites", "/ada/limites"]);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
     noLayout();
   });
 

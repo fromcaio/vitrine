@@ -144,8 +144,8 @@ describe("chamadas a revalidatePath", () => {
     revalidatePortal();
     revalidateConfiguration();
     expect(revalidatePath).toHaveBeenCalledTimes(2);
-    expect(revalidatePath).toHaveBeenNthCalledWith(1, "/", "page");
-    expect(revalidatePath).toHaveBeenNthCalledWith(2, "/", "page");
+    expect(revalidatePath).toHaveBeenNthCalledWith(1, "/");
+    expect(revalidatePath).toHaveBeenNthCalledWith(2, "/");
   });
 
   it("uma falha na revalidação é registrada e não se propaga (RNF10); as demais páginas seguem", () => {

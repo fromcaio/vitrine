@@ -16,7 +16,7 @@ export const GET = route({ action: "site:read" }, async () => ok(await getConfig
 /**
  * PUT: atualiza identidade, paletas (#RRGGBB, RN09), os seis links sociais (http/https; vazio
  * equivale a ausente, RN17), o texto do portal e o diretório (RN28). Campos ausentes não mudam.
- * O texto do portal respeita o limite de bytes de um corpo (RN25). Revalida só o portal `/` (`revalidatePath("/", "page")`; RN10, ADR-030).
+ * O texto do portal respeita o limite de bytes de um corpo (RN25). Revalida só o portal `/` (`revalidatePath("/")`; RN10, ADR-030).
  *
  * Responde `{ data, warnings }`: `warnings` traz os avisos de contraste das DUAS paletas gravadas (a
  * noturna tem o prefixo `dark` no `field`; Cap. 5 §5.9.1), no formato

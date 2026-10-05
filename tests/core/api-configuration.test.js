@@ -83,7 +83,7 @@ describe("PUT /api/configuration", () => {
       logoUrl: "/logo.svg",
     });
     expect(await prisma.configuration.count()).toBe(1);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
   it("CT24: cor fora de #RRGGBB responde 422 e nada é gravado", async () => {
@@ -262,7 +262,7 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect(response.status).toBe(200);
     expect((await response.json()).warnings).toHaveLength(3);
     expect(await prisma.configuration.findUniqueOrThrow({ where: { id: "default" } })).toMatchObject(BAD_PALETTE);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/");
   });
 
   it("uma falha no cálculo dos avisos não impede a gravação nem a revalidação", async () => {
@@ -278,7 +278,7 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect((await prisma.configuration.findUniqueOrThrow({ where: { id: "default" } })).siteName).toBe(
       "Gravado antes da falha",
     );
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/");
     log.mockRestore();
   });
 });

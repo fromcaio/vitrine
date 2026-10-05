@@ -3,7 +3,7 @@
 // App Router: não gera rota. Sem JSX nem next/font, para poder ser importado por qualquer rota.
 import { cache } from "react";
 import { getConfiguration } from "@/lib/db";
-import { readableTextOn } from "@/lib/theme";
+import { COLOR_MODES, readableTextOn, textColorsOf } from "@/lib/theme";
 
 /** Nome padrão do site (RN08). */
 export const DEFAULT_SITE_NAME = "Vitrine";
@@ -38,7 +38,7 @@ export const getSiteConfiguration = cache(async () => {
 
 /**
  * Cor do banco, se estiver no formato #RRGGBB. A API já valida o formato antes de gravar (RN09),
- * mas o dado lido não é tratado como confiável: ele vai para o atributo style de <html>.
+ * mas o dado lido não é tratado como confiável: ele vai para o atributo style do envoltório do tema.
  * @param {unknown} value
  * @returns {string | null}
  */
@@ -46,28 +46,46 @@ function hexColor(value) {
   return typeof value === "string" && HEX_COLOR.test(value) ? value : null;
 }
 
+/** Colunas de cada paleta no registro (configuração do site ou aparência de um usuário). */
+const PALETTE_FIELDS = Object.freeze({
+  light: { primary: "primaryColor", secondary: "secondaryColor", accent: "accentColor" },
+  dark: { primary: "darkPrimaryColor", secondary: "darkSecondaryColor", accent: "darkAccentColor" },
+});
+
 /**
- * Variáveis CSS do tema para o atributo `style` de `<html>` (Cap. 5 §5.9, "Injeção"). Só entram
- * cores válidas; as ausentes ficam com os padrões do globals.css, e sem configuração o objeto é
- * vazio. O texto sobre a primária acompanha a primária e é sempre calculado por `readableTextOn`
- * (ADR-020), nunca fixo. `--vitrine-on-secondary` não é definida: é branco fixo.
- * Função pura, sem imports do Next.js.
- * @param {{ primaryColor?: unknown, secondaryColor?: unknown, accentColor?: unknown } | null | undefined} configuration
+ * Variáveis CSS do tema para o atributo `style` do envoltório `.vitrine-tema` (Cap. 5 §5.9, ADR-030,
+ * ADR-025): as DUAS paletas, `--vitrine-light-*` e `--vitrine-dark-*` (primária, secundária, destaque e
+ * o texto sobre as duas), e as regras do globals.css escolhem o conjunto do modo. Só entram cores
+ * válidas (#RRGGBB); as ausentes ficam com os padrões do globals.css, e sem registro o objeto é
+ * vazio. O texto sobre a primária e sobre a secundária é calculado POR MODO, com `textColorsOf`
+ * (ADR-020), nunca fixo. Serve ao site (portal, login e painel) e, na Parte 3b, à aparência de um
+ * usuário (mesmas colunas). Função pura, sem imports do Next.js.
+ * @param {Record<string, unknown> | null | undefined} record configuração do site ou aparência
  * @returns {Record<string, string>}
  */
-export function buildThemeStyle(configuration) {
+export function buildThemeStyle(record) {
   /** @type {Record<string, string>} */
   const style = {};
 
-  const primary = hexColor(configuration?.primaryColor);
-  if (primary) {
-    style["--vitrine-primary"] = primary;
-    style["--vitrine-on-primary"] = readableTextOn(primary);
+  for (const mode of COLOR_MODES) {
+    const fields = PALETTE_FIELDS[mode];
+    const primary = hexColor(record?.[fields.primary]);
+    const secondary = hexColor(record?.[fields.secondary]);
+    const accent = hexColor(record?.[fields.accent]);
+
+    if (primary) style[`--vitrine-${mode}-primary`] = primary;
+    if (secondary) style[`--vitrine-${mode}-secondary`] = secondary;
+    if (accent) style[`--vitrine-${mode}-accent`] = accent;
+
+    if (primary && secondary) {
+      const { onPrimary, onSecondary } = textColorsOf({ [fields.primary]: primary, [fields.secondary]: secondary }, mode);
+      style[`--vitrine-${mode}-on-primary`] = onPrimary;
+      style[`--vitrine-${mode}-on-secondary`] = onSecondary;
+    } else {
+      if (primary) style[`--vitrine-${mode}-on-primary`] = readableTextOn(primary);
+      if (secondary) style[`--vitrine-${mode}-on-secondary`] = readableTextOn(secondary);
+    }
   }
-  const secondary = hexColor(configuration?.secondaryColor);
-  if (secondary) style["--vitrine-secondary"] = secondary;
-  const accent = hexColor(configuration?.accentColor);
-  if (accent) style["--vitrine-accent"] = accent;
 
   return style;
 }
@@ -96,4 +114,20 @@ export function siteNameOf(configuration) {
  */
 export function siteDescriptionOf(configuration) {
   return textOr(configuration?.siteDescription, DEFAULT_SITE_DESCRIPTION);
+}
+
+/**
+ * Metadados de uma página do site (portal, login): o nome vira o título (`absolute`: ignora o modelo
+ * do layout raiz, que faria "Vitrine | Vitrine") e o modelo dos segmentos filhos que definem o
+ * próprio título (`Entrar` aparece como "Entrar | nome"), e a descrição vem da configuração (RF18).
+ * Sem configuração, valem "Vitrine" (RN08) e a descrição padrão. Logotipo, favicon e links sociais
+ * não entram aqui.
+ * @param {{ siteName?: unknown, siteDescription?: unknown } | null | undefined} configuration
+ */
+export function siteMetadata(configuration) {
+  const siteName = siteNameOf(configuration);
+  return {
+    title: { absolute: siteName, template: `%s | ${siteName}` },
+    description: siteDescriptionOf(configuration),
+  };
 }

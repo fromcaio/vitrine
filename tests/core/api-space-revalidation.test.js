@@ -45,8 +45,8 @@ beforeEach(async () => {
 });
 
 const pages = () =>
-  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1).map((call) => call[0]).sort();
-const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 2);
+  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1 && call[0] !== "/").map((call) => call[0]).sort();
+const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call[0] === "/");
 const noLayout = () => expect(vi.mocked(revalidatePath).mock.calls.some((call) => call[1] === "layout")).toBe(false);
 
 const putAppearance = (body, cookie) =>
@@ -76,7 +76,7 @@ describe("aparência do dono (RN10): o espaço inteiro", () => {
       await putAppearance(body, ana.cookie);
 
       expect(pages()).toEqual(ANA_PAGES);
-      expect(portalCalls()).toEqual([["/", "page"]]);
+      expect(portalCalls()).toEqual([["/"]]);
     },
   );
 
@@ -128,7 +128,7 @@ describe("handle (RN10, RN20): o antigo e o novo", () => {
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual([...ANA_PAGES, ...ANA_PAGES.map((page) => page.replace("/ana", "/ana-maria"))].sort());
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
     noLayout();
   });
 
@@ -147,7 +147,7 @@ describe("handle (RN10, RN20): o antigo e o novo", () => {
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual(ANA_PAGES);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
   });
 
   it("reenviar o mesmo handle não revalida o espaço", async () => {
@@ -160,7 +160,7 @@ describe("handle (RN10, RN20): o antigo e o novo", () => {
   it("mudar só o nome: só o portal (o diretório mostra o nome); só o papel: nada", async () => {
     await patchUser(ana.id, { name: "Ana Maria" });
     expect(pages()).toEqual([]);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
 
     vi.mocked(revalidatePath).mockClear();
     await patchUser(ana.id, { role: "admin" });
@@ -181,7 +181,7 @@ describe("handle (RN10, RN20): o antigo e o novo", () => {
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual([]);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
   });
 
   it("criar uma conta com handle invalida a página inicial dele; sem handle, nada", async () => {
@@ -202,7 +202,7 @@ describe("suspensão (RN23): o espaço inteiro e o portal", () => {
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual(ANA_PAGES); // o espaço passa a responder 404; o conteúdo continua no banco
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
     expect(await prisma.content.count({ where: { authorId: ana.id } })).toBe(4);
     noLayout();
   });
@@ -215,7 +215,7 @@ describe("suspensão (RN23): o espaço inteiro e o portal", () => {
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual(ANA_PAGES);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
   });
 
   it("ninguém suspende a si mesmo (403): nada é revalidado", async () => {
@@ -241,7 +241,7 @@ describe("exclusão de usuário (RN24): o espaço que sai do ar e o do destino",
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual(ANA_PAGES);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
     noLayout();
   });
 
