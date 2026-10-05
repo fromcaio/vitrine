@@ -26,6 +26,9 @@ import { Sidebar } from "./Sidebar";
  * @param {string[]} [props.activePath] cadeia de slugs da página corrente
  * @param {import("./SocialLinks").SocialLinksValue | null} [props.socialLinks] links do rodapé
  * @param {number} [props.year] ano dos direitos
+ * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor na barra (padrão)
+ * @param {string} [props.mainId] id do `<main>`, alvo do atalho; só a pré-visualização o troca, para
+ *   não repetir o id da página
  * @param {import("react").ReactNode} props.children a página
  */
 export function SpaceLayout({
@@ -39,22 +42,24 @@ export function SpaceLayout({
   activePath = [],
   socialLinks = null,
   year,
+  modeToggle = true,
+  mainId = "conteudo-principal",
   children,
 }) {
   return (
     <div className="vitrine-tema relative flex flex-1 flex-col bg-background text-foreground" style={safeThemeStyle(themeStyle)}>
       {/* Atalho de teclado (WCAG 2.4.1): fica acima da janela até receber o foco. */}
       <a
-        href="#conteudo-principal"
+        href={`#${mainId}`}
         className="absolute top-2 left-2 z-10 -translate-y-20 rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground focus:translate-y-0"
       >
         Pular para o conteúdo
       </a>
-      <Navbar name={name} homeHref={homeHref} logoUrl={logoUrl} items={navItems} />
+      <Navbar name={name} homeHref={homeHref} logoUrl={logoUrl} items={navItems} modeToggle={modeToggle} />
       <div className="flex flex-1 flex-col md:flex-row">
         {collection ? <Sidebar collection={collection} basePath={basePath} activePath={activePath} /> : null}
         {/* tabIndex -1: recebe o foco do atalho sem entrar na ordem de tabulação. */}
-        <main id="conteudo-principal" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 md:p-8">
+        <main id={mainId} tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 md:p-8">
           {children}
         </main>
       </div>
