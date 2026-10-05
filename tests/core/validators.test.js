@@ -578,7 +578,8 @@ describe("mensagens em português do Brasil (R-007)", () => {
     const source = readFileSync(path.join(process.cwd(), "src", "lib", "validators.js"), "utf8");
 
     expect(source).toContain('from "zod/v4/locales/pt-BR.js"');
-    expect(source).not.toMatch(/z\.locales/);
+    // O uso (`z.locales.ptBR()`), e não a menção em comentário.
+    expect(source).not.toMatch(/z\.locales\s*[.[]/);
     // O português de Portugal (`pt.js`) não pode voltar por engano.
     expect(source).not.toMatch(/locales\/pt\.js/);
   });
