@@ -26,8 +26,28 @@ export async function apiLogin(playwright, credentials) {
   return context;
 }
 
-/** O administrador de teste, com a sessão de API aberta. */
-export const adminLogin = (playwright) => apiLogin(playwright, ADMIN);
+/**
+ * O administrador de teste, com a sessão de API aberta. Os métodos de escrita esperam o `Retry-After` de
+ * um 429 e tentam de novo: o grupo `users` do limite de escritas (20 por minuto, RN25) é por usuário, e
+ * os specs, em série, criam contas, suspendem e excluem em nome do mesmo administrador.
+ * @param {import("@playwright/test").PlaywrightWorkerArgs["playwright"]} playwright
+ */
+export async function adminLogin(playwright) {
+  const context = await apiLogin(playwright, ADMIN);
+  for (const method of /** @type {const} */ (["post", "put", "patch", "delete"])) {
+    const original = context[method].bind(context);
+    context[method] = async (...args) => {
+      let response = await original(...args);
+      for (let attempt = 0; attempt < 3 && response.status() === 429; attempt++) {
+        const seconds = Number(response.headers()["retry-after"]) || 5;
+        await new Promise((resolve) => setTimeout(resolve, (seconds + 1) * 1000));
+        response = await original(...args);
+      }
+      return response;
+    };
+  }
+  return context;
+}
 
 /**
  * Cria a conta pelo administrador e troca a senha provisória: devolve o identificador e as credenciais.

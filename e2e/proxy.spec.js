@@ -23,6 +23,8 @@ test.describe.serial("Proxy dos espaços públicos", () => {
   let ownerId = "";
 
   test.beforeAll(async ({ playwright }) => {
+    // O limite de escritas do administrador (RN25) pode fazer a criação das contas esperar o Retry-After.
+    test.setTimeout(120_000);
     admin = await adminLogin(playwright);
     const account = await createAccount(playwright, admin, {
       email: "prx-dono-e2e@exemplo.test", name: "Dono do Proxy", handle: "prx-dono", password: "senha-prx-e2e-9",

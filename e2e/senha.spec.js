@@ -38,6 +38,8 @@ test.describe.serial("senha provisória", () => {
   let temporary = "";
 
   test.beforeAll(async ({ playwright }) => {
+    // O limite de escritas do administrador (RN25) pode fazer a criação das contas esperar o Retry-After.
+    test.setTimeout(120_000);
     admin = await adminLogin(playwright);
     temporary = await createWithTemporaryPassword(admin, ACCOUNT);
   });
