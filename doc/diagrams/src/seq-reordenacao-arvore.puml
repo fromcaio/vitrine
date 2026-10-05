@@ -35,9 +35,10 @@ alt lote inválido
   Api --> Tree : 422 { error }
   Tree -> Tree : desfaz a atualização otimista
 else lote válido
+  Api -> DB : getPublicPaths(dono)\n(caminhos de antes)
   Api -> DB : reorderContents(lote)\n(transação)
   DB -> Sql : BEGIN; UPDATE ...; COMMIT
-  Api -> Cache : revalidatePath("/", "layout")
+  Api -> Cache : revalidatePath(caminho literal)\npara cada caminho de antes e de depois\n(nunca "layout"; ADR-030)
   Api --> Tree : 200 { árvore atualizada }
 end
 @enduml

@@ -34,10 +34,10 @@ Val --> Api : ok (ou 422, sem gravar nada)
 Api -> DB : updateConfiguration(dados)
 DB -> Sql : UPDATE configurations
 DB --> Api : configuração gravada
-Api -> Cache : revalidatePath("/", "layout")
+Api -> Cache : revalidatePath("/", "page")\n(configuração do site; a do dono: caminhos literais do espaço)
 Api -> Theme : contrastWarnings(cores gravadas)
 Theme --> Api : lista de avisos (vazia se nada falha)
-note right of Api : o cálculo vem por último: se falhar,\n500 INTERNAL_ERROR com a configuração\njá gravada e o layout já revalidado
+note right of Api : o cálculo vem por último: se falhar,\n500 INTERNAL_ERROR com a configuração\njá gravada e o portal já revalidado
 Api --> Form : 200 { data, warnings }
 Form --> Admin : confirmação e avisos de contraste
 

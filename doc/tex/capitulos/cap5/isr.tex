@@ -36,6 +36,8 @@ A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16 \emph{por espaç
 
 \textbf{Por que caminhos literais.} Medido no Next.js 16.3.7 (\texttt{next build} e \texttt{next start}, dois espaços, cabeçalho \texttt{x-nextjs-cache}): \texttt{revalidatePath('/a', 'layout')} \emph{não invalida nada} em um segmento dinâmico; \texttt{revalidatePath('/[handle]', 'layout')} invalida \emph{todos} os espaços; \texttt{revalidatePath('/', 'layout')} invalida tudo; só o caminho literal de página (\texttt{revalidatePath('/a/x')}) funciona, e é barato (2000 chamadas em 58~ms). Por isso o servidor calcula os caminhos públicos do nó e dos descendentes \emph{antes e depois} da escrita, a partir da árvore do dono (\texttt{getPublicPaths}, do M15), porque renomear ou mover deixa em \en{cache} o HTML antigo. Com até 500 conteúdos por dono (RN25), são cerca de 500 chamadas por evento, abaixo de 10~ms. \textbf{Nunca} se usa \texttt{revalidatePath('/', 'layout')} por mudança de um espaço ou do site. O comportamento depende da versão do \en{framework} e deve ser conferido a cada atualização (CT44).
 
+\textbf{Decisões do M-015 (05/10/2026).} (i) Os caminhos das coleções \emph{ancestrais} também são invalidados, porque uma coleção redireciona ao primeiro documento publicado (RN14) e criar, despublicar, mover ou excluir esse documento muda a página da coleção. (ii) Os eventos \emph{estruturais} invalidam o \textbf{espaço inteiro do dono}, por caminhos literais (\texttt{getPublicPaths} da raiz do espaço, no máximo 500 conteúdos, RN25), e não só o nó e os descendentes: a \en{sidebar} de cada página mostra a árvore inteira, e as páginas irmãs ficariam velhas até o \texttt{revalidate} de 3600~s (custo desprezível, \adr{ADR-030}). Só a edição do corpo invalida apenas a própria página. A implementação do espaço inteiro e o CT44 correspondente entram no primeiro item da Parte 3 da A-014, quando houver páginas; até lá, as rotas invalidam o nó, os descendentes e os ancestrais, como entregue no M-015. (iii) O portal (\texttt{revalidatePath('/', 'page')}) é invalidado também quando muda o diretório (RN28): raiz criada, excluída, publicada, despublicada ou movida, \en{handle}, suspensão e nome do usuário.
+
 \begin{table}[htb]
 \caption{Eventos de mutação e a revalidação correspondente}\label{tab:revalidacao}
 \small
@@ -43,13 +45,13 @@ A Tabela~\ref{tab:revalidacao} implementa as regras RN10 e RN16 \emph{por espaç
 \toprule
 \textbf{Evento} & \textbf{Ação de revalidação}\\
 \midrule
-Criar ou excluir conteúdo; alterar título, \en{slug}, pai, ordem ou tipo; mover/reordenar & Página inicial do espaço e caminhos públicos \emph{antigos e novos} do nó e dos descendentes (a árvore de navegação mudou)\\
+Criar ou excluir conteúdo; alterar título, \en{slug}, pai, ordem ou tipo; mover/reordenar & \textbf{Todo o espaço do dono}: página inicial e todos os caminhos públicos, \emph{antigos e novos} (a \en{sidebar} de cada página lista a árvore inteira, então as páginas irmãs também ficam velhas). Se o evento é sobre uma raiz (criada, excluída, publicada, despublicada ou movida de ou para a raiz), o portal também (RN28)\\
 \addlinespace
-Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó, inclusive por moderação & O mesmo: a visibilidade do nó e de seus descendentes altera a navegação e o conjunto de páginas (RN16)\\
+Alterar o estado de publicação (\texttt{DRAFT} $\leftrightarrow$ \texttt{PUBLISHED}) de qualquer nó, inclusive por moderação & O mesmo, com os caminhos \emph{antigos e novos}: a visibilidade do nó e de seus descendentes altera a navegação e o conjunto de páginas (RN16)\\
 \addlinespace
-Alterar somente o corpo de um documento (estado inalterado) & \texttt{revalidatePath(caminho do documento)}\\
+Alterar somente o corpo de um documento (estado inalterado) & Só \texttt{revalidatePath(caminho do documento)}, e só se a página é pública\\
 \addlinespace
-Alterar a aparência do dono, o \en{handle} (com o antigo e o novo) ou a suspensão & Todo o espaço: página inicial e todos os caminhos públicos do dono\\
+Alterar a aparência do dono, o \en{handle} (com o antigo e o novo), a suspensão ou a exclusão da conta (e, na transferência, o espaço do destino) & Todo o espaço: página inicial e todos os caminhos públicos do dono; \en{handle}, suspensão, exclusão e o nome do usuário também invalidam o portal\\
 \addlinespace
 Alterar a configuração do site ou o portal (nome, logotipo, cores, links, texto, diretório) & Somente \texttt{revalidatePath('/', 'page')}\\
 \bottomrule

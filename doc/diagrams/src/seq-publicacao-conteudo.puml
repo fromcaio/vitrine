@@ -42,9 +42,9 @@ else sessão válida
     DB -> Sql : UPDATE
     Sql --> DB : ok
     DB --> Api : conteúdo atualizado
-    Api -> Rev : revalidateContent(antes, depois)
+    Api -> Rev : captura os caminhos públicos de antes e de depois\n(getPublicPaths, do dono)
     alt estrutura ou estado de publicação alterados
-      Rev -> Cache : revalidatePath("/", "layout")
+      Rev -> Cache : revalidatePath(caminho literal)\nespaço inteiro do dono, antigos e novos (nunca "layout")
     else apenas corpo alterado
       Rev -> Cache : revalidatePath(caminho do documento)
     end
