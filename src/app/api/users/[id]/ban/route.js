@@ -2,11 +2,12 @@
 // exige o motivo, que o usuário vê ao tentar entrar com a senha correta e na notificação, e aceita
 // um prazo (`expiresAt`); vencido o prazo, a conta volta sozinha. Suspender REVOGA as sessões. O
 // último administrador ativo não é suspenso, e ninguém suspende a si mesmo. O usuário é notificado
-// (RN26). As páginas do espaço passam a responder 404 com o M17 (revalidação por espaço, ADR-030).
+// (RN26). O espaço inteiro e o portal são revalidados na suspensão e na reativação (RN10, ADR-030).
 import { auth, findUserById } from "@/lib/auth";
 import { notify, updateUserProfile } from "@/lib/db";
 import { banSchema } from "@/lib/validators";
 import { ApiError, ok, parse } from "../../../_lib/http";
+import { revalidateWholeSpace } from "../../../_lib/revalidation";
 import { route } from "../../../_lib/route";
 import { authCall, publicUser } from "../../../_lib/users";
 
@@ -27,7 +28,7 @@ export const POST = route(
     const { reason, expiresAt } = parse(banSchema, await readJson());
     await requireUser(params.id);
     if (params.id === actor.id) {
-      throw new ApiError(409, "LAST_ADMIN", "Você não pode suspender a própria conta.", [{ userId: actor.id }]);
+      throw new ApiError(403, "FORBIDDEN", "Você não pode suspender a própria conta.");
     }
 
     // A regra do último administrador ativo é da transação de db.js (o `ban-user` do pacote não a tem).
@@ -36,6 +37,8 @@ export const POST = route(
       banReason: reason,
       banExpires: expiresAt ?? null,
     });
+    // O espaço passa a responder 404 ao público: as páginas em cache saem já, antes de qualquer outra etapa.
+    await revalidateWholeSpace({ ownerId: params.id, directory: true });
     await authCall(() => auth.api.revokeUserSessions({ headers: request.headers, body: { userId: params.id } }));
     await notify({
       userId: params.id,
@@ -54,6 +57,7 @@ export const DELETE = route(
   async ({ params }) => {
     await requireUser(params.id);
     const updated = await updateUserProfile(params.id, { banned: false, banReason: null, banExpires: null });
+    await revalidateWholeSpace({ ownerId: params.id, directory: true });
     await notify({ userId: params.id, type: "ACCOUNT", severity: "INFO", data: { event: "ACCOUNT_REACTIVATED" } });
     return ok(publicUser(/** @type {any} */ (updated)));
   },

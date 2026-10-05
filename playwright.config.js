@@ -2,6 +2,9 @@
 //
 //   npm run test:e2e            (a primeira vez exige: npx playwright install chromium)
 //
+// Ambiente sem o navegador do Playwright (integração contínua): `E2E_CHROMIUM_PATH` aponta para o
+// executável de um Chromium ou Chrome já instalado, e o `install` é dispensado.
+//
 // A rodada sobe `next build` + `next start` com um banco SQLite TEMPORÁRIO, fora do repositório,
 // em uma porta livre e com variáveis FICTÍCIAS (e2e/support/env.js). O dev.db e qualquer `.env`
 // nunca entram: as variáveis da rodada têm precedência sobre os arquivos .env. Os specs ficam em
@@ -10,6 +13,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { e2eEnvironment } from "./e2e/support/env.js";
 
 const { baseURL, port, serverEnv } = e2eEnvironment();
+const chromiumPath = process.env.E2E_CHROMIUM_PATH?.trim();
 
 // O build leva minutos na primeira vez; o `next start` só precisa de segundos.
 const BUILD_AND_START_TIMEOUT = 5 * 60_000;
@@ -30,7 +34,15 @@ export default defineConfig({
     locale: "pt-BR",
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(chromiumPath ? { launchOptions: { executablePath: chromiumPath } } : {}),
+      },
+    },
+  ],
   webServer: {
     // 1) migrações no banco temporário (o build não consulta o banco, ADR-021, mas o servidor
     //    precisa dele; aplicá-las antes faz uma falha de migração aparecer cedo);

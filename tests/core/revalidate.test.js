@@ -1,18 +1,21 @@
-// Regras de revalidação (RN10, RN16; Tabela de eventos do Cap. 5 §5.7.2). O `revalidatePath` do
-// Next.js só existe dentro do servidor: aqui ele é substituído para conferir as chamadas.
+// Regras de revalidação por espaço (RN10, RN16, ADR-030; Tabela de eventos do Cap. 5 §5.7.2; CT44).
+// O `revalidatePath` do Next.js só existe dentro do servidor: aqui ele é substituído para conferir as
+// chamadas, que têm de ser LITERAIS (nunca o tipo "layout") e por espaço.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { revalidatePath } from "next/cache";
 import {
-  ROOT_LAYOUT,
-  contentUpdateTarget,
-  findSlugPath,
-  publicPath,
+  STRUCTURAL_FIELDS,
+  affectsDirectory,
+  hasStructuralChange,
   revalidateConfiguration,
-  revalidateContentTree,
-  revalidateContentUpdate,
+  revalidatePortal,
+  revalidateSnapshots,
+  revalidateUrls,
+  snapshotUrls,
+  spaceUrl,
 } from "@/lib/revalidate";
 
 const before = {
@@ -26,20 +29,15 @@ const before = {
   parentId: "calculo",
   updatedAt: new Date("2026-10-01T10:00:00Z"),
 };
-const slugs = ["calculo", "limites"];
 
 beforeEach(() => {
   vi.mocked(revalidatePath).mockReset();
 });
 
-describe("contentUpdateTarget", () => {
-  it("só o corpo mudou: apenas a página do documento", () => {
-    const after = { ...before, body: "texto novo", updatedAt: new Date("2026-10-01T11:00:00Z") };
-    expect(contentUpdateTarget(before, after, slugs)).toEqual({ path: "/calculo/limites" });
-  });
-
-  it("nada mudou: apenas a página", () => {
-    expect(contentUpdateTarget(before, { ...before }, slugs)).toEqual({ path: "/calculo/limites" });
+describe("hasStructuralChange (RN10, RN16)", () => {
+  it("só o corpo mudou, ou nada mudou: não é estrutural", () => {
+    expect(hasStructuralChange(before, { ...before, body: "texto novo", updatedAt: new Date() })).toBe(false);
+    expect(hasStructuralChange(before, { ...before })).toBe(false);
   });
 
   it.each([
@@ -50,74 +48,111 @@ describe("contentUpdateTarget", () => {
     ["ordem", { order: 4 }],
     ["estado de publicação (RN16)", { status: "DRAFT" }],
     ["tipo", { type: "COLLECTION" }],
-  ])("%s mudou: layout raiz", (_label, change) => {
-    expect(contentUpdateTarget(before, { ...before, ...change }, slugs)).toEqual(ROOT_LAYOUT);
+  ])("%s mudou: é estrutural", (_label, change) => {
+    expect(hasStructuralChange(before, { ...before, ...change })).toBe(true);
   });
 
-  it("corpo e título mudaram juntos: layout raiz", () => {
-    const after = { ...before, body: "novo", title: "Novo título" };
-    expect(contentUpdateTarget(before, after, slugs)).toEqual(ROOT_LAYOUT);
+  it("corpo e título mudaram juntos: é estrutural", () => {
+    expect(hasStructuralChange(before, { ...before, body: "novo", title: "Novo título" })).toBe(true);
   });
 
-  it("sem o caminho do documento, cai no layout raiz", () => {
-    expect(contentUpdateTarget(before, { ...before, body: "novo" }, null)).toEqual(ROOT_LAYOUT);
+  it("a lista de campos estruturais é a da RN10", () => {
+    expect([...STRUCTURAL_FIELDS].sort()).toEqual(["order", "parentId", "slug", "status", "title", "type"]);
   });
 });
 
-describe("caminho público (RN04)", () => {
-  const tree = [
-    {
-      id: "calculo",
-      slug: "calculo",
-      children: [
-        { id: "doc-1", slug: "limites", children: [] },
-        { id: "sub", slug: "integrais", children: [{ id: "doc-2", slug: "por-partes", children: [] }] },
-      ],
-    },
-    { id: "sobre", slug: "sobre", children: [] },
-  ];
+describe("affectsDirectory (RN28: só a raiz importa)", () => {
+  const root = { parentId: null, status: "PUBLISHED" };
+  const child = { parentId: "calculo", status: "PUBLISHED" };
 
-  it("encontra a cadeia de slugs da raiz ao nó", () => {
-    expect(findSlugPath(tree, "sobre")).toEqual(["sobre"]);
-    expect(findSlugPath(tree, "doc-1")).toEqual(["calculo", "limites"]);
-    expect(findSlugPath(tree, "doc-2")).toEqual(["calculo", "integrais", "por-partes"]);
-    expect(findSlugPath(tree, "inexistente")).toBeNull();
+  it("criar ou excluir uma raiz altera o diretório; um filho, não", () => {
+    expect(affectsDirectory(null, root)).toBe(true);
+    expect(affectsDirectory(root, null)).toBe(true);
+    expect(affectsDirectory(null, child)).toBe(false);
+    expect(affectsDirectory(child, null)).toBe(false);
   });
 
-  it("monta a URL com barras", () => {
-    expect(publicPath(["calculo", "integrais", "por-partes"])).toBe("/calculo/integrais/por-partes");
+  it("publicar ou despublicar uma raiz altera o diretório", () => {
+    expect(affectsDirectory(root, { ...root, status: "DRAFT" })).toBe(true);
+    expect(affectsDirectory({ ...root, status: "DRAFT" }, root)).toBe(true);
+  });
+
+  it("entrar na raiz ou sair dela altera o diretório; mudar de pai entre filhos, não", () => {
+    expect(affectsDirectory(child, { ...child, parentId: null })).toBe(true);
+    expect(affectsDirectory(root, { ...root, parentId: "calculo" })).toBe(true);
+    expect(affectsDirectory(child, { ...child, parentId: "analise" })).toBe(false);
+  });
+
+  it("renomear ou reordenar uma raiz não altera o diretório", () => {
+    expect(affectsDirectory(root, { ...root })).toBe(false);
+  });
+});
+
+describe("caminhos literais de um espaço (RN04, ADR-030)", () => {
+  it("a URL pública é /{handle} seguida da cadeia de slugs", () => {
+    expect(spaceUrl("ana")).toBe("/ana");
+    expect(spaceUrl("ana", ["calculo", "integrais", "por-partes"])).toBe("/ana/calculo/integrais/por-partes");
+  });
+
+  it("snapshotUrls: a página inicial e cada caminho, sem repetição, na união dos retratos", () => {
+    const antes = { handle: "ana", paths: [["a"], ["a", "b"]] };
+    const depois = { handle: "ana", paths: [["z"], ["z", "b"], ["a"]] };
+    expect(snapshotUrls(antes, depois)).toEqual(["/ana", "/ana/a", "/ana/a/b", "/ana/z", "/ana/z/b"]);
+  });
+
+  it("snapshotUrls: as coleções ancestrais de um caminho também entram (a coleção redireciona; RN14)", () => {
+    const novo = { handle: "ana", paths: [["calculo", "integrais", "por-partes"]] };
+    expect(snapshotUrls(novo)).toEqual(["/ana", "/ana/calculo", "/ana/calculo/integrais", "/ana/calculo/integrais/por-partes"]);
+  });
+
+  it("dois handles (o antigo e o novo) geram as páginas de cada um", () => {
+    const antigo = { handle: "ana", paths: [["a"]] };
+    const novo = { handle: "ana-maria", paths: [["a"]] };
+    expect(snapshotUrls(antigo, novo)).toEqual(["/ana", "/ana/a", "/ana-maria", "/ana-maria/a"]);
+  });
+
+  it("sem handle, o espaço não tem URL e nada é invalidado", () => {
+    expect(snapshotUrls({ handle: null, paths: [["a"]] })).toEqual([]);
   });
 });
 
 describe("chamadas a revalidatePath", () => {
-  it("criar, excluir, mover e reordenar revalidam o layout raiz", () => {
-    revalidateContentTree();
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+  it("revalidateUrls chama o caminho literal, sem o tipo, uma vez por página", () => {
+    revalidateUrls(["/ana", "/ana/a"]);
+    expect(revalidatePath).toHaveBeenCalledTimes(2);
+    expect(revalidatePath).toHaveBeenNthCalledWith(1, "/ana");
+    expect(revalidatePath).toHaveBeenNthCalledWith(2, "/ana/a");
   });
 
-  it("configuração revalida o layout raiz", () => {
+  it("revalidateSnapshots invalida o espaço, e só ele (nunca o layout)", () => {
+    revalidateSnapshots({ handle: "ana", paths: [["a"]] });
+    expect(revalidatePath).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(revalidatePath).mock.calls.every((call) => call.length === 1)).toBe(true);
+    expect(revalidatePath).not.toHaveBeenCalledWith("/", "layout");
+  });
+
+  it("o portal e a configuração do site invalidam só a página `/`", () => {
+    revalidatePortal();
     revalidateConfiguration();
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledTimes(2);
+    expect(revalidatePath).toHaveBeenNthCalledWith(1, "/", "page");
+    expect(revalidatePath).toHaveBeenNthCalledWith(2, "/", "page");
   });
 
-  it("alteração só de corpo revalida a página, sem o tipo layout", () => {
-    revalidateContentUpdate(before, { ...before, body: "novo" }, slugs);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/calculo/limites");
-  });
-
-  it("mudança de estado revalida o layout raiz", () => {
-    revalidateContentUpdate(before, { ...before, status: "DRAFT" }, slugs);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "layout");
-  });
-
-  it("uma falha na revalidação é registrada e não se propaga (RNF10)", () => {
+  it("uma falha na revalidação é registrada e não se propaga (RNF10); as demais páginas seguem", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(revalidatePath).mockImplementation(() => {
+    vi.mocked(revalidatePath).mockImplementationOnce(() => {
       throw new Error("cache indisponível");
     });
 
-    expect(() => revalidateContentTree()).not.toThrow();
+    expect(() => revalidateUrls(["/ana", "/ana/a"])).not.toThrow();
+    expect(revalidatePath).toHaveBeenCalledTimes(2);
     expect(log).toHaveBeenCalledOnce();
+
+    vi.mocked(revalidatePath).mockImplementation(() => {
+      throw new Error("cache indisponível");
+    });
+    expect(() => revalidatePortal()).not.toThrow();
     log.mockRestore();
   });
 });

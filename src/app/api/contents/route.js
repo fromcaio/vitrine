@@ -2,11 +2,12 @@
 // age sobre o conteúdo do DONO da sessão (RN13, RN19); o autor nunca vem do corpo.
 import { authorize } from "@/lib/authz";
 import { createContent, getContentTree } from "@/lib/db";
-import { revalidateContentTree } from "@/lib/revalidate";
+import { affectsDirectory } from "@/lib/revalidate";
 import { contentCreateSchema } from "@/lib/validators";
 import { withSlugSuggestion } from "../_lib/contents";
 import { ApiError, contentJsonMaxBytes, ok, parse } from "../_lib/http";
 import { currentLimits } from "../_lib/limits";
+import { revalidateStructure } from "../_lib/revalidation";
 import { route } from "../_lib/route";
 
 /**
@@ -27,7 +28,8 @@ export const GET = route({ action: "content:list" }, async ({ request, actor }) 
 /**
  * POST: cria um documento ou uma coleção (RF05, RF06). O autor é o usuário da sessão (RN13), mesmo
  * quando é o administrador quem escreve, e o estado, se omitido, é PUBLISHED (RN16). Respeita as
- * cotas do usuário (RN25). Responde 201 e revalida o layout raiz (RN10).
+ * cotas do usuário (RN25). Responde 201 e revalida a página inicial do espaço e os caminhos públicos do
+ * novo conteúdo (RN10, ADR-030).
  */
 export const POST = route({ action: "content:create", mutation: true, rate: "content" }, async ({ actor, readJson }) => {
   const limits = currentLimits();
@@ -38,6 +40,6 @@ export const POST = route({ action: "content:create", mutation: true, rate: "con
     createContent({ ...input, parentId, authorId: actor.id }, { limits }),
   );
 
-  revalidateContentTree();
+  await revalidateStructure({ ownerId: actor.id, nodeId: content.id, directory: affectsDirectory(null, content) });
   return ok(content, { status: 201, headers: { Location: `/api/contents/${content.id}` } });
 });

@@ -4,6 +4,7 @@
 // nada); a autorização do Vitrine vem antes, pela matriz.
 import { auth } from "@/lib/auth";
 import { getUserByHandle } from "@/lib/db";
+import { revalidateUrls, spaceUrl } from "@/lib/revalidate";
 import { userCreateSchema, userListQuerySchema } from "@/lib/validators";
 import { ApiError, ok, parse } from "../_lib/http";
 import { route } from "../_lib/route";
@@ -59,6 +60,9 @@ export const POST = route({ action: "users:create", mutation: true, rate: "users
       },
     }),
   );
+
+  // O handle novo nasce sem páginas: só a página inicial do espaço (ADR-030).
+  if (input.handle) revalidateUrls([spaceUrl(input.handle)]);
 
   return ok(
     { ...publicUser(/** @type {any} */ (user)), temporaryPassword: generated ? password : null },

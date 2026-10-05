@@ -42,8 +42,8 @@ const create = (body, cookie, headers = {}) =>
 const getOne = (id, cookie) => contentRoute.GET(apiRequest(`/api/contents/${id}`, { cookie }), routeContext({ id }));
 const update = (id, body, cookie) =>
   contentRoute.PATCH(apiRequest(`/api/contents/${id}`, { method: "PATCH", body, cookie }), routeContext({ id }));
-const remove = (id, cookie) =>
-  contentRoute.DELETE(apiRequest(`/api/contents/${id}`, { method: "DELETE", cookie }), routeContext({ id }));
+const remove = (id, cookie, query = "") =>
+  contentRoute.DELETE(apiRequest(`/api/contents/${id}${query}`, { method: "DELETE", cookie }), routeContext({ id }));
 const reorder = (body, cookie) =>
   reorderRoute.PATCH(apiRequest("/api/contents/reorder", { method: "PATCH", body, cookie }));
 
@@ -103,18 +103,33 @@ describe("CT04: escrita sem sessão e com sessão de outro dono", () => {
     expect((await remove("nao-existe", ana.cookie)).status).toBe(404);
   });
 
-  it("o administrador também recebe 403 ao ESCREVER no conteúdo alheio (a moderação, com motivo e aviso, é do M17)", async () => {
+  it("o administrador só ESCREVE no conteúdo alheio como moderação: sem o motivo, 422; reordenar, sempre 403", async () => {
     const theirs = await seed(ana.id, "da-ana");
 
+    // Sem `reason`, a moderação é recusada (a moderação completa está em api-moderation.test.js, CT51).
+    for (const response of [await update(theirs.id, { status: "DRAFT" }, admin.cookie), await remove(theirs.id, admin.cookie)]) {
+      expect(response.status).toBe(422);
+      expect((await errorOf(response)).details).toEqual([expect.objectContaining({ field: "reason" })]);
+    }
+    // Reordenar o conteúdo alheio não é moderação.
+    expect((await reorder([{ id: theirs.id, order: 3 }], admin.cookie)).status).toBe(403);
+
+    expect(await content(theirs.id)).toMatchObject({ status: "PUBLISHED", order: 0 });
+    expect(await prisma.notification.count()).toBe(0);
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("o usuário comum recebe 403 ao escrever no conteúdo de outro usuário, com ou sem motivo", async () => {
+    const theirs = await seed(beto.id, "do-beto");
+
     for (const response of [
-      await update(theirs.id, { status: "DRAFT" }, admin.cookie),
-      await remove(theirs.id, admin.cookie),
-      await reorder([{ id: theirs.id, order: 3 }], admin.cookie),
+      await update(theirs.id, { status: "DRAFT", reason: "tentando moderar" }, ana.cookie),
+      await remove(theirs.id, ana.cookie, "?reason=tentando%20moderar"),
     ]) {
       expect(response.status).toBe(403);
     }
-    expect(await content(theirs.id)).toMatchObject({ status: "PUBLISHED", order: 0 });
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(await content(theirs.id)).toMatchObject({ status: "PUBLISHED" });
+    expect(await prisma.notification.count()).toBe(0);
   });
 
   it("o administrador LÊ o conteúdo e a árvore de outro usuário, para a moderação (RN19)", async () => {
@@ -476,9 +491,18 @@ describe("CT53 (parte do servidor): versão no PATCH (RN18)", () => {
 
   it("o conflito entre o dono e o administrador: o administrador também tem de informar a versão (RN18)", async () => {
     const mine = await seed(ana.id, "da-ana");
-    // a edição alheia é 403 nesta versão, e mesmo assim o dono vê o conflito se a versão estiver velha
     await update(mine.id, { body: "do dono", version: mine.updatedAt.toISOString() }, ana.cookie);
-    expect((await update(mine.id, { body: "do admin", version: mine.updatedAt.toISOString() }, admin.cookie)).status).toBe(403);
+
+    const response = await update(
+      mine.id,
+      { body: "do admin", version: mine.updatedAt.toISOString(), reason: "correção" },
+      admin.cookie,
+    );
+
+    expect(response.status).toBe(409);
+    expect((await errorOf(response)).code).toBe("VERSION_CONFLICT");
+    expect((await content(mine.id)).body).toBe("do dono");
+    expect(await prisma.notification.count()).toBe(0); // nada aplicado, nada notificado
   });
 });
 
@@ -564,7 +588,7 @@ describe("/api/configuration: só o administrador (RN19, RF30)", () => {
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ siteName: "Portal", darkPrimaryColor: "#112233", homeBody: "# Bem-vindo", directoryEnabled: false });
     expect(Array.isArray(warnings)).toBe(true);
-    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
     expect((await (await get(admin.cookie)).json()).data.siteName).toBe("Portal");
   });
 
