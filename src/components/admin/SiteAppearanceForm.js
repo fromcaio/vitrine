@@ -12,6 +12,7 @@
 // rascunho fica na tela. A validação do servidor é a autoridade (RF21): a daqui só avisa antes.
 // Os avisos de contraste são calculados no navegador enquanto o autor edita (não bloqueiam) e, depois
 // de gravar, mostra-se também o que o servidor devolveu (que ele grava como notificação do dono).
+import Link from "next/link";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Preview } from "@/components/editor/Preview";
 import { Button } from "@/components/ui/Button";
@@ -405,9 +406,9 @@ export function SiteAppearanceForm({ kind, initial, maxBodyBytes = DEFAULT_MAX_B
                 {general === MESSAGES.unauthenticated ? (
                   <>
                     {" "}
-                    <a href="/login" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
+                    <Link href="/login" target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2">
                       Abrir o login em outra aba
-                    </a>
+                    </Link>
                     .
                   </>
                 ) : null}
