@@ -301,7 +301,8 @@ describe("AdminLayout", () => {
 
     await expect(AdminLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT");
     expect(getConfiguration).not.toHaveBeenCalled();
-    expect(requireSession).toHaveBeenCalledWith({ path: "/admin" });
+    // O layout envolve a página da troca de senha: só a sessão conta, a senha provisória é de cada página.
+    expect(requireSession).toHaveBeenCalledWith({ path: "/admin", allowTemporaryPassword: true });
   });
 
   it("aplica a configuração do site no envoltório .vitrine-tema, em volta da casca do painel", async () => {

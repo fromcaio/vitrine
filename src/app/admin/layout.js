@@ -22,7 +22,9 @@ export async function generateMetadata() {
 }
 
 export default async function AdminLayout({ children }) {
-  const { user } = await requireSession({ path: "/admin" });
+  // O layout envolve também `/admin/senha` e não sabe qual página renderiza: a senha provisória é
+  // tratada por cada página (RN21), que redireciona; aqui só a sessão conta.
+  const { user } = await requireSession({ path: "/admin", allowTemporaryPassword: true });
   const configuration = await getSiteConfiguration();
   return (
     <SiteTheme configuration={configuration}>
