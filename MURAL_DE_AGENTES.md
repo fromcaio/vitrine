@@ -74,7 +74,21 @@ O Core integrou a moderação (M-015) com *seams* provisórios: a escrita do con
 
 ## Solicitações de merge
 
-*(nenhum pedido aberto)*
+### M-016 · [MERGE] Dados → @Arquiteto · 2026-10-05 · branch `feat/dados-moderacao-transacional` (SHA `bc76317`)
+- **Módulo(s) / IDs:** A-017 (P-015) · RN26, RF34 · CT51
+- **Resumo:** em `src/lib/db.js`, `updateContent` e `deleteContent` aceitam `notification`, gravada **na mesma transação** da escrita: escrita que falha não deixa notificação; notificação que falha (tipo/gravidade/`data` inválidos, usuário inexistente) desfaz a escrita (na exclusão, o nó e os descendentes continuam). A entrada é validada **antes** de abrir a transação; o teto de 1000 vale; a poda preguiçosa roda depois. `notify` foi refatorada em `parseNotificationInput` + `writeNotification(tx, …)` (internas, mesmo comportamento). Novos: `getNotification` e o cursor de `listNotifications` restrito ao dono. Sem migração, sem `src/app/**`.
+- **Assinaturas finais:**
+  - `updateContent(id, patch, { limits?, expectedVersion?, notification? })` → `Content`
+  - `deleteContent(id, { notification? } = {})` → `{ id }`
+  - `notification: NotificationInput = { userId, type, severity?, data?, dedupeKey? }` (typedef exportado no JSDoc)
+  - `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário)
+  - `listNotifications(userId, { cursor })`: cursor alheio ou inexistente → `DataError` `INVALID_INPUT`, `details.field: "cursor"`
+  - Erros da notificação na moderação: `INVALID_INPUT` (`details.field`: `userId`, `type`, `severity`, `data`) e `AUTHOR_NOT_FOUND` (usuário inexistente).
+- **Para o Core (Parte 3, 1º item):** `api/_lib/moderation.js` passa a chamar `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`; `api/_lib/notifications.js` pode usar `getNotification(actor.id, id)`; a rota de notificações traduz o `INVALID_INPUT` do cursor em 422. Chamadas atuais (rotas, `scripts/`, `prisma/seed.js`, `tests/core`, `e2e/`) seguem valendo sem mudança.
+- **Mudanças que exigem atualizar a documentação:** schema (nenhuma), rotas (nenhuma), dependências (nenhuma), variáveis de ambiente (nenhuma). Cap. 5 §5.5/Apêndice A: a moderação é uma só transação (RN26/CT51) e `getNotification`/cursor por dono, se ainda não descritos.
+- **Desvios da especificação:** nenhum.
+- **Verificação:** `npm run lint` ok · `npm run build` ok (`DATABASE_URL=file:./build-fake.db`) · `npm test`: 1706 testes ok (1688 + 18 novos em `tests/dados/db-moderacao.test.js`; 241 do Dados) · mutações: aplicadas 7, detectadas 7 (notificação fora da transação; gravada mesmo com a escrita falha; sem validar antes; sem teto; `getNotification` sem filtro de dono; cursor sem verificação de dono; cursor inexistente aceito).
+- **Evidências:** saída dos testes; diff em `src/lib/db.js` e um arquivo de teste novo.
 
 ## Pedidos entre domínios
 
