@@ -1,4 +1,6 @@
 // Testes de unidade dos validadores de formato (RN03, RN09, RN17; CT24 e CT33, parte de API).
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as z from "zod";
 import { CONTENT_STATUSES as DB_STATUSES, CONTENT_TYPES as DB_TYPES } from "@/lib/db";
@@ -570,5 +572,14 @@ describe("mensagens em português do Brasil (R-007)", () => {
     expect(/** @type {any} */ (tooSmall).details[0].message).toBe("Pequeno demais: esperava que o texto tivesse >= 3 caracteres");
     expect(/** @type {any} */ (tooSmall).details[0].message).not.toMatch(/Demasiado/);
     expect(/** @type {any} */ (wrongType).details[0].message).toBe("Entrada inválida: esperava um número, recebeu um texto");
+  });
+
+  it("o módulo é importado só do pt-BR, e nunca `z.locales` (todos os idiomas: +257 kB no navegador)", () => {
+    const source = readFileSync(path.join(process.cwd(), "src", "lib", "validators.js"), "utf8");
+
+    expect(source).toContain('from "zod/v4/locales/pt-BR.js"');
+    expect(source).not.toMatch(/z\.locales/);
+    // O português de Portugal (`pt.js`) não pode voltar por engano.
+    expect(source).not.toMatch(/locales\/pt\.js/);
   });
 });
