@@ -82,7 +82,30 @@ A Parte 3b do Core lerá a árvore e o documento a cada regeneração de página
 
 ## Solicitações de merge
 
-*(nenhum pedido aberto)*
+### M-018 · [MERGE] Dados → @Arquiteto · 2026-10-05 · branch `feat/dados-medicao` (SHA `5aa7287`)
+- **Módulo(s) / IDs:** A-018 · RN25, RN15, RN28 · RNF de desempenho (Cap. 7 e Cap. 8)
+- **Resumo:** só `tests/dados/desempenho.test.js` (novo). Semeia 50 usuários × 500 conteúdos (25 000 linhas; 5 níveis; ~20% de rascunhos, inclusive coleções-rascunho com descendentes publicados; 3 espaços sem raiz publicada; 1 suspenso) e 1 000 notificações de um usuário; mede 14 chamadas (200 após 20 de aquecimento, uma por vez, dono variado) e confere `EXPLAIN QUERY PLAN`. Tetos: p95 < 250 ms; nenhum `SCAN` em `contents`/`notifications` (nem em `user` no `getUserByHandle`). Nenhuma mudança de `src/`, de schema ou de função.
+- **Fica fora do `npm test` por padrão:** o arquivo só roda com `MEDICAO=1` (`MEDICAO=1 npx vitest run tests/dados/desempenho.test.js`, ~22 s; `MEDICAO_RELATORIO=<arquivo>` grava a tabela e os planos, porque o Vitest esconde o console de um arquivo que passa). Sem a variável, 32 testes aparecem como *skipped*.
+- **Números (ms; Windows, SQLite em disco local, banco temporário):**
+
+| Função | 1ª (fria) | Mediana | p95 | Pior |
+|---|---|---|---|---|
+| `getContentTree({ ownerId })` | 14,4 | 4,5 | 5,9 | 13,3 |
+| `getContentTree({ ownerId, onlyPublished })` | 6,4 | 4,2 | 7,2 | 12,0 |
+| `getContentByPath` raso (nível 1) | 6,1 | 4,5 | 8,1 | 16,3 |
+| `getContentByPath` profundo (nível 5) | 4,4 | 4,6 | 6,2 | 12,5 |
+| `getContentByPath` inexistente | 4,2 | 4,3 | 5,4 | 11,0 |
+| `getPublicPaths(ownerId)` | 5,7 | 5,1 | 9,3 | 12,7 |
+| `getPublicPaths(ownerId, nodeId)` | 4,1 | 5,1 | 6,0 | 15,9 |
+| `listPublicSpaces()` | 27,7 | 3,3 | 6,7 | 14,7 |
+| `getUserByHandle` (existente / inexistente) | 1,2 / 0,5 | 0,33 / 0,31 | 0,37 / 0,36 | 0,43 / 0,51 |
+| `getNotification` (1 000) | 1,2 | 0,32 | 0,37 | 0,57 |
+| `listNotifications` take 20 / não lidas / cursor | 4,4 / 1,4 / 7,2 | 1,3 / 0,6 / 1,8 | 2,5 / 0,65 / 2,0 | 25,6 / 0,7 / 24,7 |
+
+- **Planos:** todos usam índice: `contents_authorId_parentId_order_idx` (árvore, caminho, caminhos públicos e o `EXISTS` do diretório), `contents_id_authorId_key` (o corpo do `getContentByPath`), `user_handle_key`, `notifications_userId_readAt_updatedAt_idx` e a chave primária (`getNotification`, cursor). Únicos `SCAN`: `SCAN user` em `listPublicSpaces` (varre os 50 usuários, inerente ao diretório, com subconsulta indexada em `contents`) e `USE TEMP B-TREE FOR ORDER BY` em `listNotifications` (≤ 1000 linhas do usuário). Nenhum pior caso passou de 50 ms: **sem `[RFC]`**.
+- **Observação (sem mudança):** `getContentByPath` e `getPublicPaths` leem a árvore inteira do dono (~500 linhas, sem o corpo) a cada chamada; custam ~4–5 ms, folgados para o ISR.
+- **Verificação:** `npm run lint` ok · `npm test`: 1805 ok + 32 *skipped* (o arquivo novo), 80 s no total, sem custo extra apreciável · mutações: aplicadas 2, detectadas 2 (`DROP INDEX contents_authorId_parentId_order_idx` no banco temporário: 7 planos acusam `SCAN main.contents`; `getPublicPaths` varrendo a tabela inteira: o p95 estoura o teto e o plano acusa `SCAN`). O teste inclui o controle "tem dentes" (cópia do banco sem o índice).
+- **Desvios / defeitos de dados achados:** nenhum. Os números valem para o Cap. 7 (§ não funcionais) e o Cap. 8; a máquina é a do Engenheiro Chefe (Windows), não a VPS-alvo.
 
 ## Pedidos entre domínios
 
