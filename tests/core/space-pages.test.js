@@ -433,8 +433,10 @@ describe("coleção e documento (RF14, RN04, RN14, RN15; CT13, CT14, CT31)", () 
     const calculo = await collection(ana, "calculo");
     await doc(ana, "limites", { parentId: calculo.id });
 
-    expect(await contentMetadata({ params: Promise.resolve({ handle: "ana", slug: ["calculo", "limites"] }) })).toEqual({
+    expect(await contentMetadata({ params: Promise.resolve({ handle: "ana", slug: ["calculo", "limites"] }) })).toMatchObject({
       title: "Título limites",
+      alternates: { canonical: "/ana/calculo/limites" },
+      openGraph: { type: "article", title: "Título limites", url: "/ana/calculo/limites" },
     });
     expect(await contentMetadata({ params: Promise.resolve({ handle: "ana", slug: ["nao-existe"] }) })).toEqual({});
   });
