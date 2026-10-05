@@ -2,11 +2,11 @@
 // (M10); o encerramento da sessão (RF20) fica na barra superior do painel (AdminShell), com a
 // Server Function de ./_lib/actions.
 import { AdminOverview } from "@/components/admin/AdminOverview";
-import { requireAdminSession } from "./_lib/session";
+import { requireSession } from "./_lib/session";
 
 export default async function AdminPage() {
   // Layouts não são renderizados de novo a cada navegação: a página também valida a sessão.
-  const { user } = await requireAdminSession();
+  const { user } = await requireSession({ path: "/admin" });
 
   return <AdminOverview user={user} />;
 }

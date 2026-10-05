@@ -1,7 +1,8 @@
-// Renderização no servidor dos arquivos de rota que leem a configuração (M11, parte do Core):
-// layout raiz (tema no <html> e metadados), layout do painel (nome do site) e página 404. Os
-// componentes são renderizados de verdade, com react-dom/server, sobre o SQLite temporário do
-// setup; não leem o .env. São substituídos só os módulos que dependem do servidor do Next.js.
+// Renderização no servidor dos arquivos de rota (A-014 Parte 3a, item 5; ADR-030, ADR-025; CT47): o
+// layout raiz ESTÁTICO (idioma, fontes, script do modo, sem banco e sem cores), os layouts do portal, do
+// login e do painel, que aplicam a configuração do site no envoltório `.vitrine-tema`, e a página 404.
+// Os componentes são renderizados de verdade, com react-dom/server, sobre o SQLite temporário do setup;
+// não leem o .env. São substituídos só os módulos que dependem do servidor do Next.js.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // As fontes do next/font são geradas no build; aqui bastam os nomes das variáveis CSS.
@@ -11,7 +12,7 @@ vi.mock("next/font/google", () => ({
 }));
 // A sessão do painel depende dos cabeçalhos da requisição: aqui, um usuário fictício.
 vi.mock("@/app/admin/_lib/session", () => ({
-  requireAdminSession: vi.fn(async () => ({ user: { name: "Ada Fictícia", email: "ada@exemplo.test" } })),
+  requireSession: vi.fn(async () => ({ user: { name: "Ada Fictícia", email: "ada@exemplo.test" } })),
 }));
 vi.mock("@/app/admin/_lib/actions", () => ({ signOut: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({
@@ -25,20 +26,25 @@ vi.mock("@/lib/db", async (importOriginal) => {
 });
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { requireAdminSession } from "@/app/admin/_lib/session";
-import AdminLayout from "@/app/admin/layout";
-import RootLayout, { generateMetadata } from "@/app/layout";
+import { requireSession } from "@/app/admin/_lib/session";
+import AdminLayout, { generateMetadata as adminMetadata } from "@/app/admin/layout";
+import RootLayout, { metadata as rootMetadata } from "@/app/layout";
+import LoginLayout, { generateMetadata as loginMetadata } from "@/app/login/layout";
 import NotFound, { metadata as notFoundMetadata } from "@/app/not-found";
+import PortalLayout, { generateMetadata as portalMetadata } from "@/app/(portal)/layout";
 import { DEFAULT_SITE_DESCRIPTION } from "@/app/_lib/site";
+import { COLOR_MODE_SCRIPT } from "@/components/layout/color-mode-script";
 import { getConfiguration, prisma, updateConfiguration } from "@/lib/db";
-import { readableTextOn } from "@/lib/theme";
+import { textColorsOf } from "@/lib/theme";
 
-const PALETTE = { primaryColor: "#1d4ed8", secondaryColor: "#0f172a", accentColor: "#b45309" };
+const LIGHT = { primaryColor: "#1d4ed8", secondaryColor: "#0f172a", accentColor: "#b45309" };
+const DARK = { darkPrimaryColor: "#93c5fd", darkSecondaryColor: "#e2e8f0", darkAccentColor: "#fcd34d" };
+const PALETTES = { ...LIGHT, ...DARK };
 
 beforeEach(async () => {
   await prisma.configuration.deleteMany();
   vi.mocked(getConfiguration).mockClear();
-  vi.mocked(requireAdminSession).mockClear();
+  vi.mocked(requireSession).mockClear();
 });
 
 afterEach(() => {
@@ -65,144 +71,228 @@ function declarationsOf(style = "") {
   );
 }
 
-async function renderRootLayout() {
-  return renderToStaticMarkup(await RootLayout({ children: "conteúdo da página" }));
-}
+/** Variáveis do envoltório `.vitrine-tema` de um HTML renderizado. */
+const themeOf = (html) => declarationsOf(attributesOf(html, "div").style);
 
-describe("RootLayout", () => {
-  it("injeta no <html> as quatro variáveis da paleta gravada", async () => {
-    await updateConfiguration(PALETTE);
+describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
+  const render = () => renderToStaticMarkup(RootLayout({ children: "conteúdo da página" }));
 
-    const html = await renderRootLayout();
-    const attributes = attributesOf(html, "html");
-
-    expect(attributes.lang).toBe("pt-BR");
-    expect(declarationsOf(attributes.style)).toEqual({
-      "--vitrine-primary": "#1d4ed8",
-      "--vitrine-on-primary": readableTextOn("#1d4ed8"),
-      "--vitrine-secondary": "#0f172a",
-      "--vitrine-accent": "#b45309",
-    });
-  });
-
-  it("o style fica no <html>, não no <body>, e a estrutura do layout é preservada", async () => {
-    await updateConfiguration(PALETTE);
-
-    const html = await renderRootLayout();
-
-    expect(attributesOf(html, "html").class).toBe("fonte-sans-de-teste fonte-mono-de-teste h-full antialiased");
-    expect(attributesOf(html, "body")).toEqual({ class: "min-h-full flex flex-col" });
-    expect(html).toContain("conteúdo da página");
-  });
-
-  it("sem registro gravado, usa a paleta padrão da RN08", async () => {
-    const style = declarationsOf(attributesOf(await renderRootLayout(), "html").style);
-
-    expect(style).toEqual({
-      "--vitrine-primary": "#2563eb",
-      "--vitrine-on-primary": readableTextOn("#2563eb"),
-      "--vitrine-secondary": "#1e293b",
-      "--vitrine-accent": "#b45309",
-    });
-  });
-
-  it("uma nova paleta gravada aparece na renderização seguinte", async () => {
-    await updateConfiguration(PALETTE);
-    expect(declarationsOf(attributesOf(await renderRootLayout(), "html").style)["--vitrine-primary"]).toBe("#1d4ed8");
-
-    await updateConfiguration({ primaryColor: "#fde68a" });
-    const style = declarationsOf(attributesOf(await renderRootLayout(), "html").style);
-
-    expect(style["--vitrine-primary"]).toBe("#fde68a");
-    expect(style["--vitrine-on-primary"]).toBe(readableTextOn("#fde68a"));
-    expect(style["--vitrine-secondary"]).toBe("#0f172a");
-  });
-
-  it("com o banco indisponível, renderiza sem style e sem lançar", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
-
-    const html = await renderRootLayout();
+  it("define só o idioma, as fontes e as classes de estrutura, sem `style` no <html>", () => {
+    const html = render();
 
     expect(attributesOf(html, "html")).toEqual({
       lang: "pt-BR",
       class: "fonte-sans-de-teste fonte-mono-de-teste h-full antialiased",
     });
+    expect(attributesOf(html, "html")).not.toHaveProperty("style");
+    expect(attributesOf(html, "body")).toEqual({ class: "min-h-full flex flex-col" });
+    expect(html).toContain("conteúdo da página");
+  });
+
+  it("não lê o banco: nenhuma consulta, nem no build", () => {
+    render();
+    vi.stubEnv("NEXT_PHASE", "phase-production-build");
+    render();
+
+    expect(getConfiguration).not.toHaveBeenCalled();
+  });
+
+  it("o script do modo de cor está no <head>, antes do <body>, com o conteúdo fixo (CT47)", () => {
+    const html = render();
+
+    const head = html.match(/<head>(.*?)<\/head>/s)?.[1] ?? "";
+    expect(head).toContain(`<script>${COLOR_MODE_SCRIPT}</script>`);
+    expect(html.indexOf("<script>")).toBeLessThan(html.indexOf("<body"));
+    expect(html.match(/<script/g)).toHaveLength(1);
+    // O script aplica a classe dark antes da primeira pintura, lendo a escolha do leitor.
+    expect(COLOR_MODE_SCRIPT).toContain('classList.add("dark")');
+    expect(COLOR_MODE_SCRIPT).toContain("vitrine:modo");
+  });
+
+  it("os metadados padrão são estáticos: o nome 'Vitrine' e a descrição padrão", () => {
+    expect(rootMetadata).toEqual({
+      title: { default: "Vitrine", template: "%s | Vitrine" },
+      description: DEFAULT_SITE_DESCRIPTION,
+    });
+  });
+});
+
+describe.each([
+  // O portal tem o título do site e o modelo dos filhos; o login, o título completo "Entrar | nome" (o modelo
+  // do layout não vale para o título da página do mesmo segmento).
+  ["PortalLayout", PortalLayout, portalMetadata, (name) => ({ absolute: name, template: `%s | ${name}` })],
+  ["LoginLayout", LoginLayout, loginMetadata, (name) => ({ absolute: `Entrar | ${name}` })],
+])("%s: a aparência do site no envoltório .vitrine-tema", (_name, Layout, metadataOf, titleOf) => {
+  const render = async () => renderToStaticMarkup(await Layout({ children: "conteúdo da página" }));
+
+  it("envolve o conteúdo em .vitrine-tema, com as variáveis das DUAS paletas gravadas", async () => {
+    await updateConfiguration(PALETTES);
+
+    const html = await render();
+    const wrapper = attributesOf(html, "div");
+
+    expect(wrapper.class).toBe("vitrine-tema flex flex-1 flex-col");
+    expect(themeOf(html)).toEqual({
+      "--vitrine-light-primary": "#1d4ed8",
+      "--vitrine-light-secondary": "#0f172a",
+      "--vitrine-light-accent": "#b45309",
+      "--vitrine-light-on-primary": textColorsOf(PALETTES, "light").onPrimary,
+      "--vitrine-light-on-secondary": textColorsOf(PALETTES, "light").onSecondary,
+      "--vitrine-dark-primary": "#93c5fd",
+      "--vitrine-dark-secondary": "#e2e8f0",
+      "--vitrine-dark-accent": "#fcd34d",
+      "--vitrine-dark-on-primary": textColorsOf(PALETTES, "dark").onPrimary,
+      "--vitrine-dark-on-secondary": textColorsOf(PALETTES, "dark").onSecondary,
+    });
+    expect(html).toContain("conteúdo da página");
+  });
+
+  it("o texto sobre as cores é calculado por modo: a secundária clara pede branco; a noturna, preto", async () => {
+    await updateConfiguration(PALETTES);
+
+    const style = themeOf(await render());
+
+    expect(style["--vitrine-light-on-secondary"]).toBe("#FFFFFF");
+    expect(style["--vitrine-dark-on-secondary"]).toBe("#000000");
+  });
+
+  it("sem registro gravado, usa as paletas padrão do esquema (ADR-031) nos dois modos", async () => {
+    const style = themeOf(await render());
+
+    expect(style["--vitrine-light-primary"]).toBe("#2563eb");
+    expect(style["--vitrine-dark-primary"]).toBe("#60a5fa");
+    expect(style["--vitrine-dark-on-secondary"]).toBe("#000000");
+  });
+
+  it("uma paleta nova gravada aparece na renderização seguinte, por modo", async () => {
+    await updateConfiguration(PALETTES);
+    expect(themeOf(await render())["--vitrine-dark-primary"]).toBe("#93c5fd");
+
+    await updateConfiguration({ darkPrimaryColor: "#1e3a8a" });
+    const style = themeOf(await render());
+
+    expect(style["--vitrine-dark-primary"]).toBe("#1e3a8a");
+    expect(style["--vitrine-dark-on-primary"]).toBe(
+      textColorsOf({ darkPrimaryColor: "#1e3a8a", darkSecondaryColor: "#e2e8f0" }, "dark").onPrimary,
+    );
+    expect(style["--vitrine-light-primary"]).toBe("#1d4ed8"); // o outro modo não mudou
+  });
+
+  it("com o banco indisponível, renderiza o envoltório sem style e sem lançar", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
+
+    const html = await render();
+
+    expect(attributesOf(html, "div")).toEqual({ class: "vitrine-tema flex flex-1 flex-col" });
     expect(html).toContain("conteúdo da página");
   });
 
   it("no next build não consulta o banco e sai sem style", async () => {
-    await updateConfiguration(PALETTE);
+    await updateConfiguration(PALETTES);
     vi.stubEnv("NEXT_PHASE", "phase-production-build");
 
-    const html = await renderRootLayout();
+    const html = await render();
 
-    expect(attributesOf(html, "html")).not.toHaveProperty("style");
+    expect(attributesOf(html, "div")).not.toHaveProperty("style");
     expect(getConfiguration).not.toHaveBeenCalled();
   });
 
   it("uma cor inválida lida do banco não chega ao HTML nem derruba a página", async () => {
     // Gravação direta, sem passar pela validação da API (RN09).
     await prisma.configuration.create({
-      data: { id: "default", primaryColor: "red; background:url(x)", secondaryColor: "#0f172a", accentColor: "#12345" },
+      data: {
+        id: "default",
+        primaryColor: "red; background:url(x)",
+        secondaryColor: "#0f172a",
+        accentColor: "#12345",
+        darkPrimaryColor: "javascript:alert(1)",
+      },
     });
 
-    const html = await renderRootLayout();
+    const html = await render();
+    const style = themeOf(html);
 
-    expect(declarationsOf(attributesOf(html, "html").style)).toEqual({ "--vitrine-secondary": "#0f172a" });
+    expect(style["--vitrine-light-secondary"]).toBe("#0f172a");
+    expect(style["--vitrine-light-on-secondary"]).toBe("#FFFFFF");
+    expect(style).not.toHaveProperty("--vitrine-light-primary");
+    expect(style).not.toHaveProperty("--vitrine-light-on-primary");
+    expect(style).not.toHaveProperty("--vitrine-light-accent");
+    expect(style).not.toHaveProperty("--vitrine-dark-primary");
     expect(html).not.toContain("url(x)");
+    expect(html).not.toContain("alert(1)");
     expect(html).not.toContain("#12345");
   });
-});
 
-describe("generateMetadata", () => {
-  it("usa o nome e a descrição da configuração", async () => {
+  it("generateMetadata usa o nome e a descrição do site, com o modelo '%s | nome'", async () => {
     await updateConfiguration({ siteName: "Notas de Aula", siteDescription: "Material didático de Cálculo" });
 
-    expect(await generateMetadata()).toEqual({
-      title: { default: "Notas de Aula", template: "%s | Notas de Aula" },
+    expect(await metadataOf()).toEqual({
+      title: titleOf("Notas de Aula"),
       description: "Material didático de Cálculo",
     });
   });
 
-  it("sem descrição gravada, usa a descrição padrão", async () => {
+  it("generateMetadata sem descrição gravada usa a descrição padrão", async () => {
     await updateConfiguration({ siteName: "Notas de Aula" });
 
-    expect((await generateMetadata()).description).toBe(DEFAULT_SITE_DESCRIPTION);
+    expect((await metadataOf()).description).toBe(DEFAULT_SITE_DESCRIPTION);
   });
 
-  it("sem configuração (banco indisponível), usa os padrões", async () => {
+  it("generateMetadata sem configuração (banco indisponível) usa os padrões", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
 
-    expect(await generateMetadata()).toEqual({
-      title: { default: "Vitrine", template: "%s | Vitrine" },
+    expect(await metadataOf()).toEqual({
+      title: titleOf("Vitrine"),
       description: DEFAULT_SITE_DESCRIPTION,
     });
   });
 
-  it("nome em branco no banco vira o nome padrão", async () => {
+  it("generateMetadata com nome em branco no banco usa o nome padrão", async () => {
     await prisma.configuration.create({ data: { id: "default", siteName: "   " } });
 
-    expect((await generateMetadata()).title).toEqual({ default: "Vitrine", template: "%s | Vitrine" });
+    expect((await metadataOf()).title).toEqual(titleOf("Vitrine"));
   });
 });
 
 describe("AdminLayout", () => {
+  const render = async () => renderToStaticMarkup(await AdminLayout({ children: "conteúdo do painel" }));
+
+  it("valida a sessão antes de ler a configuração", async () => {
+    vi.mocked(requireSession).mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+
+    await expect(AdminLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT");
+    expect(getConfiguration).not.toHaveBeenCalled();
+    expect(requireSession).toHaveBeenCalledWith({ path: "/admin" });
+  });
+
+  it("aplica a configuração do site no envoltório .vitrine-tema, em volta da casca do painel", async () => {
+    await updateConfiguration(PALETTES);
+
+    const html = await render();
+
+    expect(attributesOf(html, "div").class).toBe("vitrine-tema flex flex-1 flex-col");
+    expect(themeOf(html)["--vitrine-dark-primary"]).toBe("#93c5fd");
+    expect(themeOf(html)["--vitrine-light-primary"]).toBe("#1d4ed8");
+    expect(html.indexOf("vitrine-tema")).toBeLessThan(html.indexOf("conteúdo do painel"));
+  });
+
   it("entrega ao AdminShell o nome do site gravado, e só ele", async () => {
-    await updateConfiguration({ siteName: "  Notas de Aula  ", ...PALETTE });
+    await updateConfiguration({ siteName: "  Notas de Aula  ", ...PALETTES });
 
-    const element = await AdminLayout({ children: "conteúdo do painel" });
+    const wrapper = await AdminLayout({ children: "conteúdo do painel" });
+    const shell = wrapper.props.children;
 
-    expect(element.props.siteName).toBe("Notas de Aula");
-    expect(Object.keys(element.props).sort()).toEqual(["children", "signOutAction", "siteName", "user"]);
-    expect(element.props.user).toEqual({ name: "Ada Fictícia", email: "ada@exemplo.test" });
+    expect(shell.props.siteName).toBe("Notas de Aula");
+    expect(Object.keys(shell.props).sort()).toEqual(["children", "signOutAction", "siteName", "user"]);
+    expect(shell.props.user).toEqual({ name: "Ada Fictícia", email: "ada@exemplo.test" });
   });
 
   it("o cabeçalho renderizado mostra o nome gravado", async () => {
     await updateConfiguration({ siteName: "Notas de Aula" });
 
-    const html = renderToStaticMarkup(await AdminLayout({ children: "conteúdo do painel" }));
+    const html = await render();
 
     expect(html).toContain("Notas de Aula");
     expect(html).toContain("conteúdo do painel");
@@ -212,18 +302,20 @@ describe("AdminLayout", () => {
 
   it("nome em branco ou banco indisponível: \"Vitrine\"", async () => {
     await prisma.configuration.create({ data: { id: "default", siteName: "  " } });
-    expect((await AdminLayout({ children: null })).props.siteName).toBe("Vitrine");
+    expect((await AdminLayout({ children: null })).props.children.props.siteName).toBe("Vitrine");
 
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
-    expect((await AdminLayout({ children: null })).props.siteName).toBe("Vitrine");
+    expect((await AdminLayout({ children: null })).props.children.props.siteName).toBe("Vitrine");
   });
 
-  it("valida a sessão antes de ler a configuração", async () => {
-    vi.mocked(requireAdminSession).mockRejectedValueOnce(new Error("NEXT_REDIRECT"));
+  it("generateMetadata: título do painel com o nome do site, modelo para as páginas e noindex", async () => {
+    await updateConfiguration({ siteName: "Notas de Aula" });
 
-    await expect(AdminLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT");
-    expect(getConfiguration).not.toHaveBeenCalled();
+    expect(await adminMetadata()).toEqual({
+      title: { absolute: "Painel administrativo | Notas de Aula", template: "%s | Notas de Aula" },
+      robots: { index: false, follow: false },
+    });
   });
 });
 

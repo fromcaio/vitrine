@@ -8,8 +8,8 @@ import { LoginForm } from "@/components/admin/LoginForm";
 import { getSession } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/validators";
 
+// O título ("Entrar | nome do site") é do layout deste segmento: ver login/layout.js.
 export const metadata = {
-  title: "Entrar",
   robots: { index: false, follow: false },
 };
 
