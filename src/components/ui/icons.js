@@ -252,3 +252,99 @@ export function CheckCircleIcon(props) {
     </Icon>
   );
 }
+
+/** Nível recolhível da árvore: seta para a direita (gira com `aria-expanded`). @param {{ className?: string }} props */
+export function ChevronRightIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+/** Documento anterior. @param {{ className?: string }} props */
+export function ArrowLeftIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M19 12H5" />
+      <path d="m11 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
+/** Próximo documento. @param {{ className?: string }} props */
+export function ArrowRightIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+// Redes sociais do rodapé (RF24): glifos simples de traço, no mesmo estilo dos demais ícones. São
+// decorativos; o link que os contém leva o nome da rede.
+
+/** @param {{ className?: string }} props */
+export function DiscordIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 20.5l1.4-4.9A8.5 8.5 0 1 1 21 11.5z" />
+      <path d="M9 11.5h.01" />
+      <path d="M15 11.5h.01" />
+    </Icon>
+  );
+}
+
+/** @param {{ className?: string }} props */
+export function GithubIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </Icon>
+  );
+}
+
+/** @param {{ className?: string }} props */
+export function YoutubeIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 17a24.1 24.1 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.6 49.6 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.1 24.1 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.6 49.6 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
+      <path d="m10 15 5-3-5-3z" />
+    </Icon>
+  );
+}
+
+/** @param {{ className?: string }} props */
+export function InstagramIcon(props) {
+  return (
+    <Icon {...props}>
+      <rect width="20" height="20" x="2" y="2" rx="5" />
+      <path d="M16 11.4A4 4 0 1 1 12.6 8 4 4 0 0 1 16 11.4z" />
+      <path d="M17.5 6.5h.01" />
+    </Icon>
+  );
+}
+
+/** @param {{ className?: string }} props */
+export function LinkedinIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect width="4" height="12" x="2" y="9" />
+      <circle cx="4" cy="4" r="2" />
+    </Icon>
+  );
+}
+
+/** @param {{ className?: string }} props */
+export function TwitchIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M21 2H3v16h5v4l4-4h5l4-4z" />
+      <path d="M11 11V7" />
+      <path d="M16 11V7" />
+    </Icon>
+  );
+}

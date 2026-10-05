@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { COLOR_MODES, MODE_BACKGROUND, contrastRatio, contrastWarnings, readableTextOn, textColorsOf } from "@/lib/theme";
+import { COLOR_MODES, MODE_BACKGROUND, contrastRatio, contrastWarnings, readableTextOn, safeThemeStyle, textColorsOf } from "@/lib/theme";
 
 /** Paletas padrão da ADR-031 (Tabela do Cap. 5 §5.9): nenhuma cor gera aviso, em nenhum modo. */
 const DEFAULTS = {
@@ -551,5 +551,49 @@ describe("neutros e paletas por modo em globals.css (RF31, RN27; CT48)", () => {
     it("as duas regras ficam no mesmo bloco que recebe o style: .vitrine-tema não é :root", () => {
       expect(css).not.toMatch(/:root\s*\{[^}]*--vitrine-(light|dark)-/);
     });
+  });
+});
+
+describe("safeThemeStyle: o style do envoltório .vitrine-tema (§5.9)", () => {
+  const FULL = {
+    "--vitrine-light-primary": "#2563EB",
+    "--vitrine-light-secondary": "#1E293B",
+    "--vitrine-light-accent": "#B45309",
+    "--vitrine-light-on-primary": "#FFFFFF",
+    "--vitrine-light-on-secondary": "#FFFFFF",
+    "--vitrine-dark-primary": "#60A5FA",
+    "--vitrine-dark-secondary": "#CBD5E1",
+    "--vitrine-dark-accent": "#FBBF24",
+    "--vitrine-dark-on-primary": "#000000",
+    "--vitrine-dark-on-secondary": "#000000",
+  };
+
+  it("deixa passar as dez variáveis das duas paletas, com valor #RRGGBB", () => {
+    expect(safeThemeStyle(FULL)).toEqual(FULL);
+  });
+
+  it.each([
+    ["valor com outra declaração", { "--vitrine-light-primary": "#2563EB; background: red" }],
+    ["valor que não é cor", { "--vitrine-light-primary": "red" }],
+    ["cor de três dígitos", { "--vitrine-light-primary": "#fff" }],
+    ["valor com url()", { "--vitrine-dark-accent": "url(https://x.example/a)" }],
+    ["valor que não é texto", { "--vitrine-dark-accent": 123 }],
+    ["propriedade comum", { background: "#ffffff" }],
+    ["variável de outro nome", { "--vitrine-primary": "#ffffff", "--vitrine-light-extra": "#ffffff", "--x": "#ffffff" }],
+    ["variável com sufixo", { "--vitrine-light-primary-x": "#ffffff" }],
+  ])("descarta %s", (_name, style) => {
+    expect(safeThemeStyle(/** @type {any} */ (style))).toBeUndefined();
+  });
+
+  it("descarta só o que é inválido e mantém o resto", () => {
+    expect(safeThemeStyle({ ...FULL, "--vitrine-dark-primary": "azul", color: "#ffffff" })).toEqual(
+      Object.fromEntries(Object.entries(FULL).filter(([name]) => name !== "--vitrine-dark-primary")),
+    );
+  });
+
+  it("sem nada, devolve undefined (o atributo style é omitido)", () => {
+    expect(safeThemeStyle(null)).toBeUndefined();
+    expect(safeThemeStyle(undefined)).toBeUndefined();
+    expect(safeThemeStyle({})).toBeUndefined();
   });
 });
