@@ -588,7 +588,7 @@ describe("/api/configuration: só o administrador (RN19, RF30)", () => {
     expect(response.status).toBe(200);
     expect(data).toMatchObject({ siteName: "Portal", darkPrimaryColor: "#112233", homeBody: "# Bem-vindo", directoryEnabled: false });
     expect(Array.isArray(warnings)).toBe(true);
-    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/", "page");
+    expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/");
     expect((await (await get(admin.cookie)).json()).data.siteName).toBe("Portal");
   });
 

@@ -41,8 +41,8 @@ const errorOf = async (/** @type {Response} */ response) => (await response.json
 const row = (/** @type {string} */ id) => prisma.content.findUniqueOrThrow({ where: { id } });
 const notificationsOf = (/** @type {string} */ userId) => listNotifications(userId, { take: 50 });
 const pages = () =>
-  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1).map((call) => call[0]).sort();
-const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 2);
+  vi.mocked(revalidatePath).mock.calls.filter((call) => call.length === 1 && call[0] !== "/").map((call) => call[0]).sort();
+const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call[0] === "/");
 
 /** Conteúdo de um dono, criado direto pela camada de dados. */
 const seed = (/** @type {string} */ authorId, /** @type {string} */ slug, extra = {}) =>
@@ -79,7 +79,7 @@ describe("PATCH /api/contents/:id: moderação (RF34, RN19, RN26)", () => {
     // O espaço é o da Ana (/ana), nunca o do administrador (/ada) nem o de outro autor; e a raiz
     // despublicada sai do diretório do portal.
     expect(pages()).toEqual(["/ana", "/ana/da-ana"]);
-    expect(portalCalls()).toEqual([["/", "page"]]);
+    expect(portalCalls()).toEqual([["/"]]);
   });
 
   it("editar o título e o corpo: notifica como edição (INFO), com os campos alterados", async () => {
@@ -287,7 +287,7 @@ describe("DELETE /api/contents/:id: moderação (RF34, RN19, RN26, RN07)", () =>
 
     // O espaço inteiro: o que saiu do ar e o que ficou.
     expect(pages()).toEqual(["/ana", "/ana/calculo", "/ana/calculo/limites", "/ana/sobre"]);
-    expect(portalCalls()).toEqual([["/", "page"]]); // uma raiz saiu do diretório
+    expect(portalCalls()).toEqual([["/"]]); // uma raiz saiu do diretório
   });
 
   it.each([

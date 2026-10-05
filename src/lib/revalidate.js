@@ -101,12 +101,15 @@ export function revalidateSnapshots(...snapshots) {
 }
 
 /**
- * Invalida só a página do portal `/` (`revalidatePath("/", "page")`, nunca o layout): a configuração
- * do site e as mudanças de espaço que alteram o diretório (RN28).
+ * Invalida só a página do portal `/`: a configuração do site e as mudanças de espaço que alteram o
+ * diretório (RN28). É o caminho LITERAL `revalidatePath("/")` (tags `_N_T_/` e `_N_T_/index`), nunca o
+ * tipo `layout`. Não é `revalidatePath("/", "page")`: com o portal em um grupo de rotas (`(portal)`,
+ * que dá o layout só a `/`), a página se chama `/(portal)/page` e o tipo `page` de `/` não a alcança
+ * (medido sobre o `next start`: o cabeçalho `x-nextjs-cache` seguia `HIT`).
  */
 export function revalidatePortal() {
   try {
-    revalidatePath("/", "page");
+    revalidatePath("/");
   } catch (error) {
     console.error("[revalidate] falha ao revalidar /", error);
   }
