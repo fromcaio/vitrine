@@ -38,10 +38,13 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeSt
  * Mensagem de quem tenta entrar com a conta suspensa (RN23): o motivo e o prazo, se houver. Só é
  * mostrada quando a senha está correta (o plugin cria a sessão depois de verificá-la), de modo que
  * uma senha errada continua recebendo a mensagem genérica e não revela a suspensão (UC08, A4).
+ * O motivo termina em ponto (se ainda não termina em `.`, `!` ou `?`) antes do prazo, para as duas
+ * frases não se emendarem.
  * @param {{ banReason?: string | null, banExpires?: Date | string | null }} user
  */
 export function bannedUserMessage(user) {
-  const reason = user.banReason ? ` Motivo: ${user.banReason}` : "";
+  const motive = user.banReason?.trim();
+  const reason = motive ? ` Motivo: ${/[.!?]$/.test(motive) ? motive : `${motive}.`}` : "";
   const until = user.banExpires ? ` A suspensão vai até ${dateFormat.format(new Date(user.banExpires))} (UTC).` : "";
   return `Sua conta está suspensa.${reason}${until}`;
 }
