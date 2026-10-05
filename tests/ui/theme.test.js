@@ -1,11 +1,21 @@
-// Testes de unidade do contraste do tema (RN09, RNF05; CT24, parte de unidade) e dos tokens de
-// src/app/globals.css que dependem dele (RF19).
+// Testes de unidade do contraste do tema, por modo (RN09, RN27, RNF05; CT24 e CT48, parte de
+// unidade), e dos tokens de src/app/globals.css que dependem dele (RF19, RF31, ADR-025, ADR-031).
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { contrastRatio, contrastWarnings, readableTextOn } from "@/lib/theme";
+import { COLOR_MODES, MODE_BACKGROUND, contrastRatio, contrastWarnings, readableTextOn, textColorsOf } from "@/lib/theme";
 
-/** Paleta padrão da RN08. */
+/** Paletas padrão da ADR-031 (Tabela do Cap. 5 §5.9): nenhuma cor gera aviso, em nenhum modo. */
+const DEFAULTS = {
+  primaryColor: "#2563EB",
+  secondaryColor: "#1E293B",
+  accentColor: "#B45309",
+  darkPrimaryColor: "#60A5FA",
+  darkSecondaryColor: "#CBD5E1",
+  darkAccentColor: "#FBBF24",
+};
+
+/** Paleta clara anterior (RN08, até a ADR-031): ainda gera avisos no modo claro. */
 const DEFAULT_PALETTE = {
   primaryColor: "#3b82f6",
   secondaryColor: "#1e293b",
@@ -143,6 +153,142 @@ describe("contrastWarnings (RN09)", () => {
   });
 });
 
+describe("contrastWarnings por modo (RN09, RN27; CT24, CT48)", () => {
+  // Fundo noturno: #0A0A0A. Cinzas no limite de 4,5:1 (#787878 = 4,48 reprova; #797979 = 4,54 passa)
+  // e de 3:1 (#5C5C5C = 2,96 reprova; #5D5D5D = 3,01 passa) sobre ele.
+  it("tem os dois modos e o fundo de cada um (#FFFFFF e #0A0A0A)", () => {
+    expect(COLOR_MODES).toEqual(["light", "dark"]);
+    expect(MODE_BACKGROUND).toEqual({ light: "#FFFFFF", dark: "#0A0A0A" });
+  });
+
+  it.each([
+    ["light", "primaryColor", 5.17],
+    ["light", "secondaryColor", 14.63],
+    ["light", "accentColor", 5.02],
+    ["dark", "darkPrimaryColor", 7.79],
+    ["dark", "darkSecondaryColor", 13.33],
+    ["dark", "darkAccentColor", 11.86],
+  ])("as paletas padrão têm a razão da Tabela do Cap. 5 no modo %s (%s: %d:1)", (mode, field, expected) => {
+    expect(contrastRatio(DEFAULTS[field], MODE_BACKGROUND[mode])).toBeCloseTo(expected, 2);
+  });
+
+  it("as paletas padrão não geram aviso em nenhum modo (CT24, CT48)", () => {
+    expect(contrastWarnings(DEFAULTS, "light")).toEqual([]);
+    expect(contrastWarnings(DEFAULTS, "dark")).toEqual([]);
+  });
+
+  it("sem o modo, vale o claro (quem passa só as três cores claras segue funcionando)", () => {
+    expect(contrastWarnings(DEFAULTS)).toEqual(contrastWarnings(DEFAULTS, "light"));
+    expect(contrastWarnings(DEFAULT_PALETTE)).toHaveLength(2);
+    expect(contrastWarnings(DEFAULT_PALETTE, "light")).toEqual(contrastWarnings(DEFAULT_PALETTE));
+  });
+
+  it("o modo claro lê só os campos claros, e o noturno, só os campos darkXxxColor", () => {
+    // Cores ruins no outro conjunto (e até inválidas) não interferem.
+    expect(contrastWarnings({ ...DEFAULTS, darkPrimaryColor: "#0A0A0A", darkAccentColor: "azul" }, "light")).toEqual([]);
+    expect(contrastWarnings({ ...DEFAULTS, primaryColor: "#FFFFFF", accentColor: "azul" }, "dark")).toEqual([]);
+    expect(() => contrastWarnings({ primaryColor: "#2563EB" }, "dark")).toThrow(TypeError);
+    expect(() => contrastWarnings({ darkPrimaryColor: "#60A5FA" }, "light")).toThrow(TypeError);
+  });
+
+  it("a paleta noturna é comparada com o fundo noturno, e não com o branco", () => {
+    // Cinza escuro: razoável contra o branco (#404040 = 10,37:1), reprovado contra #0A0A0A (1,9:1).
+    expect(contrastWarnings({ ...DEFAULTS, primaryColor: "#404040" }, "light")).toEqual([]);
+    const [warning] = contrastWarnings({ ...DEFAULTS, darkPrimaryColor: "#404040" }, "dark");
+    expect(warning).toMatchObject({ code: "LOW_CONTRAST", field: "darkPrimaryColor", minimum: 4.5 });
+    expect(warning.ratio).toBeLessThan(2);
+    // O inverso: o branco passa folgado no noturno (19,26:1) e reprova no claro (1:1).
+    expect(contrastWarnings({ ...DEFAULTS, darkPrimaryColor: "#FFFFFF" }, "dark")).toEqual([]);
+    expect(contrastWarnings({ ...DEFAULTS, primaryColor: "#FFFFFF" }, "light")).toMatchObject([
+      { field: "primaryColor", ratio: 1 },
+    ]);
+  });
+
+  it("no modo noturno, a mensagem nomeia a paleta e o fundo, e a forma do aviso é a mesma", () => {
+    const warnings = contrastWarnings(
+      { ...DEFAULTS, darkPrimaryColor: "#787878", darkSecondaryColor: "#787878", darkAccentColor: "#5C5C5C" },
+      "dark",
+    );
+    expect(warnings.map(({ field }) => field)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
+    expect(warnings[0]).toEqual({
+      code: "LOW_CONTRAST",
+      field: "darkPrimaryColor",
+      ratio: 4.48,
+      minimum: 4.5,
+      message:
+        "A cor primária noturna tem contraste de 4,48:1 com o fundo noturno (#0A0A0A), abaixo do mínimo de 4,5:1 (WCAG 2.1 AA).",
+    });
+    expect(warnings[1].message).toContain("A cor secundária noturna");
+    expect(warnings[2]).toMatchObject({ ratio: 2.96, minimum: 3 });
+    expect(warnings[2].message).toContain("A cor de destaque noturna");
+    // A mesma forma do modo claro: cinco chaves, nem uma a mais (o Core confere a lista).
+    for (const warning of warnings) expect(Object.keys(warning).sort()).toEqual(["code", "field", "message", "minimum", "ratio"]);
+  });
+
+  it("os limites do modo noturno são 4,5:1 (primária e secundária) e 3:1 (destaque)", () => {
+    for (const field of /** @type {const} */ (["darkPrimaryColor", "darkSecondaryColor"])) {
+      expect(contrastWarnings({ ...DEFAULTS, [field]: "#797979" }, "dark")).toEqual([]);
+      expect(contrastWarnings({ ...DEFAULTS, [field]: "#787878" }, "dark")).toMatchObject([{ field, minimum: 4.5 }]);
+    }
+    expect(contrastWarnings({ ...DEFAULTS, darkAccentColor: "#5D5D5D" }, "dark")).toEqual([]);
+    expect(contrastWarnings({ ...DEFAULTS, darkAccentColor: "#5C5C5C" }, "dark")).toMatchObject([
+      { field: "darkAccentColor", minimum: 3 },
+    ]);
+  });
+
+  it("no modo claro a forma da mensagem não mudou: ela fala do branco", () => {
+    const [warning] = contrastWarnings({ ...DEFAULTS, primaryColor: "#777777" }, "light");
+    expect(warning.message).toBe("A cor primária tem contraste de 4,47:1 com o branco, abaixo do mínimo de 4,5:1 (WCAG 2.1 AA).");
+  });
+
+  it("recusa um modo desconhecido", () => {
+    for (const mode of ["sepia", "", null, "DARK"]) {
+      expect(() => contrastWarnings(DEFAULTS, /** @type {any} */ (mode))).toThrow(TypeError);
+      expect(() => textColorsOf(DEFAULTS, /** @type {any} */ (mode))).toThrow(TypeError);
+    }
+  });
+});
+
+describe("textColorsOf: o texto sobre a primária e a secundária, por modo (CT48)", () => {
+  it("com as paletas padrão: branco no claro e preto no noturno, como na Tabela do Cap. 5", () => {
+    expect(textColorsOf(DEFAULTS, "light")).toEqual({ onPrimary: "#FFFFFF", onSecondary: "#FFFFFF" });
+    expect(textColorsOf(DEFAULTS, "dark")).toEqual({ onPrimary: "#000000", onSecondary: "#000000" });
+    expect(textColorsOf(DEFAULTS)).toEqual(textColorsOf(DEFAULTS, "light"));
+  });
+
+  it("o texto sobre cada cor tem a razão da Tabela e acompanha a cor personalizada", () => {
+    // Arredondadas em duas casas, como a Tabela do Cap. 5 (que traz 8,25 para a primária noturna;
+    // o valor real, 8,2598, arredonda para 8,26: erro de arredondamento a corrigir na Tabela).
+    const rounded = (/** @type {string} */ background, /** @type {string} */ text) =>
+      Math.round(contrastRatio(background, text) * 100) / 100;
+    expect(rounded(DEFAULTS.primaryColor, "#FFFFFF")).toBe(5.17);
+    expect(rounded(DEFAULTS.darkPrimaryColor, "#000000")).toBe(8.26);
+    expect(rounded(DEFAULTS.secondaryColor, "#FFFFFF")).toBe(14.63);
+    expect(rounded(DEFAULTS.darkSecondaryColor, "#000000")).toBe(14.14);
+    // A secundária deixa de ser sempre branca: uma secundária clara no claro pede texto preto.
+    expect(textColorsOf({ ...DEFAULTS, secondaryColor: "#E5E7EB", primaryColor: "#FDE68A" }, "light")).toEqual({
+      onPrimary: "#000000",
+      onSecondary: "#000000",
+    });
+    // E uma escura no noturno, branco.
+    expect(textColorsOf({ ...DEFAULTS, darkSecondaryColor: "#1E3A8A", darkPrimaryColor: "#312E81" }, "dark")).toEqual({
+      onPrimary: "#FFFFFF",
+      onSecondary: "#FFFFFF",
+    });
+  });
+
+  it("cada modo lê a sua paleta: a mesma gravação dá textos diferentes", () => {
+    expect(textColorsOf(DEFAULTS, "light").onSecondary).not.toBe(textColorsOf(DEFAULTS, "dark").onSecondary);
+    expect(textColorsOf(DEFAULTS, "light").onPrimary).toBe(readableTextOn(DEFAULTS.primaryColor));
+    expect(textColorsOf(DEFAULTS, "dark").onPrimary).toBe(readableTextOn(DEFAULTS.darkPrimaryColor));
+    expect(textColorsOf(DEFAULTS, "dark").onSecondary).toBe(readableTextOn(DEFAULTS.darkSecondaryColor));
+  });
+
+  it("recusa cor fora do formato", () => {
+    expect(() => textColorsOf({ ...DEFAULTS, darkSecondaryColor: "cinza" }, "dark")).toThrow(TypeError);
+  });
+});
+
 describe("readableTextOn", () => {
   it("escolhe o preto sobre a primária padrão, em que o branco reprova o nível AA", () => {
     expect(contrastRatio("#3b82f6", "#ffffff")).toBeLessThan(4.5);
@@ -198,7 +344,7 @@ describe("readableTextOn", () => {
   });
 });
 
-describe("tokens de tema em globals.css (RF19, D-17)", () => {
+describe("tokens de tema em globals.css (RF19, ADR-031)", () => {
   const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
   /** Valor de uma variável declarada em :root. */
   const rootVariable = (/** @type {string} */ name) => {
@@ -207,10 +353,10 @@ describe("tokens de tema em globals.css (RF19, D-17)", () => {
     return match[1];
   };
 
-  it("declara a paleta padrão da RN08", () => {
-    expect(rootVariable("--vitrine-primary")).toBe(DEFAULT_PALETTE.primaryColor);
-    expect(rootVariable("--vitrine-secondary")).toBe(DEFAULT_PALETTE.secondaryColor);
-    expect(rootVariable("--vitrine-accent")).toBe(DEFAULT_PALETTE.accentColor);
+  it("declara a paleta clara padrão da ADR-031", () => {
+    expect(rootVariable("--vitrine-primary")).toBe(DEFAULTS.primaryColor.toLowerCase());
+    expect(rootVariable("--vitrine-secondary")).toBe(DEFAULTS.secondaryColor.toLowerCase());
+    expect(rootVariable("--vitrine-accent")).toBe(DEFAULTS.accentColor.toLowerCase());
   });
 
   it("mapeia os tokens do Tailwind para as variáveis, sem fixar o valor", () => {
@@ -285,5 +431,125 @@ describe("tokens do realce de código em globals.css (RF10, ADR-025)", () => {
   it("a variante noturna só vale sob a classe .dark", () => {
     expect(css).toContain("@custom-variant dark (&:where(.dark, .dark *));");
     expect(css).not.toContain("prefers-color-scheme");
+  });
+});
+
+describe("neutros e paletas por modo em globals.css (RF31, RN27; CT48)", () => {
+  const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+
+  /**
+   * Corpo de um bloco do CSS, pelo seletor como aparece no arquivo.
+   * @param {string} selector
+   */
+  function blockOf(selector) {
+    const start = css.indexOf(`\n${selector} {`);
+    if (start === -1) throw new Error(`Bloco ${selector} não encontrado em globals.css.`);
+    return css.slice(start, css.indexOf("\n}", start));
+  }
+
+  /**
+   * Variáveis --vitrine-* com valor #RRGGBB de um bloco (minúsculas).
+   * @param {string} selector
+   * @returns {Record<string, string>}
+   */
+  function colorsOf(selector) {
+    return Object.fromEntries(
+      [...blockOf(selector).matchAll(/--vitrine-([a-z-]+):\s*(#[0-9a-fA-F]{6});/g)].map(([, name, value]) => [name, value.toLowerCase()]),
+    );
+  }
+
+  const light = colorsOf(":root");
+  const dark = colorsOf(".dark");
+
+  // Tabela de neutros do Cap. 5 §5.9 (e o foco).
+  const NEUTRALS = {
+    light: { background: "#ffffff", foreground: "#171717", surface: "#f5f5f5", muted: "#525252", border: "#d4d4d4", "border-strong": "#737373", danger: "#b91c1c", focus: "#171717", "focus-halo": "#ffffff" },
+    dark: { background: "#0a0a0a", foreground: "#ededed", surface: "#171717", muted: "#a3a3a3", border: "#404040", "border-strong": "#737373", danger: "#f87171", focus: "#fafafa", "focus-halo": "#0a0a0a" },
+  };
+
+  it.each([
+    ["claro", light, NEUTRALS.light],
+    ["noturno", dark, NEUTRALS.dark],
+  ])("os neutros do modo %s são os da Tabela do Cap. 5", (_name, actual, expected) => {
+    for (const [token, value] of Object.entries(expected)) expect(actual[token], `--vitrine-${token}`).toBe(value);
+  });
+
+  it("o fundo de cada modo é o contra o qual o contraste é verificado (MODE_BACKGROUND)", () => {
+    expect(light.background).toBe(MODE_BACKGROUND.light.toLowerCase());
+    expect(dark.background).toBe(MODE_BACKGROUND.dark.toLowerCase());
+  });
+
+  it.each([
+    ["claro", light],
+    ["noturno", dark],
+  ])("os neutros do modo %s atendem à WCAG 2.1 AA (texto 4,5:1; bordas e foco 3:1)", (_name, tokens) => {
+    for (const name of ["foreground", "muted", "danger"]) {
+      expect(contrastRatio(tokens[name], tokens.background), name).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(tokens[name], tokens.surface), `${name} sobre a superfície`).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrastRatio(tokens["border-strong"], tokens.background)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(tokens["border-strong"], tokens.surface)).toBeGreaterThanOrEqual(3);
+    // O foco é neutro e vem com um halo da cor do fundo: um dos dois contrasta com qualquer cor.
+    expect(contrastRatio(tokens.focus, tokens.background)).toBeGreaterThanOrEqual(3);
+    expect(tokens["focus-halo"]).toBe(tokens.background);
+  });
+
+  it("declara a paleta noturna padrão da ADR-031 sob .dark, sem aviso de contraste", () => {
+    expect(dark.primary).toBe(DEFAULTS.darkPrimaryColor.toLowerCase());
+    expect(dark.secondary).toBe(DEFAULTS.darkSecondaryColor.toLowerCase());
+    expect(dark.accent).toBe(DEFAULTS.darkAccentColor.toLowerCase());
+    expect(contrastWarnings({ darkPrimaryColor: dark.primary, darkSecondaryColor: dark.secondary, darkAccentColor: dark.accent }, "dark")).toEqual([]);
+    expect(contrastWarnings({ primaryColor: light.primary, secondaryColor: light.secondary, accentColor: light.accent }, "light")).toEqual([]);
+  });
+
+  it("o texto sobre a primária e sobre a secundária é o readableTextOn da cor do próprio modo", () => {
+    for (const tokens of [light, dark]) {
+      expect(tokens["on-primary"].toUpperCase()).toBe(readableTextOn(tokens.primary));
+      expect(tokens["on-secondary"].toUpperCase()).toBe(readableTextOn(tokens.secondary));
+      expect(contrastRatio(tokens.primary, tokens["on-primary"])).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(tokens.secondary, tokens["on-secondary"])).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(light["on-secondary"]).toBe("#ffffff");
+    expect(dark["on-secondary"]).toBe("#000000");
+  });
+
+  it("color-scheme acompanha o modo (barras de rolagem e controles nativos)", () => {
+    expect(blockOf(":root")).toContain("color-scheme: light;");
+    expect(blockOf(".dark")).toContain("color-scheme: dark;");
+  });
+
+  it("o modo noturno vale só pela classe .dark, nunca pela preferência do sistema", () => {
+    expect(css).not.toContain("prefers-color-scheme");
+    expect(css).toContain("@custom-variant dark (&:where(.dark, .dark *));");
+  });
+
+  describe("o envoltório .vitrine-tema (Código do Cap. 5 §5.9)", () => {
+    const FIELDS = ["primary", "secondary", "accent", "on-primary", "on-secondary"];
+
+    /** @param {string} selector @returns {Record<string, { source: string, fallback: string }>} */
+    function wrapperOf(selector) {
+      return Object.fromEntries(
+        [...blockOf(selector).matchAll(/--vitrine-([a-z-]+):\s*var\(--vitrine-(light|dark)-([a-z-]+),\s*(#[0-9a-fA-F]{6})\);/g)].map(
+          ([, name, mode, source, fallback]) => [name, { source: `${mode}-${source}`, fallback: fallback.toLowerCase() }],
+        ),
+      );
+    }
+
+    it.each([
+      ["claro", ".vitrine-tema", "light", light],
+      ["noturno", ".dark .vitrine-tema", "dark", dark],
+    ])("no modo %s, escolhe as cinco variáveis --vitrine-%s-* do próprio modo", (_name, selector, mode, defaults) => {
+      const rules = wrapperOf(selector);
+      expect(Object.keys(rules).sort()).toEqual([...FIELDS].sort());
+      for (const field of FIELDS) {
+        expect(rules[field].source, field).toBe(`${mode}-${field}`);
+        // Sem as variáveis do proprietário, vale a paleta padrão do modo.
+        expect(rules[field].fallback, `${field}, padrão`).toBe(defaults[field]);
+      }
+    });
+
+    it("as duas regras ficam no mesmo bloco que recebe o style: .vitrine-tema não é :root", () => {
+      expect(css).not.toMatch(/:root\s*\{[^}]*--vitrine-(light|dark)-/);
+    });
   });
 });
