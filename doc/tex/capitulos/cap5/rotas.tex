@@ -76,7 +76,7 @@ LoginForm & \arq{components/admin} & Formulário de autenticação (RF01, UC08):
 Button, Field, icons & \arq{components/ui} & Botão com as variantes \texttt{primary}, \texttt{inverse} e \texttt{outline}, só com tokens de tema; campo de formulário com rótulo, ajuda e erro ligados por \texttt{aria-describedby}; e ícones em SVG embutido, decorativos (RF19) & Implementado\\
 Demais primitivos & \arq{components/ui} & Diálogo de confirmação, \en{toast}, campo de cor & Planejado\\
 SpaceLayout & \arq{components/layout} & Layout do espaço: envoltório \texttt{vitrine-tema} com a aparência do dono, barra superior, \en{sidebar} e rodapé (RF29; M17) & Planejado\\
-ColorModeToggle & \arq{components/layout} & Seletor Claro, Escuro ou Automático; Componente Cliente que grava \texttt{vitrine:modo} (RF32; M18) & Planejado\\
+ColorModeToggle & \arq{components/layout} & Seletor Claro, Escuro ou Automático; Componente Cliente que grava \texttt{vitrine:modo} (RF32; M18); o \en{script} do \texttt{<head>} está em \arq{components/layout/color-mode-script.js} (\texttt{COLOR\_MODE\_SCRIPT}, para o layout raiz) & Integrado (M-017), ainda sem página que o use\\
 AppearanceForm (substitui o ThemeForm) & \arq{components/admin} & Identidade, links e duas paletas, com pré-visualização nos dois modos e aviso de contraste por modo (RF31; M18) & Planejado\\
 NotificationBell, NotificationList & \arq{components/admin} & Contador de não lidas no cabeçalho e lista com marcar e dispensar (RF33; M19) & Planejado\\
 UserTable, UserForm, ProvisionalPassword & \arq{components/admin} & Lista e formulário de usuários e exibição única da senha provisória (RF27; M20) & Planejado\\
