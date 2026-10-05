@@ -21,8 +21,10 @@ import { ColorModeToggle } from "./ColorModeToggle";
  * @param {string} props.homeHref início do espaço (por exemplo, `/maria`; `/` no portal)
  * @param {string | null} [props.logoUrl] logotipo (URL https já validada); sem ele, só o nome
  * @param {NavbarItem[]} [props.items] coleções raiz publicadas (`navItemsOf`)
+ * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor (padrão); a pré-visualização
+ *   da aparência o omite, porque nela nada é interativo
  */
-export function Navbar({ name, homeHref, logoUrl = null, items = [] }) {
+export function Navbar({ name, homeHref, logoUrl = null, items = [], modeToggle = true }) {
   return (
     <header className="border-b-4 border-accent bg-secondary text-on-secondary">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
@@ -35,9 +37,11 @@ export function Navbar({ name, homeHref, logoUrl = null, items = [] }) {
         </Link>
         {/* Sobre o fundo neutro: o botão marcado (primária) e os demais mantêm o contraste com
             qualquer paleta, em vez de depender da cor da barra. */}
-        <div className="rounded-md bg-background p-1 text-foreground">
-          <ColorModeToggle />
-        </div>
+        {modeToggle ? (
+          <div className="rounded-md bg-background p-1 text-foreground">
+            <ColorModeToggle />
+          </div>
+        ) : null}
       </div>
       {items.length > 0 ? (
         <nav aria-label="Coleções" className="border-t border-on-secondary/30 px-4 py-2">

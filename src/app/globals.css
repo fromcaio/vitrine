@@ -17,7 +17,8 @@
  *    ainda não existem). Fora de um .vitrine-tema (o 404 global, por exemplo), valem as paletas
  *    padrão de :root e de .dark.
  */
-:root {
+:root,
+.vitrine-modo-claro {
   /* Paleta clara padrão (ADR-031): nenhuma cor gera aviso de contraste contra #ffffff. */
   --vitrine-primary: #2563eb;
   --vitrine-secondary: #1e293b;
@@ -72,7 +73,8 @@
 }
 
 /* Modo noturno (ADR-025): vale sob a classe .dark no <html>. */
-.dark {
+.dark,
+.vitrine-modo-escuro {
   /* Paleta noturna padrão (ADR-031): nenhuma cor gera aviso de contraste contra #0a0a0a. */
   --vitrine-primary: #60a5fa;
   --vitrine-secondary: #cbd5e1;
@@ -120,6 +122,28 @@
 }
 
 .dark .vitrine-tema {
+  --vitrine-primary: var(--vitrine-dark-primary, #60a5fa);
+  --vitrine-secondary: var(--vitrine-dark-secondary, #cbd5e1);
+  --vitrine-accent: var(--vitrine-dark-accent, #fbbf24);
+  --vitrine-on-primary: var(--vitrine-dark-on-primary, #000000);
+  --vitrine-on-secondary: var(--vitrine-dark-on-secondary, #000000);
+}
+
+/*
+ * Modo forçado (pré-visualização da aparência, Cap. 5 §5.9): um contêiner com .vitrine-modo-claro ou
+ * .vitrine-modo-escuro mostra o seu modo, seja qual for o da página (a classe .dark do <html>). Os
+ * neutros vêm das listas de seletores de :root e de .dark, logo acima; aqui ficam as paletas do
+ * envoltório, DEPOIS da regra .dark .vitrine-tema (mesma especificidade: a última vale).
+ */
+.vitrine-modo-claro .vitrine-tema {
+  --vitrine-primary: var(--vitrine-light-primary, #2563eb);
+  --vitrine-secondary: var(--vitrine-light-secondary, #1e293b);
+  --vitrine-accent: var(--vitrine-light-accent, #b45309);
+  --vitrine-on-primary: var(--vitrine-light-on-primary, #ffffff);
+  --vitrine-on-secondary: var(--vitrine-light-on-secondary, #ffffff);
+}
+
+.vitrine-modo-escuro .vitrine-tema {
   --vitrine-primary: var(--vitrine-dark-primary, #60a5fa);
   --vitrine-secondary: var(--vitrine-dark-secondary, #cbd5e1);
   --vitrine-accent: var(--vitrine-dark-accent, #fbbf24);

@@ -205,3 +205,39 @@ export function safeThemeStyle(style) {
   }
   return Object.keys(safe).length > 0 ? safe : undefined;
 }
+
+/**
+ * Paletas padrão da ADR-031 (Tabela do Cap. 5 §5.9), por campo do registro de aparência: o que
+ * "restaurar as paletas padrão" grava. Nenhuma cor gera aviso de contraste no seu modo. Os mesmos
+ * valores do esquema, do seed e de `DEFAULT_COLORS` de db.js (um teste confere que não divergem).
+ */
+export const DEFAULT_PALETTES = Object.freeze({
+  light: Object.freeze({ primaryColor: "#2563eb", secondaryColor: "#1e293b", accentColor: "#b45309" }),
+  dark: Object.freeze({ darkPrimaryColor: "#60a5fa", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24" }),
+});
+
+/**
+ * As dez variáveis do envoltório `.vitrine-tema` (`--vitrine-light-*` e `--vitrine-dark-*`) para um
+ * registro com as duas paletas, com o texto sobre a primária e a secundária de cada modo calculado
+ * por `textColorsOf`. É o que o Core faz no layout do espaço; a pré-visualização dos formulários de
+ * aparência a repete com o que está sendo editado (sem dono). As cores devem estar em #RRGGBB.
+ * @param {Partial<Record<PaletteField, string>>} palette
+ * @returns {Record<string, string>}
+ * @throws {TypeError} se uma das cores não estiver no formato #RRGGBB
+ */
+export function themeStyleOf(palette) {
+  const light = textColorsOf(palette, "light");
+  const dark = textColorsOf(palette, "dark");
+  return {
+    "--vitrine-light-primary": /** @type {string} */ (palette.primaryColor),
+    "--vitrine-light-secondary": /** @type {string} */ (palette.secondaryColor),
+    "--vitrine-light-accent": /** @type {string} */ (palette.accentColor),
+    "--vitrine-light-on-primary": light.onPrimary,
+    "--vitrine-light-on-secondary": light.onSecondary,
+    "--vitrine-dark-primary": /** @type {string} */ (palette.darkPrimaryColor),
+    "--vitrine-dark-secondary": /** @type {string} */ (palette.darkSecondaryColor),
+    "--vitrine-dark-accent": /** @type {string} */ (palette.darkAccentColor),
+    "--vitrine-dark-on-primary": dark.onPrimary,
+    "--vitrine-dark-on-secondary": dark.onSecondary,
+  };
+}

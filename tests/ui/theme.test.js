@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { COLOR_MODES, MODE_BACKGROUND, contrastRatio, contrastWarnings, readableTextOn, safeThemeStyle, textColorsOf } from "@/lib/theme";
+import { COLOR_MODES, DEFAULT_PALETTES, MODE_BACKGROUND, contrastRatio, contrastWarnings, readableTextOn, safeThemeStyle, textColorsOf, themeStyleOf } from "@/lib/theme";
 
 /** Paletas padrão da ADR-031 (Tabela do Cap. 5 §5.9): nenhuma cor gera aviso, em nenhum modo. */
 const DEFAULTS = {
@@ -394,6 +394,17 @@ describe("tokens de tema em globals.css (RF19, ADR-031)", () => {
   });
 });
 
+/**
+ * Posição do bloco do CSS cujo seletor é `selector`, sozinho ou o primeiro de uma lista
+ * (`:root,\n.vitrine-modo-claro {`); `.dark` não casa com `.dark .vitrine-tema`.
+ * @param {string} css
+ * @param {string} selector
+ */
+function blockStartIn(css, selector) {
+  const alone = css.indexOf(`\n${selector} {`);
+  return alone !== -1 ? alone : css.indexOf(`\n${selector},`);
+}
+
 describe("tokens do realce de código em globals.css (RF10, ADR-025)", () => {
   const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
   const ROLES = ["foreground", "comment", "keyword", "string", "number", "function", "type", "variable", "deletion"];
@@ -404,7 +415,7 @@ describe("tokens do realce de código em globals.css (RF10, ADR-025)", () => {
    * @returns {Record<string, string>}
    */
   function codeTokensOf(selector) {
-    const start = css.indexOf(`\n${selector} {`);
+    const start = blockStartIn(css, selector);
     if (start === -1) throw new Error(`Bloco ${selector} não encontrado em globals.css.`);
     const block = css.slice(start, css.indexOf("\n}", start));
     return Object.fromEntries(
@@ -442,7 +453,7 @@ describe("neutros e paletas por modo em globals.css (RF31, RN27; CT48)", () => {
    * @param {string} selector
    */
   function blockOf(selector) {
-    const start = css.indexOf(`\n${selector} {`);
+    const start = blockStartIn(css, selector);
     if (start === -1) throw new Error(`Bloco ${selector} não encontrado em globals.css.`);
     return css.slice(start, css.indexOf("\n}", start));
   }
@@ -595,5 +606,86 @@ describe("safeThemeStyle: o style do envoltório .vitrine-tema (§5.9)", () => {
     expect(safeThemeStyle(null)).toBeUndefined();
     expect(safeThemeStyle(undefined)).toBeUndefined();
     expect(safeThemeStyle({})).toBeUndefined();
+  });
+});
+
+describe("DEFAULT_PALETTES e themeStyleOf (ADR-031; pré-visualização da aparência)", () => {
+  it("as paletas padrão são as da ADR-031, por campo, e não geram aviso", () => {
+    expect(DEFAULT_PALETTES.light).toEqual({ primaryColor: "#2563eb", secondaryColor: "#1e293b", accentColor: "#b45309" });
+    expect(DEFAULT_PALETTES.dark).toEqual({ darkPrimaryColor: "#60a5fa", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24" });
+    const all = { ...DEFAULT_PALETTES.light, ...DEFAULT_PALETTES.dark };
+    expect(contrastWarnings(all, "light")).toEqual([]);
+    expect(contrastWarnings(all, "dark")).toEqual([]);
+  });
+
+  it("coincidem com os padrões do banco (DEFAULT_COLORS, de db.js) e com os do CSS", async () => {
+    const { DEFAULT_COLORS } = await import("@/lib/db");
+    expect({ ...DEFAULT_PALETTES.light, ...DEFAULT_PALETTES.dark }).toEqual({ ...DEFAULT_COLORS });
+    const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+    const rootBlock = css.slice(blockStartIn(css, ":root"), css.indexOf("\n}", blockStartIn(css, ":root")));
+    expect(rootBlock).toContain(`--vitrine-primary: ${DEFAULT_PALETTES.light.primaryColor};`);
+    expect(rootBlock).toContain(`--vitrine-accent: ${DEFAULT_PALETTES.light.accentColor};`);
+  });
+
+  it("as paletas e a lista de campos estão congeladas", () => {
+    expect(Object.isFrozen(DEFAULT_PALETTES)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_PALETTES.light)).toBe(true);
+    expect(Object.isFrozen(DEFAULT_PALETTES.dark)).toBe(true);
+  });
+
+  it("themeStyleOf devolve as dez variáveis, com o texto sobre a primária e a secundária por modo", () => {
+    const style = themeStyleOf({ ...DEFAULT_PALETTES.light, ...DEFAULT_PALETTES.dark });
+    expect(style).toEqual({
+      "--vitrine-light-primary": "#2563eb",
+      "--vitrine-light-secondary": "#1e293b",
+      "--vitrine-light-accent": "#b45309",
+      "--vitrine-light-on-primary": "#FFFFFF",
+      "--vitrine-light-on-secondary": "#FFFFFF",
+      "--vitrine-dark-primary": "#60a5fa",
+      "--vitrine-dark-secondary": "#cbd5e1",
+      "--vitrine-dark-accent": "#fbbf24",
+      "--vitrine-dark-on-primary": "#000000",
+      "--vitrine-dark-on-secondary": "#000000",
+    });
+    // O que sai passa pelo filtro do envoltório sem perder nada.
+    expect(safeThemeStyle(style)).toEqual(style);
+  });
+
+  it("os textos acompanham as cores de cada modo (secundária clara pede texto escuro; a noturna escura, claro)", () => {
+    const style = themeStyleOf({
+      primaryColor: "#7c2d12", secondaryColor: "#fef3c7", accentColor: "#92400e",
+      darkPrimaryColor: "#fdba74", darkSecondaryColor: "#7c2d12", darkAccentColor: "#fb923c",
+    });
+    expect(style["--vitrine-light-on-primary"]).toBe("#FFFFFF");
+    expect(style["--vitrine-light-on-secondary"]).toBe("#000000");
+    expect(style["--vitrine-dark-on-primary"]).toBe("#000000");
+    expect(style["--vitrine-dark-on-secondary"]).toBe("#FFFFFF");
+  });
+
+  it("recusa uma cor fora do formato, que a validação do formulário já barrou", () => {
+    expect(() => themeStyleOf({ ...DEFAULT_PALETTES.light, ...DEFAULT_PALETTES.dark, darkPrimaryColor: "azul" })).toThrow(TypeError);
+  });
+});
+
+describe("modo forçado em globals.css (pré-visualização da aparência)", () => {
+  const css = fs.readFileSync(path.resolve(import.meta.dirname, "../../src/app/globals.css"), "utf8");
+
+  it("os neutros de cada modo valem também sob .vitrine-modo-claro e .vitrine-modo-escuro", () => {
+    expect(css).toMatch(/\n:root,\n\.vitrine-modo-claro \{/);
+    expect(css).toMatch(/\n\.dark,\n\.vitrine-modo-escuro \{/);
+  });
+
+  it("as paletas do envoltório têm uma regra por modo forçado, DEPOIS da regra .dark .vitrine-tema (a última vale)", () => {
+    const dark = css.indexOf("\n.dark .vitrine-tema {");
+    const forcedLight = css.indexOf("\n.vitrine-modo-claro .vitrine-tema {");
+    const forcedDark = css.indexOf("\n.vitrine-modo-escuro .vitrine-tema {");
+    expect(dark).toBeGreaterThan(-1);
+    expect(forcedLight).toBeGreaterThan(dark);
+    expect(forcedDark).toBeGreaterThan(dark);
+    const read = (/** @type {number} */ start) => css.slice(start, css.indexOf("\n}", start));
+    for (const field of ["primary", "secondary", "accent", "on-primary", "on-secondary"]) {
+      expect(read(forcedLight)).toContain(`--vitrine-${field}: var(--vitrine-light-${field},`);
+      expect(read(forcedDark)).toContain(`--vitrine-${field}: var(--vitrine-dark-${field},`);
+    }
   });
 });
