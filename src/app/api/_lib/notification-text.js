@@ -3,8 +3,8 @@
 // como TEXTO PURO: quem o exibe (a UI) o escapa. Um evento desconhecido nunca derruba a listagem:
 // cai em um aviso genérico.
 //
-// O texto da notificação de contraste (`CONTRAST`) ainda não existe: depende do P-013 (avisos por
-// modo, da UI). Até lá, ela usa o aviso genérico.
+// A notificação de contraste (`CONTRAST`; RN26, RN27) traz `data = { mode, scope, warnings: [{ field,
+// ratio, minimum }] }`: um modo por notificação, no escopo do site ou da aparência do usuário.
 
 const FIELD_LABELS = Object.freeze({
   title: "o título",
@@ -12,6 +12,17 @@ const FIELD_LABELS = Object.freeze({
   body: "o texto",
   type: "o tipo",
   status: "o estado de publicação",
+});
+
+const MODE_LABELS = Object.freeze({ light: "claro", dark: "noturno" });
+
+const COLOR_LABELS = Object.freeze({
+  primaryColor: "primária",
+  secondaryColor: "secundária",
+  accentColor: "de destaque",
+  darkPrimaryColor: "primária",
+  darkSecondaryColor: "secundária",
+  darkAccentColor: "de destaque",
 });
 
 const DATE_FORMAT = new Intl.DateTimeFormat("pt-BR", {
@@ -49,11 +60,54 @@ function suspensionTerm(expiresAt) {
 }
 
 /**
+ * Número em português, com a vírgula decimal.
+ * @param {unknown} value
+ */
+function decimal(value) {
+  return typeof value === "number" && Number.isFinite(value) ? String(value).replace(".", ",") : "";
+}
+
+/**
+ * Texto de um aviso de contraste de um modo: as cores abaixo do mínimo, com a razão e o mínimo.
+ * @param {Record<string, unknown>} data
+ * @returns {{ title: string, text: string } | null} `null` se `data` não é de um modo conhecido
+ */
+function describeContrast(data) {
+  const mode = /** @type {keyof typeof MODE_LABELS} */ (asText(data.mode));
+  if (!Object.hasOwn(MODE_LABELS, mode) || !Array.isArray(data.warnings)) return null;
+
+  const items = data.warnings
+    .map((warning) => {
+      const item = /** @type {Record<string, unknown>} */ (warning ?? {});
+      const label = COLOR_LABELS[/** @type {keyof typeof COLOR_LABELS} */ (asText(item.field))];
+      if (!label) return null;
+      const ratio = decimal(item.ratio);
+      const minimum = decimal(item.minimum);
+      const detail = ratio && minimum ? ` com ${ratio}:1 (mínimo de ${minimum}:1)` : "";
+      return `a cor ${label}${detail}`;
+    })
+    .filter((item) => item !== null);
+
+  const where = data.scope === "site" ? "do site" : "do seu espaço";
+  const fix = data.scope === "site" ? "na configuração do site" : "na aparência do seu espaço";
+  const which = items.length > 0 ? `: ${joinList(/** @type {string[]} */ (items))}` : "";
+  return {
+    title: `Contraste insuficiente no modo ${MODE_LABELS[mode]}`,
+    text: `A paleta do modo ${MODE_LABELS[mode]} ${where} tem cores abaixo do contraste mínimo (WCAG 2.1 AA)${which}. Ajuste as cores ${fix}; o aviso não impede o salvamento.`,
+  };
+}
+
+/**
  * Título e texto de uma notificação, em português.
  * @param {{ type: string, data: Record<string, unknown> }} notification
  * @returns {{ title: string, text: string }}
  */
 export function describeNotification({ type, data }) {
+  if (type === "CONTRAST") {
+    const contrast = describeContrast(data ?? {});
+    if (contrast) return contrast;
+  }
+
   const event = asText(data?.event);
 
   switch (event) {

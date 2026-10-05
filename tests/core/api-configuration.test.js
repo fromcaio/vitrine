@@ -239,15 +239,21 @@ describe("PUT /api/configuration: avisos de contraste (CT24, RN09)", () => {
     expect(summarize(body.warnings)).toEqual(BAD_PALETTE_WARNINGS);
   });
 
-  it("recebe do banco as três cores gravadas, e não o corpo da requisição", async () => {
+  it("recebe do banco as seis cores gravadas, uma paleta por vez, e não o corpo da requisição", async () => {
     await storePreviousDefaultPalette();
     await put({ accentColor: "#b45309", siteName: "Notas" });
 
-    expect(contrastWarnings).toHaveBeenCalledExactlyOnceWith({
-      primaryColor: "#3b82f6",
-      secondaryColor: "#1e293b",
-      accentColor: "#b45309",
-    });
+    expect(contrastWarnings).toHaveBeenCalledTimes(2);
+    expect(contrastWarnings).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ primaryColor: "#3b82f6", secondaryColor: "#1e293b", accentColor: "#b45309" }),
+      "light",
+    );
+    expect(contrastWarnings).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ darkPrimaryColor: "#60a5fa", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24" }),
+      "dark",
+    );
   });
 
   it("o aviso não bloqueia: com os três avisos, grava e revalida o portal normalmente", async () => {

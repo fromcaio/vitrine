@@ -6,7 +6,7 @@ import { getConfiguration, updateConfiguration } from "@/lib/db";
 import { revalidateConfiguration } from "@/lib/revalidate";
 import { configurationUpdateSchema } from "@/lib/validators";
 import { ApiError, contentJsonMaxBytes, ok, parse } from "../_lib/http";
-import { contrastWarningsOf } from "../_lib/contrast";
+import { contrastReport, syncContrastNotifications } from "../_lib/contrast";
 import { currentLimits } from "../_lib/limits";
 import { route } from "../_lib/route";
 
@@ -18,11 +18,14 @@ export const GET = route({ action: "site:read" }, async () => ok(await getConfig
  * equivale a ausente, RN17), o texto do portal e o diretório (RN28). Campos ausentes não mudam.
  * O texto do portal respeita o limite de bytes de um corpo (RN25). Revalida só o portal `/` (`revalidatePath("/", "page")`; RN10, ADR-030).
  *
- * Responde `{ data, warnings }`: `warnings` traz os avisos de contraste da paleta GRAVADA
- * (Cap. 5 §5.9.1), no formato `{ code, field, ratio, minimum, message }`, e está sempre presente
- * (lista vazia se nenhuma cor falha). O aviso não bloqueia o salvamento: o status continua 200.
+ * Responde `{ data, warnings }`: `warnings` traz os avisos de contraste das DUAS paletas gravadas (a
+ * noturna tem o prefixo `dark` no `field`; Cap. 5 §5.9.1), no formato
+ * `{ code, field, ratio, minimum, message }`, e está sempre presente (lista vazia se nenhuma cor
+ * falha). O aviso não bloqueia o salvamento: o status continua 200. Cada modo com aviso gera (ou
+ * reabre) a notificação `CONTRAST` `contrast-site:{modo}` do administrador que gravou; o modo que
+ * passa a atender resolve a sua (RN26).
  */
-export const PUT = route({ action: "site:update", mutation: true, rate: "content" }, async ({ readJson }) => {
+export const PUT = route({ action: "site:update", mutation: true, rate: "content" }, async ({ actor, readJson }) => {
   const limits = currentLimits();
   const patch = parse(configurationUpdateSchema, await readJson({ maxBytes: contentJsonMaxBytes(limits) }));
   const bytes = bodyBytes(patch.homeBody);
@@ -38,5 +41,7 @@ export const PUT = route({ action: "site:update", mutation: true, rate: "content
 
   // Calculados depois da escrita e da revalidação, sobre o registro devolvido pelo banco, e
   // não sobre o corpo: o PUT é parcial, e os avisos valem mesmo quando ele não traz cores.
-  return ok(configuration, { extra: { warnings: contrastWarningsOf(configuration) } });
+  const { byMode, warnings } = contrastReport(configuration);
+  await syncContrastNotifications({ userId: actor.id, scope: "site", byMode });
+  return ok(configuration, { extra: { warnings } });
 });
