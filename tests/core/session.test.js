@@ -92,3 +92,42 @@ describe("requireSession: o papel (RN19)", () => {
     await expect(requireSession({ role: "user" })).rejects.toThrow("NOT_FOUND");
   });
 });
+
+describe("requireSession: a senha provisória (RN21, UC14; CT40)", () => {
+  const provisional = (role = "user") => ({ user: { id: "u1", role, mustChangePassword: true }, session: {} });
+
+  it("com a senha provisória, redireciona a /admin/senha com a página pedida no destino", async () => {
+    getSession.mockResolvedValue(provisional());
+
+    await expect(requireSession({ path: "/admin/conteudo/novo?pai=abc" })).rejects.toThrow(
+      "REDIRECT:/admin/senha?redirectTo=%2Fadmin%2Fconteudo%2Fnovo%3Fpai%3Dabc",
+    );
+    await expect(requireSession()).rejects.toThrow("REDIRECT:/admin/senha?redirectTo=%2Fadmin");
+  });
+
+  it("a página da troca e o layout (allowTemporaryPassword) deixam a sessão com senha provisória passar", async () => {
+    getSession.mockResolvedValue(provisional());
+
+    const result = await requireSession({ path: "/admin/senha", allowTemporaryPassword: true });
+
+    expect(result.user.mustChangePassword).toBe(true);
+  });
+
+  it("a senha provisória vem antes do papel: um papel insuficiente também é levado à troca", async () => {
+    getSession.mockResolvedValue(provisional("user"));
+
+    await expect(requireSession({ role: "admin", path: "/admin/usuarios" })).rejects.toThrow("REDIRECT:/admin/senha");
+  });
+
+  it.each([[false], [undefined], [null], [0]])("mustChangePassword %j: nada de redirecionar", async (flag) => {
+    getSession.mockResolvedValue({ user: { id: "u1", role: "user", mustChangePassword: flag }, session: {} });
+
+    await expect(requireSession({ path: "/admin/conteudo" })).resolves.toBeTruthy();
+  });
+
+  it("sem sessão, o login vem antes da troca da senha", async () => {
+    getSession.mockResolvedValue(null);
+
+    await expect(requireSession({ path: "/admin/senha" })).rejects.toThrow("REDIRECT:/login");
+  });
+});

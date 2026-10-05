@@ -30,6 +30,8 @@ test.describe.serial("espaço público e portal", () => {
   let sobreUpdatedAt = "";
 
   test.beforeAll(async ({ playwright }) => {
+    // O limite de escritas do administrador (RN25) pode fazer a criação das contas esperar o Retry-After.
+    test.setTimeout(120_000);
     admin = await adminLogin(playwright);
     const anaAccount = await createAccount(playwright, admin, ANA);
     const betoAccount = await createAccount(playwright, admin, BETO);
