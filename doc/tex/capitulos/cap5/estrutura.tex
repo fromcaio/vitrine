@@ -47,7 +47,7 @@ src/
 |   |-- login/page.js             # cartão de login; usa o LoginForm (UI)
 |   |-- admin/                    # painel (dinâmico): layout, page, conteudo/, configuracoes/
 |   |   `-- _lib/                 # pasta privada (Core)
-|   |       |-- session.js        # requireAdminSession
+|   |       |-- session.js        # requireSession({ role?, path })
 |   |       `-- actions.js        # Server Function signOut ("use server")
 |   `-- api/
 |       |-- _lib/                 # http.js (envelope, erros, sessão, origem) e contents.js
