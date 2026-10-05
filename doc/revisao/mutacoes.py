@@ -72,10 +72,13 @@ DADOS=[
 ap = argparse.ArgumentParser()
 ap.add_argument("--dominio", choices=["core", "dados"], required=True)
 ap.add_argument("--repo", required=True)
+ap.add_argument("--somente", default="", help="ids separados por vírgula (ex.: M21,M30): roda só essas mutações")
 a = ap.parse_args()
 MUT, ALVO, TEMPO = (CORE, "tests/core", 400) if a.dominio == "core" else (DADOS, "tests/dados", 300)
 res = []
 for f, old, new, name in MUT:
+    if a.somente and name.split()[0] not in a.somente.split(","):
+        continue
     p = f"{a.repo}/{f}"
     s = open(p, encoding="utf-8", newline="").read()
     if s.count(old) != 1:
