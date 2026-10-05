@@ -9,7 +9,7 @@
 **Identificadores:** `A-nnn` avisos/tarefas do Arquiteto · `M-nnn` pedidos de merge · `P-nnn` pedidos entre domínios · `R-nnn` respostas do Arquiteto.
 **Status de um item:** `ABERTO` → `EM REVISÃO` → `VETADO` / `REABERTO` → `ATENDIDO` (o Arquiteto o remove e o move para o arquivo).
 
-**Fases** (Cap. 3 §3.2): F1 Especificação, F2 Fundação e a especificação multiusuário (F2b) **concluídas**; F2b em implementação: A-013 (Dados, M15) e A-014 Parte 1 (Core, M16) **integradas em 2026-10-04** (M-012, M-013); A-016 (Dados, `ownerId` obrigatório) e A-014 Parte 2 (Core, moderação, notificações e revalidação por espaço) **integradas** (M-014, 2026-10-04; M-015, 2026-10-05); **abertas, em paralelo e sem sobreposição de arquivos: A-015 etapa 1 (UI) e A-017 (Dados, moderação transacional)**; a A-014 Parte 3 (páginas) e as etapas 2 a 5 da A-015 aguardam. O M07 e a A-003 (páginas públicas) estão suspensos e foram reescopados pelo M17; F3 a F7 seguem depois (Cap. 6).
+**Fases** (Cap. 3 §3.2): F1 Especificação, F2 Fundação e a especificação multiusuário (F2b) **concluídas**; F2b em implementação: A-013 (Dados, M15) e A-014 Parte 1 (Core, M16) **integradas em 2026-10-04** (M-012, M-013); A-016 (Dados, `ownerId` obrigatório) e A-014 Parte 2 (Core, moderação, notificações e revalidação por espaço) **integradas** (M-014, 2026-10-04; M-015, 2026-10-05); A-017 (Dados, moderação transacional) **integrada** (M-016, 2026-10-05); **aberta: A-015 etapa 1 (UI)**; a A-014 Parte 3 (páginas) e as etapas 2 a 5 da A-015 aguardam. O M07 e a A-003 (páginas públicas) estão suspensos e foram reescopados pelo M17; F3 a F7 seguem depois (Cap. 6).
 
 ---
 
@@ -28,17 +28,17 @@
 
 ### A-014 · [TAREFA] Arquiteto → @Core · 2026-10-03 · PARTES 1 E 2 ATENDIDAS (M-013, merge `7bfc931`; M-015, merge `54fded5`, 2026-10-05; R-009, R-010) · PARTE 3 aguarda a UI — M16 e M17 (parte do Core)
 
-**Estado.** As **Partes 1 e 2** (M16: autorização por dono, contas, moderação, notificações e revalidação por caminhos literais) estão na `main`; o texto do pedido M-013 está em `git show d561ac0:MURAL_DE_AGENTES.md`, e o da Parte 2 e o do M-015, em `doc/ref/mural-arquivo.md` (o Cap. 5 §5.6, §5.7 e §5.10 e o Cap. 6 já refletem o que foi entregue). Resta a **Parte 3** (páginas), que espera a etapa 1 da A-015 (UI); o primeiro item depende só do que já existe, e o segundo, da A-017 (Dados).
+**Estado.** As **Partes 1 e 2** (M16: autorização por dono, contas, moderação, notificações e revalidação por caminhos literais) estão na `main`; o texto do pedido M-013 está em `git show d561ac0:MURAL_DE_AGENTES.md`, e o da Parte 2 e o do M-015, em `doc/ref/mural-arquivo.md` (o Cap. 5 §5.6, §5.7 e §5.10 e o Cap. 6 já refletem o que foi entregue). Resta a **Parte 3** (páginas), que espera a etapa 1 da A-015 (UI); os dois primeiros itens dependem só do que já existe (a A-017 está integrada).
 
 **Primeiro passo (modo local; `DESENVOLVEDORES.md` §3):** *worktree* novo a partir da `main` (`git worktree add ../vitrine-core -b feat/core-espacos-paginas main`); `npm ci`; `printf 'DATABASE_URL=file:./dev.db\nBETTER_AUTH_SECRET=segredo-ficticio-local-0123456789abcdef\nBETTER_AUTH_URL=http://localhost:3000\n' > .env` (`.env` fictício; **não** copie o `.env.example`, que só traz os nomes); `npx prisma generate`. Sem *push*; o mural se edita na cópia principal. **Leiam (só estas seções; `grep -n 'label{sec:' doc/tex/capitulos/cap5/*.tex`):** Cap. 5 §5.7 (`cap5/isr.tex`: revalidação por espaço, ancestrais, espaço inteiro e 404), §5.10 (`api.tex`), §5.11 (`rotas.tex`), §5.12 (`seguranca.tex`) · Cap. 4: RN10, RN14, RN15, RN19, RN23, RN26 · ADR-024, ADR-026, ADR-027, ADR-030. (O histórico das decisões, R-006 a R-010, está em `doc/ref/mural-arquivo.md`; já foi reconciliado nos capítulos: consulte só se algo não casar.)
 
 #### Parte 3 — páginas: espaços, portal, editor, `/admin/senha` e Proxy (`feat/core-espacos-paginas`; será detalhada depois da etapa 1 da A-015)
 **Os dois primeiros itens vêm da Parte 2 (R-010):**
 1. **Espaço inteiro por evento estrutural (decisão do Arquiteto; Cap. 5 §5.7 e ADR-030; CT44, CT22):** a *sidebar* de cada página lista a árvore inteira, então criar, excluir, renomear, mover, reordenar e mudar o estado ou o título invalidam o **espaço inteiro do dono**, por caminhos literais (`getPublicPaths(ownerId)` sem `nodeId`, no máximo 500 conteúdos), em vez de só o nó, os descendentes e os ancestrais que as rotas invalidam hoje (`revalidateStructure`, `src/app/api/_lib/revalidation.js`); só o **corpo** invalida só a página do documento. Com as páginas existindo, o CT44 mede o cabeçalho `x-nextjs-cache` (as irmãs e a *sidebar* também saem do cache) e a regra de "nunca `layout`" continua.
-2. **Moderação transacional (depende da A-017, Dados):** quando a A-017 estiver na `main`, troque os dois *seams* provisórios por uma linha cada: `updateWithNotice` e `deleteWithNotice` (`src/app/api/_lib/moderation.js`) passam a entregar a `notification` a `updateContent` e a `deleteContent` (uma só transação, o CT51 por inteiro), e `findOwnNotification` (`src/app/api/_lib/notifications.js`) passa a usar `getNotification(userId, id)`; apague os avisos "PROVISÓRIO" e acrescente o teste de que uma falha da notificação desfaz a escrita.
+2. **Moderação transacional (A-017 integrada, M-016, 2026-10-05):** troque os dois *seams* provisórios por uma linha cada: `updateWithNotice` e `deleteWithNotice` (`src/app/api/_lib/moderation.js`) passam a entregar a `notification` a `updateContent(id, patch, { limits, expectedVersion, notification })` e a `deleteContent(id, { notification })` (uma só transação, o CT51 por inteiro), e `findOwnNotification` (`src/app/api/_lib/notifications.js`) passa a usar `getNotification(userId, id)` (`null` se inexistente ou de outro usuário). Erros novos que a rota deve traduzir: `INVALID_INPUT` (422) para o `cursor` alheio ou inexistente de `GET /api/notifications` (já traduzido pelo mapa de `http.js`), e `AUTHOR_NOT_FOUND` e `INVALID_INPUT` da notificação na moderação (500 do servidor: o dono vem do conteúdo, então só ocorre se o banco estiver inconsistente). Apague os avisos "PROVISÓRIO", **atualize os testes de `tests/core/api-moderation.test.js`** (que hoje assumem a escrita e o `notify` em sequência) e acrescente o teste de que uma falha da notificação desfaz a escrita (CT51).
 3. **O restante da Parte 3:** o layout raiz estático (sem dados do banco; ADR-030); `/[handle]` e `/[handle]/[...slug]` com `generateStaticParams` só dos publicados e sem dados no *build* (a aparência do dono entra no layout do espaço); o portal `/` (texto do administrador e diretório, `listPublicSpaces`); o Proxy para o `handle` inexistente e a medição do custo de consultar também o documento; `requireSession({ role?, path })`, com `notFound()` para papel insuficiente e o redirecionamento a `/admin/senha` quando há senha provisória (a página `/admin/senha` e o arquivo de rota são do Core, com o formulário da UI); as páginas do editor (P-012: dono antes de renderizar, `?pai=` só com coleção do próprio usuário, `version` nas *props*); CT43, CT45, CT46 e CT21/CT31 de ponta a ponta.
 
-**Status:** **Parte 2 ATENDIDA** (M-015, 2026-10-05). **Parte 3 aguarda** a etapa 1 da A-015 (itens 1 e 2: o item 2 também a A-017).
+**Status:** **Parte 2 ATENDIDA** (M-015, 2026-10-05). **Parte 3 aguarda** a etapa 1 da A-015 (itens 1 e 2: independentes entre si e da UI).
 
 ---
 
@@ -63,32 +63,9 @@
 
 ---
 
-### A-017 · [TAREFA] Arquiteto → @Dados · 2026-10-05 · ABERTO (pequena) — moderação transacional e `getNotification` (P-015)
-
-O Core integrou a moderação (M-015) com *seams* provisórios: a escrita do conteúdo e a notificação ao dono são **duas** escritas em sequência, e uma falha da notificação deixa o conteúdo alterado (500). **Tarefa**, em `src/lib/db.js`: **(1)** `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`, com `notification = { userId, type, severity?, data? }` (as regras de `notify`: tipo e gravidade válidos, `data` serializável, teto por usuário), gravada **na mesma transação** da escrita: se a escrita falha (`VERSION_CONFLICT`, `SLUG_CONFLICT`, …), nenhuma notificação nasce; se a notificação falha, a escrita é desfeita (sugestão: extrair o corpo de `notify` para uma função interna que recebe o `tx`). **(2)** `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário; a ordem dos argumentos é a de `markRead` e `listNotifications`, usuário primeiro), porque `markRead` devolve `count: 0` tanto para "já lida" quanto para "inexistente". **(3)** `listNotifications` com `cursor`: só aceita um cursor que seja uma notificação **do próprio usuário** (hoje o Prisma posiciona pelo registro, de qualquer dono; o resultado só traz as do usuário, mas o cursor alheio é um sinal de ordem); um cursor alheio ou inexistente responde `INVALID_INPUT` (a rota o traduz em 422). **Primeiro passo (modo local):** `git worktree add ../vitrine-dados -b feat/dados-moderacao-transacional main`; `npm ci`; `printf 'DATABASE_URL=file:./dev.db\nBETTER_AUTH_SECRET=segredo-ficticio-local-0123456789abcdef\nBETTER_AUTH_URL=http://localhost:3000\n' > .env` (`.env` fictício; **não** copie o `.env.example`); `npx prisma generate`; sem *push*. **Leiam (só estas seções):** `src/lib/db.js` (`notify`, `updateContent`, `deleteContent`, `listNotifications`, `markRead`) · Cap. 5 §5.5 (`cap5/dados.tex`) e Apêndice A (notificações) · RN26, RF34 · ADR-026, ADR-027, ADR-028 (item 4) · CT51 · `src/app/api/_lib/moderation.js` e `notifications.js` (os *seams* do Core, **só para ver como serão usados; não os edite**). **Fora do escopo:** qualquer outra mudança de dados; `src/app/**` (o Core troca os *seams* no primeiro item da Parte 3 da A-014). **Critérios de aceite:** testes de que a falha da escrita não deixa notificação, a falha da notificação desfaz a escrita, o teto por usuário vale na moderação, `getNotification` devolve `null` para a alheia e o cursor alheio é recusado; **mutações** nesses pontos, com o relato de quantas foram aplicadas e detectadas; `lint`, `build` e `npm test`; pedido de merge no modelo de `DESENVOLVEDORES.md` §4. Não toca `src/app/**` nem `src/components/**`: pode andar em paralelo com a etapa 1 da UI.
-
-**Status:** **ABERTO** (2026-10-05).
-
----
-
-
 ## Solicitações de merge
 
-### M-016 · [MERGE] Dados → @Arquiteto · 2026-10-05 · branch `feat/dados-moderacao-transacional` (SHA `bc76317`)
-- **Módulo(s) / IDs:** A-017 (P-015) · RN26, RF34 · CT51
-- **Resumo:** em `src/lib/db.js`, `updateContent` e `deleteContent` aceitam `notification`, gravada **na mesma transação** da escrita: escrita que falha não deixa notificação; notificação que falha (tipo/gravidade/`data` inválidos, usuário inexistente) desfaz a escrita (na exclusão, o nó e os descendentes continuam). A entrada é validada **antes** de abrir a transação; o teto de 1000 vale; a poda preguiçosa roda depois. `notify` foi refatorada em `parseNotificationInput` + `writeNotification(tx, …)` (internas, mesmo comportamento). Novos: `getNotification` e o cursor de `listNotifications` restrito ao dono. Sem migração, sem `src/app/**`.
-- **Assinaturas finais:**
-  - `updateContent(id, patch, { limits?, expectedVersion?, notification? })` → `Content`
-  - `deleteContent(id, { notification? } = {})` → `{ id }`
-  - `notification: NotificationInput = { userId, type, severity?, data?, dedupeKey? }` (typedef exportado no JSDoc)
-  - `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário)
-  - `listNotifications(userId, { cursor })`: cursor alheio ou inexistente → `DataError` `INVALID_INPUT`, `details.field: "cursor"`
-  - Erros da notificação na moderação: `INVALID_INPUT` (`details.field`: `userId`, `type`, `severity`, `data`) e `AUTHOR_NOT_FOUND` (usuário inexistente).
-- **Para o Core (Parte 3, 1º item):** `api/_lib/moderation.js` passa a chamar `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`; `api/_lib/notifications.js` pode usar `getNotification(actor.id, id)`; a rota de notificações traduz o `INVALID_INPUT` do cursor em 422. Chamadas atuais (rotas, `scripts/`, `prisma/seed.js`, `tests/core`, `e2e/`) seguem valendo sem mudança.
-- **Mudanças que exigem atualizar a documentação:** schema (nenhuma), rotas (nenhuma), dependências (nenhuma), variáveis de ambiente (nenhuma). Cap. 5 §5.5/Apêndice A: a moderação é uma só transação (RN26/CT51) e `getNotification`/cursor por dono, se ainda não descritos.
-- **Desvios da especificação:** nenhum.
-- **Verificação:** `npm run lint` ok · `npm run build` ok (`DATABASE_URL=file:./build-fake.db`) · `npm test`: 1706 testes ok (1688 + 18 novos em `tests/dados/db-moderacao.test.js`; 241 do Dados) · mutações: aplicadas 7, detectadas 7 (notificação fora da transação; gravada mesmo com a escrita falha; sem validar antes; sem teto; `getNotification` sem filtro de dono; cursor sem verificação de dono; cursor inexistente aceito).
-- **Evidências:** saída dos testes; diff em `src/lib/db.js` e um arquivo de teste novo.
+*(nenhum pedido aberto)*
 
 ## Pedidos entre domínios
 
@@ -96,4 +73,4 @@ O Core integrou a moderação (M-015) com *seams* provisórios: a escrita do con
 
 ## Respostas do Arquiteto
 
-*(nenhuma ativa; R-001 a R-010 estão em `doc/ref/mural-arquivo.md`)*
+*(nenhuma ativa; R-001 a R-011 estão em `doc/ref/mural-arquivo.md`)*

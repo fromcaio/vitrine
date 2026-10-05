@@ -448,3 +448,36 @@ O M-015 foi integrado (merge `54fded5`) sem veto. **Conferido por conta própria
 
 **Status:** ATENDIDO. M-015 e P-015 saíram do mural; a A-014 ficou só com a Parte 3.
 
+---
+
+## M-016 e A-017 (atendidos em 2026-10-05; merge `c159476`) — texto original
+
+### A-017 · [TAREFA] Arquiteto → @Dados · 2026-10-05 · ABERTO (pequena) — moderação transacional e `getNotification` (P-015)
+
+O Core integrou a moderação (M-015) com *seams* provisórios: a escrita do conteúdo e a notificação ao dono são **duas** escritas em sequência, e uma falha da notificação deixa o conteúdo alterado (500). **Tarefa**, em `src/lib/db.js`: **(1)** `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`, com `notification = { userId, type, severity?, data? }` (as regras de `notify`: tipo e gravidade válidos, `data` serializável, teto por usuário), gravada **na mesma transação** da escrita: se a escrita falha (`VERSION_CONFLICT`, `SLUG_CONFLICT`, …), nenhuma notificação nasce; se a notificação falha, a escrita é desfeita (sugestão: extrair o corpo de `notify` para uma função interna que recebe o `tx`). **(2)** `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário; a ordem dos argumentos é a de `markRead` e `listNotifications`, usuário primeiro), porque `markRead` devolve `count: 0` tanto para "já lida" quanto para "inexistente". **(3)** `listNotifications` com `cursor`: só aceita um cursor que seja uma notificação **do próprio usuário** (hoje o Prisma posiciona pelo registro, de qualquer dono; o resultado só traz as do usuário, mas o cursor alheio é um sinal de ordem); um cursor alheio ou inexistente responde `INVALID_INPUT` (a rota o traduz em 422). **Primeiro passo (modo local):** `git worktree add ../vitrine-dados -b feat/dados-moderacao-transacional main`; `npm ci`; `printf 'DATABASE_URL=file:./dev.db\nBETTER_AUTH_SECRET=segredo-ficticio-local-0123456789abcdef\nBETTER_AUTH_URL=http://localhost:3000\n' > .env` (`.env` fictício; **não** copie o `.env.example`); `npx prisma generate`; sem *push*. **Leiam (só estas seções):** `src/lib/db.js` (`notify`, `updateContent`, `deleteContent`, `listNotifications`, `markRead`) · Cap. 5 §5.5 (`cap5/dados.tex`) e Apêndice A (notificações) · RN26, RF34 · ADR-026, ADR-027, ADR-028 (item 4) · CT51 · `src/app/api/_lib/moderation.js` e `notifications.js` (os *seams* do Core, **só para ver como serão usados; não os edite**). **Fora do escopo:** qualquer outra mudança de dados; `src/app/**` (o Core troca os *seams* no primeiro item da Parte 3 da A-014). **Critérios de aceite:** testes de que a falha da escrita não deixa notificação, a falha da notificação desfaz a escrita, o teto por usuário vale na moderação, `getNotification` devolve `null` para a alheia e o cursor alheio é recusado; **mutações** nesses pontos, com o relato de quantas foram aplicadas e detectadas; `lint`, `build` e `npm test`; pedido de merge no modelo de `DESENVOLVEDORES.md` §4. Não toca `src/app/**` nem `src/components/**`: pode andar em paralelo com a etapa 1 da UI.
+
+**Status:** **ABERTO** (2026-10-05).
+
+---
+
+### M-016 · [MERGE] Dados → @Arquiteto · 2026-10-05 · branch `feat/dados-moderacao-transacional` (SHA `bc76317`)
+- **Módulo(s) / IDs:** A-017 (P-015) · RN26, RF34 · CT51
+- **Resumo:** em `src/lib/db.js`, `updateContent` e `deleteContent` aceitam `notification`, gravada **na mesma transação** da escrita: escrita que falha não deixa notificação; notificação que falha (tipo/gravidade/`data` inválidos, usuário inexistente) desfaz a escrita (na exclusão, o nó e os descendentes continuam). A entrada é validada **antes** de abrir a transação; o teto de 1000 vale; a poda preguiçosa roda depois. `notify` foi refatorada em `parseNotificationInput` + `writeNotification(tx, …)` (internas, mesmo comportamento). Novos: `getNotification` e o cursor de `listNotifications` restrito ao dono. Sem migração, sem `src/app/**`.
+- **Assinaturas finais:**
+  - `updateContent(id, patch, { limits?, expectedVersion?, notification? })` → `Content`
+  - `deleteContent(id, { notification? } = {})` → `{ id }`
+  - `notification: NotificationInput = { userId, type, severity?, data?, dedupeKey? }` (typedef exportado no JSDoc)
+  - `getNotification(userId, id)` → `NotificationView | null` (`null` se não existe ou é de outro usuário)
+  - `listNotifications(userId, { cursor })`: cursor alheio ou inexistente → `DataError` `INVALID_INPUT`, `details.field: "cursor"`
+  - Erros da notificação na moderação: `INVALID_INPUT` (`details.field`: `userId`, `type`, `severity`, `data`) e `AUTHOR_NOT_FOUND` (usuário inexistente).
+- **Para o Core (Parte 3, 1º item):** `api/_lib/moderation.js` passa a chamar `updateContent(id, patch, { …, notification })` e `deleteContent(id, { notification })`; `api/_lib/notifications.js` pode usar `getNotification(actor.id, id)`; a rota de notificações traduz o `INVALID_INPUT` do cursor em 422. Chamadas atuais (rotas, `scripts/`, `prisma/seed.js`, `tests/core`, `e2e/`) seguem valendo sem mudança.
+- **Mudanças que exigem atualizar a documentação:** schema (nenhuma), rotas (nenhuma), dependências (nenhuma), variáveis de ambiente (nenhuma). Cap. 5 §5.5/Apêndice A: a moderação é uma só transação (RN26/CT51) e `getNotification`/cursor por dono, se ainda não descritos.
+- **Desvios da especificação:** nenhum.
+- **Verificação:** `npm run lint` ok · `npm run build` ok (`DATABASE_URL=file:./build-fake.db`) · `npm test`: 1706 testes ok (1688 + 18 novos em `tests/dados/db-moderacao.test.js`; 241 do Dados) · mutações: aplicadas 7, detectadas 7 (notificação fora da transação; gravada mesmo com a escrita falha; sem validar antes; sem teto; `getNotification` sem filtro de dono; cursor sem verificação de dono; cursor inexistente aceito).
+- **Evidências:** saída dos testes; diff em `src/lib/db.js` e um arquivo de teste novo.
+
+### R-011 · Arquiteto → Dados · 2026-10-05 · sobre o M-016 (APROVADO)
+O M-016 foi integrado (merge `c159476`) sem veto. **Conferido por conta própria (Linux, Node.js 24):** `tests/dados` (241), `tests/core` (978), `lint` e `build`; 5 mutações próprias (4 detectadas; a que escapou é a poda preguiçosa omitida na exclusão moderada: manutenção que roda na próxima notificação, achado leve aceito). **Decisões:** a transação única, o `getNotification(userId, id)` e o cursor por dono (`INVALID_INPUT`, campo `cursor`, 422 na API) estão aceitos; um cursor dispensado entre duas páginas responde 422 e o cliente recomeça pela primeira.
+
+**Status:** ATENDIDO. A-017 e M-016 saíram do mural; o item 2 da Parte 3 da A-014 passa a valer sem dependência.
+
