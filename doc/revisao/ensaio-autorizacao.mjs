@@ -122,7 +122,7 @@ r = await call(admin, "DELETE", `/api/contents/${xId}?reason=%20%20%20`); check(
 r = await call(admin, "DELETE", `/api/contents/${xId}?reason=${"x".repeat(501)}`); check("excluir alheio com ?reason de 501 caracteres -> 422", r.status === 422, `${r.status}`);
 r = await call(bob, "GET", `/api/contents/${xId}`); check("o conteúdo recusado continua existindo", r.status === 200, `${r.status}`);
 r = await call(admin, "DELETE", `/api/contents/${xId}?reason=${encodeURIComponent("Plágio comprovado")}`); check("admin exclui conteúdo do Bob com ?reason -> 204", r.status === 204, `${r.status} ${r.text.slice(0,100)}`);
-r = await call(bob, "GET", "/api/notifications?unread=1"); check("o dono é avisado da exclusão (texto com o motivo)", r.status === 200 && r.json?.data?.length === 1 && /Pl.giro comprovado/.test(r.json.data[0].text), `${r.status} ${r.text.slice(0,250)}`);
+r = await call(bob, "GET", "/api/notifications?unread=1"); check("o dono é avisado da exclusão (texto com o motivo)", r.status === 200 && r.json?.data?.length === 1 && /Pl.gio comprovado/.test(r.json.data[0].text), `${r.status} ${r.text.slice(0,250)}`);
 // cotas e corpo
 r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo > 256 KiB -> 413 ou 422", r.status === 413 || r.status === 422, `${r.status}`);
 r = await call(bob, "POST", "/api/contents", "x".repeat(2 * 1024 * 1024), { "content-type": "application/json" }); check("corpo de 2 MiB -> 413", r.status === 413, `${r.status}`);

@@ -28,6 +28,20 @@ CORE=[
  ("src/app/api/contents/route.js","authorId: actor.id }","authorId: input.authorId ?? actor.id }","M14 authorId do corpo vale"),
  ("src/lib/authz.js","  if (!isNonEmptyString(ownerId)) return FORBIDDEN;\n","","M15 ação de recurso sem dono não falha fechada"),
  ("src/lib/authz.js","  if (!Object.hasOwn(POLICY, action)) return FORBIDDEN;\n","","M16 ação desconhecida não falha fechada"),
+ # M-015 (A-014 Parte 2): moderação, notificações e revalidação por espaço
+ ("src/app/api/contents/[id]/route.js","{ action: \"content:update\", mutation: true, rate: \"content\", load: loadContent, allowForeign: true }","{ action: \"content:update\", mutation: true, rate: \"content\", load: loadContent }","M17 PATCH deixa de ser moderação (allowForeign)"),
+ ("src/app/api/contents/[id]/route.js","{ action: \"content:delete\", mutation: true, rate: \"content\", load: loadContent, allowForeign: true }","{ action: \"content:delete\", mutation: true, rate: \"content\", load: loadContent }","M18 DELETE deixa de ser moderação (allowForeign)"),
+ ("src/app/api/contents/[id]/route.js","  if (reason === undefined) {\n    throw new ApiError(422","  if (false) {\n    throw new ApiError(422","M19 moderação sem motivo aceita"),
+ ("src/lib/validators.js",".string({ error: \"Informe o motivo.\" })\n  .trim()\n",".string({ error: \"Informe o motivo.\" })\n","M20 motivo só de espaços aceito"),
+ ("src/app/api/_lib/moderation.js","const updated = await updateContent(id, patch, options);\n  if (notification) {","const updated = await updateContent(id, patch, options);\n  if (false) {","M21 edição moderada não avisa o dono"),
+ ("src/app/api/_lib/moderation.js","const removed = await deleteContent(id);\n  if (notification) {","const removed = await deleteContent(id);\n  if (false) {","M22 exclusão moderada não avisa o dono"),
+ ("src/app/api/notifications/[id]/route.js","if (!(await findOwnNotification(actor.id, params.id))) {","if (false) {","M23 notificação alheia deixa de ser 404"),
+ ("src/app/api/notifications/route.js","{ unreadOnly: unread, take: limit + 1, cursor }","{ unreadOnly: unread, take: limit + 1 }","M24 cursor de paginação ignorado"),
+ ("src/app/api/_lib/revalidation.js","const urls = revalidateSnapshots(before, after);","const urls = revalidateSnapshots(after);","M25 revalidação esquece o caminho antigo"),
+ ("src/app/api/_lib/revalidation.js","const urls = revalidateSnapshots(...before, after);","const urls = revalidateSnapshots(after);","M26 revalidação esquece o handle antigo"),
+ ("src/lib/revalidate.js","for (let depth = 1; depth <= slugs.length; depth++) urls.add(spaceUrl(handle, slugs.slice(0, depth)));","urls.add(spaceUrl(handle, slugs));","M27 revalidação esquece as coleções ancestrais"),
+ ("src/lib/revalidate.js","revalidatePath(\"/\", \"page\");","revalidatePath(\"/\", \"layout\");","M28 portal invalida o layout raiz (todos os espaços)"),
+ ("src/app/api/contents/[id]/route.js","if (foreign && MOVE_FIELDS.some((field) => field in patch)) throw","if (false) throw","M29 moderação move o conteúdo alheio"),
 ]
 
 DADOS=[
