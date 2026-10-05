@@ -185,3 +185,23 @@ export function textColorsOf(palette, mode = "light") {
     onSecondary: readableTextOn(/** @type {string} */ (palette[secondary.field])),
   };
 }
+
+/** Variáveis que o envoltório `.vitrine-tema` aceita no atributo `style` (Cap. 5 §5.9). */
+const THEME_VARIABLE = /^--vitrine-(light|dark)-(primary|secondary|accent|on-primary|on-secondary)$/;
+
+/**
+ * Filtra o objeto de variáveis que vai ao atributo `style` do envoltório `.vitrine-tema`: só as dez
+ * variáveis das duas paletas, e só com valor `#RRGGBB`. É a última defesa contra a injeção de CSS
+ * pelo atributo (o Core já valida o dado na gravação e na leitura): qualquer outra chave ou valor é
+ * descartado.
+ * @param {Record<string, unknown> | null | undefined} style
+ * @returns {Record<string, string> | undefined} `undefined` se nada sobrar (o atributo é omitido)
+ */
+export function safeThemeStyle(style) {
+  /** @type {Record<string, string>} */
+  const safe = {};
+  for (const [name, value] of Object.entries(style ?? {})) {
+    if (THEME_VARIABLE.test(name) && typeof value === "string" && HEX_COLOR.test(value)) safe[name] = value;
+  }
+  return Object.keys(safe).length > 0 ? safe : undefined;
+}
