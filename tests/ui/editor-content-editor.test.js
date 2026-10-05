@@ -53,7 +53,7 @@ describe("ContentEditor", () => {
       url: "/api/contents/c1",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: { title: "Aula revisada", slug: "aula", body: "x", status: "PUBLISHED" },
+      body: { title: "Aula revisada", slug: "aula", body: "x", status: "PUBLISHED", version: "v1" },
     });
   });
 

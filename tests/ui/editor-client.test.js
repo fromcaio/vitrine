@@ -37,12 +37,15 @@ describe("interpretResponse", () => {
     expect(/** @type {any} */ (result).message).toMatch(/sessão expirou/i);
   });
 
-  it("403: sem permissão para o conteúdo (ADR-023), com a mensagem do servidor quando ela vem", async () => {
-    const withMessage = await interpretResponse(json(403, { error: { code: "FORBIDDEN", message: "Você só pode alterar o seu próprio conteúdo.", details: [] } }));
-    expect(withMessage).toEqual({ ok: false, kind: "forbidden", message: "Você só pode alterar o seu próprio conteúdo.", fieldErrors: [] });
-    const without = await interpretResponse(json(403, {}));
-    expect(without).toMatchObject({ ok: false, kind: "forbidden", message: "Você não tem permissão para alterar este conteúdo." });
-    // Um 403 de outro motivo (senha provisória) também mostra o texto do servidor.
+  it("403: o conteúdo é de outro usuário (ADR-023): texto próprio do editor, em português, com ou sem corpo", async () => {
+    const own = "Este conteúdo é de outro usuário e você não tem permissão para alterá-lo.";
+    // A mensagem genérica do servidor ("para esta operação") não ajuda o autor: vale a do editor.
+    const withMessage = await interpretResponse(json(403, { error: { code: "FORBIDDEN", message: "Você não tem permissão para esta operação.", details: [] } }));
+    expect(withMessage).toEqual({ ok: false, kind: "forbidden", message: own, fieldErrors: [] });
+    expect(await interpretResponse(json(403, {}))).toMatchObject({ ok: false, kind: "forbidden", message: own });
+  });
+
+  it("403 PASSWORD_CHANGE_REQUIRED: mostra o texto do servidor (senha provisória)", async () => {
     const password = await interpretResponse(json(403, { error: { code: "PASSWORD_CHANGE_REQUIRED", message: "Troque a senha provisória para continuar.", details: [] } }));
     expect(password).toMatchObject({ kind: "forbidden", message: "Troque a senha provisória para continuar." });
   });
@@ -277,5 +280,92 @@ describe("sem navegador (renderização no servidor)", () => {
     expect(readDraft("vitrine:rascunho:u1:c1")).toBeNull();
     expect(writeDraft("vitrine:rascunho:u1:c1", { values, baseVersion: null })).toBeNull();
     expect(clearAllDrafts()).toBe(0);
+  });
+});
+
+describe("RN18: versão do conteúdo (CT53, parte do editor)", () => {
+  const OPENED = "2026-10-02T12:00:00.000Z";
+  const CURRENT = "2026-10-02T12:30:00.000Z";
+  const conflict = () => json(409, { error: { code: "VERSION_CONFLICT", message: "O conteúdo foi alterado depois da versão aberta.", details: [{ field: "version", value: CURRENT }] } });
+  const serverCopy = () => json(200, { data: { id: "abc", title: "Do servidor", slug: "do-servidor", body: "# texto do servidor", status: "DRAFT", updatedAt: CURRENT } });
+  const bodyOf = (/** @type {import("vitest").Mock<any>} */ fetchImpl, call = 0) => JSON.parse(fetchImpl.mock.calls[call][1].body);
+
+  it("o PATCH envia version, a versão aberta, junto dos campos do formulário", async () => {
+    const fetchImpl = vi.fn(async () => json(200, { data: { id: "abc", updatedAt: CURRENT } }));
+    await saveContent({ id: "abc", values: VALUES, version: OPENED, fetchImpl });
+    expect(bodyOf(fetchImpl)).toEqual({ title: "Cálculo I", slug: "calculo-1", body: "texto", status: "PUBLISHED", version: OPENED });
+  });
+
+  it("o POST (conteúdo novo) não envia version, mesmo que alguém a informe", async () => {
+    const fetchImpl = vi.fn(async () => json(201, { data: { id: "novo", updatedAt: OPENED } }));
+    await saveContent({ id: null, values: VALUES, version: OPENED, fetchImpl });
+    expect(bodyOf(fetchImpl)).not.toHaveProperty("version");
+  });
+
+  it("409 VERSION_CONFLICT: a versão atual vem de details[0].value, sem tratar como slug em conflito", async () => {
+    const result = await interpretResponse(conflict());
+    expect(result).toMatchObject({ ok: false, kind: "version-conflict", currentVersion: CURRENT, server: null, fieldErrors: [] });
+    expect(/** @type {any} */ (result).message).toMatch(/alterado no servidor/);
+  });
+
+  it("409 VERSION_CONFLICT sem a versão atual: currentVersion nula", async () => {
+    const result = await interpretResponse(json(409, { error: { code: "VERSION_CONFLICT", message: "x", details: [] } }));
+    expect(result).toMatchObject({ kind: "version-conflict", currentVersion: null });
+  });
+
+  it("409 SLUG_CONFLICT continua sendo o slug em conflito", async () => {
+    const result = await interpretResponse(json(409, { error: { code: "SLUG_CONFLICT", message: "Conflito.", details: [{ field: "slug", value: "a" }] } }));
+    expect(result).toMatchObject({ kind: "conflict", fieldErrors: [{ field: "slug" }] });
+  });
+
+  it("depois do 409, busca o texto do servidor com GET /api/contents/:id e o devolve com a versão", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(conflict()).mockResolvedValueOnce(serverCopy());
+    const result = await saveContent({ id: "abc", values: VALUES, version: OPENED, fetchImpl });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls[1][0]).toBe("/api/contents/abc");
+    expect(fetchImpl.mock.calls[1][1]).toMatchObject({ method: "GET" });
+    expect(result).toMatchObject({
+      ok: false,
+      kind: "version-conflict",
+      currentVersion: CURRENT,
+      server: { version: CURRENT, values: { title: "Do servidor", slug: "do-servidor", body: "# texto do servidor", status: "DRAFT" } },
+    });
+  });
+
+  it("corpo nulo do servidor vira texto vazio", async () => {
+    const copy = json(200, { data: { id: "abc", title: "T", slug: "t", body: null, status: "PUBLISHED", updatedAt: CURRENT } });
+    const result = await saveContent({ id: "abc", values: VALUES, version: OPENED, fetchImpl: vi.fn().mockResolvedValueOnce(conflict()).mockResolvedValueOnce(copy) });
+    expect(/** @type {any} */ (result).server.values.body).toBe("");
+  });
+
+  it.each([
+    ["404", () => json(404, { error: { code: "NOT_FOUND", message: "x", details: [] } })],
+    ["resposta sem updatedAt", () => json(200, { data: { id: "abc" } })],
+    ["corpo que não é JSON", () => text(200, "<html></html>")],
+    ["rede fora", () => Promise.reject(new TypeError("Failed to fetch"))],
+  ])("se o GET falha (%s), o conflito vem sem o texto do servidor e com a mensagem de que não há o que comparar", async (_name, second) => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(conflict()).mockImplementationOnce(async () => second());
+    const result = await saveContent({ id: "abc", values: VALUES, version: OPENED, fetchImpl });
+    expect(result).toMatchObject({ ok: false, kind: "version-conflict", currentVersion: CURRENT, server: null });
+    expect(/** @type {any} */ (result).message).toMatch(/não foi possível carregar a versão atual/);
+  });
+
+  it("um PATCH que dá certo não faz o GET", async () => {
+    const fetchImpl = vi.fn(async () => json(200, { data: { id: "abc", updatedAt: CURRENT } }));
+    await saveContent({ id: "abc", values: VALUES, version: OPENED, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("422 sem version: mensagem própria em português, sem erro de campo (o formulário não tem esse campo)", async () => {
+    const result = await interpretResponse(json(422, { error: { code: "VALIDATION_ERROR", message: "Dados inválidos.", details: [{ field: "version", message: "Informe a versão em que o texto se baseou (campo version)." }] } }));
+    expect(result).toMatchObject({ ok: false, kind: "missing-version", fieldErrors: [] });
+    expect(/** @type {any} */ (result).message).toMatch(/versão em que o texto se baseou/);
+    expect(/** @type {any} */ (result).message).toMatch(/Recarregue a página/);
+  });
+
+  it("422 de outro campo continua sendo validação", async () => {
+    const result = await interpretResponse(json(422, { error: { code: "VALIDATION_ERROR", message: "Dados inválidos.", details: [{ field: "title", message: "O título é obrigatório." }] } }));
+    expect(result).toMatchObject({ kind: "validation", fieldErrors: [{ field: "title" }] });
   });
 });
