@@ -109,7 +109,7 @@ describe("409 VERSION_CONFLICT: o autor vê os dois textos e escolhe (RN18, CT53
     // O texto do autor está guardado neste navegador enquanto ele decide.
     expect(readDraft(DRAFT_KEY)?.values.body).toBe("# o meu texto novo");
     // O foco vai para o título do painel, que o leitor de tela anuncia.
-    expect(document.activeElement).toBe(within(region).getByRole("heading", { name: "Este conteúdo mudou no servidor" }));
+    await waitFor(() => expect(document.activeElement).toBe(within(region).getByRole("heading", { name: "Este conteúdo mudou no servidor" })));
   });
 
   it("enquanto o autor não decide, enviar e salvar localmente ficam bloqueados", async () => {
