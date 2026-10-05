@@ -38,9 +38,13 @@ export function ContentEditor({ userId, contentId, parentId = null, editPath = n
   // Depois de criar o conteúdo, os envios seguintes o atualizam.
   const [id, setId] = useState(contentId);
 
-  /** @param {import("./draft").EditorValues} values */
-  async function submit(values) {
-    const result = await saveContent({ id, parentId, values });
+  /**
+   * @param {import("./draft").EditorValues} values
+   * @param {{ version: string | null }} context versão em que o Editor se baseia (RN18): a que ele
+   *   abriu, a do último envio ou, depois de um conflito, a atual do servidor (sobrescrever)
+   */
+  async function submit(values, { version: baseVersion }) {
+    const result = await saveContent({ id, parentId, values, version: baseVersion });
     if (result.ok) {
       // history.replaceState é a forma que o Next.js oferece para trocar a URL sem navegar.
       if (id === null && editPath) window.history.replaceState(null, "", editPath.replace("{id}", encodeURIComponent(result.id)));

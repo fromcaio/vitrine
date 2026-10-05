@@ -3,7 +3,9 @@
 // Formulário de autenticação do painel (UC08; RF01). O cliente do better-auth envia as
 // credenciais a POST /api/auth/sign-in/email, rota com limitação de tentativas (RNF03). A
 // mensagem de erro é uma só: não revela se o e-mail existe nem qual campo falhou (UC08, fluxo
-// A1). As credenciais não passam pelo estado do componente, não são registradas nem guardadas:
+// A1). A única exceção é a conta suspensa (403 BANNED_USER, RN23; UC08, fluxo A4): o servidor só
+// a responde com a senha CORRETA, de modo que mostrar o motivo e o prazo (o `message` dele) não
+// revela nada a quem não tem a senha. As credenciais não passam pelo estado do componente, não são registradas nem guardadas:
 // são lidas dos campos apenas no envio.
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +16,22 @@ const GENERIC_ERROR = "E-mail ou senha inválidos.";
 const TOO_MANY_ATTEMPTS = "Muitas tentativas. Aguarde um minuto e tente novamente.";
 // Sem resposta do servidor (rede fora do ar): nada a dizer sobre as credenciais.
 const NO_RESPONSE = "Não foi possível conectar ao servidor. Tente novamente.";
+// Código com que o plugin admin do better-auth recusa a conta suspensa (403).
+const BANNED_USER = "BANNED_USER";
+// Se o servidor não mandar o texto, a suspensão ainda é dita (sem motivo nem prazo).
+const BANNED_FALLBACK = "Sua conta está suspensa.";
+
+/**
+ * Texto do erro de entrada. Só a suspensão tem texto próprio, o do servidor (motivo e prazo).
+ * @param {{ status?: number, code?: string, message?: string }} error
+ */
+function loginErrorMessage(error) {
+  if (error.status === 429) return TOO_MANY_ATTEMPTS;
+  if (error.status === 403 && error.code === BANNED_USER) {
+    return typeof error.message === "string" && error.message.trim() !== "" ? error.message : BANNED_FALLBACK;
+  }
+  return GENERIC_ERROR;
+}
 
 const FIELD =
   "w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base text-foreground";
@@ -44,7 +62,7 @@ export function LoginForm({ redirectTo }) {
         window.location.assign(redirectTo);
         return;
       }
-      setMessage(error.status === 429 ? TOO_MANY_ATTEMPTS : GENERIC_ERROR);
+      setMessage(loginErrorMessage(error));
     } catch {
       setMessage(NO_RESPONSE);
     }

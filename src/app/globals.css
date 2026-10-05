@@ -1,28 +1,37 @@
 @import "tailwindcss";
 
 /*
- * Tokens de tema do Vitrine (Cap. 5 §5.9; RF19). As três cores da paleta são variáveis CSS com
- * os valores padrão da RN08; o layout raiz as sobrescreve no atributo style de <html> com a
- * configuração gravada (M11), sem novo build. Os componentes usam somente os utilitários gerados
- * por estes tokens (bg-primary, text-on-primary, bg-secondary, border-accent...), nunca as cores
- * fixas do Tailwind.
+ * Tokens de tema do Vitrine (Cap. 5 §5.9; RF19, RF31; ADR-025, ADR-031). Os componentes usam
+ * somente os utilitários gerados por estes tokens (bg-primary, text-on-primary, bg-secondary,
+ * border-accent...), nunca as cores fixas do Tailwind.
+ *
+ * Duas camadas:
+ *  - os NEUTROS de cada modo (fundo, texto, superfícies, bordas, erro, foco) são fixos e nunca
+ *    variam por proprietário: :root é o modo claro, e .dark (classe em <html>, posta pelo script
+ *    de color-mode-script.js antes da primeira pintura) é o noturno, nunca a preferência do
+ *    sistema diretamente;
+ *  - a PALETA (primária, secundária e destaque, mais o texto sobre as duas) vem do proprietário.
+ *    O elemento .vitrine-tema recebe, no atributo style, as variáveis das DUAS paletas
+ *    (--vitrine-light-* e --vitrine-dark-*) e as regras abaixo escolhem o conjunto do modo, no
+ *    mesmo elemento do style (um var() declarado em :root seria resolvido onde essas variáveis
+ *    ainda não existem). Fora de um .vitrine-tema (o 404 global, por exemplo), valem as paletas
+ *    padrão de :root e de .dark.
  */
 :root {
-  /* Paleta configurável: estes nomes são o contrato com o M11. */
-  --vitrine-primary: #3b82f6;
+  /* Paleta clara padrão (ADR-031): nenhuma cor gera aviso de contraste contra #ffffff. */
+  --vitrine-primary: #2563eb;
   --vitrine-secondary: #1e293b;
-  --vitrine-accent: #f59e0b;
+  --vitrine-accent: #b45309;
 
   /*
-   * Texto sobre a cor primária: o valor de readableTextOn(primária), de src/lib/theme.js. Com a
-   * primária padrão, o texto branco teria 3,68:1 e reprovaria o nível AA; o preto dá 5,71:1.
-   * Quem sobrescrever --vitrine-primary deve sobrescrever também esta variável.
+   * Texto sobre a primária e sobre a secundária: o valor de readableTextOn de src/lib/theme.js
+   * para a cor do modo. Quem sobrescrever --vitrine-primary deve sobrescrever também a variável
+   * do texto, o que o .vitrine-tema faz com os pares --vitrine-*-on-primary e -on-secondary.
    */
-  --vitrine-on-primary: #000000;
-  /* Texto sobre a cor secundária: branco fixo (Cap. 5 §5.9), coberto pelo aviso da RN09. */
+  --vitrine-on-primary: #ffffff;
   --vitrine-on-secondary: #ffffff;
 
-  /* Neutros fixos: não há modo escuro automático (D-17). */
+  /* Neutros do modo claro (Tabela de neutros do Cap. 5 §5.9). */
   --vitrine-background: #ffffff;
   --vitrine-foreground: #171717;
   --vitrine-surface: #f5f5f5;
@@ -31,7 +40,7 @@
   --vitrine-border-strong: #737373;
   --vitrine-danger: #b91c1c;
 
-  /* Indicador de foco: independe da paleta, que o administrador pode trocar. */
+  /* Indicador de foco: independe da paleta, que o proprietário pode trocar. */
   --vitrine-focus: #171717;
   --vitrine-focus-halo: #ffffff;
 
@@ -58,14 +67,31 @@
   --vitrine-code-variable: #1d4ed8;
   --vitrine-code-deletion: #b91c1c;
 
+  /* Barras de rolagem e controles nativos acompanham o modo. */
   color-scheme: light;
 }
 
-/*
- * Modo noturno (ADR-025): vale sob a classe .dark no <html>. Por ora só o realce de código tem
- * a variante noturna; os neutros noturnos e a alternância são da próxima entrega.
- */
+/* Modo noturno (ADR-025): vale sob a classe .dark no <html>. */
 .dark {
+  /* Paleta noturna padrão (ADR-031): nenhuma cor gera aviso de contraste contra #0a0a0a. */
+  --vitrine-primary: #60a5fa;
+  --vitrine-secondary: #cbd5e1;
+  --vitrine-accent: #fbbf24;
+  --vitrine-on-primary: #000000;
+  --vitrine-on-secondary: #000000;
+
+  /* Neutros do modo noturno. */
+  --vitrine-background: #0a0a0a;
+  --vitrine-foreground: #ededed;
+  --vitrine-surface: #171717;
+  --vitrine-muted: #a3a3a3;
+  --vitrine-border: #404040;
+  --vitrine-border-strong: #737373;
+  --vitrine-danger: #f87171;
+
+  --vitrine-focus: #fafafa;
+  --vitrine-focus-halo: #0a0a0a;
+
   --vitrine-code-background: #171717;
   --vitrine-code-foreground: #f5f5f5;
   --vitrine-code-comment: #a3a3a3;
@@ -76,6 +102,29 @@
   --vitrine-code-type: #67e8f9;
   --vitrine-code-variable: #93c5fd;
   --vitrine-code-deletion: #fca5a5;
+
+  color-scheme: dark;
+}
+
+/*
+ * Aplicação das paletas do proprietário (Código do Cap. 5 §5.9). As variáveis --vitrine-light-*
+ * e --vitrine-dark-* chegam pelo atributo style do próprio .vitrine-tema (valores #RRGGBB já
+ * validados); sem elas, valem os padrões do :root e do .dark (o segundo argumento do var()).
+ */
+.vitrine-tema {
+  --vitrine-primary: var(--vitrine-light-primary, #2563eb);
+  --vitrine-secondary: var(--vitrine-light-secondary, #1e293b);
+  --vitrine-accent: var(--vitrine-light-accent, #b45309);
+  --vitrine-on-primary: var(--vitrine-light-on-primary, #ffffff);
+  --vitrine-on-secondary: var(--vitrine-light-on-secondary, #ffffff);
+}
+
+.dark .vitrine-tema {
+  --vitrine-primary: var(--vitrine-dark-primary, #60a5fa);
+  --vitrine-secondary: var(--vitrine-dark-secondary, #cbd5e1);
+  --vitrine-accent: var(--vitrine-dark-accent, #fbbf24);
+  --vitrine-on-primary: var(--vitrine-dark-on-primary, #000000);
+  --vitrine-on-secondary: var(--vitrine-dark-on-secondary, #000000);
 }
 
 @theme inline {
@@ -95,7 +144,7 @@
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-/* D-17: a variante dark: só vale sob a classe .dark, nunca pela preferência do sistema. */
+/* ADR-025: a variante dark: só vale sob a classe .dark, nunca pela preferência do sistema. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {

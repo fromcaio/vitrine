@@ -25,7 +25,11 @@ import { Toolbar } from "./Toolbar";
 /** @typedef {import("./draft").EditorValues} EditorValues */
 /** @typedef {import("./draft").Draft} Draft */
 /** @typedef {import("./content-client").SaveResult} SaveResult */
-/** @typedef {{ kind: "sent" | "local" | "restored", at: string } | { kind: "discarded" | "removed" } | null} Notice */
+/** @typedef {{ kind: "sent" | "local" | "restored", at: string } | { kind: "discarded" | "removed" | "server-adopted" } | null} Notice */
+/**
+ * Conflito de versão à espera de decisão (RN18): o texto que o autor tentou enviar e o do servidor.
+ * @typedef {{ mine: EditorValues, server: import("./content-client").ServerContent }} VersionConflict
+ */
 
 const INPUT =
   "w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base text-foreground " +
@@ -80,6 +84,8 @@ function noticeText(notice) {
       return `Rascunho local restaurado (salvo em ${formatDateTime(notice.at)}).`;
     case "discarded":
       return "Rascunho local descartado.";
+    case "server-adopted":
+      return "Texto do servidor carregado. O seu texto continua salvo neste navegador.";
     default:
       return "Cópia local removida.";
   }
@@ -101,7 +107,54 @@ const UNEXPECTED_FAILURE = {
  * resolve só corrigindo um campo. As de validação e de slug em conflito ficam de fora, porque ele
  * as corrige na hora.
  */
-const KEEP_LOCALLY = new Set(["unauthenticated", "forbidden", "not-found", "quota", "rate-limited", "server", "network"]);
+const KEEP_LOCALLY = new Set([
+  "unauthenticated",
+  "forbidden",
+  "not-found",
+  "version-conflict",
+  "missing-version",
+  "quota",
+  "rate-limited",
+  "server",
+  "network",
+]);
+
+/** @type {Record<EditorValues["status"], string>} */
+const STATUS_LABEL = { PUBLISHED: "Publicado", DRAFT: "Rascunho" };
+
+/**
+ * Uma das duas versões do conflito (RN18), só para leitura: título, endereço, estado e o texto
+ * como foi escrito (sem renderizar). A região do texto rola e recebe o foco do teclado.
+ * @param {{ heading: string, values: EditorValues }} props
+ */
+function ConflictVersion({ heading, values }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 rounded-md border border-border-strong bg-background p-3">
+      <h3 className="text-sm font-semibold">{heading}</h3>
+      <dl className="text-sm">
+        <div className="flex gap-1">
+          <dt className="text-muted">Título:</dt>
+          <dd className="min-w-0 break-words">{values.title}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted">Endereço:</dt>
+          <dd className="min-w-0 break-words font-mono">{values.slug}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt className="text-muted">Estado:</dt>
+          <dd>{STATUS_LABEL[values.status]}</dd>
+        </div>
+      </dl>
+      <pre
+        tabIndex={0}
+        aria-label={`Texto: ${heading}`}
+        className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface p-2 font-mono text-sm"
+      >
+        {values.body}
+      </pre>
+    </div>
+  );
+}
 
 /**
  * @param {object} props
@@ -111,7 +164,8 @@ const KEEP_LOCALLY = new Set(["unauthenticated", "forbidden", "not-found", "quot
  *   (do servidor, ou os padrões de um conteúdo novo)
  * @param {string | null} [props.version] versão do servidor em que `initialValue` se baseia (por
  *   exemplo, o `updatedAt`); serve para saber se um rascunho local ficou defasado
- * @param {(values: EditorValues) => Promise<SaveResult>} props.onSubmit envia a nova versão
+ * @param {(values: EditorValues, context: { version: string | null }) => Promise<SaveResult>} props.onSubmit
+ *   envia a nova versão; `context.version` é a versão em que o texto se baseia (RN18)
  */
 export function Editor({ userId, contentId, initialValue, version = null, onSubmit }) {
   const draftKey = draftStorageKey(userId, contentId);
@@ -124,6 +178,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     bodyHint: `${base}-texto-hint`,
     bodyError: `${base}-texto-error`,
     statusHint: `${base}-estado-hint`,
+    conflictTitle: `${base}-conflito`,
   };
 
   // Lido uma vez, ao montar (só no navegador).
@@ -135,6 +190,9 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   const [savedDraft, setSavedDraft] = useState(startup.restored);
   /** @type {[Draft | null, (draft: Draft | null) => void]} */
   const [conflictDraft, setConflictDraft] = useState(startup.conflict);
+  /** @type {[VersionConflict | null, (conflict: VersionConflict | null) => void]} */
+  const [versionConflict, setVersionConflict] = useState(/** @type {VersionConflict | null} */ (null));
+  const conflictHeading = useRef(/** @type {HTMLHeadingElement | null} */ (null));
   /** @type {[Notice, (notice: Notice) => void]} */
   const [notice, setNotice] = useState(
     /** @type {Notice} */ (startup.restored ? { kind: "restored", at: startup.restored.savedAt } : null),
@@ -163,8 +221,15 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
 
   const unsent = !valuesEqual(current, baseline);
   const savedLocally = savedDraft !== null && valuesEqual(current, savedDraft.values);
-  // Um rascunho em conflito precisa de uma decisão antes de qualquer gravação, para não ser perdido.
-  const blocked = conflictDraft !== null;
+  // Um rascunho em conflito, ou um conflito de versão, precisa de uma decisão antes de qualquer
+  // gravação, para que nenhum dos dois textos seja perdido.
+  const blocked = conflictDraft !== null || versionConflict !== null;
+
+  // O painel do conflito de versão aparece depois de um envio: leva o foco para ele, que o leitor de
+  // tela anuncia pelo título.
+  useEffect(() => {
+    if (versionConflict) conflictHeading.current?.focus();
+  }, [versionConflict]);
 
   // Alterações que não estão em lugar nenhum além desta página: avisa antes de sair dela.
   const warnOnLeave = unsent && !savedLocally;
@@ -304,9 +369,14 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   // Envio
   // -------------------------------------------------------------------------------------------
 
-  const submit = handleSubmit(async (data) => {
-    // O mesmo vale para o envio: removeria o rascunho em conflito, que o autor ainda não viu.
-    if (blocked) return;
+  /**
+   * Envia `data` baseado em `baseVersion` (RN18) e mostra o resultado. Quem chama decide a versão:
+   * o envio comum usa a que o editor tem; a escolha de sobrescrever, depois de um conflito, usa a
+   * atual do servidor.
+   * @param {EditorValues} data
+   * @param {string | null} baseVersion
+   */
+  async function send(data, baseVersion) {
     setProblem(null);
     setLoginHint(false);
     setSlugSuggestion(null);
@@ -315,7 +385,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     /** @type {SaveResult} */
     let result;
     try {
-      result = await onSubmit(data);
+      result = await onSubmit(data, { version: baseVersion });
     } catch {
       result = UNEXPECTED_FAILURE;
     }
@@ -329,6 +399,15 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
       // O servidor guardou o título sem espaços nas pontas: a tela passa a mostrá-lo assim, a
       // não ser que o autor já tenha voltado a editá-lo enquanto o envio estava em andamento.
       if (titleAsTyped !== data.title && getValues("title") === titleAsTyped) setValue("title", data.title);
+      return;
+    }
+
+    // RN18: o conteúdo mudou no servidor. Com o texto dele em mãos, o autor vê os dois e escolhe;
+    // enquanto decide, o dele fica guardado neste navegador, para que nenhum se perca.
+    if (result.kind === "version-conflict" && result.server) {
+      const stored = writeDraft(draftKey, { values: data, baseVersion });
+      if (stored) setSavedDraft(stored);
+      setVersionConflict({ mine: data, server: result.server });
       return;
     }
 
@@ -347,7 +426,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
 
     let message = [result.message, ...outsideTheForm].join(" ");
     if (KEEP_LOCALLY.has(result.kind)) {
-      const stored = writeDraft(draftKey, { values: data, baseVersion: serverVersion });
+      const stored = writeDraft(draftKey, { values: data, baseVersion });
       if (stored) setSavedDraft(stored);
       message += stored
         ? " O texto foi salvo neste navegador."
@@ -355,7 +434,43 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     }
     setLoginHint(result.kind === "unauthenticated");
     setProblem(message);
+  }
+
+  const submit = handleSubmit(async (data) => {
+    // O mesmo vale para o envio: removeria o rascunho em conflito, que o autor ainda não viu.
+    if (blocked) return;
+    await send(data, serverVersion);
   });
+
+  /**
+   * Escolha explícita de sobrescrever (RN18): o texto do autor volta a ser o do formulário e é
+   * reenviado com a versão atual do servidor. Se o conteúdo mudou de novo nesse intervalo, o
+   * servidor recusa outra vez e o painel reaparece com o texto mais novo.
+   */
+  async function sendMine() {
+    if (!versionConflict) return;
+    const { mine, server } = versionConflict;
+    setVersionConflict(null);
+    reset(mine);
+    await send(mine, server.version);
+  }
+
+  /**
+   * Escolha de ficar com o texto do servidor: ele passa a ser o do formulário e a base das próximas
+   * edições. O texto do autor continua no rascunho local (feito sobre a versão anterior), que a
+   * próxima abertura oferece para restaurar ou descartar.
+   */
+  function adoptServerText() {
+    if (!versionConflict) return;
+    const { server } = versionConflict;
+    reset(server.values);
+    slugByHand.current = server.values.slug !== "";
+    setBaseline(server.values);
+    setServerVersion(server.version);
+    setVersionConflict(null);
+    setProblem(null);
+    setNotice({ kind: "server-adopted" });
+  }
 
   function applySuggestedSlug() {
     if (!slugSuggestion) return;
@@ -373,6 +488,9 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   const bodyError = errors.body?.message;
   const statusError = errors.status?.message;
   const noticeMessage = noticeText(notice);
+  // A versão é o `updatedAt` do servidor; se vier em outro formato, o painel só omite a hora.
+  const changedAt =
+    versionConflict && !Number.isNaN(Date.parse(versionConflict.server.version)) ? formatDateTime(versionConflict.server.version) : null;
 
   let stateLine = "Nenhuma alteração pendente.";
   if (unsent) {
@@ -402,6 +520,30 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
             </Button>
           </div>
         </div>
+      ) : null}
+
+      {versionConflict ? (
+        <section aria-labelledby={ids.conflictTitle} className="flex flex-col gap-3 rounded-md border-2 border-foreground bg-surface p-4">
+          <h2 id={ids.conflictTitle} ref={conflictHeading} tabIndex={-1} className="flex items-start gap-2 text-base font-semibold">
+            <AlertIcon className="mt-0.5 size-5 shrink-0" />
+            Este conteúdo mudou no servidor
+          </h2>
+          <p className="text-sm">
+            Ele foi alterado depois de você abri-lo{changedAt ? `, em ${changedAt}` : ""} (em outra aba, ou pelo administrador).
+            Nada foi enviado. Compare os dois textos e escolha qual enviar: o seu texto está salvo neste navegador
+            até você decidir.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <ConflictVersion heading="Versão do servidor" values={versionConflict.server.values} />
+            <ConflictVersion heading="O seu texto" values={versionConflict.mine} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={sendMine}>Enviar o meu texto e substituir o do servidor</Button>
+            <Button variant="outline" onClick={adoptServerText}>
+              Ficar com o texto do servidor
+            </Button>
+          </div>
+        </section>
       ) : null}
 
       <div role="group" aria-label="Dados do conteúdo" className="grid gap-4 md:grid-cols-2">
