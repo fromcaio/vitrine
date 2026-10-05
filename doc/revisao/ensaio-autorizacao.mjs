@@ -1,4 +1,4 @@
-// ensaio-autorizacao.mjs -- ensaio adversarial HTTP do Arquiteto contra o BUILD DE PRODUÇÃO (M-013, M-015, M-019 e M-021: autorização, moderação, notificações, contraste, layouts e editor).
+// ensaio-autorizacao.mjs -- ensaio adversarial HTTP do Arquiteto contra o BUILD DE PRODUÇÃO (M-013 a M-024: autorização, moderação, notificações, contraste, layouts, editor, espaços públicos, Proxy e senha provisória).
 // Uso: bash doc/revisao/ensaio-http.sh <worktree-de-revisão>   (sobe o app com banco novo e roda este arquivo).
 // Cobre: rotas brutas do better-auth, origem alheia, senha provisória, acesso cruzado entre dois usuários,
 // authorId forjado, lote misto, RN18, corpo grande, suspensão, último administrador e taxa.
@@ -43,6 +43,10 @@ r = await call(bob, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.tes
 r = await call(bob, "GET", "/api/contents"); check("provisória bloqueia /api/contents (403 PASSWORD_CHANGE_REQUIRED)", r.status === 403 && code(r) === "PASSWORD_CHANGE_REQUIRED", `${r.status} ${r.text.slice(0,100)}`);
 r = await call(bob, "POST", "/api/contents", { title: "x", slug: "x", type: "DOCUMENT" }); check("provisória bloqueia criar conteúdo", r.status === 403 && code(r) === "PASSWORD_CHANGE_REQUIRED");
 r = await call(bob, "GET", "/api/users/me"); check("provisória permite ler o perfil", r.status === 200, r.text.slice(0,100));
+r = await call(bob, "GET", "/admin"); check("senha provisória: /admin redireciona a /admin/senha (sem laço)", (r.status === 307 || r.status === 302 || r.status === 308) && /\/admin\/senha/.test(r.headers.get("location") ?? ""), `${r.status} ${r.headers.get("location")}`);
+r = await call(bob, "GET", "/admin/conteudo/novo"); check("senha provisória: o editor também leva à troca, com o destino", (r.status === 307 || r.status === 302 || r.status === 308) && /\/admin\/senha\?redirectTo=/.test(r.headers.get("location") ?? ""), `${r.status} ${r.headers.get("location")}`);
+r = await call(bob, "GET", "/admin/senha"); check("senha provisória: /admin/senha abre (200)", r.status === 200, `${r.status}`);
+r = await call(bob, "GET", "/admin/senha?redirectTo=https://evil.example/"); check("senha provisória: redirectTo de outro site não é aceito na página", r.status === 200 && !/evil\.example/.test(r.text), `${r.status}`);
 r = await call(bob, "PUT", "/api/appearance", { siteName: "z" }); check("provisória bloqueia aparência", r.status === 403 && code(r) === "PASSWORD_CHANGE_REQUIRED");
 r = await call(bob, "POST", "/api/users/me/password", { current: temp, next: temp }); check("troca recusa senha igual", r.status >= 400, `${r.status} ${r.text.slice(0,120)}`);
 r = await call(bob, "POST", "/api/users/me/password", { current: temp, next: "senha-bob-definitiva-9" }); check("Bob troca a senha", r.status === 200 || r.status === 204, `${r.status} ${r.text.slice(0,150)}`);
@@ -156,6 +160,19 @@ r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}`); check("novo: ?pai
 r = await call(bob, "GET", `/admin/conteudo/novo?pai=${bId}`); check("novo: ?pai= documento -> 404", r.status === 404, `${r.status}`);
 r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}&pai=${aId}`); check("novo: ?pai= repetido -> 404", r.status === 404, `${r.status}`);
 r = await call(bob, "GET", "/admin/conteudo/novo?pai=idinexistente123"); check("novo: ?pai= inexistente -> 404", r.status === 404, `${r.status}`);
+// --- espaços públicos, portal e Proxy (M-022 e M-024)
+const naoExiste = /não existe ou não está disponível/;
+r = await call(null, "GET", "/admin-site"); check("espaço do administrador (/admin-site): 200, lang pt-BR, envoltório, <html> sem style", r.status === 200 && /lang="pt-BR"/.test(r.text) && /vitrine-tema/.test(r.text) && !/<html[^>]*style=/.test(r.text), `${r.status}`);
+r = await call(null, "GET", "/admin-site/do-admin"); check("coleção redireciona ao primeiro documento publicado (RN14)", [301, 302, 307, 308].includes(r.status) && /\/admin-site\/do-admin\/doc$/.test(r.headers.get("location") ?? ""), `${r.status} ${r.headers.get("location")}`);
+r = await call(null, "GET", "/admin-site/do-admin/doc"); check("documento publicado: 200 com o texto", r.status === 200 && /oi/.test(r.text), `${r.status}`);
+r = await call(null, "GET", "/bob/do-admin"); check("espaço do Bob: documento publicado 200 com o título", r.status === 200 && /Do Bob/.test(r.text), `${r.status}`);
+const e404a = await call(null, "GET", "/handle-que-nao-existe"); const e404b = await call(null, "GET", "/bob/nao-existe"); const e404c = await call(null, "GET", "/admin-site/do-admin/nao-existe");
+check("404 de handle, de slug no espaço do Bob e de slug no do administrador: o mesmo texto único", [e404a, e404b, e404c].every((x) => x.status === 404 && naoExiste.test(x.text)), `${e404a.status} ${e404b.status} ${e404c.status}`);
+for (const caminho of ["/Bob/do-admin", "/bob/Do-Admin", "/bob/do%2Dadmin%00", "/bob/%FF", "/bob/a.b", "/" + "a".repeat(80), "/bob/" + "a".repeat(200)]) { r = await call(null, "GET", caminho); check(`Proxy: ${caminho.slice(0, 40)} -> 404 sem 500`, r.status === 404 || r.status === 400, `${r.status}`); }
+r = await call(null, "GET", "/bob/do-admin"); check("a página real segue 200 depois dos 404 em maiúsculas (cache não envenenado)", r.status === 200, `${r.status}`);
+r = await call(bob, "PATCH", `/api/contents/${bId}`, { status: "DRAFT" }); r = await call(null, "GET", "/bob/do-admin"); check("rascunho: 404 na primeira visita depois de despublicar (RN15)", r.status === 404 && naoExiste.test(r.text) && !/Do Bob/.test(r.text), `${r.status}`);
+r = await call(bob, "PATCH", `/api/contents/${bId}`, { status: "PUBLISHED" }); r = await call(null, "GET", "/bob/do-admin"); check("republicado: 200 de novo, sem esperar o prazo do cache", r.status === 200, `${r.status}`);
+r = await call(null, "GET", "/"); check("portal: 200 com o envoltório", r.status === 200 && /vitrine-tema/.test(r.text), `${r.status}`);
 // cotas e corpo
 r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo > 256 KiB -> 413 ou 422", r.status === 413 || r.status === 422, `${r.status}`);
 r = await call(bob, "POST", "/api/contents", "x".repeat(2 * 1024 * 1024), { "content-type": "application/json" }); check("corpo de 2 MiB -> 413", r.status === 413, `${r.status}`);
@@ -171,9 +188,11 @@ r = await call(admin, "GET", "/api/appearance"); check("admin lê a própria apa
 // suspensão
 r = await call(admin, "POST", `/api/users/${bobId}/ban`, {}); check("suspender sem motivo -> 422", r.status === 422, `${r.status}`);
 r = await call(admin, "POST", `/api/users/${bobId}/ban`, { reason: "Violação das diretrizes" }); check("admin suspende o Bob", r.status === 200 || r.status === 204, `${r.status} ${r.text.slice(0,120)}`);
+r = await call(null, "GET", "/bob/do-admin"); check("espaço suspenso: 404 na hora, mesmo com a página em cache (RN23)", r.status === 404 && naoExiste.test(r.text), `${r.status}`);
 r = await call(bob, "GET", "/api/contents"); check("sessão do Bob revogada/suspensa -> 401", r.status === 401, `${r.status}`);
 r = await call(null, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("login suspenso -> 403 BANNED_USER com motivo", r.status === 403 && /BANNED/.test(JSON.stringify(r.json)) && /Viola/.test(r.text) && /diretrizes\./.test(r.text), `${r.status} ${r.text.slice(0,200)}`);
 r = await call(admin, "DELETE", `/api/users/${bobId}/ban`); check("admin reativa", r.status === 200 || r.status === 204, `${r.status}`);
+r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de novo", r.status === 200, `${r.status}`);
 // último administrador
 const adminId = (await call(admin, "GET", "/api/users/me")).json?.data?.id;
 r = await call(admin, "POST", `/api/users/${adminId}/ban`, { reason: "auto" }); check("auto-suspensão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);

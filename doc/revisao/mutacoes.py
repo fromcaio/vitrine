@@ -54,6 +54,15 @@ CORE=[
  ("src/app/admin/_lib/editor.js","if (!content || content.authorId !== userId || content.type !== \"DOCUMENT\") notFound();","if (!content) notFound();","M38 editor abre o documento de outro dono"),
  ("src/app/admin/_lib/editor.js","if (!parent || parent.authorId !== userId || parent.type !== \"COLLECTION\") notFound();","if (!parent) notFound();","M39 ?pai= de coleção alheia aceito"),
  ("src/lib/auth.js","`${motive}.`","motive","M40 motivo da suspensão sem ponto antes do prazo"),
+ # M-022 e M-024 (A-014 Parte 3b): espaços públicos, portal, Proxy e senha provisória
+ ("src/proxy.js","if (RESERVED_HANDLES.includes(first) || !isHandleShape(first) || !rest.every(isSlugShape)) {","if (false) {","M41 Proxy aceita segmento fora da forma de handle e de slug"),
+ ("src/proxy.js","if (!(await getUserByHandle(first))) return notFoundRewrite(request);","","M42 Proxy não reescreve o espaço inexistente ou suspenso"),
+ ("src/app/_lib/space.js","getContentTree({ ownerId: owner.id, onlyPublished: true })","getContentTree({ ownerId: owner.id, onlyPublished: false })","M44 a árvore do espaço traz os rascunhos"),
+ ("src/app/_lib/space.js","if (child.type === \"DOCUMENT\") return here;","return here;","M45 a coleção redireciona ao primeiro filho, mesmo coleção"),
+ ("src/app/[handle]/layout.js","if (!(await getSpace(handle))) notFound();","","M46 o layout do espaço não responde 404 ao espaço inexistente"),
+ ("src/app/admin/_lib/session.js","if (session.user.mustChangePassword && !allowTemporaryPassword) {","if (false) {","M47 a senha provisória não leva à troca"),
+ ("src/app/admin/_lib/password-redirect.js","return pathname === PASSWORD_PAGE || pathname.startsWith(`${PASSWORD_PAGE}/`) ? \"/admin\" : target;","return target;","M48 a troca de senha pode voltar a si mesma (laço)"),
+ ("src/app/(portal)/page.js","configuration?.directoryEnabled ? await listPublicSpaces() : null","await listPublicSpaces()","M49 o diretório aparece com directoryEnabled desligado"),
 ]
 
 DADOS=[
