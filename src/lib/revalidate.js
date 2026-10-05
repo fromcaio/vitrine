@@ -58,10 +58,9 @@ export function spaceUrl(handle, slugs = []) {
 
 /**
  * Páginas literais a invalidar para um ou mais retratos: a página inicial de cada espaço (a árvore de
- * navegação mudou), os caminhos de cada retrato e os das coleções ANCESTRAIS desses caminhos, sem
- * repetição. Os ancestrais entram porque a coleção redireciona ao primeiro documento publicado
- * (RN14): criar, despublicar, mover ou excluir esse documento muda a página da coleção. A Tabela de
- * eventos (Cap. 5 §5.7.2) não os cita; o acréscimo é do Core, e a pendência é do Arquiteto.
+ * navegação mudou) e os caminhos de cada retrato, sem repetição. Um retrato do espaço inteiro (a
+ * regra dos eventos estruturais, ADR-030) já traz as coleções ancestrais de cada caminho, que também
+ * mudam (a coleção redireciona ao primeiro documento publicado, RN14).
  * @param {...SpaceSnapshot} snapshots
  * @returns {string[]}
  */
@@ -70,9 +69,7 @@ export function snapshotUrls(...snapshots) {
   for (const { handle, paths } of snapshots) {
     if (!handle) continue;
     urls.add(spaceUrl(handle));
-    for (const slugs of paths) {
-      for (let depth = 1; depth <= slugs.length; depth++) urls.add(spaceUrl(handle, slugs.slice(0, depth)));
-    }
+    for (const slugs of paths) urls.add(spaceUrl(handle, slugs));
   }
   return [...urls];
 }

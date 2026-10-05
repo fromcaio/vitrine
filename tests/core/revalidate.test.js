@@ -100,9 +100,18 @@ describe("caminhos literais de um espaço (RN04, ADR-030)", () => {
     expect(snapshotUrls(antes, depois)).toEqual(["/ana", "/ana/a", "/ana/a/b", "/ana/z", "/ana/z/b"]);
   });
 
-  it("snapshotUrls: as coleções ancestrais de um caminho também entram (a coleção redireciona; RN14)", () => {
-    const novo = { handle: "ana", paths: [["calculo", "integrais", "por-partes"]] };
-    expect(snapshotUrls(novo)).toEqual(["/ana", "/ana/calculo", "/ana/calculo/integrais", "/ana/calculo/integrais/por-partes"]);
+  it("snapshotUrls: um retrato do espaço inteiro traz a coleção e tudo o que há nela (a sidebar e o redirecionamento da coleção, RN14)", () => {
+    const espaco = {
+      handle: "ana",
+      paths: [["calculo"], ["calculo", "integrais"], ["calculo", "integrais", "por-partes"], ["sobre"]],
+    };
+    expect(snapshotUrls(espaco)).toEqual([
+      "/ana",
+      "/ana/calculo",
+      "/ana/calculo/integrais",
+      "/ana/calculo/integrais/por-partes",
+      "/ana/sobre",
+    ]);
   });
 
   it("dois handles (o antigo e o novo) geram as páginas de cada um", () => {

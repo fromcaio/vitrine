@@ -54,8 +54,8 @@ export const GET = route({ action: "content:read", load: loadContent, allowForei
 
 /**
  * PATCH: atualização parcial, inclusive de `status` e de pai (RF07, RF16, RF26). Invalida só a página
- * do documento quando apenas o corpo mudou e, quando a mudança é estrutural, a página inicial do
- * espaço e os caminhos públicos antigos e novos do nó e dos descendentes (RN10, RN16, ADR-030).
+ * do documento quando apenas o corpo mudou e, quando a mudança é estrutural, o espaço inteiro do dono,
+ * com os caminhos de antes e de depois (RN10, RN16, ADR-030).
  *
  * RN18: o `PATCH` que altera o corpo informa `version`, o `updatedAt` que o autor abriu; sem ele,
  * 422; com a versão desatualizada, 409 `VERSION_CONFLICT` com a versão atual em `details[0].value`,
@@ -92,13 +92,13 @@ export const PATCH = route(
     const slug = patch.slug ?? before.slug;
     const parentId = patch.parentId === undefined ? before.parentId : patch.parentId;
 
-    // Os caminhos públicos de ANTES só valem a consulta se a mudança for estrutural (um corpo novo
-    // não move página alguma).
+    // O retrato do espaço de ANTES só vale a consulta se a mudança for estrutural (um corpo novo não
+    // move página alguma).
     const structural = hasStructuralChange(
       before,
       Object.fromEntries(STRUCTURAL_FIELDS.map((field) => [field, patch[field] === undefined ? before[field] : patch[field]])),
     );
-    const snapshot = structural ? await captureSpace(before.authorId, before.id) : undefined;
+    const snapshot = structural ? await captureSpace(before.authorId) : undefined;
 
     const after = await withSlugSuggestion({ slug, parentId, ownerId: before.authorId }, () =>
       updateWithNotice(params.id, patch, { limits, expectedVersion: version }, notification),
@@ -107,7 +107,6 @@ export const PATCH = route(
     if (structural) {
       await revalidateStructure({
         ownerId: before.authorId,
-        nodeId: after.id,
         before: snapshot,
         directory: affectsDirectory(before, after),
       });
@@ -136,12 +135,11 @@ export const DELETE = route(
         })
       : null;
 
-    const snapshot = await captureSpace(before.authorId, before.id);
+    const snapshot = await captureSpace(before.authorId);
     await deleteWithNotice(params.id, notification);
 
     await revalidateStructure({
       ownerId: before.authorId,
-      nodeId: before.id,
       before: snapshot,
       directory: affectsDirectory(before, null),
     });

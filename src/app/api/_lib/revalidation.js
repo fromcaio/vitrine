@@ -4,6 +4,10 @@
 // `revalidate*` DEPOIS (que captura os caminhos novos e invalida a união). Renomear ou mover deixa em
 // cache o HTML antigo, por isso os caminhos de antes também contam.
 //
+// Evento estrutural = ESPAÇO INTEIRO do dono (A-014 3a, item 1; ADR-030): a `sidebar` de cada página
+// lista a árvore inteira e a coleção redireciona ao primeiro documento publicado (RN14), então toda
+// página do espaço muda. Só o corpo invalida só a página do documento.
+//
 // Nada aqui pode falhar a requisição: a escrita já foi confirmada (RNF10). Uma consulta que falha é
 // registrada e vira um retrato vazio; o `revalidate` das páginas (3600 s) é a rede de segurança.
 import { findUserById } from "@/lib/auth";
@@ -40,14 +44,15 @@ export async function captureSpace(ownerId, nodeId = null) {
 }
 
 /**
- * Evento estrutural sobre um nó (criar, excluir, renomear, mover, reordenar, mudar o estado ou o
- * tipo): a página inicial do espaço e os caminhos públicos ANTIGOS e NOVOS do nó e dos descendentes.
- * Sem `nodeId` (lote de reordenação), vale o espaço inteiro. `directory` acrescenta o portal (RN28).
- * @param {{ ownerId: string, nodeId?: string | null, before?: SpaceSnapshot, directory?: boolean }} event
+ * Evento estrutural (criar, excluir, renomear, mover, reordenar, mudar o estado ou o tipo): a página
+ * inicial do espaço e os caminhos públicos ANTIGOS e NOVOS de TODO o espaço do dono (`before` é o
+ * retrato de `captureSpace(ownerId)`, sem nó, tirado antes da escrita). `directory` acrescenta o
+ * portal (RN28).
+ * @param {{ ownerId: string, before?: SpaceSnapshot, directory?: boolean }} event
  * @returns {Promise<string[]>} as páginas invalidadas
  */
-export async function revalidateStructure({ ownerId, nodeId = null, before = EMPTY, directory = false }) {
-  const after = await captureSpace(ownerId, nodeId);
+export async function revalidateStructure({ ownerId, before = EMPTY, directory = false }) {
+  const after = await captureSpace(ownerId);
   const urls = revalidateSnapshots(before, after);
   if (directory) revalidatePortal();
   return urls;
