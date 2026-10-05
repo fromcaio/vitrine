@@ -19,6 +19,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
     ...actual,
     getUserByHandle: vi.fn(actual.getUserByHandle),
     listPublicSpaces: vi.fn(actual.listPublicSpaces),
+    getContentByPath: vi.fn(actual.getContentByPath),
     getConfiguration: vi.fn(actual.getConfiguration),
   };
 });
@@ -29,13 +30,14 @@ import SpaceContentPage, { generateMetadata as contentMetadata, generateStaticPa
 import SpaceRootLayout, { generateMetadata as layoutMetadata } from "@/app/[handle]/layout";
 import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[handle]/page";
 import { firstDocumentPath, getPublicPage, getSpace } from "@/app/_lib/space";
-import { createContent, getUserByHandle, listPublicSpaces, prisma, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
+import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
 
 beforeEach(async () => {
   await resetDatabase();
   vi.mocked(getUserByHandle).mockClear();
   vi.mocked(listPublicSpaces).mockClear();
+  vi.mocked(getContentByPath).mockClear();
 });
 
 afterEach(() => {
@@ -128,6 +130,15 @@ describe("getPublicPage: o conteúdo publicado de um caminho (RN04, RN15)", () =
     expect(page.content).toMatchObject({ slug: "limites", body: "Corpo de limites" });
     expect(page.node.slug).toBe("limites");
     expect(page.slugs).toEqual(["calculo", "limites"]);
+  });
+
+  it("a leitura do conteúdo é sempre só dos publicados (onlyPublished), do dono do espaço", async () => {
+    const ana = await user("ana");
+    await doc(ana, "limites");
+
+    await getPublicPage("ana", ["limites"]);
+
+    expect(getContentByPath).toHaveBeenCalledExactlyOnceWith(ana, ["limites"], { onlyPublished: true });
   });
 
   it("rascunho, descendente de rascunho, inexistente e segmento malformado: null, o mesmo para todos", async () => {
@@ -287,7 +298,9 @@ describe("coleção e documento (RF14, RN04, RN14, RN15; CT13, CT14, CT31)", () 
     expect(html).toContain("Corpo de segundo");
     expect(html).toContain('href="/ana/calculo/primeiro"'); // anterior
     expect(html).toContain('href="/ana/calculo/terceiro"'); // seguinte
-    expect(html).toContain("Coleção calculo"); // a sidebar (e a aba)
+    // A sidebar da coleção raiz: a navegação "Coleção calculo", com os documentos e o ativo marcado.
+    expect(html).toMatch(/<nav [^>]*aria-label="Coleção Coleção calculo"/); // o rótulo é "Coleção " + o título da coleção
+    expect(html).toMatch(/aria-current="page"[^>]*>[^<]*Título segundo/);
     expect(await pageOf("ana", "calculo", "primeiro")).toContain("Texto <strong>forte</strong>.");
   });
 
