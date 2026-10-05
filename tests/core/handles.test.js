@@ -14,14 +14,16 @@ const MIGRATION = path.join(projectRoot, "prisma", "migrations", "20261004120000
 /**
  * Primeiros segmentos de URL de uma pasta de rotas do App Router. Pastas privadas (`_x`), de rotas
  * paralelas (`@x`) e dinâmicas (`[x]`) não são segmentos estáticos; grupos `(x)` não somam segmento,
- * e o que está dentro deles conta como se estivesse na pasta de cima.
+ * e o que está dentro deles conta como se estivesse na pasta de cima (o portal `/` mora em
+ * `(portal)`, com o layout só dele). Com `onlyDirectories`, só as pastas.
  * @param {string} dir
+ * @param {{ onlyDirectories?: boolean }} [options]
  * @returns {string[]}
  */
-export function staticTopSegments(dir) {
+export function staticTopSegments(dir, { onlyDirectories = false } = {}) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    if (entry.name.startsWith("(")) return staticTopSegments(path.join(dir, entry.name));
-    return [entry.name];
+    if (entry.name.startsWith("(")) return staticTopSegments(path.join(dir, entry.name), { onlyDirectories });
+    return onlyDirectories && !entry.isDirectory() ? [] : [entry.name];
   });
 }
 
@@ -35,7 +37,7 @@ describe("RN20: handles reservados e rotas estáticas", () => {
   });
 
   it("toda rota estática de src/app/ e toda entrada de public/ é um handle inválido ou reservado", () => {
-    const routeFolders = staticTopSegments(appDir).filter((name) => fs.statSync(path.join(appDir, name)).isDirectory());
+    const routeFolders = staticTopSegments(appDir, { onlyDirectories: true });
     const publicEntries = fs.readdirSync(publicDir);
 
     const collisions = [];
@@ -69,7 +71,7 @@ describe("RN20: handles reservados e rotas estáticas", () => {
   });
 
   it("as pastas de rota que existem hoje são todas reservadas (admin, api, login)", () => {
-    const routeFolders = staticTopSegments(appDir).filter((name) => fs.statSync(path.join(appDir, name)).isDirectory() && !/^[_[@]/.test(name));
+    const routeFolders = staticTopSegments(appDir, { onlyDirectories: true }).filter((name) => !/^[_[@]/.test(name));
     expect(routeFolders.sort()).toEqual(["admin", "api", "login"]);
     for (const name of routeFolders) expect(RESERVED_HANDLES).toContain(name);
   });
