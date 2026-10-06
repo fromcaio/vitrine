@@ -123,7 +123,8 @@ describe("o menu por papel e as páginas que existem", () => {
 
     expect(shell.props.role).toBe("admin");
     expect(shell.props.availablePaths).toEqual([
-      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil", "/admin/configuracoes",
+      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil",
+      "/admin/configuracoes", "/admin/usuarios",
     ]);
     expect(page).toContain('href="/admin/configuracoes"');
   });
@@ -137,17 +138,16 @@ describe("o menu por papel e as páginas que existem", () => {
     expect(shell.props.availablePaths).not.toContain("/admin/configuracoes");
   });
 
-  it("o usuário comum não tem mais nada \"em breve\" (Conteúdo e Perfil existem); o administrador só tem os Usuários", async () => {
+  it("nada fica \"em breve\": o usuário comum tem Conteúdo e Perfil, e o administrador também os Usuários", async () => {
     const user = await html();
     for (const label of ["Conteúdo", "Perfil"]) expect(user).toContain(`href="/admin/${label === "Conteúdo" ? "conteudo" : "perfil"}"`);
     expect(user).not.toContain("em breve");
 
     session.user = { ...session.user, role: "admin" };
     const admin = await html();
-    // Uma página ("Usuários", da Parte 3e-2) em dois menus (o recolhível do celular e o lateral).
-    expect((admin.match(/em breve/g) ?? []).length).toBe(2);
-    expect(admin).toContain("Usuários");
-    expect(admin).not.toContain("href=\"/admin/usuarios\"");
+    expect(admin).not.toContain("em breve");
+    expect(admin).toContain("href=\"/admin/usuarios\""); // só o administrador a vê (a Parte 3e-2)
+    expect(user).not.toContain("href=\"/admin/usuarios\"");
   });
 
   it("availablePaths só lista páginas que existem em src/app (não inventa rota)", () => {

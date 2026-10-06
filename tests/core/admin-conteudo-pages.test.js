@@ -108,11 +108,12 @@ describe("content-tree.js: os auxiliares puros", () => {
     expect(NEW_HREF.child).toContain("?pai=");
   });
 
-  it("availablePaths inclui o conteúdo e o perfil, e não os usuários (são da Parte 3e-2)", () => {
+  it("availablePaths inclui o conteúdo e o perfil; os usuários só entram para o administrador (Parte 3e-2)", () => {
     for (const role of /** @type {const} */ (["user", "admin"])) {
       expect(availablePathsFor(role)).toEqual(expect.arrayContaining(["/admin/conteudo", "/admin/perfil"]));
-      expect(availablePathsFor(role)).not.toContain("/admin/usuarios");
     }
+    expect(availablePathsFor("user")).not.toContain("/admin/usuarios");
+    expect(availablePathsFor("admin")).toContain("/admin/usuarios");
   });
 });
 
