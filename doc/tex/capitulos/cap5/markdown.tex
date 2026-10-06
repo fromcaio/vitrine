@@ -3,7 +3,7 @@
 
 \section{Pipeline de Conteúdo Markdown}\label{sec:arq-markdown}
 
-A renderização de um documento usa o componente \arq{MarkdownRenderer} (\arq{src/components/markdown/MarkdownRenderer.js}, merge M-009), compartilhado pela página pública e pela pré-visualização do editor, para garantir que o autor veja o que o leitor verá. Como o Markdown vem de autores que não são de confiança (\adr{ADR-023}), a cadeia é restritiva por construção:
+A renderização de um documento usa o componente \arq{MarkdownRenderer} (\arq{src/components/markdown/MarkdownRenderer.js}, merge M-009), compartilhado pela página pública e pela pré-visualização do editor, para garantir que o autor veja o que o leitor verá. A configuração da cadeia (os \emph{plugins} do \en{remark} e do \en{rehype}, as opções do KaTeX e do \texttt{remark-rehype} e as linguagens do realce) mora em um módulo puro, \arq{src/components/markdown/markdown-pipeline.js}, sem React nem CSS (merge M-031): é a \emph{fonte única}, importada pelo \arq{MarkdownRenderer} e pela validação de custo da gravação, que a carrega em um \texttt{worker\_threads} (\adr{ADR-033}). Como o Markdown vem de autores que não são de confiança (\adr{ADR-023}), a cadeia é restritiva por construção:
 
 \begin{enumerate}
   \item \arq{react-markdown} converte o Markdown em elementos React, \emph{sem HTML bruto} (RN11): sem \arq{rehype-raw}, o HTML escrito no texto aparece como texto;
