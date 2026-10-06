@@ -165,6 +165,13 @@ r = await call(null, "GET", "/admin/aparencia"); check("aparência: sem sessão 
 r = await call(bob, "GET", "/admin/configuracoes"); check("configurações: usuário comum -> 404 (a página não existe para ele)", r.status === 404, `${r.status}`);
 r = await call(admin, "GET", "/admin/configuracoes"); check("configurações: o administrador abre (200, noindex)", r.status === 200 && /noindex/.test(r.text), `${r.status}`);
 r = await call(admin, "GET", "/admin/aparencia"); check("aparência: o administrador abre a própria, não a de outro (200)", r.status === 200 && !/bob@exemplo/.test(r.text), `${r.status}`);
+r = await call(bob, "GET", "/admin/notificacoes"); check("notificações: o dono abre a página (200, noindex) com o texto da exclusão em português", r.status === 200 && /noindex/.test(r.text) && /Pl.gio comprovado/.test(r.text), `${r.status}`);
+r = await call(bob, "GET", `/admin/notificacoes?userId=${(await call(admin, "GET", "/api/users/me")).json?.data?.id}`); check("notificações: ?userId= de outro usuário não muda nada (só a lista do dono)", r.status === 200 && /Pl.gio comprovado/.test(r.text), `${r.status}`);
+r = await call(admin, "GET", "/admin/notificacoes"); check("notificações: a página do administrador não traz as do Bob", r.status === 200 && !/Pl.gio comprovado/.test(r.text), `${r.status}`);
+r = await call(null, "GET", "/admin/notificacoes"); check("notificações: sem sessão -> redireciona ao login", [301, 302, 307, 308].includes(r.status) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
+r = await call(bob, "GET", "/admin/aparencia"); check("sino no cabeçalho do painel, com o contador no rótulo acessível", /Notificações, 1 não lida/.test(r.text), r.text.slice(0, 100));
+r = await call(bob, "GET", "/admin"); check("menu do usuário comum: sem Configurações nem Usuários", !/>Configurações</.test(r.text) && !/>Usuários</.test(r.text), `${r.status}`);
+r = await call(admin, "GET", "/admin"); check("menu do administrador: com Configurações", />Configurações</.test(r.text), `${r.status}`);
 // --- espaços públicos, portal e Proxy (M-022 e M-024)
 const naoExiste = /não existe ou não está disponível/;
 r = await call(null, "GET", "/admin-site"); check("espaço do administrador (/admin-site): 200, lang pt-BR, envoltório, <html> sem style", r.status === 200 && /lang="pt-BR"/.test(r.text) && /vitrine-tema/.test(r.text) && !/<html[^>]*style=/.test(r.text), `${r.status}`);
