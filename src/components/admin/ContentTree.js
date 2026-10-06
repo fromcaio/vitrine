@@ -10,6 +10,12 @@
 // servidor (`PATCH /api/contents/reorder`) e, se ele recusa, a tela volta ao retrato anterior. As
 // demais ações esperam a resposta. Um 404 (o nó foi excluído em outra aba) recarrega a árvore.
 //
+// Modo de MODERAÇÃO (`moderation`; RF34, UC15): a árvore de OUTRO usuário, lida pelo administrador. A
+// estrutura é só leitura (nada de reordenar, mover, criar nem publicar: o servidor responde 403); as
+// ações por nó são abrir (o editor de moderação), despublicar e excluir, as duas últimas pelo
+// `ModerationDialog`, que pede o motivo e avisa que o dono o verá. É o mesmo componente, o mesmo modelo
+// puro e o mesmo cliente: só muda o que é oferecido.
+//
 // Desempenho (500 conteúdos, RN25): cada linha é um componente memoizado (`RowView`) que só recebe
 // valores simples e manipuladores estáveis, então uma ação renderiza as linhas que mudaram, e não as
 // 500; e uma árvore com mais de 120 nós abre só os dois primeiros níveis (o resto, sob demanda).
@@ -36,7 +42,8 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/ui/icons";
-import { createCollection, deleteContent, fetchTree, moveTo, reorder, setStatus } from "./content-tree-client";
+import { createCollection, deleteContent, deleteWithReason, fetchTree, moveTo, reorder, setStatus, unpublishWithReason } from "./content-tree-client";
+import { ModerationDialog } from "./ModerationDialog";
 import {
   SLUG_MAX_LENGTH,
   collapsedByDefault,
@@ -105,6 +112,7 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
  * @property {(node: TreeNode) => unknown} toggleStatus
  * @property {(node: TreeNode) => void} askMove
  * @property {(node: TreeNode) => void} askDelete
+ * @property {(node: TreeNode) => void} askUnpublish
  * @property {(parentId: string) => void} askNew
  */
 
@@ -115,6 +123,7 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
  * @property {Set<string>} collapsed
  * @property {Set<string>} movable ids que têm ao menos um destino de "mover"
  * @property {boolean} atLimit a cota de conteúdos acabou
+ * @property {boolean} moderated a árvore é de outro usuário: só abrir, despublicar e excluir
  * @property {{ edit: Parameters<typeof editUrl>[0], new: Parameters<typeof newUrl>[0] }} hrefs
  * @property {Handlers} handlers
  */
@@ -146,6 +155,7 @@ function Level({ nodes, depth, hider, shared }) {
               open={open}
               canMove={shared.movable.has(node.id)}
               atLimit={shared.atLimit}
+              moderated={shared.moderated}
               editHref={collection ? "" : editUrl(shared.hrefs.edit, node.id)}
               newHref={collection && !shared.atLimit ? newUrl(shared.hrefs.new, node.id) : ""}
               base={shared.base}
@@ -170,12 +180,13 @@ function Level({ nodes, depth, hider, shared }) {
  * @param {boolean} props.open os filhos estão à mostra
  * @param {boolean} props.canMove há um destino para "mover"
  * @param {boolean} props.atLimit a cota acabou (sem criar)
+ * @param {boolean} props.moderated moderação: só abrir, despublicar e excluir
  * @param {string} props.editHref endereço do editor (só para documentos)
  * @param {string} props.newHref endereço de novo documento aqui (só para coleções; vazio sem cota)
  * @param {string} props.base
  * @param {Handlers} props.handlers
  */
-const RowView = memo(function RowView({ node, index, total, hiderName, open, canMove, atLimit, editHref, newHref, base, handlers }) {
+const RowView = memo(function RowView({ node, index, total, hiderName, open, canMove, atLimit, moderated, editHref, newHref, base, handlers }) {
   const collection = node.type === "COLLECTION";
   const draft = node.status === "DRAFT";
   const expandable = collection && node.children.length > 0;
@@ -233,60 +244,84 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={`Ações de ${name}`}>
-        <RowAction
-          id={`${base}-up-${node.id}`}
-          icon={ArrowUpIcon}
-          label="Subir"
-          name={`Subir: ${name} (posição ${index + 1} de ${total})`}
-          disabled={index === 0}
-          onClick={() => handlers.reorderNode(node.id, -1)}
-        />
-        <RowAction
-          id={`${base}-down-${node.id}`}
-          icon={ArrowDownIcon}
-          label="Descer"
-          name={`Descer: ${name} (posição ${index + 1} de ${total})`}
-          disabled={index === total - 1}
-          onClick={() => handlers.reorderNode(node.id, 1)}
-        />
-        <RowAction
-          id={`${base}-status-${node.id}`}
-          icon={draft ? CheckCircleIcon : PencilIcon}
-          label={draft ? "Publicar" : "Despublicar"}
-          name={`${draft ? "Publicar" : "Passar para rascunho"}: ${name}`}
-          onClick={() => handlers.toggleStatus(node)}
-        />
-        <RowAction
-          id={`${base}-move-${node.id}`}
-          icon={MoveIcon}
-          label="Mover"
-          name={`Mover para outra coleção: ${name}`}
-          disabled={!canMove}
-          onClick={() => handlers.askMove(node)}
-        />
-        {collection ? (
+        {moderated ? (
           <>
-            <RowAction
-              id={`${base}-sub-${node.id}`}
-              icon={PlusIcon}
-              label="Subcoleção"
-              name={`Nova subcoleção em: ${name}`}
-              disabled={atLimit}
-              onClick={() => handlers.askNew(node.id)}
-            />
-            {atLimit || newHref === "" ? null : (
-              <Link
-                href={newHref}
-                aria-label={`Novo documento em: ${name}`}
-                title="Documento"
-                className={`${LINK_BUTTON} px-2.5 lg:px-3`}
-              >
+            {editHref === "" ? null : (
+              <Link href={editHref} aria-label={`Abrir para moderar: ${name}`} title="Abrir" className={`${LINK_BUTTON} px-2.5 lg:px-3`}>
                 <DocumentIcon className="size-4 shrink-0" />
-                <span className="sr-only lg:not-sr-only">Documento</span>
+                <span className="sr-only lg:not-sr-only">Abrir</span>
               </Link>
             )}
+            {draft ? (
+              <span className="text-xs text-muted">Já é rascunho</span>
+            ) : (
+              <RowAction
+                id={`${base}-status-${node.id}`}
+                icon={PencilIcon}
+                label="Despublicar"
+                name={`Despublicar: ${name}`}
+                onClick={() => handlers.askUnpublish(node)}
+              />
+            )}
           </>
-        ) : null}
+        ) : (
+          <>
+          <RowAction
+            id={`${base}-up-${node.id}`}
+            icon={ArrowUpIcon}
+            label="Subir"
+            name={`Subir: ${name} (posição ${index + 1} de ${total})`}
+            disabled={index === 0}
+            onClick={() => handlers.reorderNode(node.id, -1)}
+          />
+          <RowAction
+            id={`${base}-down-${node.id}`}
+            icon={ArrowDownIcon}
+            label="Descer"
+            name={`Descer: ${name} (posição ${index + 1} de ${total})`}
+            disabled={index === total - 1}
+            onClick={() => handlers.reorderNode(node.id, 1)}
+          />
+          <RowAction
+            id={`${base}-status-${node.id}`}
+            icon={draft ? CheckCircleIcon : PencilIcon}
+            label={draft ? "Publicar" : "Despublicar"}
+            name={`${draft ? "Publicar" : "Passar para rascunho"}: ${name}`}
+            onClick={() => handlers.toggleStatus(node)}
+          />
+          <RowAction
+            id={`${base}-move-${node.id}`}
+            icon={MoveIcon}
+            label="Mover"
+            name={`Mover para outra coleção: ${name}`}
+            disabled={!canMove}
+            onClick={() => handlers.askMove(node)}
+          />
+          {collection ? (
+            <>
+              <RowAction
+                id={`${base}-sub-${node.id}`}
+                icon={PlusIcon}
+                label="Subcoleção"
+                name={`Nova subcoleção em: ${name}`}
+                disabled={atLimit}
+                onClick={() => handlers.askNew(node.id)}
+              />
+              {atLimit || newHref === "" ? null : (
+                <Link
+                  href={newHref}
+                  aria-label={`Novo documento em: ${name}`}
+                  title="Documento"
+                  className={`${LINK_BUTTON} px-2.5 lg:px-3`}
+                >
+                  <DocumentIcon className="size-4 shrink-0" />
+                  <span className="sr-only lg:not-sr-only">Documento</span>
+                </Link>
+              )}
+            </>
+          ) : null}
+          </>
+        )}
         <RowAction
           id={`${base}-delete-${node.id}`}
           icon={TrashIcon}
@@ -304,9 +339,10 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
  * @param {unknown} props.initialTree `data` de `GET /api/contents` (a árvore do dono, com rascunhos); cada nó é saneado aqui
  * @param {string | ((id: string) => string)} props.editHref endereço do editor de um documento: uma função, ou um modelo com `{id}` (ex.: `/admin/conteudo/{id}`). Uma página de Servidor só consegue passar o modelo: funções não atravessam para um Componente Cliente
  * @param {string | { root: string, child: string } | ((parentId: string | null) => string)} props.newHref endereço do formulário de novo documento: uma função (`parentId` ou `null` na raiz), ou `{ root, child }` com `{parentId}` em `child` (ex.: `{ root: "/admin/conteudo/novo", child: "/admin/conteudo/novo?pai={parentId}" }`)
- * @param {number} [props.maxContents] cota de conteúdos do dono (RN25); o padrão é 500
+ * @param {number} [props.maxContents] cota de conteúdos do dono (RN25); o padrão é 500 (não vale na moderação)
+ * @param {{ ownerId: string, ownerName: string }} [props.moderation] liga o modo de moderação: a árvore é de OUTRO usuário (`ownerId`, o de `?ownerId=`); `ownerName` é o nome que o aviso e o diálogo citam
  */
-export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFAULT_MAX_CONTENTS }) {
+export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFAULT_MAX_CONTENTS, moderation = undefined }) {
   const base = useId();
   const [tree, setTree] = useState(() => normalizeTree(initialTree));
   // Uma árvore grande começa recolhida abaixo do primeiro nível (primeira pintura leve).
@@ -320,6 +356,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
 
   // Diálogos: excluir (id), mover (id) e nova coleção (pai ou raiz).
   const [deleting, setDeleting] = useState(/** @type {string | null} */ (null));
+  const [unpublishing, setUnpublishing] = useState(/** @type {string | null} */ (null));
   const [moving, setMoving] = useState(/** @type {string | null} */ (null));
   const [creating, setCreating] = useState(/** @type {{ parentId: string | null } | null} */ (null));
   const [dialogPending, setDialogPending] = useState(false);
@@ -333,7 +370,8 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   const slugFieldRef = useRef(/** @type {HTMLInputElement | null} */ (null));
 
   const total = useMemo(() => countNodes(tree), [tree]);
-  const atLimit = total >= maxContents;
+  // Na moderação não há cota a mostrar nem criação: a cota é do dono.
+  const atLimit = moderation === undefined && total >= maxContents;
   const published = useMemo(() => {
     let count = 0;
     /** @param {TreeNode[]} nodes */
@@ -390,7 +428,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
 
   /** Recarrega a árvore do servidor. @returns {Promise<TreeNode[] | null>} */
   async function refresh() {
-    const result = await fetchTree();
+    const result = await fetchTree(undefined, moderation?.ownerId);
     if (!result.ok) {
       fail(result);
       return null;
@@ -483,10 +521,16 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
     setDialogError("");
   }
 
-  async function confirmDelete() {
+  /**
+   * Exclui o nó escolhido. Na moderação leva o motivo e, se o servidor recusa, devolve a mensagem para
+   * o diálogo, que continua aberto com o motivo digitado.
+   * @param {string} [reason]
+   * @returns {Promise<string | null>}
+   */
+  async function confirmDelete(reason) {
     const id = deleting;
     const where = id ? locate(tree, id) : null;
-    if (!id || !where || busyRef.current) return;
+    if (!id || !where || busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
     setDialogPending(true);
@@ -495,31 +539,81 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
     const name = nameOf(where.node);
     const gone = 1 + countDescendants(where.node);
     const neighbour = where.siblings[where.index + 1] ?? where.siblings[where.index - 1];
+    /** @type {string | null} */
+    let message = null;
     try {
-      const result = await deleteContent(id);
+      const result = moderation && reason !== undefined ? await deleteWithReason(id, reason) : await deleteContent(id);
       if (result.ok || result.kind === "not-found") {
         focusAfter.current = neighbour
           ? [domId("title", neighbour.id)]
           : [where.parent ? domId("title", where.parent.id) : `${base}-novacolecao`];
         setTree((current) => withoutNode(current, id));
+        const notified = moderation ? ` ${moderation.ownerName} foi notificado(a) e vê o motivo.` : "";
         setInfo(
           result.ok
             ? gone === 1
-              ? `${name} foi excluído.`
-              : `${name} foi excluído, com ${plural(gone - 1, "item que estava dentro", "itens que estavam dentro")}.`
+              ? `${name} foi excluído.${notified}`
+              : `${name} foi excluído, com ${plural(gone - 1, "item que estava dentro", "itens que estavam dentro")}.${notified}`
             : "",
         );
         if (!result.ok) {
           fail(result);
           await refresh();
         }
+        closeDelete();
+      } else if (moderation) {
+        message = result.message;
       } else {
         fail(result);
+        closeDelete();
       }
     } finally {
       busyRef.current = false;
       setBusy(false);
-      closeDelete();
+      setDialogPending(false);
+    }
+    return message;
+  }
+
+  /** @param {TreeNode} node */
+  function askUnpublish(node) {
+    setUnpublishing(node.id);
+  }
+
+  /**
+   * Moderação: despublica o nó escolhido com o motivo. Devolve a mensagem de erro (o diálogo segue
+   * aberto) ou `null` se deu certo.
+   * @param {string} reason
+   * @returns {Promise<string | null>}
+   */
+  async function confirmUnpublish(reason) {
+    const id = unpublishing;
+    const where = id ? locate(tree, id) : null;
+    if (!id || !where || !moderation || busyRef.current) return null;
+    busyRef.current = true;
+    setBusy(true);
+    setInfo("");
+    setError("");
+    const name = nameOf(where.node);
+    try {
+      const result = await unpublishWithReason(id, reason);
+      if (result.ok) {
+        setTree((current) => withStatus(current, id, "DRAFT"));
+        focusAfter.current = [domId("status", id), domId("title", id)];
+        setUnpublishing(null);
+        setInfo(`${name} passou para rascunho. ${moderation.ownerName} foi notificado(a) e vê o motivo.`);
+        return null;
+      }
+      if (result.kind === "not-found") {
+        setUnpublishing(null);
+        fail(result);
+        await refresh();
+        return null;
+      }
+      return result.message;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
   }
 
@@ -636,7 +730,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   // cada renderização, e `RowView` só pode ser memoizado se os manipuladores não mudarem).
   const latest = useRef(/** @type {Handlers | null} */ (null));
   useEffect(() => {
-    latest.current = { toggle, reorderNode, toggleStatus, askMove, askDelete, askNew };
+    latest.current = { toggle, reorderNode, toggleStatus, askMove, askDelete, askUnpublish, askNew };
   });
   const [handlers] = useState(
     /** @returns {Handlers} */ () => ({
@@ -645,29 +739,41 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
       toggleStatus: (node) => latest.current?.toggleStatus(node),
       askMove: (node) => latest.current?.askMove(node),
       askDelete: (node) => latest.current?.askDelete(node),
+      askUnpublish: (node) => latest.current?.askUnpublish(node),
       askNew: (parentId) => latest.current?.askNew(parentId),
     }),
   );
   const hrefs = useMemo(() => ({ edit: editHref, new: newHref }), [editHref, newHref]);
   /** @type {Shared} */
-  const shared = { base, collapsed, movable, atLimit, hrefs, handlers };
+  const shared = { base, collapsed, movable, atLimit, moderated: moderation !== undefined, hrefs, handlers };
 
   const deletingNode = deleting ? locate(tree, deleting)?.node ?? null : null;
   const movingNode = moving ? locate(tree, moving)?.node ?? null : null;
   const movingTargets = movingNode ? moveTargets(tree, movingNode.id) : [];
   const creatingParent = creating?.parentId ? locate(tree, creating.parentId)?.node ?? null : null;
   const draftCount = total - published;
-  const nearLimit = !atLimit && total >= Math.ceil(maxContents * 0.9);
+  const nearLimit = moderation === undefined && !atLimit && total >= Math.ceil(maxContents * 0.9);
+  const unpublishingNode = unpublishing ? (locate(tree, unpublishing)?.node ?? null) : null;
 
   const titleId = `${base}-novo-titulo`;
   const slugId = `${base}-novo-slug`;
   const moveId = `${base}-destino`;
 
   return (
-    <section aria-label="Conteúdo" aria-busy={busy} className="flex flex-col gap-4">
+    <section aria-label={moderation ? `Conteúdo de ${moderation.ownerName}` : "Conteúdo"} aria-busy={busy} className="flex flex-col gap-4">
+      {moderation ? (
+        <div role="note" className="flex items-start gap-2 rounded-md border-2 border-foreground bg-surface p-3 text-sm">
+          <AlertIcon className="mt-0.5 size-5 shrink-0" />
+          <p className="wrap-anywhere">
+            Você está vendo o conteúdo de <strong className="font-semibold">{moderation.ownerName}</strong>. A estrutura é só leitura: você pode abrir, despublicar e
+            excluir, sempre informando um motivo, que a pessoa vê na notificação. Mover, reordenar e publicar são dela.
+          </p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
         <p className="text-sm text-muted">
-          {plural(total, "conteúdo", "conteúdos")} de {maxContents} ({published} {published === 1 ? "publicado" : "publicados"}, {plural(draftCount, "rascunho", "rascunhos")}).
+          {plural(total, "conteúdo", "conteúdos")}
+          {moderation ? "" : ` de ${maxContents}`} ({published} {published === 1 ? "publicado" : "publicados"}, {plural(draftCount, "rascunho", "rascunhos")}).
         </p>
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           {expandable.length > 0 ? (
@@ -680,20 +786,24 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
               </Button>
             </>
           ) : null}
-          <Button id={`${base}-novacolecao`} variant="outline" disabled={atLimit} onClick={() => askNew(null)}>
-            <PlusIcon className="size-4 shrink-0" />
-            Nova coleção
-          </Button>
-          {atLimit ? (
-            <Button variant="outline" disabled>
-              <DocumentIcon className="size-4 shrink-0" />
-              Novo documento
+          {moderation ? null : (
+            <>
+            <Button id={`${base}-novacolecao`} variant="outline" disabled={atLimit} onClick={() => askNew(null)}>
+              <PlusIcon className="size-4 shrink-0" />
+              Nova coleção
             </Button>
-          ) : (
-            <Link href={newUrl(newHref, null)} className={LINK_BUTTON}>
-              <DocumentIcon className="size-4 shrink-0" />
-              Novo documento
-            </Link>
+            {atLimit ? (
+              <Button variant="outline" disabled>
+                <DocumentIcon className="size-4 shrink-0" />
+                Novo documento
+              </Button>
+            ) : (
+              <Link href={newUrl(newHref, null)} className={LINK_BUTTON}>
+                <DocumentIcon className="size-4 shrink-0" />
+                Novo documento
+              </Link>
+            )}
+            </>
           )}
         </div>
       </div>
@@ -749,25 +859,65 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
       )}
 
       {deletingNode ? (
-        <ConfirmDialog
+        moderation ? (
+          <ModerationDialog
+            open
+            danger
+            title={`Excluir ${deletingNode.type === "COLLECTION" ? "a coleção" : "o documento"} "${nameOf(deletingNode)}"?`}
+            confirmLabel="Excluir"
+            ownerName={moderation.ownerName}
+            onConfirm={confirmDelete}
+            onCancel={closeDelete}
+            description={
+              countDescendants(deletingNode) > 0 ? (
+                <>
+                  <strong>
+                    {plural(countDescendants(deletingNode), "item que está dentro será excluído", "itens que estão dentro serão excluídos")} junto
+                  </strong>{" "}
+                  (coleções, documentos e rascunhos). Esta ação não pode ser desfeita.
+                </>
+              ) : (
+                "Esta ação não pode ser desfeita."
+              )
+            }
+          />
+        ) : (
+          <ConfirmDialog
+            open
+            danger
+            title={`Excluir ${deletingNode.type === "COLLECTION" ? "a coleção" : "o documento"} "${nameOf(deletingNode)}"?`}
+            confirmLabel="Excluir"
+            pending={dialogPending}
+            onConfirm={() => void confirmDelete()}
+            onCancel={closeDelete}
+            description={
+              countDescendants(deletingNode) > 0 ? (
+                <>
+                  <strong>
+                    {plural(countDescendants(deletingNode), "item que está dentro será excluído", "itens que estão dentro serão excluídos")} junto
+                  </strong>{" "}
+                  (coleções, documentos e rascunhos). Esta ação não pode ser desfeita.
+                </>
+              ) : (
+                "Esta ação não pode ser desfeita."
+              )
+            }
+          />
+        )
+      ) : null}
+
+      {unpublishingNode && moderation ? (
+        <ModerationDialog
           open
-          danger
-          title={`Excluir ${deletingNode.type === "COLLECTION" ? "a coleção" : "o documento"} "${nameOf(deletingNode)}"?`}
-          confirmLabel="Excluir"
-          pending={dialogPending}
-          onConfirm={confirmDelete}
-          onCancel={closeDelete}
+          title={`Despublicar ${unpublishingNode.type === "COLLECTION" ? "a coleção" : "o documento"} "${nameOf(unpublishingNode)}"?`}
+          confirmLabel="Despublicar"
+          ownerName={moderation.ownerName}
+          onConfirm={confirmUnpublish}
+          onCancel={() => setUnpublishing(null)}
           description={
-            countDescendants(deletingNode) > 0 ? (
-              <>
-                <strong>
-                  {plural(countDescendants(deletingNode), "item que está dentro será excluído", "itens que estão dentro serão excluídos")} junto
-                </strong>{" "}
-                (coleções, documentos e rascunhos). Esta ação não pode ser desfeita.
-              </>
-            ) : (
-              "Esta ação não pode ser desfeita."
-            )
+            unpublishingNode.type === "COLLECTION" && countPublishedDescendants(unpublishingNode) > 0
+              ? `A coleção passa para rascunho e sai do ar, e ${plural(countPublishedDescendants(unpublishingNode), "conteúdo publicado dentro dela deixa de aparecer", "conteúdos publicados dentro dela deixam de aparecer")}; o estado de cada um não muda.`
+              : "O conteúdo passa para rascunho e sai do ar. Ninguém o apaga: a pessoa pode publicá-lo de novo."
           }
         />
       ) : null}
