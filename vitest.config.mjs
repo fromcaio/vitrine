@@ -34,6 +34,10 @@ export default defineConfig({
     globalSetup: ["./tests/setup/global-setup.js"],
     setupFiles: ["./tests/setup/per-file.js"],
     // O CLI do Prisma (migrate deploy, db seed) leva alguns segundos
+    // No máximo 4 processos por rodada: sem o limite, o Vitest abre (núcleos - 1) processos, e em uma máquina
+    // de 20 núcleos, com os `jsdom` dos testes da UI, uma rodada passa de 8 GB; com três agentes ao mesmo
+    // tempo já esgotou a memória (06/10/2026). `npm test -- --maxWorkers=N` ainda sobrepõe.
+    maxWorkers: 4,
     testTimeout: 60_000,
     hookTimeout: 60_000,
   },

@@ -5,6 +5,7 @@
 import { notFound } from "next/navigation";
 import { SpaceHome } from "@/components/layout/SpaceHome";
 import { contentHref } from "@/components/layout/space-paths";
+import { spaceHomeMetadata } from "../_lib/metadata";
 import { getSpace, publicHandleParams } from "../_lib/space";
 import { SpaceFrame } from "../_lib/space-frame";
 
@@ -14,6 +15,13 @@ export const dynamicParams = true;
 /** Sem dado no `next build` (ADR-021); em execução, os espaços ativos com raiz publicada. */
 export async function generateStaticParams() {
   return publicHandleParams();
+}
+
+/** O título e a descrição são do layout; aqui, o endereço canônico e o Open Graph. */
+export async function generateMetadata({ params }) {
+  const { handle } = await params;
+  const space = await getSpace(handle);
+  return space ? spaceHomeMetadata(space) : {};
 }
 
 export default async function SpaceHomePage({ params }) {

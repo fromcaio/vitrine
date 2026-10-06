@@ -28,7 +28,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
 import { renderToStaticMarkup } from "react-dom/server";
 import { requireSession } from "@/app/admin/_lib/session";
 import AdminLayout, { generateMetadata as adminMetadata } from "@/app/admin/layout";
-import RootLayout, { metadata as rootMetadata } from "@/app/layout";
+import RootLayout, { generateMetadata as rootMetadata } from "@/app/layout";
 import LoginLayout, { generateMetadata as loginMetadata } from "@/app/login/layout";
 import NotFound, { metadata as notFoundMetadata } from "@/app/not-found";
 import PortalLayout, { generateMetadata as portalMetadata } from "@/app/(portal)/layout";
@@ -117,11 +117,17 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
     expect(html.props.lang).toBe("pt-BR");
   });
 
-  it("os metadados padrão são estáticos: o nome 'Vitrine' e a descrição padrão", () => {
-    expect(rootMetadata).toEqual({
-      title: { default: "Vitrine", template: "%s | Vitrine" },
-      description: DEFAULT_SITE_DESCRIPTION,
-    });
+  it("os metadados padrão não consultam o banco: o nome 'Vitrine' e a descrição padrão; o metadataBase é a URL pública", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "https://vitrine.exemplo.test/");
+    const metadata = rootMetadata();
+
+    expect(metadata.title).toEqual({ default: "Vitrine", template: "%s | Vitrine" });
+    expect(metadata.description).toBe(DEFAULT_SITE_DESCRIPTION);
+    expect(metadata.metadataBase?.href).toBe("https://vitrine.exemplo.test/");
+    expect(getConfiguration).not.toHaveBeenCalled();
+
+    vi.stubEnv("BETTER_AUTH_URL", "");
+    expect(rootMetadata()).not.toHaveProperty("metadataBase");
   });
 });
 
@@ -134,16 +140,18 @@ describe("PortalLayout: o título e a descrição do site (a paleta é da págin
   it("generateMetadata usa o nome e a descrição do site, com o modelo '%s | nome'", async () => {
     await updateConfiguration({ siteName: "Notas de Aula", siteDescription: "Material didático de Cálculo" });
 
-    expect(await portalMetadata()).toEqual({
+    expect(await portalMetadata()).toMatchObject({
       title: { absolute: "Notas de Aula", template: "%s | Notas de Aula" },
       description: "Material didático de Cálculo",
+      alternates: { canonical: "/" },
+      openGraph: { type: "website", title: "Notas de Aula", url: "/" },
     });
   });
 
   it("sem configuração (banco indisponível), usa os padrões; no build, nem consulta", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(getConfiguration).mockRejectedValueOnce(new Error("banco indisponível"));
-    expect(await portalMetadata()).toEqual({
+    expect(await portalMetadata()).toMatchObject({
       title: { absolute: "Vitrine", template: "%s | Vitrine" },
       description: DEFAULT_SITE_DESCRIPTION,
     });

@@ -177,6 +177,16 @@ for (const caminho of ["/Bob/do-admin", "/bob/Do-Admin", "/bob/do%2Dadmin%00", "
 r = await call(null, "GET", "/bob/do-admin"); check("a página real segue 200 depois dos 404 em maiúsculas (cache não envenenado)", r.status === 200, `${r.status}`);
 r = await call(bob, "PATCH", `/api/contents/${bId}`, { status: "DRAFT" }); r = await call(null, "GET", "/bob/do-admin"); check("rascunho: 404 na primeira visita depois de despublicar (RN15)", r.status === 404 && naoExiste.test(r.text) && !/Do Bob/.test(r.text), `${r.status}`);
 r = await call(bob, "PATCH", `/api/contents/${bId}`, { status: "PUBLISHED" }); r = await call(null, "GET", "/bob/do-admin"); check("republicado: 200 de novo, sem esperar o prazo do cache", r.status === 200, `${r.status}`);
+// --- SEO (M-029): robots, mapas do site e metadados
+r = await call(null, "GET", "/robots.txt"); check("robots.txt: bloqueia /admin, /api e /login e libera o resto", r.status === 200 && /Disallow: \/admin/.test(r.text) && /Disallow: \/api/.test(r.text) && /Disallow: \/login/.test(r.text) && /Allow: \//.test(r.text), `${r.status} ${r.text.slice(0, 120)}`);
+r = await call(null, "GET", "/admin-site/sitemap.xml"); check("mapa do espaço do administrador: XML com o início e o documento publicado", r.status === 200 && /xml/.test(r.headers.get("content-type") ?? "") && /<loc>[^<]*\/admin-site<\/loc>/.test(r.text) && /\/admin-site\/do-admin\/doc<\/loc>/.test(r.text) && /<lastmod>/.test(r.text), `${r.status} ${r.text.slice(0, 160)}`);
+r = await call(null, "GET", "/bob/sitemap.xml"); check("mapa do espaço do Bob: lista o documento publicado", r.status === 200 && /\/bob\/do-admin<\/loc>/.test(r.text), `${r.status}`);
+await call(bob, "PATCH", `/api/contents/${bId}`, { status: "DRAFT" });
+r = await call(null, "GET", "/bob/sitemap.xml"); check("rascunho nunca aparece no mapa (RN15): some na primeira leitura depois de despublicar", r.status === 200 && !/do-admin/.test(r.text), `${r.status}`);
+await call(bob, "PATCH", `/api/contents/${bId}`, { status: "PUBLISHED" });
+{ const a1 = await call(null, "GET", "/handle-que-nao-existe/sitemap.xml"); const a2 = await call(null, "GET", "/Bob/sitemap.xml"); const a3 = await call(null, "GET", "/sitemap.xml/x"); check("mapa de handle inexistente e em maiúsculas: o mesmo 404, com o mesmo corpo", a1.status === 404 && a2.status === 404 && a1.text === a2.text && a3.status === 404, `${a1.status} ${a2.status} ${a3.status}`); }
+r = await call(null, "GET", "/sitemap.xml"); check("índice do portal: XML de sitemapindex", r.status === 200 && /<sitemapindex/.test(r.text), `${r.status} ${r.text.slice(0, 100)}`);
+r = await call(null, "GET", "/admin-site/do-admin/doc"); check("documento: título, descrição e canônico no HTML (sem marcação na descrição)", r.status === 200 && /<title>[^<]*<\/title>/.test(r.text) && /<meta name="description" content="[^"<*#\[]*"/.test(r.text) && /rel="canonical"/.test(r.text), `${r.status}`);
 r = await call(null, "GET", "/"); check("portal: 200 com o envoltório", r.status === 200 && /vitrine-tema/.test(r.text), `${r.status}`);
 // cotas e corpo
 r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo > 256 KiB -> 413 ou 422", r.status === 413 || r.status === 422, `${r.status}`);
