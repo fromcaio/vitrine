@@ -61,7 +61,7 @@ export const GET = route({ action: "content:read", load: loadContent, allowForei
  */
 export const PATCH = route(
   { action: "content:update", mutation: true, rate: "content", load: loadContent, allowForeign: true },
-  async ({ params, resource, foreign, readJson }) => {
+  async ({ actor, params, resource, foreign, readJson }) => {
     const limits = currentLimits();
     const { version, reason, ...patch } = parse(contentUpdateSchema, await readJson({ maxBytes: contentJsonMaxBytes(limits) }));
     if ("body" in patch && version === undefined) {
@@ -88,7 +88,7 @@ export const PATCH = route(
     // gravado se o texto for complexo demais (422 `CONTENT_TOO_COMPLEX`).
     if (typeof patch.body === "string") {
       assertBodyWithinQuota(patch.body, limits);
-      await assertRenderable(patch.body, "body");
+      await assertRenderable(patch.body, "body", { userId: actor.id });
     }
 
     // Slug e pai resultantes: o que não vem na entrada permanece como está.

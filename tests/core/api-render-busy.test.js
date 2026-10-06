@@ -16,7 +16,7 @@ import * as configurationRoute from "@/app/api/configuration/route";
 import * as contentRoute from "@/app/api/contents/[id]/route";
 import * as contentsRoute from "@/app/api/contents/route";
 import { createContent, getConfiguration, prisma } from "@/lib/db";
-import { checkRenderable } from "@/lib/render-budget";
+import { RenderBusyError, checkRenderable } from "@/lib/render-budget";
 import { aged, apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
 
 /** @type {{ cookie: string, userId: string }} */
@@ -27,7 +27,8 @@ let ana;
 beforeEach(async () => {
   await resetDatabase();
   vi.mocked(revalidatePath).mockClear();
-  vi.mocked(checkRenderable).mockClear();
+  vi.mocked(checkRenderable).mockReset();
+  vi.mocked(checkRenderable).mockImplementation(async () => Promise.reject(new RenderBusyError()));
   admin = await createAdminSession();
   ana = await createUserSession({ email: "ana@exemplo.test", name: "Ana", handle: "ana" });
 });
@@ -97,5 +98,64 @@ describe("fila cheia: 503 BUSY com Retry-After, sem gravar nada", () => {
 
     expect([patch.status, collection.status, read.status, config.status]).toEqual([200, 201, 200, 200]);
     expect(checkRenderable).not.toHaveBeenCalled();
+  });
+});
+
+describe("A-022: as rotas passam o usuário da SESSÃO ao orçamento (no máximo uma validação por usuário)", () => {
+  const accepted = () => vi.mocked(checkRenderable).mockResolvedValueOnce({ renderable: true, ms: 1 });
+
+  it("POST /api/contents: o ator é o dono da sessão", async () => {
+    accepted();
+
+    const response = await contentsRoute.POST(
+      apiRequest("/api/contents", { method: "POST", body: { title: "A", slug: "a", type: "DOCUMENT", body: "texto" }, cookie: ana.cookie }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(checkRenderable).toHaveBeenCalledWith("texto", { budgetMs: 2000, userId: ana.id });
+  });
+
+  it("PATCH /api/contents/:id: o dono edita o próprio texto, e o ator é ele", async () => {
+    const mine = await createContent({ title: "T", slug: "t", type: "DOCUMENT", authorId: ana.id, body: "original" });
+    const { id, updatedAt } = await aged(mine);
+    accepted();
+
+    const response = await contentRoute.PATCH(
+      apiRequest(`/api/contents/${id}`, { method: "PATCH", body: { body: "novo", version: updatedAt.toISOString() }, cookie: ana.cookie }),
+      routeContext({ id }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkRenderable).toHaveBeenCalledWith("novo", { budgetMs: 2000, userId: ana.id });
+  });
+
+  it("PATCH da moderação: o ator é o ADMINISTRADOR que grava, e não o dono do conteúdo", async () => {
+    const theirs = await createContent({ title: "T", slug: "t", type: "DOCUMENT", authorId: ana.id, body: "original" });
+    const { id, updatedAt } = await aged(theirs);
+    accepted();
+
+    const response = await contentRoute.PATCH(
+      apiRequest(`/api/contents/${id}`, {
+        method: "PATCH",
+        body: { body: "corrigido", version: updatedAt.toISOString(), reason: "erro factual" },
+        cookie: admin.cookie,
+      }),
+      routeContext({ id }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkRenderable).toHaveBeenCalledWith("corrigido", { budgetMs: 2000, userId: admin.userId });
+    expect(vi.mocked(checkRenderable).mock.calls[0][1].userId).not.toBe(ana.id);
+  });
+
+  it("PUT /api/configuration: o ator é o administrador", async () => {
+    accepted();
+
+    const response = await configurationRoute.PUT(
+      apiRequest("/api/configuration", { method: "PUT", body: { homeBody: "texto do portal" }, cookie: admin.cookie }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(checkRenderable).toHaveBeenCalledWith("texto do portal", { budgetMs: 2000, userId: admin.userId });
   });
 });

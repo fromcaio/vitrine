@@ -9,6 +9,11 @@
 // - Uma validação por vez, em um worker que DURA entre as chamadas (medido: subir um custa ~1 s de carga
 //   dos módulos, contra ~1 ms de um worker quente) e é recriado depois de um encerramento ou de uma morte.
 //   Até `MAX_WAITING` esperam; com a fila cheia, `RenderBusyError` (503 `BUSY` com `Retry-After`).
+// - JUSTIÇA (A-022): no máximo UMA validação por usuário (em andamento ou na fila). Sem isso, um só usuário,
+//   com textos hostis (60 escritas por minuto, até 2 s cada), ocuparia o worker e faria as gravações de todos
+//   os outros receberem 503. A segunda do mesmo usuário, antes de a primeira terminar, recebe o mesmo
+//   `RenderBusyError`; o teto por usuário vale ALÉM do global. O usuário é liberado por QUALQUER término
+//   (sucesso, recusa por tempo, erro de renderização, morte ou estouro do worker, falha ao subir, rejeição).
 // - O orçamento conta só a partir do envio do texto ao worker já pronto: a carga dos módulos de um worker
 //   recém-criado não é do autor.
 // - O worker é `unref`: não segura o processo (testes, `next build`); sem uso por `IDLE_MS`, é encerrado.
@@ -57,6 +62,7 @@ export class RenderBusyError extends Error {
  * @typedef {object} Job
  * @property {string} markdown
  * @property {number} budgetMs
+ * @property {string | undefined} userId quem pediu (o teto por usuário); `undefined`: sem teto por usuário
  * @property {(check: RenderCheck) => void} resolve
  * @property {(error: unknown) => void} reject
  */
@@ -80,6 +86,8 @@ export function createRenderBudget({
   let running = false;
   /** @type {Job[]} */
   const waiting = [];
+  /** Quem tem uma validação em andamento ou na fila (o teto de UMA por usuário; A-022). */
+  const inFlight = new Set();
   /** @type {ReturnType<typeof setTimeout> | null} */
   let idleTimer = null;
   let nextId = 0;
@@ -189,6 +197,15 @@ export function createRenderBudget({
     );
   }
 
+  /**
+   * Libera o usuário ANTES de entregar o resultado: quem recebe a resposta pode pedir a próxima na hora, e
+   * ela não pode cair no teto por usuário da que acabou de terminar.
+   * @param {Job} job
+   */
+  function release(job) {
+    if (job.userId !== undefined) inFlight.delete(job.userId);
+  }
+
   function pump() {
     if (running) return;
     const job = waiting.shift();
@@ -196,7 +213,16 @@ export function createRenderBudget({
     running = true;
     if (idleTimer) clearTimeout(idleTimer);
     run(job)
-      .then(job.resolve, job.reject)
+      .then(
+        (check) => {
+          release(job);
+          job.resolve(check);
+        },
+        (error) => {
+          release(job);
+          job.reject(error);
+        },
+      )
       .finally(() => {
         running = false;
         armIdleTimer();
@@ -206,17 +232,20 @@ export function createRenderBudget({
 
   /**
    * O texto renderiza dentro do orçamento? Executa o pipeline do `MarkdownRenderer` em um worker, com
-   * uma validação por vez. Lança `RenderBusyError` com a fila cheia; qualquer falha de RENDERIZAÇÃO vira
-   * `{ renderable: false }`, nunca uma exceção.
+   * uma validação por vez. Lança `RenderBusyError` com a fila cheia OU quando o `userId` já tem uma validação
+   * em andamento ou na fila (uma por usuário); qualquer falha de RENDERIZAÇÃO vira `{ renderable: false }`,
+   * nunca uma exceção.
    * @param {string} markdown
-   * @param {{ budgetMs?: number }} [options]
+   * @param {{ budgetMs?: number, userId?: string }} [options] `userId`: quem pede (as rotas passam o `actor.id`)
    * @returns {Promise<RenderCheck>}
    */
-  function checkRenderable(markdown, { budgetMs = RENDER_BUDGET_MS } = {}) {
+  function checkRenderable(markdown, { budgetMs = RENDER_BUDGET_MS, userId } = {}) {
+    if (userId !== undefined && inFlight.has(userId)) return Promise.reject(new RenderBusyError());
     if (running && waiting.length >= maxWaiting) return Promise.reject(new RenderBusyError());
     stats.checks += 1;
+    if (userId !== undefined) inFlight.add(userId);
     return new Promise((resolve, reject) => {
-      waiting.push({ markdown: typeof markdown === "string" ? markdown : "", budgetMs, resolve, reject });
+      waiting.push({ markdown: typeof markdown === "string" ? markdown : "", budgetMs, userId, resolve, reject });
       pump();
     });
   }
