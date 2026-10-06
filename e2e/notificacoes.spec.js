@@ -59,13 +59,14 @@ test.describe.serial("notificações, sino e menu", () => {
     await login(page, ANA);
 
     await expect(page.getByRole("link", { name: "Notificações, 3 não lidas" })).toBeVisible();
-    // O menu lateral (o do celular é o mesmo, recolhido): Aparência e Notificações são links; Conteúdo e Perfil, "em breve".
+    // O menu lateral (o do celular é o mesmo, recolhido): todas as páginas do usuário comum já existem (Aparência, Notificações, Conteúdo, Perfil e a troca da senha são links), e nada fica "em breve".
     const menu = page.locator('nav[aria-label="Navegação do painel"]:visible');
     await expect(menu.getByRole("link", { name: "Aparência" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Notificações" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Trocar a senha" })).toBeVisible();
-    await expect(menu.getByRole("link", { name: "Conteúdo" })).toHaveCount(0);
-    await expect(menu.getByText("em breve")).toHaveCount(2);
+    await expect(menu.getByRole("link", { name: "Conteúdo" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Perfil" })).toBeVisible();
+    await expect(menu.getByText("em breve")).toHaveCount(0);
     // Só o administrador tem as Configurações e os Usuários.
     await expect(menu.getByText("Configurações")).toHaveCount(0);
     await expect(menu.getByText("Usuários")).toHaveCount(0);

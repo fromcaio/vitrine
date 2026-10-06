@@ -3,7 +3,14 @@
 // uma página que ainda não existe (o link levaria a um 404). Pasta privada do App Router: não gera rota.
 
 /** Páginas de todo usuário. */
-const USER_PATHS = ["/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes"];
+const USER_PATHS = [
+  "/admin",
+  "/admin/senha",
+  "/admin/aparencia",
+  "/admin/notificacoes",
+  "/admin/conteudo",
+  "/admin/perfil",
+];
 
 /** Páginas só do administrador (as outras respondem 404 a um usuário comum). */
 const ADMIN_PATHS = ["/admin/configuracoes"];
