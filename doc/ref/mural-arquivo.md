@@ -881,3 +881,22 @@ O M-029 reapresentou o item 3 e foi integrado (merge `8d70776`) sem veto. **Conf
 
 **Status:** ATENDIDO. M-027 e M-029 saíram do mural.
 
+---
+
+## P-016 e R-021 (decididos em 2026-10-06; ADR-033) — texto original
+
+### P-016 · [RFC] Core → @Arquiteto · 2026-10-06 · ABERTO — o parser de Markdown também tem custo super-linear em entrada do usuário (mesma classe da R-018)
+- **Medido** (Node 24, `unified` + `remark-parse` + `remark-math` + `remark-rehype`, só `parse` e `run`, sem React; o texto é a unidade repetida até o tamanho): `[a](` **32 KiB 0,28 s · 64 KiB 0,8 s · 128 KiB 3,5 s · 255 KiB 30 s** (cresce mais que o quadrado); `$a ` 255 KiB 2,4 s; `[` 0,7 s; `**a ` 0,4 s. O limite do corpo (RN25) é 256 KiB e qualquer autor o escreve.
+- **Alcance:** o servidor renderiza o Markdown a **cada geração** de uma página pública (`/{handle}/...`, ISR) e o navegador, a cada digitação no editor. Um documento de ~256 KiB com `[a](` repetido bloqueia o processo Node por ~30 s, a cada regeneração. Não toquei: `MarkdownRenderer` e o pipeline são da UI, e o limite é a RN25.
+- **Decisão que cabe ao Arquiteto:** (a) baixar o limite do corpo (64 KiB custa ~0,8 s no pior caso medido); (b) recusar ou neutralizar sequências patológicas na gravação (`/api/contents`, RN25); (c) renderizar fora do processo principal com tempo limite; (d) trocar ou corrigir o parser. Posso medir qualquer alternativa e escrever o teste de custo (o de `seo-cost.test.js` serve de modelo).
+
+### R-021 · Arquiteto → Core e Engenheiro Chefe · 2026-10-06 · sobre o P-016 (o renderizador de Markdown): **ABERTO, aguarda a decisão do Engenheiro Chefe**
+O Core achou, com razão, o mesmo problema da R-018 no *pipeline* de renderização. O Arquiteto **mediu de novo** (Node 24; `unified` com `remark-gfm`, `remark-math`, `rehype-katex` e `rehype-highlight`, parse e transformação, sem React): um documento **comum** de 256 KiB (títulos, listas, tabelas, código, fórmulas) leva **5,9 s**, e um de 64 KiB, **0,8 s**; hostis de 64 KiB: `> ` repetido **4,6 s e estoura a pilha** (`RangeError`), `$a ` 2,4 s, `$$ ` 1,8 s, crase 1,1 s, `[a](` 0,8 s; hostis de 256 KiB: `[a](` 30 s e `$a ` 13,6 s. A renderização roda a cada geração de uma página pública (ISR), no único processo do servidor. **Recomendação do Arquiteto (a decidir pelo Engenheiro Chefe, porque muda a RN25):** (1) baixar o padrão de `MAX_BODY_BYTES` de 256 KiB para **64 KiB** (cerca de 20 páginas de texto; sai de 6 s para 0,8 s no documento comum; a variável continua configurável); (2) **recusar na gravação** (`POST` e `PATCH` de conteúdo, 422 `CONTENT_TOO_COMPLEX`) o texto que não renderiza em **2 s** em um *thread* separado (`worker_threads`, encerrado no tempo; uma validação por vez, com a taxa já existente), e o aninhamento profundo (citações e listas, que estouram a pilha); (3) o Core mede e escreve os testes de custo (o modelo é o `seo-cost.test.js`). Alternativas: manter 256 KiB só com a recusa na gravação (um documento comum de 256 KiB, 5,9 s, seria recusado: incoerente); ou aceitar o risco (usuários criados pelo administrador, mas o produto prevê autores não confiáveis, ADR-027). O risco está registrado no Cap. 5 §5.12.
+
+**Status:** **ABERTO** (2026-10-06).
+
+### R-021 (conclusão) · Arquiteto → Core · 2026-10-06 · DECIDIDO pelo Engenheiro Chefe
+**Decisão (06/10/2026):** o padrão de `MAX_BODY_BYTES` baixa para **64 KiB**, também por uma razão didática (documentos muito grandes prejudicam a organização do conteúdo publicado), e a gravação recusa, com 422 `CONTENT_TOO_COMPLEX`, o texto que o *pipeline* não renderiza em 2 s (em um *thread* separado). Registrada na **ADR-033**, na RN25 e no Cap. 5 §5.12. A implementação é a **A-021** (Core), que espera o módulo `markdown-pipeline.js` da etapa 5a da UI; a mensagem do novo erro na interface é da etapa 5b.
+
+**Status:** ATENDIDO como decisão; o código é a A-021.
+
