@@ -18,6 +18,8 @@ Este apêndice descreve como instalar, executar, atualizar e proteger uma instâ
 
 \textbf{Verificação em Linux sem contorno (04/10/2026).} Com a rede do ambiente de verificação liberada para \texttt{deb.debian.org}, o Arquiteto construiu a imagem com o \arq{Dockerfile} do repositório e a base \texttt{node:24-bookworm-slim} (141~s, 1,95~GB; o \texttt{apt} do \en{proxy} do ambiente precisou de \texttt{https} e do CA dele, ajuste feito só na base de verificação), aplicou \texttt{prisma migrate deploy}, \texttt{prisma db seed} e \texttt{npm run admin:create} em contêineres descartáveis, subiu o contêiner (porta só em \texttt{127.0.0.1}, usuário \texttt{node}, \texttt{HTTP 200} em \arq{/login} com a CSP e os demais cabeçalhos, 404 em uma rota inexistente) e confirmou o \en{login} do administrador, inclusive depois de recriar o contêiner com o mesmo volume. Segue pendente só a instalação em uma VPS Linux limpa, com HTTPS (CT29).
 
+\textbf{Repetição com a imagem atual (06/10/2026, depois do M-036).} A imagem foi reconstruída do \texttt{HEAD} da \texttt{main} (cerca de 15~min sem cache, 2,05~GB) e o ensaio HTTP completo do Arquiteto (233 verificações) foi executado contra o contêiner: 233 aprovadas. O \emph{worker} de renderização (\arq{src/lib/render-worker.mjs}) está na imagem, que copia o repositório inteiro e executa \texttt{next start} na raiz; o contêiner usou cerca de 355~MB de memória em repouso, e o banco do volume sobreviveu a \texttt{down} e \texttt{up -d}.
+
 \section{Pré-requisitos}
 
 \begin{itemize}
