@@ -109,7 +109,9 @@ describe("o menu por papel e as páginas que existem", () => {
     const page = await html();
 
     expect(shell.props.role).toBe("user");
-    expect(shell.props.availablePaths).toEqual(["/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes"]);
+    expect(shell.props.availablePaths).toEqual([
+      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil",
+    ]);
     expect(page).not.toContain("Configurações");
   });
 
@@ -121,7 +123,7 @@ describe("o menu por papel e as páginas que existem", () => {
 
     expect(shell.props.role).toBe("admin");
     expect(shell.props.availablePaths).toEqual([
-      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/configuracoes",
+      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil", "/admin/configuracoes",
     ]);
     expect(page).toContain('href="/admin/configuracoes"');
   });
@@ -135,12 +137,17 @@ describe("o menu por papel e as páginas que existem", () => {
     expect(shell.props.availablePaths).not.toContain("/admin/configuracoes");
   });
 
-  it("as páginas ainda inexistentes seguem como \"em breve\"", async () => {
-    const page = await html();
+  it("o usuário comum não tem mais nada \"em breve\" (Conteúdo e Perfil existem); o administrador só tem os Usuários", async () => {
+    const user = await html();
+    for (const label of ["Conteúdo", "Perfil"]) expect(user).toContain(`href="/admin/${label === "Conteúdo" ? "conteudo" : "perfil"}"`);
+    expect(user).not.toContain("em breve");
 
-    for (const label of ["Conteúdo", "Perfil"]) expect(page).toContain(label);
-    // Duas páginas ("Conteúdo" e "Perfil") em dois menus (o recolhível do celular e o lateral).
-    expect((page.match(/em breve/g) ?? []).length).toBe(4);
+    session.user = { ...session.user, role: "admin" };
+    const admin = await html();
+    // Uma página ("Usuários", da Parte 3e-2) em dois menus (o recolhível do celular e o lateral).
+    expect((admin.match(/em breve/g) ?? []).length).toBe(2);
+    expect(admin).toContain("Usuários");
+    expect(admin).not.toContain("href=\"/admin/usuarios\"");
   });
 
   it("availablePaths só lista páginas que existem em src/app (não inventa rota)", () => {
