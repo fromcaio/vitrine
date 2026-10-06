@@ -219,16 +219,17 @@ async function loadCurrent(id, fetchImpl) {
  * @param {"DOCUMENT" | "COLLECTION"} [input.type] tipo, só na criação
  * @param {import("./draft").EditorValues} input.values campos do formulário
  * @param {string | null} [input.version] versão (`updatedAt`) em que o texto se baseou, só no PATCH
+ * @param {string} [input.reason] motivo da moderação (RF34): só no PATCH do conteúdo de OUTRO usuário
  * @param {typeof fetch} [input.fetchImpl] para testes
  * @returns {Promise<SaveResult>}
  */
-export async function saveContent({ id, parentId = null, type = "DOCUMENT", values, version = null, fetchImpl = fetch }) {
+export async function saveContent({ id, parentId = null, type = "DOCUMENT", values, version = null, reason = undefined, fetchImpl = fetch }) {
   const { title, slug, body, status } = values;
   const creating = id === null;
   const url = creating ? "/api/contents" : `/api/contents/${encodeURIComponent(id)}`;
   const payload = creating
     ? { title, slug, type, parentId, body, status }
-    : { title, slug, body, status, ...(version === null ? {} : { version }) };
+    : { title, slug, body, status, ...(version === null ? {} : { version }), ...(reason === undefined ? {} : { reason }) };
 
   try {
     const response = await fetchImpl(url, {
