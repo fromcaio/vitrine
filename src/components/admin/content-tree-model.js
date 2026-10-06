@@ -178,7 +178,8 @@ export function swapWithSibling(roots, id, direction) {
   const reordered = [...where.siblings];
   [reordered[where.index], reordered[target]] = [reordered[target], reordered[where.index]];
   const parentId = where.parent ? where.parent.id : null;
-  const numbered = reordered.map((node, order) => ({ ...node, order }));
+  // Só os nós cuja posição mudou ganham um objeto novo: os demais mantêm a identidade (as linhas memoizadas não se redesenham).
+  const numbered = reordered.map((node, order) => (node.order === order ? node : { ...node, order }));
   const next = parentId === null ? numbered : update(roots, parentId, (parent) => ({ ...parent, children: numbered }));
   return {
     roots: next,
@@ -274,4 +275,102 @@ export function expandableIds(roots) {
     ids.push(...expandableIds(node.children));
   }
   return ids;
+}
+
+/**
+ * Os ids que têm ao menos um destino de "mover" (o mesmo que `moveTargets(...).length > 0`, mas em
+ * uma só passada: com 500 nós, chamar `moveTargets` em cada um custaria 250 mil visitas a cada
+ * mudança). Quem está dentro de uma coleção sempre tem a raiz; quem está na raiz precisa de outra
+ * coleção que não seja ele nem esteja dentro dele.
+ * @param {TreeNode[]} roots
+ * @returns {Set<string>}
+ */
+export function movableIds(roots) {
+  /** @param {TreeNode[]} nodes @returns {number} */
+  const collectionsIn = (nodes) => nodes.reduce((sum, node) => sum + (node.type === "COLLECTION" ? 1 + collectionsIn(node.children) : 0), 0);
+  const total = collectionsIn(roots);
+  /** @type {Set<string>} */
+  const ids = new Set();
+  /** @param {TreeNode[]} nodes @param {boolean} atRoot */
+  const walk = (nodes, atRoot) => {
+    for (const node of nodes) {
+      const own = node.type === "COLLECTION" ? 1 + collectionsIn(node.children) : 0;
+      if (!atRoot || total - own > 0) ids.add(node.id);
+      walk(node.children, false);
+    }
+  };
+  walk(roots, true);
+  return ids;
+}
+
+/** Acima deste número de nós, a árvore abre só até o primeiro nível (o resto se expande sob demanda). */
+export const LARGE_TREE_NODES = 120;
+
+/**
+ * As coleções que começam recolhidas: nenhuma em uma árvore pequena; em uma grande (mais de
+ * `LARGE_TREE_NODES` nós), todas as que têm filhos e não são raízes, para a primeira pintura levar só
+ * os dois primeiros níveis. Com 500 nós, são cerca de 20 linhas em vez de 500.
+ * @param {TreeNode[]} roots
+ * @param {number} [limit]
+ * @returns {Set<string>}
+ */
+export function collapsedByDefault(roots, limit = LARGE_TREE_NODES) {
+  if (countNodes(roots) <= limit) return new Set();
+  const ids = new Set(expandableIds(roots));
+  for (const root of roots) ids.delete(root.id);
+  return ids;
+}
+
+/**
+ * Endereço do editor de um documento: uma função, ou um modelo de texto com `{id}`. O modelo existe
+ * porque uma página de Servidor do Next.js não consegue passar uma função a um Componente Cliente.
+ * @param {string | ((id: string) => string)} href
+ * @param {string} id
+ * @returns {string}
+ */
+export function editUrl(href, id) {
+  return typeof href === "function" ? href(id) : href.replaceAll("{id}", encodeURIComponent(id));
+}
+
+/**
+ * Endereço do formulário de novo documento, dentro de uma coleção ou na raiz: uma função, ou um objeto
+ * `{ root, child }` com `{parentId}` em `child`.
+ * @param {string | { root: string, child: string } | ((parentId: string | null) => string)} href
+ * @param {string | null} parentId
+ * @returns {string}
+ */
+export function newUrl(href, parentId) {
+  if (typeof href === "function") return href(parentId);
+  if (typeof href === "string") return href;
+  return parentId === null ? href.root : href.child.replaceAll("{parentId}", encodeURIComponent(parentId));
+}
+
+/**
+ * Concilia a árvore que o servidor devolveu com a que a tela já tem: um nó igual ao que existia
+ * (mesmos campos, mesmos filhos) continua sendo o MESMO objeto, e só o que mudou ganha um objeto novo.
+ * Sem isso, cada resposta do servidor trocaria todos os objetos e as 500 linhas se redesenhariam.
+ * @param {TreeNode[]} previous a árvore da tela
+ * @param {TreeNode[]} next a árvore recebida (já saneada)
+ * @returns {TreeNode[]} `previous` se nada mudou
+ */
+export function reconcile(previous, next) {
+  const byId = new Map(previous.map((node) => [node.id, node]));
+  let same = previous.length === next.length;
+  const merged = next.map((node, index) => {
+    const old = byId.get(node.id);
+    const children = old ? reconcile(old.children, node.children) : node.children;
+    const equal =
+      old !== undefined &&
+      old.title === node.title &&
+      old.slug === node.slug &&
+      old.type === node.type &&
+      old.status === node.status &&
+      old.parentId === node.parentId &&
+      old.order === node.order &&
+      children === old.children;
+    const result = equal ? old : children === node.children ? node : { ...node, children };
+    if (result !== previous[index]) same = false;
+    return result;
+  });
+  return same ? previous : merged;
 }

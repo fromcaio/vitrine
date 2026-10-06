@@ -4,14 +4,19 @@ import { describe, expect, it } from "vitest";
 import {
   SLUG_MAX_LENGTH,
   SLUG_PATTERN,
+  collapsedByDefault,
   countDescendants,
+  editUrl,
   countNodes,
   countPublishedDescendants,
   expandableIds,
   hidingAncestor,
   locate,
   moveTargets,
+  movableIds,
+  newUrl,
   normalizeTree,
+  reconcile,
   slugsUnder,
   suggestSlug,
   swapWithSibling,
@@ -387,5 +392,144 @@ describe("500 nós em 5 níveis", () => {
     }
     const perRound = (performance.now() - start) / 50;
     expect(perRound).toBeLessThan(20);
+  });
+});
+
+describe("movableIds (o mesmo que moveTargets, em uma passada)", () => {
+  /** @param {any[]} roots */
+  const allIds = (roots) => roots.flatMap((n) => [n.id, ...allIds(n.children)]);
+
+  it("coincide com moveTargets(...).length > 0 em cada nó da árvore de exemplo", () => {
+    const { roots } = sample();
+    const movable = movableIds(roots);
+    for (const id of allIds(roots)) expect(movable.has(id), id).toBe(moveTargets(roots, id).length > 0);
+  });
+
+  it("um único documento na raiz não tem para onde ir; uma única coleção também não", () => {
+    expect(movableIds([doc("só")]).size).toBe(0);
+    expect(movableIds([col("só")]).size).toBe(0);
+  });
+
+  it("dentro de uma coleção sempre há a raiz", () => {
+    const filho = doc("filho");
+    const pai = col("pai", [filho]);
+    expect(movableIds([pai]).has(filho.id)).toBe(true);
+    expect(movableIds([pai]).has(pai.id)).toBe(false);
+  });
+
+  it("coincide também numa árvore de 500 nós", () => {
+    const roots = [];
+    for (let i = 0; i < 5; i += 1) roots.push(col(`R${i}`, Array.from({ length: 20 }, (_, j) => (j % 4 === 0 ? col(`S${i}.${j}`, [doc("x"), doc("y")]) : doc(`D${i}.${j}`)))));
+    const movable = movableIds(roots);
+    for (const id of allIds(roots)) expect(movable.has(id)).toBe(moveTargets(roots, id).length > 0);
+  });
+});
+
+describe("collapsedByDefault", () => {
+  it("árvore pequena: nada recolhido", () => {
+    expect(collapsedByDefault(sample().roots).size).toBe(0);
+  });
+
+  it("árvore grande: as coleções com filhos que não são raízes começam recolhidas", () => {
+    const interna = col("interna", [doc("a")]);
+    const raiz = col("raiz", [interna, ...Array.from({ length: 130 }, (_, i) => doc(`d${i}`))]);
+    const collapsed = collapsedByDefault([raiz]);
+    expect(collapsed.has(interna.id)).toBe(true);
+    expect(collapsed.has(raiz.id)).toBe(false);
+  });
+
+  it("o limite é configurável e inclusivo (exatamente no limite, nada recolhido)", () => {
+    const { roots } = sample();
+    expect(collapsedByDefault(roots, 10).size).toBe(0);
+    expect(collapsedByDefault(roots, 9).size).toBeGreaterThan(0);
+  });
+});
+
+describe("endereços (função ou modelo de texto)", () => {
+  it("editUrl: função ou modelo com {id}, e o id é codificado", () => {
+    expect(editUrl((id) => `/e/${id}`, "a")).toBe("/e/a");
+    expect(editUrl("/admin/conteudo/{id}", "a b")).toBe("/admin/conteudo/a%20b");
+    expect(editUrl("/{id}/x/{id}", "k")).toBe("/k/x/k");
+  });
+
+  it("newUrl: função, texto fixo, ou { root, child } com {parentId}", () => {
+    expect(newUrl((p) => (p ? `/n?p=${p}` : "/n"), null)).toBe("/n");
+    expect(newUrl((p) => (p ? `/n?p=${p}` : "/n"), "x")).toBe("/n?p=x");
+    expect(newUrl("/novo", "x")).toBe("/novo");
+    const href = { root: "/admin/conteudo/novo", child: "/admin/conteudo/novo?pai={parentId}" };
+    expect(newUrl(href, null)).toBe("/admin/conteudo/novo");
+    expect(newUrl(href, "a b")).toBe("/admin/conteudo/novo?pai=a%20b");
+  });
+});
+
+describe("identidade dos nós (a memoização das linhas depende dela)", () => {
+  it("subir deixa o MESMO objeto nos irmãos que não mudaram de posição", () => {
+    const { roots, a, a1, a2, b } = sample();
+    // O servidor grava as ordens de 0 a n-1; o exemplo usa contadores globais.
+    [a1, a2, b].forEach((n, i) => (n.order = i));
+    const result = swapWithSibling(roots, a2.id, -1);
+    const children = locate(result?.roots ?? [], a.id)?.node.children ?? [];
+    expect(children.map((n) => n.title)).toEqual(["a2", "a1", "B"]);
+    expect(children[2]).toBe(b); // B ficou onde estava: mesmo objeto
+    expect(children[0]).not.toBe(a2); // a2 mudou de ordem: objeto novo
+    expect(children[1]).not.toBe(a1);
+  });
+
+  it("os ramos fora do nível alterado também seguem iguais", () => {
+    const { roots, e, solto, a2 } = sample();
+    const result = swapWithSibling(roots, a2.id, -1);
+    expect(result?.roots[1]).toBe(e); // (as ordens da raiz não foram tocadas)
+    expect(result?.roots[2]).toBe(solto);
+  });
+});
+
+describe("reconcile", () => {
+  /** Uma cópia profunda, como a que o servidor devolve. @param {any} value */
+  const copy = (value) => JSON.parse(JSON.stringify(value));
+
+  it("uma árvore igual (outro objeto, mesmos valores) devolve a árvore anterior", () => {
+    const { roots } = sample();
+    expect(reconcile(roots, normalizeTree(copy(roots)))).toBe(roots);
+  });
+
+  it("o que mudou ganha objeto novo, e o resto continua o mesmo", () => {
+    const { roots, c, e, a, d1 } = sample();
+    const next = normalizeTree(copy(roots));
+    next[0].children[1].title = "Renomeado"; // d1, dentro de C
+    const merged = reconcile(roots, next);
+    expect(merged).not.toBe(roots);
+    expect(merged[0]).not.toBe(c); // o caminho até o nó mudou
+    expect(merged[0].children[1].title).toBe("Renomeado");
+    expect(merged[0].children[1]).not.toBe(d1);
+    expect(merged[0].children[0]).toBe(a); // irmão de d1: o mesmo
+    expect(merged[1]).toBe(e); // ramo sem relação: o mesmo
+  });
+
+  it("um nó novo entra, um removido sai", () => {
+    const { roots, solto } = sample();
+    const added = normalizeTree([...copy(roots), { id: "novo", title: "Novo", slug: "novo", type: "DOCUMENT", status: "DRAFT", parentId: null, order: 9 }]);
+    const merged = reconcile(roots, added);
+    expect(merged).toHaveLength(4);
+    expect(merged[2]).toBe(solto);
+    expect(merged[3].id).toBe("novo");
+    const removed = reconcile(roots, normalizeTree(copy(roots.slice(0, 2))));
+    expect(removed).toHaveLength(2);
+    expect(removed[0]).toBe(roots[0]);
+  });
+
+  it("a ordem dos irmãos muda: devolve uma lista nova, reaproveitando os objetos iguais", () => {
+    const { roots } = sample();
+    const next = normalizeTree(copy(roots));
+    [next[0], next[1]] = [next[1], next[0]];
+    next[0].order = 0;
+    next[1].order = 1;
+    const merged = reconcile(roots, next);
+    expect(merged).not.toBe(roots);
+    expect(merged.map((n) => n.title)).toEqual(["E", "C", "solto"]);
+  });
+
+  it("uma lista vazia contra uma vazia é a mesma", () => {
+    const empty = [];
+    expect(reconcile(empty, [])).toBe(empty);
   });
 });
