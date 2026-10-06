@@ -440,3 +440,81 @@ export function KeyIcon(props) {
     </Icon>
   );
 }
+
+// Árvore do conteúdo (A-015, etapa 5a): tipo do nó e ações de cada linha. Sempre acompanham um
+// texto visível ou um nome acessível no botão que os contém.
+
+/** Subir entre os irmãos. @param {{ className?: string }} props */
+export function ArrowUpIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </Icon>
+  );
+}
+
+/** Descer entre os irmãos. @param {{ className?: string }} props */
+export function ArrowDownIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14" />
+      <path d="m6 13 6 6 6-6" />
+    </Icon>
+  );
+}
+
+/** Coleção. @param {{ className?: string }} props */
+export function FolderIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M3 6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </Icon>
+  );
+}
+
+/** Mover para outra coleção. @param {{ className?: string }} props */
+export function MoveIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M5 12h14" />
+      <path d="m15 8 4 4-4 4" />
+      <path d="M5 5v14" />
+    </Icon>
+  );
+}
+
+/** Excluir. @param {{ className?: string }} props */
+export function TrashIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </Icon>
+  );
+}
+
+/** Criar. @param {{ className?: string }} props */
+export function PlusIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+/** Oculto pelo pai (o olho riscado). @param {{ className?: string }} props */
+export function EyeOffIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 6.2A9.8 9.8 0 0 1 12 6c5 0 8.5 4.2 9.5 6a12 12 0 0 1-2.6 3.2" />
+      <path d="M6.6 7.6A12 12 0 0 0 2.5 12c1 1.8 4.5 6 9.5 6 1.5 0 2.8-.4 4-1" />
+      <path d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+    </Icon>
+  );
+}

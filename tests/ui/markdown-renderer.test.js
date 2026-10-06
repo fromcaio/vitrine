@@ -110,23 +110,9 @@ describe("MarkdownRenderer: Markdown básico e contrato do componente", () => {
     const source = fs.readFileSync(path.join(COMPONENT_DIR, "MarkdownRenderer.js"), "utf8");
     expect(source).not.toMatch(/^\s*["']use client["']/m);
     const imports = [...source.matchAll(/^import\s+(?:[^"']*\sfrom\s+)?["']([^"']+)["']/gm)].map(([, name]) => name);
-    expect(imports.sort()).toEqual(
-      [
-        "./markdown.css",
-        "highlight.js/lib/languages/fortran",
-        "highlight.js/lib/languages/haskell",
-        "highlight.js/lib/languages/julia",
-        "highlight.js/lib/languages/latex",
-        "highlight.js/lib/languages/matlab",
-        "katex/dist/katex.min.css",
-        "lowlight",
-        "react-markdown",
-        "rehype-highlight",
-        "rehype-katex",
-        "remark-gfm",
-        "remark-math",
-      ].sort(),
-    );
+    // O pipeline (plugins, KaTeX e realce) vem de markdown-pipeline.js, a fonte única (ADR-033): o
+    // renderizador só importa o React, o módulo do pipeline e as folhas de estilo.
+    expect(imports.sort()).toEqual(["./markdown-pipeline", "./markdown.css", "katex/dist/katex.min.css", "react-markdown"].sort());
   });
 
   it("importa a folha do KaTeX uma vez, do pacote instalado, e nunca de uma CDN", () => {

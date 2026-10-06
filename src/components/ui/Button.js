@@ -17,6 +17,12 @@ const VARIANTS = {
   /** Ação secundária, sobre fundos claros: só neutros, independe da paleta. */
   outline:
     "border border-border-strong bg-background text-foreground enabled:hover:bg-surface enabled:hover:border-foreground",
+  /**
+   * Ação destrutiva (excluir): o token de erro como fundo e o do fundo da página como texto, que dá
+   * mais de 6:1 nos dois modos (#B91C1C sobre #FFFFFF; #F87171 sobre #0A0A0A). Só neutros e o erro.
+   */
+  danger:
+    "border border-danger bg-danger text-background enabled:hover:bg-foreground enabled:hover:border-foreground",
 };
 
 /**

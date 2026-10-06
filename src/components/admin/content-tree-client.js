@@ -1,0 +1,142 @@
+// Cliente da API de conteúdo para a árvore do painel (RF03, RF06, RF07, RF26; Cap. 5 §5.10): lê a
+// árvore, cria coleção, publica ou despublica, move, reordena em lote e exclui, e traduz cada
+// resposta em um resultado que a árvore sabe mostrar, com mensagens em português. Módulo sem React.
+// O servidor é a autoridade (RF21): aqui só se interpreta a resposta.
+//
+// Limites do servidor: escritas de conteúdo, 60 por minuto (429); 500 conteúdos por usuário (RN25,
+// 422 `QUOTA_EXCEEDED`); árvore até 5 níveis. Um 404 em um nó é "excluído em outra aba".
+import { normalizeTree } from "./content-tree-model";
+
+/**
+ * @typedef {"unauthenticated" | "forbidden" | "rate-limited" | "not-found" | "slug-conflict" | "quota" | "invalid-parent" | "rejected" | "server" | "network"} FailureKind
+ * @typedef {{ ok: false, kind: FailureKind, message: string, suggestion?: string }} Failure
+ */
+
+export const MESSAGES = {
+  unauthenticated: "Sua sessão expirou. Entre de novo para continuar.",
+  forbidden: "Você não tem permissão para esta operação.",
+  passwordChange: "Troque a senha provisória antes de editar o conteúdo.",
+  rateLimited: "Muitas alterações em pouco tempo. Aguarde um instante e tente de novo.",
+  notFound: "Este conteúdo não existe mais; talvez tenha sido excluído em outra aba. A árvore foi recarregada.",
+  slugConflict: "Já existe um conteúdo com este slug neste nível.",
+  quota: "Você atingiu o limite de conteúdos do seu espaço. Exclua algum para criar outro.",
+  invalidParent: "O destino não aceita este conteúdo (precisa ser uma coleção sua, sem formar um ciclo). A árvore foi recarregada.",
+  rejected: "O servidor não aceitou o pedido. Recarregue a página e tente de novo.",
+  server: "O servidor não conseguiu atender agora. Tente de novo em instantes.",
+  network: "Não foi possível conectar ao servidor. Confira a conexão e tente de novo.",
+};
+
+/**
+ * @param {Response} response
+ * @returns {Promise<Failure>}
+ */
+async function failureOf(response) {
+  /** @type {any} */
+  let body = null;
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+  const status = response.status;
+  const code = typeof body?.error?.code === "string" ? body.error.code : "";
+  /** @param {FailureKind} kind @param {string} message @param {Partial<Failure>} [extra] @returns {Failure} */
+  const fail = (kind, message, extra) => ({ ok: false, kind, message, ...extra });
+  if (status === 401) return fail("unauthenticated", MESSAGES.unauthenticated);
+  if (status === 403) return fail("forbidden", code === "PASSWORD_CHANGE_REQUIRED" ? MESSAGES.passwordChange : MESSAGES.forbidden);
+  if (status === 404) return fail("not-found", MESSAGES.notFound);
+  if (status === 409 && code === "SLUG_CONFLICT") {
+    const suggestion = body?.error?.details?.[0]?.suggestion;
+    return fail("slug-conflict", MESSAGES.slugConflict, typeof suggestion === "string" && suggestion !== "" ? { suggestion } : undefined);
+  }
+  if (status === 429) {
+    const seconds = Number.parseInt(response.headers.get("Retry-After") ?? "", 10);
+    const wait = Number.isFinite(seconds) && seconds > 0 ? ` Tente de novo em ${seconds} ${seconds === 1 ? "segundo" : "segundos"}.` : "";
+    return fail("rate-limited", `${MESSAGES.rateLimited}${wait}`);
+  }
+  if (status === 422 && code === "QUOTA_EXCEEDED") return fail("quota", MESSAGES.quota);
+  if (status === 422 && (code === "INVALID_PARENT" || code === "CYCLE_DETECTED")) return fail("invalid-parent", MESSAGES.invalidParent);
+  if (status === 400 || status === 409 || status === 422) return fail("rejected", MESSAGES.rejected);
+  return fail("server", MESSAGES.server);
+}
+
+/**
+ * @template T
+ * @param {() => Promise<Response>} send
+ * @param {(body: any) => T} read o que extrair de uma resposta ok
+ * @returns {Promise<({ ok: true } & T) | Failure>}
+ */
+async function request(send, read) {
+  try {
+    const response = await send();
+    if (!response.ok) return await failureOf(response);
+    const body = response.status === 204 ? null : await response.json().catch(() => null);
+    return { ok: true, ...read(body) };
+  } catch {
+    return { ok: false, kind: "network", message: MESSAGES.network };
+  }
+}
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+/**
+ * A árvore do dono da sessão, com os rascunhos (`GET /api/contents`).
+ * @param {typeof fetch} [fetchImpl] para testes
+ */
+export function fetchTree(fetchImpl = fetch) {
+  return request(
+    () => fetchImpl("/api/contents", { cache: "no-store" }),
+    (body) => ({ tree: normalizeTree(body?.data) }),
+  );
+}
+
+/**
+ * Cria uma coleção (`POST /api/contents`), no fim do nível do pai.
+ * @param {{ title: string, slug: string, parentId: string | null }} input
+ * @param {typeof fetch} [fetchImpl] para testes
+ */
+export function createCollection({ title, slug, parentId }, fetchImpl = fetch) {
+  return request(
+    () => fetchImpl("/api/contents", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ title: title.trim(), slug, type: "COLLECTION", parentId }) }),
+    (body) => ({ id: typeof body?.data?.id === "string" ? body.data.id : null }),
+  );
+}
+
+/**
+ * @param {string} id
+ * @param {Record<string, unknown>} patch
+ * @param {typeof fetch} [fetchImpl]
+ */
+function patch(id, patch, fetchImpl = fetch) {
+  return request(
+    () => fetchImpl(`/api/contents/${encodeURIComponent(id)}`, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(patch) }),
+    () => ({}),
+  );
+}
+
+/** Publica ou despublica (RF26, RN16). @param {string} id @param {"PUBLISHED" | "DRAFT"} status @param {typeof fetch} [fetchImpl] */
+export const setStatus = (id, status, fetchImpl) => patch(id, { status }, fetchImpl);
+
+/** Move para o fim de outra coleção, ou da raiz com `null` (RF07). @param {string} id @param {string | null} parentId @param {typeof fetch} [fetchImpl] */
+export const moveTo = (id, parentId, fetchImpl) => patch(id, { parentId }, fetchImpl);
+
+/**
+ * Grava a ordem de um nível (`PATCH /api/contents/reorder`): o lote transacional com todos os irmãos
+ * renumerados. Devolve a árvore atualizada.
+ * @param {{ id: string, parentId: string | null, order: number }[]} items
+ * @param {typeof fetch} [fetchImpl] para testes
+ */
+export function reorder(items, fetchImpl = fetch) {
+  return request(
+    () => fetchImpl("/api/contents/reorder", { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(items) }),
+    (body) => ({ tree: normalizeTree(body?.data) }),
+  );
+}
+
+/** Exclui o nó e os descendentes (RN07). @param {string} id @param {typeof fetch} [fetchImpl] */
+export function deleteContent(id, fetchImpl = fetch) {
+  return request(
+    () => fetchImpl(`/api/contents/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    () => ({}),
+  );
+}
