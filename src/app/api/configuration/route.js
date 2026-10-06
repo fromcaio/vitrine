@@ -38,7 +38,7 @@ export const PUT = route({ action: "site:update", mutation: true, rate: "content
 
   // ADR-033: o texto do portal também passa pelo orçamento de renderização, depois da cota em bytes e antes
   // de gravar (422 `CONTENT_TOO_COMPLEX`, `field: "homeBody"`).
-  await assertRenderable(patch.homeBody, "homeBody");
+  await assertRenderable(patch.homeBody, "homeBody", { userId: actor.id });
 
   const configuration = await updateConfiguration(patch);
 

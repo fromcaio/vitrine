@@ -243,3 +243,25 @@ describe("o servidor continua respondendo durante a validação", () => {
     expect(worst).toBeLessThan(200);
   }, 30_000);
 });
+
+describe("A-022: a fila é justa entre usuários (o worker real)", () => {
+  it("a Ana com uma hostil em andamento: a SEGUNDA gravação dela recebe 503 BUSY, a do Beto é atendida (201), e a dela volta a funcionar", async () => {
+    const beto = await createUserSession({ email: "beto@exemplo.test", name: "Beto", handle: "beto" });
+    await checkRenderable("# aquece o worker");
+    const before = stats.checks;
+
+    const hostile = create({ ...document, body: HOSTILE_64K });
+    await vi.waitFor(() => expect(stats.checks).toBe(before + 1)); // a validação da Ana chegou ao worker
+    const second = await create({ ...document, slug: "b", body: "# segunda da Ana" });
+    const betos = create({ ...document, slug: "do-beto", body: "# Do Beto\n\nTexto normal." }, beto.cookie);
+
+    expect(second.status).toBe(503);
+    expect(second.headers.get("retry-after")).toBe("3");
+    expect((await errorOf(second)).code).toBe("BUSY");
+    expect((await hostile).status).toBe(422); // a hostil é recusada por complexidade
+    expect((await betos).status).toBe(201); // o Beto NÃO recebeu 503: esperou a vez e foi atendido
+    // Terminou: a Ana volta a gravar.
+    expect((await create({ ...document, slug: "c", body: "# Depois" })).status).toBe(201);
+    expect(await prisma.content.count({ where: { authorId: ana.id } })).toBe(1);
+  }, 60_000);
+});

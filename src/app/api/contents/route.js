@@ -39,7 +39,7 @@ export const POST = route({ action: "content:create", mutation: true, rate: "con
   // ADR-033: primeiro a cota em bytes (barata), depois o orçamento de renderização (um worker), e só então
   // se grava. Um texto complexo demais responde 422 `CONTENT_TOO_COMPLEX` sem criar nada.
   assertBodyWithinQuota(input.body, limits);
-  await assertRenderable(input.body, "body");
+  await assertRenderable(input.body, "body", { userId: actor.id });
 
   const snapshot = await captureSpace(actor.id);
   const content = await withSlugSuggestion({ slug: input.slug, parentId, ownerId: actor.id }, () =>

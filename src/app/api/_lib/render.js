@@ -28,12 +28,13 @@ export function assertBodyWithinQuota(body, limits) {
  * 503 `BUSY` com `Retry-After`. Quem a chama só grava depois que ela retorna.
  * @param {string | null | undefined} markdown
  * @param {"body" | "homeBody"} field
- * @param {{ budgetMs?: number }} [options]
+ * @param {{ budgetMs?: number, userId?: string }} [options] `userId`: quem grava (o `actor.id`); no máximo UMA
+ *   validação por usuário em andamento ou na fila (A-022): a segunda recebe 503 `BUSY`
  */
-export async function assertRenderable(markdown, field, { budgetMs = RENDER_BUDGET_MS } = {}) {
+export async function assertRenderable(markdown, field, { budgetMs = RENDER_BUDGET_MS, userId } = {}) {
   if (typeof markdown !== "string" || markdown === "") return;
   try {
-    const check = await checkRenderable(markdown, { budgetMs });
+    const check = await checkRenderable(markdown, { budgetMs, userId });
     if (!check.renderable) throw contentTooComplex(field, { reason: check.reason, budgetMs });
   } catch (error) {
     if (error instanceof RenderBusyError) throw renderBusy(error.retryAfter);
