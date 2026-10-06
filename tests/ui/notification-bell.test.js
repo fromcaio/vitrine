@@ -290,11 +290,15 @@ describe("volta da janela ao primeiro plano", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("deixa de ouvir o foco e a visibilidade ao desmontar", async () => {
+  it("deixa de ouvir o foco e a visibilidade ao desmontar (solta os ouvintes, e não só ignora o que chega)", async () => {
     const fetchMock = stubFetch();
+    const removedFromWindow = vi.spyOn(window, "removeEventListener");
+    const removedFromDocument = vi.spyOn(document, "removeEventListener");
     const { unmount } = render(<NotificationBell initialUnreadCount={0} />);
     await advance(11_000);
     unmount();
+    expect(removedFromWindow.mock.calls.map(([type]) => type)).toContain("focus");
+    expect(removedFromDocument.mock.calls.map(([type]) => type)).toContain("visibilitychange");
     act(() => {
       window.dispatchEvent(new Event("focus"));
       document.dispatchEvent(new Event("visibilitychange"));
