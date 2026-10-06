@@ -1,8 +1,9 @@
 // Worker do orçamento de renderização (A-021, ADR-033; Cap. 5 §5.12): roda DENTRO de um `worker_threads`
 // iniciado por `render-budget.js`, nunca no processo do servidor. Executa o MESMO pipeline do
-// `MarkdownRenderer` (a configuração vem de `markdown-pipeline.js`, a única fonte: nada é copiado aqui):
-// `remark-parse`, os plugins do remark, `remark-rehype` com as opções e os plugins do rehype; parse e
-// `run`, sem React. Não conhece o banco, a sessão nem o ambiente.
+// `MarkdownRenderer`: o processador vem de `render-processor.mjs`, que o monta com as listas de
+// `markdown-pipeline.js` (a única fonte da configuração; nada é copiado aqui): `remark-parse`, os plugins do
+// remark, `remark-rehype` com as opções e os plugins do rehype; parse e `run`, sem React. Não conhece o banco,
+// a sessão nem o ambiente.
 //
 // Protocolo: ao terminar de carregar, envia `{ type: "ready" }`; para cada `{ id, markdown }` recebido,
 // responde `{ id, ok: true }` ou `{ id, ok: false, error }`. Qualquer exceção (a pilha estourada por um
@@ -12,18 +13,11 @@
 // os `.js` do repositório). O `markdown-pipeline.js` é ESM em um pacote sem `type`: o Node o relê como
 // ESM e avisa (`MODULE_TYPELESS_PACKAGE_JSON`, inofensivo); `render-budget.js` desliga esse aviso só aqui.
 import { parentPort } from "node:worker_threads";
-import remarkParse from "remark-parse";
-import remarkRehype from "remark-rehype";
-import { unified } from "unified";
-import {
-  REHYPE_PLUGINS,
-  REMARK_PLUGINS,
-  REMARK_REHYPE_OPTIONS,
-} from "../components/markdown/markdown-pipeline.js";
+import { createProcessor } from "./render-processor.mjs";
 
 const port = /** @type {import("node:worker_threads").MessagePort} */ (parentPort);
 
-const processor = unified().use(remarkParse).use(REMARK_PLUGINS).use(remarkRehype, REMARK_REHYPE_OPTIONS).use(REHYPE_PLUGINS);
+const processor = createProcessor();
 
 port.on("message", async (/** @type {{ id: number, markdown: string }} */ { id, markdown }) => {
   try {
