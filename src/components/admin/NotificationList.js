@@ -277,7 +277,8 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
                     {formatDate(item.createdAt)}
                   </time>
                 </div>
-                <h3 className="font-semibold break-words">{item.title}</h3>
+                {/* h2: a página tem o h1 e a lista de notificações vem logo abaixo, sem h2 no meio (o axe, `heading-order`). */}
+                <h2 className="font-semibold break-words">{item.title}</h2>
                 <p className="break-words whitespace-pre-line">{item.text}</p>
                 <div className="flex flex-wrap gap-2">
                   {unread ? (

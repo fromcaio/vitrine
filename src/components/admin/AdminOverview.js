@@ -79,12 +79,13 @@ export function AdminOverview({ user, counts, limits, unreadCount, spaceHref = n
                 {counts.contents}
                 {maxContents ? <span className="text-base font-normal text-muted"> de {maxContents}</span> : null}
               </dd>
+              {/* Dentro da lista de definição, só `dt` e `dd` (o axe, `definition-list`): a barra e a porcentagem são mais dois `dd` do mesmo termo. */}
               {percent !== null ? (
                 <>
-                  <div aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full border border-border-strong bg-background">
+                  <dd aria-hidden="true" className="mt-2 h-2 overflow-hidden rounded-full border border-border-strong bg-background">
                     <div className="h-full bg-foreground" style={{ width: `${percent}%` }} />
-                  </div>
-                  <p className="mt-1 text-xs text-muted">{percent}% da cota usada.</p>
+                  </dd>
+                  <dd className="mt-1 text-xs text-muted">{percent}% da cota usada.</dd>
                 </>
               ) : null}
             </div>
