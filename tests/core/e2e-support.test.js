@@ -8,6 +8,11 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { removeRunDirectory } from "../../e2e/support/database.js";
 import { RUN_DIR_PREFIX, e2eEnvironment, isRunDirectory } from "../../e2e/support/env.js";
+import { sandboxTmpdir } from "./tmp-sandbox.js";
+
+// O `os.tmpdir()` destes testes é uma pasta descartável: se a salvaguarda for removida, o código sob teste não
+// pode ter o diretório temporário do usuário como alvo.
+sandboxTmpdir();
 
 const KEYS = ["VITRINE_E2E_DIR", "VITRINE_E2E_PORT", "VITRINE_E2E_SECRET"];
 /** @type {Record<string, string | undefined>} */
@@ -44,23 +49,22 @@ function pointRunAt(dir) {
 }
 
 describe("isRunDirectory", () => {
-  const tmp = os.tmpdir();
-
+  // `os.tmpdir()` é lido a cada chamada: o `beforeAll` o redireciona para a pasta descartável do arquivo.
   it("aceita vitrine-e2e-* diretamente em os.tmpdir()", () => {
-    expect(isRunDirectory(path.join(tmp, `${RUN_DIR_PREFIX}abc123`))).toBe(true);
-    expect(isRunDirectory(path.join(tmp, RUN_DIR_PREFIX))).toBe(true);
+    expect(isRunDirectory(path.join(os.tmpdir(), `${RUN_DIR_PREFIX}abc123`))).toBe(true);
+    expect(isRunDirectory(path.join(os.tmpdir(), RUN_DIR_PREFIX))).toBe(true);
   });
 
   it.each([
-    ["o próprio os.tmpdir()", () => tmp],
-    ["outro nome em os.tmpdir()", () => path.join(tmp, "meus-dados")],
-    ["um prefixo parecido", () => path.join(tmp, "vitrine-e2e")],
-    ["um subdiretório de uma rodada", () => path.join(tmp, `${RUN_DIR_PREFIX}abc`, "sub")],
-    ["um ../ que sai da rodada", () => path.join(tmp, `${RUN_DIR_PREFIX}abc`, "..", "meus-dados")],
-    ["a raiz do sistema de arquivos", () => path.parse(tmp).root],
+    ["o próprio os.tmpdir()", () => os.tmpdir()],
+    ["outro nome em os.tmpdir()", () => path.join(os.tmpdir(), "meus-dados")],
+    ["um prefixo parecido", () => path.join(os.tmpdir(), "vitrine-e2e")],
+    ["um subdiretório de uma rodada", () => path.join(os.tmpdir(), `${RUN_DIR_PREFIX}abc`, "sub")],
+    ["um ../ que sai da rodada", () => path.join(os.tmpdir(), `${RUN_DIR_PREFIX}abc`, "..", "meus-dados")],
+    ["a raiz do sistema de arquivos", () => path.parse(os.tmpdir()).root],
     ["o diretório do repositório", () => process.cwd()],
     ["um caminho relativo", () => `${RUN_DIR_PREFIX}abc`],
-    ["o diretório pai de os.tmpdir()", () => path.dirname(tmp)],
+    ["o diretório pai de os.tmpdir()", () => path.dirname(os.tmpdir())],
   ])("recusa %s", (_label, build) => {
     expect(isRunDirectory(build())).toBe(false);
   });

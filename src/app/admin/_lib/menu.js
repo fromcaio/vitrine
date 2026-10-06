@@ -13,7 +13,7 @@ const USER_PATHS = [
 ];
 
 /** Páginas só do administrador (as outras respondem 404 a um usuário comum). */
-const ADMIN_PATHS = ["/admin/configuracoes"];
+const ADMIN_PATHS = ["/admin/configuracoes", "/admin/usuarios"];
 
 /**
  * @param {"admin" | "user"} role
