@@ -160,6 +160,11 @@ r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}`); check("novo: ?pai
 r = await call(bob, "GET", `/admin/conteudo/novo?pai=${bId}`); check("novo: ?pai= documento -> 404", r.status === 404, `${r.status}`);
 r = await call(bob, "GET", `/admin/conteudo/novo?pai=${aId}&pai=${aId}`); check("novo: ?pai= repetido -> 404", r.status === 404, `${r.status}`);
 r = await call(bob, "GET", "/admin/conteudo/novo?pai=idinexistente123"); check("novo: ?pai= inexistente -> 404", r.status === 404, `${r.status}`);
+r = await call(bob, "GET", "/admin/aparencia"); check("aparência: o usuário comum abre a própria (200, noindex)", r.status === 200 && /noindex/.test(r.text), `${r.status}`);
+r = await call(null, "GET", "/admin/aparencia"); check("aparência: sem sessão -> redireciona ao login", (r.status === 307 || r.status === 302 || r.status === 308) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
+r = await call(bob, "GET", "/admin/configuracoes"); check("configurações: usuário comum -> 404 (a página não existe para ele)", r.status === 404, `${r.status}`);
+r = await call(admin, "GET", "/admin/configuracoes"); check("configurações: o administrador abre (200, noindex)", r.status === 200 && /noindex/.test(r.text), `${r.status}`);
+r = await call(admin, "GET", "/admin/aparencia"); check("aparência: o administrador abre a própria, não a de outro (200)", r.status === 200 && !/bob@exemplo/.test(r.text), `${r.status}`);
 // --- espaços públicos, portal e Proxy (M-022 e M-024)
 const naoExiste = /não existe ou não está disponível/;
 r = await call(null, "GET", "/admin-site"); check("espaço do administrador (/admin-site): 200, lang pt-BR, envoltório, <html> sem style", r.status === 200 && /lang="pt-BR"/.test(r.text) && /vitrine-tema/.test(r.text) && !/<html[^>]*style=/.test(r.text), `${r.status}`);
