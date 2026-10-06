@@ -199,13 +199,28 @@ r = await call(admin, "PUT", "/api/configuration", { homeBody: hostil }); check(
   check(`GET /login durante a validação responde em menos de 500 ms (${ms} ms)`, login.status === 200 && ms < 500, `${login.status} ${ms} ms`);
   await lenta;
 }
-// fila cheia: 1 em andamento + 3 esperando; os demais recebem 503 BUSY com Retry-After
+// A-022 (M-035): no máximo UMA validação por usuário (em andamento ou na fila). Sete envios hostis simultâneos da
+// MESMA conta: um é validado (422), os outros recebem 503 BUSY com Retry-After de 3 segundos.
 {
   const lote = await Promise.all(Array.from({ length: 7 }, (_, k) => call(bob, "POST", "/api/contents", { title: "Fila " + k, slug: "fila-" + k, type: "DOCUMENT", body: hostil })));
   const por = (st) => lote.filter((x) => x.status === st).length;
   const ocupado = lote.find((x) => x.status === 503);
-  check(`7 validações simultâneas: só 422 e 503 (${por(422)}x422, ${por(503)}x503)`, por(422) + por(503) === 7 && por(503) >= 1 && por(422) >= 1, lote.map((x) => x.status).join(","));
+  check(`7 envios hostis simultâneos da mesma conta: 1 validado (422) e 6 recusados (503) (${por(422)}x422, ${por(503)}x503)`, por(422) === 1 && por(503) === 6, lote.map((x) => x.status).join(","));
   check("503 BUSY com Retry-After de 3 segundos", ocupado?.json?.error?.code === "BUSY" && ocupado?.headers.get("retry-after") === "3", `${ocupado?.text?.slice(0, 120)} ${ocupado?.headers.get("retry-after")}`);
+}
+// Um usuário não bloqueia o outro: com o texto hostil do Bob em validação, a gravação normal do administrador é
+// atendida (201), e uma segunda gravação do próprio Bob, não (503).
+{
+  const hostilDoBob = call(bob, "POST", "/api/contents", { title: "Hostil 2", slug: "hostil-2", type: "DOCUMENT", body: hostil });
+  await new Promise((res) => setTimeout(res, 100));
+  // as duas ao mesmo tempo: a validação hostil do Bob ainda está em andamento quando as duas chegam
+  const [doAdmin, segundaDoBob] = await Promise.all([
+    call(admin, "POST", "/api/contents", { title: "Normal do admin", slug: "normal-do-admin", type: "DOCUMENT", body: "texto curto do administrador" }),
+    call(bob, "POST", "/api/contents", { title: "Segunda do Bob", slug: "segunda-do-bob", type: "DOCUMENT", body: "texto curto" }),
+  ]);
+  check("com a validação hostil do Bob em andamento, o administrador grava normalmente (201)", doAdmin.status === 201, `${doAdmin.status} ${doAdmin.text.slice(0, 120)}`);
+  check("com a validação hostil do Bob em andamento, a segunda gravação do próprio Bob recebe 503 BUSY", segundaDoBob.status === 503 && code(segundaDoBob) === "BUSY", `${segundaDoBob.status} ${segundaDoBob.text.slice(0, 120)}`);
+  const fim = await hostilDoBob; check("a validação hostil do Bob termina com 422 CONTENT_TOO_COMPLEX", fim.status === 422 && code(fim) === "CONTENT_TOO_COMPLEX", `${fim.status}`);
 }
 r = await call(bob, "POST", "/api/contents", { title: "Depois da fila", slug: "depois", type: "DOCUMENT", body: "texto curto" }); check("depois da fila cheia, a gravação normal volta a funcionar (201)", r.status === 201, `${r.status} ${r.text.slice(0, 120)}`);
 // --- M-034: /admin/conteudo, /admin/perfil e o PATCH /api/users/me com campos extras

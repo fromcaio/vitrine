@@ -81,6 +81,15 @@ CORE=[
  ("src/app/admin/_lib/content-tree.js","      if (node.status === \"PUBLISHED\") counts.published += 1;\n","      counts.published += 1;\n","M64 todo conteúdo conta como publicado"),
  ("src/app/admin/_lib/menu.js","  \"/admin/perfil\",\n","","M65 o perfil some do menu"),
  ("src/app/admin/perfil/page.js","spaceHref={spaceHrefOf(handle)}","spaceHref=\"/sem-handle\"","M66 o perfil sempre aponta a um espaço"),
+ # M-035 (A-022: uma validação por usuário) e M-036 (Parte 3e-2: usuários e moderação)
+ ("src/lib/render-budget.js","    if (userId !== undefined && inFlight.has(userId)) return Promise.reject(new RenderBusyError());\n","","M67 o teto de uma validação por usuário removido"),
+ ("src/lib/render-budget.js","    if (job.userId !== undefined) inFlight.delete(job.userId);","","M68 o usuário nunca é liberado (o teto vaza)"),
+ ("src/lib/render-budget.js","    if (userId !== undefined) inFlight.add(userId);\n","","M69 o usuário nunca é registrado (o teto não vale)"),
+ ("src/app/admin/_lib/users.js"," || content.authorId !== ownerId","","M70 o documento a moderar não precisa ser do usuário da URL"),
+ ("src/app/admin/_lib/users.js"," || content.type !== \"DOCUMENT\"","","M71 a moderação aceita uma coleção como documento"),
+ ("src/app/admin/usuarios/page.js","requireSession({ role: \"admin\", path: \"/admin/usuarios\" })","requireSession({ path: \"/admin/usuarios\" })","M72 o usuário comum abre /admin/usuarios"),
+ ("src/app/admin/_lib/menu.js","  \"/admin/perfil\",\n];","  \"/admin/perfil\",\n  \"/admin/usuarios\",\n];","M73 o usuário comum vê o link de Usuários"),
+ ("src/app/admin/_lib/users.js","JSON.stringify({ data: users.map(publicUser), total","JSON.stringify({ data: users, total","M74 a lista de usuários da página traz o que não é público (hash, contas)"),
 ]
 
 DADOS=[
