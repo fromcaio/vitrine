@@ -1,7 +1,7 @@
 // redos-seo.mjs -- ensaio de custo quadrático (ReDoS) das funções de texto que tocam entrada do usuário.
 // Uso (a partir da raiz do repositório, com a branch a verificar no diretório):
 //   node doc/revisao/redos-seo.mjs
-// Roda  (src/lib/seo.js) sobre 20 entradas hostis de 256 KiB (o limite de um corpo, RN25).
+// Roda plainDescription (src/lib/seo.js; só existe na branch do SEO, M-027) sobre 20 entradas hostis de 256 KiB (o limite de um corpo, RN25).
 // Cada linha mostra o tempo em ms; QUALQUER caso acima de ~50 ms é um achado (a função roda no servidor, que é
 // um só processo: um documento pode travá-lo). Nasceu da revisão do M-027 (R-018: 123 s com "[" repetido).
 import { plainDescription } from "../../src/lib/seo.js";
