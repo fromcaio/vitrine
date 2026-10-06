@@ -8,6 +8,7 @@ import { adminLogin, apiLogin, createAccount, createContent } from "./support/ac
 import { expect, test } from "./support/test.js";
 
 const ANA = { email: "ana-limite-e2e@exemplo.test", name: "Ana do Limite", handle: "limite-ana", password: "senha-ana-limite-9" };
+const BETO = { email: "beto-limite-e2e@exemplo.test", name: "Beto do Limite", handle: "limite-beto", password: "senha-beto-limite-9" };
 /** Um asterisco em torre de 64 KiB: cabe na cota (65 535 bytes) e o renderizador leva mais de 40 s nele. */
 const HOSTILE = `${"*".repeat(32_767)}a${"*".repeat(32_767)}`;
 
@@ -29,6 +30,8 @@ test.describe.serial("limite do corpo e orçamento de renderização", () => {
   let admin;
   /** @type {import("@playwright/test").APIRequestContext} */
   let ana;
+  /** @type {import("@playwright/test").APIRequestContext} */
+  let beto;
   let anaId = "";
   let documentId = "";
 
@@ -39,12 +42,14 @@ test.describe.serial("limite do corpo e orçamento de renderização", () => {
     const account = await createAccount(playwright, admin, ANA);
     anaId = account.id;
     ana = await apiLogin(playwright, account);
+    beto = await apiLogin(playwright, await createAccount(playwright, admin, BETO));
     documentId = (await createContent(ana, { title: "Aula", slug: "aula", type: "DOCUMENT", body: "Texto original." })).id;
   });
 
   test.afterAll(async () => {
     await admin?.dispose();
     await ana?.dispose();
+    await beto?.dispose();
   });
 
   test("o documento comum de 62 KiB é aceito: o worker carrega no build de produção e valida (201)", async () => {
@@ -113,24 +118,41 @@ test.describe.serial("limite do corpo e orçamento de renderização", () => {
     expect(response.status()).toBe(200);
   });
 
-  test("a fila cheia responde 503 BUSY com Retry-After, e as demais são recusadas por complexidade (nada gravado)", async () => {
+  test("no máximo UMA validação por usuário (A-022): seis POSTs hostis simultâneos da mesma conta dão 1 x 422 e 5 x 503 (Retry-After), nada gravado", async () => {
     test.setTimeout(120_000);
     const before = (await (await ana.get("/api/contents")).json()).data.length;
 
-    // Seis textos hostis ao mesmo tempo: 1 validando, 3 esperando (até 2 s cada) e 2 recusados na hora.
+    // Seis textos hostis ao mesmo tempo, da mesma conta: um é validado (2 s) e recusado por complexidade; as
+    // outras cinco encontram a validação da conta em andamento e recebem 503 NA HORA.
     const responses = await Promise.all(
       Array.from({ length: 6 }, (_, i) => ana.post("/api/contents", { data: { title: `H${i}`, slug: `h${i}`, type: "DOCUMENT", body: HOSTILE } })),
     );
 
     const statuses = responses.map((response) => response.status()).sort();
-    console.log(`DIAG seis POSTs hostis simultâneos: ${statuses.join(", ")}`);
+    console.log(`DIAG seis POSTs hostis simultâneos da mesma conta: ${statuses.join(", ")}`);
+    expect(statuses.filter((status) => status === 422)).toHaveLength(1);
     const busy = responses.filter((response) => response.status() === 503);
-    expect(busy.length).toBeGreaterThanOrEqual(1);
+    expect(busy).toHaveLength(5);
     for (const response of busy) {
       expect(response.headers()["retry-after"]).toBe("3");
       expect((await response.json()).error.code).toBe("BUSY");
     }
-    expect(statuses.filter((status) => status === 422).length).toBeGreaterThanOrEqual(3);
     expect((await (await ana.get("/api/contents")).json()).data.length).toBe(before);
+  });
+
+  test("um usuário não impede os outros (A-022): com a hostil da Ana em andamento, a gravação normal do Beto é atendida (201), e a da Ana volta depois", async () => {
+    test.setTimeout(120_000);
+
+    const hostile = ana.post("/api/contents", { data: { title: "Hostil", slug: "hostil-2", type: "DOCUMENT", body: HOSTILE } });
+    await new Promise((resolve) => setTimeout(resolve, 300)); // a validação da Ana está em andamento
+    const start = performance.now();
+    const normal = await beto.post("/api/contents", { data: { title: "Do Beto", slug: "do-beto", type: "DOCUMENT", body: "# Do Beto\n\nTexto normal." } });
+    const waited = performance.now() - start;
+    console.log(`DIAG gravação normal do Beto durante a hostil da Ana: ${normal.status()} em ${waited.toFixed(0)} ms`);
+
+    expect(normal.status()).toBe(201); // o Beto NÃO recebeu 503
+    expect((await hostile).status()).toBe(422);
+    const again = await ana.post("/api/contents", { data: { title: "Normal", slug: "normal-da-ana", type: "DOCUMENT", body: "# Normal" } });
+    expect(again.status()).toBe(201); // a Ana é liberada ao terminar
   });
 });
