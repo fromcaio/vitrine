@@ -63,6 +63,24 @@ CORE=[
  ("src/app/admin/_lib/session.js","if (session.user.mustChangePassword && !allowTemporaryPassword) {","if (false) {","M47 a senha provisória não leva à troca"),
  ("src/app/admin/_lib/password-redirect.js","return pathname === PASSWORD_PAGE || pathname.startsWith(`${PASSWORD_PAGE}/`) ? \"/admin\" : target;","return target;","M48 a troca de senha pode voltar a si mesma (laço)"),
  ("src/app/(portal)/page.js","configuration?.directoryEnabled ? await listPublicSpaces() : null","await listPublicSpaces()","M49 o diretório aparece com directoryEnabled desligado"),
+ # M-032 (A-021: 64 KiB e o orçamento de renderização) e M-034 (Parte 3e-1)
+ ("src/app/api/contents/route.js","  await assertRenderable(input.body, \"body\");\n","","M50 POST de conteúdo sem o orçamento de renderização"),
+ ("src/app/api/contents/[id]/route.js","      await assertRenderable(patch.body, \"body\");\n","","M51 PATCH do corpo (e a moderação) sem o orçamento"),
+ ("src/app/api/configuration/route.js","  await assertRenderable(patch.homeBody, \"homeBody\");\n","","M52 homeBody sem o orçamento"),
+ ("src/app/api/_lib/render.js","    if (!check.renderable) throw contentTooComplex(field, { reason: check.reason, budgetMs });\n","","M53 o texto complexo demais é aceito"),
+ ("src/app/api/_lib/render.js","    if (error instanceof RenderBusyError) throw renderBusy(error.retryAfter);\n","","M54 fila cheia vira 500 em vez de 503 BUSY"),
+ ("src/lib/render-budget.js","    if (running && waiting.length >= maxWaiting) return Promise.reject(new RenderBusyError());\n","","M55 a fila de validações não tem limite"),
+ ("src/lib/render-budget.js","          stats.terminated += 1;\n          worker.off(\"exit\", onError);\n          worker.terminate().catch(() => {});\n","          stats.terminated += 1;\n          worker.off(\"exit\", onError);\n","M56 o worker não é encerrado quando o tempo acaba"),
+ ("src/lib/limits.js","export const DEFAULT_MAX_BODY_BYTES = 64 * 1024;","export const DEFAULT_MAX_BODY_BYTES = 256 * 1024;","M57 o padrão do corpo volta a 256 KiB"),
+ ("src/app/api/contents/route.js","  assertBodyWithinQuota(input.body, limits);\n","","M58 a cota barata deixa de vir antes do worker"),
+ ("src/lib/render-budget.js","export const RETRY_AFTER_SECONDS = 3;","export const RETRY_AFTER_SECONDS = 0;","M59 Retry-After zerado"),
+ ("src/lib/render-worker.mjs",".use(REMARK_PLUGINS)","","M60 o worker não usa os plugins do remark (valida outro pipeline)"),
+ ("src/lib/render-worker.mjs",".use(REHYPE_PLUGINS)","","M61 o worker não usa os plugins do rehype (valida outro pipeline)"),
+ ("src/app/admin/conteudo/page.js","getContentTree({ ownerId: user.id })","getContentTree({ ownerId: \"outro-usuario\" })","M62 a árvore da página não é a do dono da sessão"),
+ ("src/app/admin/page.js","counts={countContents(tree)}","counts={{ contents: 0, published: 0, drafts: 0 }}","M63 a visão geral não conta o conteúdo"),
+ ("src/app/admin/_lib/content-tree.js","      if (node.status === \"PUBLISHED\") counts.published += 1;\n","      counts.published += 1;\n","M64 todo conteúdo conta como publicado"),
+ ("src/app/admin/_lib/menu.js","  \"/admin/perfil\",\n","","M65 o perfil some do menu"),
+ ("src/app/admin/perfil/page.js","spaceHref={spaceHrefOf(handle)}","spaceHref=\"/sem-handle\"","M66 o perfil sempre aponta a um espaço"),
 ]
 
 DADOS=[

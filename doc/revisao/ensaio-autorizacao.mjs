@@ -172,6 +172,54 @@ r = await call(null, "GET", "/admin/notificacoes"); check("notificações: sem s
 r = await call(bob, "GET", "/admin/aparencia"); check("sino no cabeçalho do painel, com o contador no rótulo acessível", /Notificações, 1 não lida/.test(r.text), r.text.slice(0, 100));
 r = await call(bob, "GET", "/admin"); check("menu do usuário comum: sem os links de Configurações e Usuários (o cartão \"em breve\" da visão geral não é o menu)", r.status === 200 && !/href="\/admin\/configuracoes"/.test(r.text) && !/href="\/admin\/usuarios"/.test(r.text) && /href="\/admin\/notificacoes"/.test(r.text), `${r.status}`);
 r = await call(admin, "GET", "/admin"); check("menu do administrador: com o link de Configurações", /href="\/admin\/configuracoes"/.test(r.text), `${r.status}`);
+// --- A-021 (M-032): 64 KiB e o orçamento de renderização na gravação (ADR-033)
+const comum = "# Título\n\nUm parágrafo com **negrito**, `código` e a fórmula $x^2$.\n\n".repeat(800);
+const hostil = "> ".repeat(30000);
+const contar = async () => (await call(bob, "GET", "/api/contents")).json?.data?.length;
+let antes = await contar();
+r = await call(bob, "POST", "/api/contents", { title: "Comum grande", slug: "comum-grande", type: "DOCUMENT", body: comum }); check("documento comum de ~57 KiB -> 201 (renderiza dentro do orçamento)", r.status === 201, `${r.status} ${r.text.slice(0, 160)}`);
+antes = await contar();
+r = await call(bob, "POST", "/api/contents", { title: "Hostil", slug: "hostil", type: "DOCUMENT", body: hostil });
+check("texto hostil de 60 KiB (> repetido) -> 422 CONTENT_TOO_COMPLEX, campo body", r.status === 422 && code(r) === "CONTENT_TOO_COMPLEX" && r.json?.error?.details?.[0]?.field === "body", `${r.status} ${r.text.slice(0, 200)}`);
+check("422 CONTENT_TOO_COMPLEX: mensagem exata em português", r.json?.error?.message === "O texto é complexo demais para publicar: simplifique-o ou divida-o em partes.", r.json?.error?.message);
+check("422 CONTENT_TOO_COMPLEX: nada foi gravado", (await contar()) === antes, `${antes} -> ${await contar()}`);
+r = await call(bob, "POST", "/api/contents", { title: "Cota", slug: "cota", type: "DOCUMENT", body: "a".repeat(70 * 1024) }); check("70 KiB -> 422 QUOTA_EXCEEDED (a cota barata vem antes do orçamento)", r.status === 422 && code(r) === "QUOTA_EXCEEDED" && r.json?.error?.details?.[0]?.max === 65536, `${r.status} ${r.text.slice(0, 160)}`);
+let cur = (await call(bob, "GET", `/api/contents/${bId}`)).json?.data;
+r = await call(bob, "PATCH", `/api/contents/${bId}`, { body: hostil, version: cur?.updatedAt }); check("PATCH com texto hostil -> 422 CONTENT_TOO_COMPLEX", r.status === 422 && code(r) === "CONTENT_TOO_COMPLEX", `${r.status} ${r.text.slice(0, 160)}`);
+check("PATCH recusado: o corpo gravado não mudou", (await call(bob, "GET", `/api/contents/${bId}`)).json?.data?.body === cur?.body, "o corpo mudou");
+r = await call(bob, "PATCH", `/api/contents/${bId}`, { title: "Do Bob (retitulado)" }); check("PATCH só do título não passa pelo orçamento (200)", r.status === 200, `${r.status} ${r.text.slice(0, 120)}`);
+cur = (await call(bob, "GET", `/api/contents/${bId}`)).json?.data;
+r = await call(admin, "PATCH", `/api/contents/${bId}`, { body: hostil, reason: "teste", version: cur?.updatedAt }); check("moderação do corpo com texto hostil -> 422 CONTENT_TOO_COMPLEX (a moderação também passa)", r.status === 422 && code(r) === "CONTENT_TOO_COMPLEX", `${r.status} ${r.text.slice(0, 160)}`);
+r = await call(admin, "PUT", "/api/configuration", { homeBody: hostil }); check("PUT /api/configuration com homeBody hostil -> 422 CONTENT_TOO_COMPLEX, campo homeBody", r.status === 422 && code(r) === "CONTENT_TOO_COMPLEX" && r.json?.error?.details?.[0]?.field === "homeBody", `${r.status} ${r.text.slice(0, 160)}`);
+// o laço de eventos não bloqueia: um GET /login durante a validação responde depressa
+{
+  const lenta = call(bob, "POST", "/api/contents", { title: "Lenta", slug: "lenta", type: "DOCUMENT", body: hostil });
+  await new Promise((res) => setTimeout(res, 150));
+  const t0 = performance.now(); const login = await call(null, "GET", "/login"); const ms = Math.round(performance.now() - t0);
+  check(`GET /login durante a validação responde em menos de 500 ms (${ms} ms)`, login.status === 200 && ms < 500, `${login.status} ${ms} ms`);
+  await lenta;
+}
+// fila cheia: 1 em andamento + 3 esperando; os demais recebem 503 BUSY com Retry-After
+{
+  const lote = await Promise.all(Array.from({ length: 7 }, (_, k) => call(bob, "POST", "/api/contents", { title: "Fila " + k, slug: "fila-" + k, type: "DOCUMENT", body: hostil })));
+  const por = (st) => lote.filter((x) => x.status === st).length;
+  const ocupado = lote.find((x) => x.status === 503);
+  check(`7 validações simultâneas: só 422 e 503 (${por(422)}x422, ${por(503)}x503)`, por(422) + por(503) === 7 && por(503) >= 1 && por(422) >= 1, lote.map((x) => x.status).join(","));
+  check("503 BUSY com Retry-After de 3 segundos", ocupado?.json?.error?.code === "BUSY" && ocupado?.headers.get("retry-after") === "3", `${ocupado?.text?.slice(0, 120)} ${ocupado?.headers.get("retry-after")}`);
+}
+r = await call(bob, "POST", "/api/contents", { title: "Depois da fila", slug: "depois", type: "DOCUMENT", body: "texto curto" }); check("depois da fila cheia, a gravação normal volta a funcionar (201)", r.status === 201, `${r.status} ${r.text.slice(0, 120)}`);
+// --- M-034: /admin/conteudo, /admin/perfil e o PATCH /api/users/me com campos extras
+r = await call(bob, "GET", "/admin/conteudo"); check("conteúdo: o dono abre a árvore (200, noindex, os títulos dele)", r.status === 200 && /noindex/.test(r.text) && /Comum grande/.test(r.text), `${r.status}`);
+check("conteúdo: a árvore do Bob não traz o conteúdo do administrador", !/Doc admin/.test(r.text) && !/Do admin/.test(r.text), "o texto do administrador apareceu");
+r = await call(bob, "GET", `/admin/conteudo?ownerId=${(await call(admin, "GET", "/api/users/me")).json?.data?.id}`); check("conteúdo: ?ownerId= de outro usuário não muda nada (a árvore é a da sessão)", r.status === 200 && !/Doc admin/.test(r.text), `${r.status}`);
+r = await call(admin, "GET", "/admin/conteudo"); check("conteúdo: o administrador vê a árvore dele, sem a do Bob", r.status === 200 && /Doc admin/.test(r.text) && !/Comum grande/.test(r.text), `${r.status}`);
+r = await call(null, "GET", "/admin/conteudo"); check("conteúdo: sem sessão -> redireciona ao login", [301, 302, 307, 308].includes(r.status) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
+r = await call(bob, "GET", "/admin/perfil"); check("perfil: o dono abre a própria página (200, noindex, o e-mail dele)", r.status === 200 && /noindex/.test(r.text) && /bob@exemplo\.test/.test(r.text), `${r.status}`);
+check("perfil: não traz o e-mail de outro usuário", !/admin@exemplo\.test/.test(r.text), "o e-mail do administrador apareceu");
+r = await call(null, "GET", "/admin/perfil"); check("perfil: sem sessão -> redireciona ao login", [301, 302, 307, 308].includes(r.status) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
+r = await call(bob, "GET", "/admin"); check("menu do usuário comum: agora com os links de Conteúdo e Perfil", /href="\/admin\/conteudo"/.test(r.text) && /href="\/admin\/perfil"/.test(r.text), `${r.status}`);
+r = await call(bob, "PATCH", "/api/users/me", { name: "Bob Dois", role: "admin", handle: "novohandle", banned: true }); check("PATCH /api/users/me com campos extras: 200, o nome muda", r.status === 200 && r.json?.data?.name === "Bob Dois", `${r.status} ${r.text.slice(0, 120)}`);
+r = await call(bob, "GET", "/api/users/me"); check("PATCH /api/users/me: papel e handle seguem intactos, a conta não foi banida", r.json?.data?.role === "user" && r.json?.data?.handle === "bob" && r.json?.data?.suspended === false, r.text.slice(0, 160));
 // --- espaços públicos, portal e Proxy (M-022 e M-024)
 const naoExiste = /não existe ou não está disponível/;
 r = await call(null, "GET", "/admin-site"); check("espaço do administrador (/admin-site): 200, lang pt-BR, envoltório, <html> sem style", r.status === 200 && /lang="pt-BR"/.test(r.text) && /vitrine-tema/.test(r.text) && !/<html[^>]*style=/.test(r.text), `${r.status}`);
@@ -196,7 +244,7 @@ r = await call(null, "GET", "/sitemap.xml"); check("índice do portal: XML de si
 r = await call(null, "GET", "/admin-site/do-admin/doc"); check("documento: título, descrição e canônico no HTML (sem marcação na descrição)", r.status === 200 && /<title>[^<]*<\/title>/.test(r.text) && /<meta name="description" content="[^"<*#\[]*"/.test(r.text) && /rel="canonical"/.test(r.text), `${r.status}`);
 r = await call(null, "GET", "/"); check("portal: 200 com o envoltório", r.status === 200 && /vitrine-tema/.test(r.text), `${r.status}`);
 // cotas e corpo
-r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo > 256 KiB -> 413 ou 422", r.status === 413 || r.status === 422, `${r.status}`);
+r = await call(bob, "POST", "/api/contents", { title: "Grande", slug: "grande", type: "DOCUMENT", body: "a".repeat(300 * 1024) }); check("corpo de 300 KiB (acima do limite de leitura de 192 KiB) -> 413", r.status === 413, `${r.status}`);
 r = await call(bob, "POST", "/api/contents", "x".repeat(2 * 1024 * 1024), { "content-type": "application/json" }); check("corpo de 2 MiB -> 413", r.status === 413, `${r.status}`);
 const adminIdEarly = (await call(admin, "GET", "/api/users/me")).json?.data?.id;
 // usuários: comum
