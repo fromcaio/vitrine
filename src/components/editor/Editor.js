@@ -115,6 +115,8 @@ const KEEP_LOCALLY = new Set([
   "missing-version",
   "quota",
   "rate-limited",
+  "too-complex",
+  "busy",
   "server",
   "network",
 ]);
