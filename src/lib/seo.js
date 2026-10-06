@@ -22,7 +22,7 @@ export const ANALYSIS_LIMIT = 4000;
  * Teto de qualquer trecho entre delimitadores (colchetes, endereço, matemática, comentário, ênfase,
  * código em linha): um trecho maior não é tratado como construção e fica como texto.
  */
-export const SPAN = 500;
+export const SPAN = 300;
 
 /** Recuo máximo de uma marca de linha (títulos, listas, cercas); mais que isso nunca muda o resultado. */
 const INDENT = 50;

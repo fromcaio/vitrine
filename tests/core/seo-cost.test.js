@@ -13,9 +13,8 @@ import { ANALYSIS_LIMIT, SPAN, plainDescription, stripMarkdown } from "@/lib/seo
 const KB = 256 * 1024;
 /** Teto de uma chamada sobre 256 KiB (o ensaio do Arquiteto pede 50 ms; o folgado absorve a carga da suíte). */
 const CAP_MS = 150;
-/** Janela larga do ensaio dos quantificadores, e o teto dela (limitado: ~100 ms; sem limite: segundos). */
-const WIDE_WINDOW = 32 * 1024;
-const WIDE_CAP_MS = 1000;
+/** Teto de uma chamada do ensaio dos quantificadores (a janela de cada caso o separa do custo quadrático). */
+const WIDE_CAP_MS = 400;
 
 /** Os 20 casos do ensaio do Arquiteto (`doc/revisao/redos-seo.mjs`) e variantes: nunca devem passar do teto. */
 const HOSTILE = {
@@ -98,43 +97,38 @@ describe("plainDescription: custo sobre entrada hostil de 256 KiB (R-018)", () =
   });
 });
 
-describe("stripMarkdown: todo quantificador tem teto (janela larga)", () => {
-  // O corte do começo esconde o custo de um quantificador sem teto (4000 caracteres ainda passam rápido);
-  // com uma janela de 32 KiB, o quadrático vira segundos e o limitado segue em ~100 ms.
-  const wide = Object.entries({
-    "colchetes sem fechar": "[".repeat(WIDE_WINDOW),
-    "colchetes abertos": "[a](".repeat(WIDE_WINDOW / 4),
-    "imagens abertas": "![a](".repeat(WIDE_WINDOW / 5),
-    "imagem de referência aberta": "![a][".repeat(WIDE_WINDOW / 5),
-    "referência aberta": "[a][".repeat(WIDE_WINDOW / 4),
-    "definição de referência": "[a]: ".repeat(WIDE_WINDOW / 5),
-    "nota de rodapé aberta": "[^a ".repeat(WIDE_WINDOW / 4),
-    "dólar duplo aberto": "$$ ".repeat(WIDE_WINDOW / 3),
-    "dólar simples alternado": "$a ".repeat(WIDE_WINDOW / 3),
-    "dólar simples em uma linha": `$${"a".repeat(WIDE_WINDOW)}`,
-    "comentário aberto": "<!-- ".repeat(WIDE_WINDOW / 5),
-    "tags abertas": "<a ".repeat(WIDE_WINDOW / 3),
-    "negrito aberto": "**a ".repeat(WIDE_WINDOW / 4),
-    "sublinhado duplo aberto": "__a ".repeat(WIDE_WINDOW / 4),
-    "til duplo aberto": "~~a ".repeat(WIDE_WINDOW / 4),
-    "itálico aberto": "*a ".repeat(WIDE_WINDOW / 3),
-    "itálico de sublinhado aberto": "_a ".repeat(WIDE_WINDOW / 3),
-    "crases em fila": "`".repeat(WIDE_WINDOW),
-    "crase simples": "`a ".repeat(WIDE_WINDOW / 3),
-    "régua": "- ".repeat(WIDE_WINDOW / 2),
-    "tabela": `|${"-|".repeat(WIDE_WINDOW / 2)}`,
-    "linha só de traços": "-".repeat(WIDE_WINDOW),
-    "espaços longos": `${" ".repeat(WIDE_WINDOW)}x`,
-    "espaços e cerquilhas": " #".repeat(WIDE_WINDOW / 2),
-    "citações": ">".repeat(WIDE_WINDOW),
-    "lista": `1${".".repeat(0)}${" ".repeat(WIDE_WINDOW)}`,
-    "título": `#${" ".repeat(WIDE_WINDOW)}`,
-  });
+describe("stripMarkdown: todo quantificador que varre até um delimitador tem teto (janela larga)", () => {
+  // O corte do começo esconde o custo de um quantificador sem teto (4000 caracteres ainda passam rápido).
+  // Com uma janela larga o quadrático aparece: cada caso abaixo tem a janela em que a expressão SEM teto leva
+  // de 1 a 4 s (medida) e a limitada, de 20 a 150 ms; o teto separa as duas. Cada linha é um delimitador
+  // que abre e nunca fecha, repetido até a janela.
+  const cases = [
+    ["comentário HTML aberto", "<!--", 128 * 1024],
+    ["tag aberta sem espaço", "<a", 64 * 1024],
+    ["tag aberta com espaço", "<a ", 64 * 1024],
+    ["imagem aberta", "![a](", 64 * 1024],
+    ["colchete sem fechar (link, referência e nota)", "[", 48 * 1024],
+    ["link aberto", "[a](", 64 * 1024],
+    ["nota de rodapé aberta", "[^a ", 64 * 1024],
+    ["espaços em fila (tabela e cerquilha de fechamento)", " ", 64 * 1024],
+    ["tabulações em fila", "\t", 64 * 1024],
+    ["negrito aberto", "**a ", 64 * 1024],
+    ["sublinhado duplo aberto", "__a ", 64 * 1024],
+    ["tachado aberto", "~~a ", 96 * 1024],
+  ].map(([label, unit, window]) => [label, unit.repeat(Math.ceil(window / unit.length)).slice(0, window), window]);
 
-  it.each(wide)("%s", (_label, input) => {
-    const ms = timed(() => stripMarkdown(input, WIDE_WINDOW));
+  it.each(cases)("%s", (_label, input, window) => {
+    const ms = timed(() => stripMarkdown(input, window));
 
     expect(ms).toBeLessThan(WIDE_CAP_MS);
+  });
+
+  it.each([
+    ["negrito dentro do teto", "**curto**", "curto"],
+    ["link dentro do teto: fica o texto", "[curto](http://a)", "curto"],
+    ["comentário dentro do teto: some", "a <!-- c --> b", "a b"],
+  ])("a construção dentro do teto continua valendo: %s", (_label, input, expected) => {
+    expect(stripMarkdown(input)).toBe(expected);
   });
 });
 
