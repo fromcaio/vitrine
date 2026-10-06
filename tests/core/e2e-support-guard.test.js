@@ -6,6 +6,11 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { sandboxTmpdir } from "./tmp-sandbox.js";
+
+// O `os.tmpdir()` destes testes é uma pasta descartável: sem a salvaguarda, `removeRunDirectory` apagaria o que
+// recebesse (aqui, até o próprio `os.tmpdir()`), e o do usuário não pode ser o alvo.
+sandboxTmpdir();
 
 const target = vi.hoisted(() => ({ dir: "" }));
 
