@@ -8,6 +8,10 @@
 // RN18: o PATCH informa `version`, o `updatedAt` do conteúdo que o autor abriu. Se o conteúdo mudou
 // depois, o servidor responde 409 VERSION_CONFLICT sem alterar nada; este módulo então busca o
 // texto atual (GET) para o editor mostrar os dois textos e deixar o autor escolher qual enviar.
+//
+// Moderação (RF34, RN19): ao editar o conteúdo de OUTRO usuário, o administrador informa o motivo, e o
+// PATCH leva `reason` junto com `version`; o dono é notificado com o motivo.
+import { TOO_COMPLEX_MESSAGE, busyMessage } from "@/components/ui/render-errors";
 
 /**
  * Erro de um campo, para mostrar junto dele. `suggestion` é um slug livre (UC05, fluxo A1).
@@ -25,9 +29,11 @@
  * - `quota`: 422 com o código QUOTA_EXCEEDED (ADR-023) ou 413, conteúdo ou texto acima do limite
  * - `validation`: 422 ou 400, dado recusado pelo servidor
  * - `rate-limited`: 429, envios demais em pouco tempo
+ * - `too-complex`: 422 CONTENT_TOO_COMPLEX, o texto não renderiza a tempo (ADR-033)
+ * - `busy`: 503 BUSY, a fila de validação do servidor está cheia (ADR-033)
  * - `server`: 5xx
  * - `network`: sem resposta (rede fora do ar)
- * @typedef {"unauthenticated" | "forbidden" | "not-found" | "conflict" | "version-conflict" | "missing-version" | "quota" | "validation" | "rate-limited" | "server" | "network"} FailureKind
+ * @typedef {"unauthenticated" | "forbidden" | "not-found" | "conflict" | "version-conflict" | "missing-version" | "quota" | "validation" | "rate-limited" | "too-complex" | "busy" | "server" | "network"} FailureKind
  */
 
 /**
@@ -59,6 +65,9 @@ const MESSAGES = {
   quota: "O limite de conteúdos ou o tamanho máximo do texto foi atingido.",
   validation: "O servidor recusou alguns dados. Corrija os campos indicados e envie de novo.",
   "rate-limited": "Muitos envios em pouco tempo. Aguarde um instante e tente de novo.",
+  // O motivo da recusa fica junto do campo do texto; esta é a linha geral.
+  "too-complex": "O texto não foi enviado.",
+  busy: busyMessage(null),
   server: "O servidor não conseguiu salvar agora. Tente de novo em instantes.",
   network: "Não foi possível conectar ao servidor. Confira a conexão e tente de novo.",
 };
@@ -137,6 +146,11 @@ export async function interpretResponse(response) {
   if (response.status === 404) return failure("not-found");
   if (response.status === 413 || (response.status === 422 && error?.code === "QUOTA_EXCEEDED")) return failure("quota", { message });
   if (response.status === 429) return failure("rate-limited");
+  // ADR-033: o texto não renderiza em 2 s (a mensagem fica junto do campo do texto) ou a fila está cheia.
+  if (response.status === 422 && error?.code === "CONTENT_TOO_COMPLEX") {
+    return failure("too-complex", { fieldErrors: [{ field: "body", message: TOO_COMPLEX_MESSAGE }] });
+  }
+  if (response.status === 503 && error?.code === "BUSY") return failure("busy", { message: busyMessage(response.headers.get("Retry-After")) });
   if (response.status === 409 && error?.code === "VERSION_CONFLICT") {
     // A mensagem é a do editor, que diz o que fazer em seguida; o texto do servidor vem do GET.
     return {
@@ -205,16 +219,17 @@ async function loadCurrent(id, fetchImpl) {
  * @param {"DOCUMENT" | "COLLECTION"} [input.type] tipo, só na criação
  * @param {import("./draft").EditorValues} input.values campos do formulário
  * @param {string | null} [input.version] versão (`updatedAt`) em que o texto se baseou, só no PATCH
+ * @param {string} [input.reason] motivo da moderação (RF34): só no PATCH do conteúdo de OUTRO usuário
  * @param {typeof fetch} [input.fetchImpl] para testes
  * @returns {Promise<SaveResult>}
  */
-export async function saveContent({ id, parentId = null, type = "DOCUMENT", values, version = null, fetchImpl = fetch }) {
+export async function saveContent({ id, parentId = null, type = "DOCUMENT", values, version = null, reason = undefined, fetchImpl = fetch }) {
   const { title, slug, body, status } = values;
   const creating = id === null;
   const url = creating ? "/api/contents" : `/api/contents/${encodeURIComponent(id)}`;
   const payload = creating
     ? { title, slug, type, parentId, body, status }
-    : { title, slug, body, status, ...(version === null ? {} : { version }) };
+    : { title, slug, body, status, ...(version === null ? {} : { version }), ...(reason === undefined ? {} : { reason }) };
 
   try {
     const response = await fetchImpl(url, {

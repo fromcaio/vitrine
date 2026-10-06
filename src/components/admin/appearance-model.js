@@ -10,6 +10,7 @@
 // Primeiro de todos: configura o Zod antes de o validators.js criar os esquemas dele (ADR-022).
 import "@/components/editor/zod-config";
 import { colorError } from "@/components/ui/ColorField";
+import { TOO_COMPLEX_MESSAGE, busyMessage } from "@/components/ui/render-errors";
 import { bodyBytes } from "@/lib/limits";
 import { DEFAULT_PALETTES, contrastWarnings, themeStyleOf } from "@/lib/theme";
 import { isAssetUrl, isHttpUrl } from "@/lib/validators";
@@ -280,6 +281,9 @@ export async function interpretFailure(response, kind) {
     return { fields: {}, general: `${MESSAGES.rateLimited}${wait}` };
   }
   if (status === 413) return { fields: { homeBody: "O texto do portal é grande demais para ser enviado." }, general: "" };
+  // ADR-033: o texto do portal não renderiza a tempo (junto do campo) ou a fila de validação está cheia.
+  if (status === 422 && body?.error?.code === "CONTENT_TOO_COMPLEX") return { fields: { homeBody: TOO_COMPLEX_MESSAGE }, general: "" };
+  if (status === 503 && body?.error?.code === "BUSY") return { fields: {}, general: busyMessage(response.headers.get("Retry-After")) };
   if (status === 422 || status === 400) {
     /** @type {Record<string, string>} */
     const fields = {};

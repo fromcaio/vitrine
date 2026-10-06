@@ -10,7 +10,7 @@ import { SiteAppearanceForm } from "./SiteAppearanceForm";
  *   /api/configuration` a devolve (`data`): os mesmos campos da aparência, mais `homeBody` e
  *   `directoryEnabled`
  * @param {number} [props.maxBodyBytes] limite do texto do portal em bytes (RN25), o que o Core lê de
- *   `MAX_BODY_BYTES`; o padrão é o de `DEFAULT_MAX_BODY_BYTES` (256 KiB)
+ *   `MAX_BODY_BYTES`; o padrão é o de `DEFAULT_MAX_BODY_BYTES` (64 KiB desde a ADR-033)
  */
 export function ConfigurationForm({ initial, maxBodyBytes }) {
   return <SiteAppearanceForm kind="configuration" initial={initial} maxBodyBytes={maxBodyBytes} />;

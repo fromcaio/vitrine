@@ -13,6 +13,7 @@
 import { useDeferredValue, useEffect, useId, useRef, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { StatusToggle } from "@/components/admin/StatusToggle";
+import { ModerationDialog } from "@/components/admin/ModerationDialog";
 import { Button } from "@/components/ui/Button";
 import { Field, describedBy } from "@/components/ui/Field";
 import { AlertIcon } from "@/components/ui/icons";
@@ -115,6 +116,8 @@ const KEEP_LOCALLY = new Set([
   "missing-version",
   "quota",
   "rate-limited",
+  "too-complex",
+  "busy",
   "server",
   "network",
 ]);
@@ -164,11 +167,16 @@ function ConflictVersion({ heading, values }) {
  *   (do servidor, ou os padrões de um conteúdo novo)
  * @param {string | null} [props.version] versão do servidor em que `initialValue` se baseia (por
  *   exemplo, o `updatedAt`); serve para saber se um rascunho local ficou defasado
- * @param {(values: EditorValues, context: { version: string | null }) => Promise<SaveResult>} props.onSubmit
- *   envia a nova versão; `context.version` é a versão em que o texto se baseia (RN18)
+ * @param {(values: EditorValues, context: { version: string | null, reason?: string }) => Promise<SaveResult>} props.onSubmit
+ *   envia a nova versão; `context.version` é a versão em que o texto se baseia (RN18); na moderação,
+ *   `context.reason` é o motivo
+ * @param {{ ownerName: string }} [props.moderation] modo de MODERAÇÃO (RF34): o conteúdo é de OUTRO usuário.
+ *   Mostra um aviso permanente e, a cada envio, o `ModerationDialog` pede o motivo (o envio leva `reason`
+ *   e `version`). O rascunho local usa uma chave PRÓPRIA da moderação (`<usuário>:moderacao`), que não
+ *   colide com o do administrador editando o que é dele
  */
-export function Editor({ userId, contentId, initialValue, version = null, onSubmit }) {
-  const draftKey = draftStorageKey(userId, contentId);
+export function Editor({ userId, contentId, initialValue, version = null, onSubmit, moderation = undefined }) {
+  const draftKey = draftStorageKey(moderation ? `${userId}:moderacao` : userId, contentId);
   const base = useId();
   // `${id}-hint` e `${id}-error` são os identificadores que `Field` e `describedBy` esperam.
   const ids = {
@@ -201,6 +209,9 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   const [loginHint, setLoginHint] = useState(false);
   const [slugSuggestion, setSlugSuggestion] = useState(/** @type {string | null} */ (null));
   const [tab, setTab] = useState(/** @type {"edit" | "preview"} */ ("edit"));
+  // Moderação: o envio que espera o motivo, e o último motivo dado (reaproveitado ao sobrescrever depois de um conflito).
+  const [asking, setAsking] = useState(/** @type {{ data: EditorValues, baseVersion: string | null } | null} */ (null));
+  const [lastReason, setLastReason] = useState(/** @type {string | null} */ (null));
 
   const textareaRef = useRef(/** @type {HTMLTextAreaElement | null} */ (null));
   // O slug acompanha o título (UC05) até o autor escrever nele; um conteúdo que já existe não muda.
@@ -375,8 +386,10 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
    * atual do servidor.
    * @param {EditorValues} data
    * @param {string | null} baseVersion
+   * @param {string} [reason] o motivo, só na moderação
+   * @returns {Promise<SaveResult>}
    */
-  async function send(data, baseVersion) {
+  async function send(data, baseVersion, reason = undefined) {
     setProblem(null);
     setLoginHint(false);
     setSlugSuggestion(null);
@@ -385,7 +398,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     /** @type {SaveResult} */
     let result;
     try {
-      result = await onSubmit(data, { version: baseVersion });
+      result = await onSubmit(data, reason === undefined ? { version: baseVersion } : { version: baseVersion, reason });
     } catch {
       result = UNEXPECTED_FAILURE;
     }
@@ -399,7 +412,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
       // O servidor guardou o título sem espaços nas pontas: a tela passa a mostrá-lo assim, a
       // não ser que o autor já tenha voltado a editá-lo enquanto o envio estava em andamento.
       if (titleAsTyped !== data.title && getValues("title") === titleAsTyped) setValue("title", data.title);
-      return;
+      return result;
     }
 
     // RN18: o conteúdo mudou no servidor. Com o texto dele em mãos, o autor vê os dois e escolhe;
@@ -408,8 +421,11 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
       const stored = writeDraft(draftKey, { values: data, baseVersion });
       if (stored) setSavedDraft(stored);
       setVersionConflict({ mine: data, server: result.server });
-      return;
+      return result;
     }
+
+    // Moderação: o servidor recusou só o motivo (422): a mensagem vai ao diálogo, e o texto segue na tela.
+    if (reason !== undefined && result.fieldErrors.length > 0 && result.fieldErrors.every((error) => error.field === "reason")) return result;
 
     // Erros de campo (422 e 409) ficam junto do campo; o resto, em uma mensagem geral.
     const outsideTheForm = [];
@@ -434,13 +450,37 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     }
     setLoginHint(result.kind === "unauthenticated");
     setProblem(message);
+    return result;
   }
 
   const submit = handleSubmit(async (data) => {
     // O mesmo vale para o envio: removeria o rascunho em conflito, que o autor ainda não viu.
     if (blocked) return;
+    // Moderação: o motivo vem antes do envio.
+    if (moderation) {
+      setAsking({ data, baseVersion: serverVersion });
+      return;
+    }
     await send(data, serverVersion);
   });
+
+  /**
+   * Moderação: envia com o motivo dado. Se o servidor recusou o motivo, a mensagem volta ao diálogo, que
+   * fica aberto; qualquer outro resultado (enviado, conflito de versão, erro) fecha o diálogo e a tela
+   * do editor mostra o que aconteceu, como num envio comum.
+   * @param {string} reason
+   * @returns {Promise<string | null>}
+   */
+  async function confirmModeration(reason) {
+    if (!asking) return null;
+    const { data, baseVersion } = asking;
+    const result = await send(data, baseVersion, reason);
+    const refused = result.ok ? undefined : result.fieldErrors.find((error) => error.field === "reason");
+    if (refused) return refused.message;
+    setAsking(null);
+    setLastReason(result.ok ? null : reason);
+    return null;
+  }
 
   /**
    * Escolha explícita de sobrescrever (RN18): o texto do autor volta a ser o do formulário e é
@@ -452,7 +492,13 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     const { mine, server } = versionConflict;
     setVersionConflict(null);
     reset(mine);
-    await send(mine, server.version);
+    // Moderação: reaproveita o motivo já dado; se não há, pede.
+    if (moderation && lastReason === null) {
+      setAsking({ data: mine, baseVersion: server.version });
+      return;
+    }
+    const result = await send(mine, server.version, moderation ? (lastReason ?? undefined) : undefined);
+    if (moderation && result.ok) setLastReason(null);
   }
 
   /**
@@ -469,6 +515,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
     setServerVersion(server.version);
     setVersionConflict(null);
     setProblem(null);
+    setLastReason(null);
     setNotice({ kind: "server-adopted" });
   }
 
@@ -500,7 +547,17 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   }
 
   return (
+    <>
     <form onSubmit={submit} noValidate aria-busy={isSubmitting} className="flex flex-col gap-5">
+      {moderation ? (
+        <div role="note" className="flex items-start gap-2 rounded-md border-2 border-foreground bg-surface p-3 text-sm">
+          <AlertIcon className="mt-0.5 size-5 shrink-0" />
+          <p className="wrap-anywhere">
+            Você está editando o conteúdo de <strong className="font-semibold">{moderation.ownerName}</strong>. Cada envio pede um motivo, que a pessoa vê na
+            notificação. Se ela alterou o texto depois de você abri-lo, você vê os dois textos antes de decidir.
+          </p>
+        </div>
+      ) : null}
       {conflictDraft ? (
         <div role="region" aria-label="Rascunho local em conflito" className="flex flex-col gap-3 rounded-md border-2 border-foreground bg-surface p-4">
           <p className="flex items-start gap-2 text-sm font-medium">
@@ -714,5 +771,17 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
         ) : null}
       </div>
     </form>
+    {asking && moderation ? (
+      <ModerationDialog
+        open
+        title={`Enviar a nova versão do conteúdo de ${moderation.ownerName}`}
+        description="O texto enviado substitui o vigente, que não fica guardado (o envio não mantém histórico)."
+        confirmLabel="Enviar"
+        ownerName={moderation.ownerName}
+        onConfirm={confirmModeration}
+        onCancel={() => setAsking(null)}
+      />
+    ) : null}
+    </>
   );
 }

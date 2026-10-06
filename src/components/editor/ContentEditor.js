@@ -33,18 +33,22 @@ const Editor = dynamic(() => import("./Editor").then((module) => module.Editor),
  * @param {{ title?: string, slug?: string, body?: string | null, status?: "DRAFT" | "PUBLISHED" }} props.initialValue
  *   valores iniciais: os do servidor, ou os padrões de um conteúdo novo (estado `PUBLISHED`, RN16)
  * @param {string | null} [props.version] versão do conteúdo no servidor (o `updatedAt`)
+ * @param {{ ownerName: string }} [props.moderation] liga o modo de MODERAÇÃO (RF34): o administrador edita o
+ *   conteúdo de OUTRO usuário. O editor mostra um aviso permanente, pede o motivo a cada envio, e o PATCH
+ *   leva `reason` junto com `version`. `userId` segue sendo o do administrador (a chave do rascunho local)
  */
-export function ContentEditor({ userId, contentId, parentId = null, editPath = null, initialValue, version = null }) {
+export function ContentEditor({ userId, contentId, parentId = null, editPath = null, initialValue, version = null, moderation = undefined }) {
   // Depois de criar o conteúdo, os envios seguintes o atualizam.
   const [id, setId] = useState(contentId);
 
   /**
    * @param {import("./draft").EditorValues} values
-   * @param {{ version: string | null }} context versão em que o Editor se baseia (RN18): a que ele
-   *   abriu, a do último envio ou, depois de um conflito, a atual do servidor (sobrescrever)
+   * @param {{ version: string | null, reason?: string }} context versão em que o Editor se baseia (RN18): a que ele
+   *   abriu, a do último envio ou, depois de um conflito, a atual do servidor (sobrescrever); e, na
+   *   moderação, o motivo
    */
-  async function submit(values, { version: baseVersion }) {
-    const result = await saveContent({ id, parentId, values, version: baseVersion });
+  async function submit(values, { version: baseVersion, reason }) {
+    const result = await saveContent({ id, parentId, values, version: baseVersion, reason });
     if (result.ok) {
       // history.replaceState é a forma que o Next.js oferece para trocar a URL sem navegar.
       if (id === null && editPath) window.history.replaceState(null, "", editPath.replace("{id}", encodeURIComponent(result.id)));
@@ -53,5 +57,5 @@ export function ContentEditor({ userId, contentId, parentId = null, editPath = n
     return result;
   }
 
-  return <Editor userId={userId} contentId={id} initialValue={initialValue} version={version} onSubmit={submit} />;
+  return <Editor userId={userId} contentId={id} initialValue={initialValue} version={version} onSubmit={submit} moderation={moderation} />;
 }

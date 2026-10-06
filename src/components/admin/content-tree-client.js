@@ -3,6 +3,10 @@
 // resposta em um resultado que a árvore sabe mostrar, com mensagens em português. Módulo sem React.
 // O servidor é a autoridade (RF21): aqui só se interpreta a resposta.
 //
+// Moderação (RF34, RN19): o administrador, na árvore de OUTRO usuário (`?ownerId=`), só despublica e
+// exclui, sempre com o MOTIVO (`reason`), que o dono vê na notificação; mover, reordenar e publicar no
+// conteúdo alheio respondem 403.
+//
 // Limites do servidor: escritas de conteúdo, 60 por minuto (429); 500 conteúdos por usuário (RN25,
 // 422 `QUOTA_EXCEEDED`); árvore até 5 níveis. Um 404 em um nó é "excluído em outra aba".
 import { normalizeTree } from "./content-tree-model";
@@ -56,6 +60,10 @@ async function failureOf(response) {
   }
   if (status === 422 && code === "QUOTA_EXCEEDED") return fail("quota", MESSAGES.quota);
   if (status === 422 && (code === "INVALID_PARENT" || code === "CYCLE_DETECTED")) return fail("invalid-parent", MESSAGES.invalidParent);
+  if (status === 422 || status === 400) {
+    const reason = Array.isArray(body?.error?.details) ? body.error.details.find((item) => item?.field === "reason" && typeof item?.message === "string") : null;
+    if (reason) return fail("rejected", reason.message);
+  }
   if (status === 400 || status === 409 || status === 422) return fail("rejected", MESSAGES.rejected);
   return fail("server", MESSAGES.server);
 }
@@ -82,10 +90,12 @@ const JSON_HEADERS = { "Content-Type": "application/json" };
 /**
  * A árvore do dono da sessão, com os rascunhos (`GET /api/contents`).
  * @param {typeof fetch} [fetchImpl] para testes
+ * @param {string} [ownerId] a árvore de outro usuário (só o administrador; moderação)
  */
-export function fetchTree(fetchImpl = fetch) {
+export function fetchTree(fetchImpl = fetch, ownerId = undefined) {
+  const url = ownerId ? `/api/contents?ownerId=${encodeURIComponent(ownerId)}` : "/api/contents";
   return request(
-    () => fetchImpl("/api/contents", { cache: "no-store" }),
+    () => fetchImpl(url, { cache: "no-store" }),
     (body) => ({ tree: normalizeTree(body?.data) }),
   );
 }
@@ -130,6 +140,27 @@ export function reorder(items, fetchImpl = fetch) {
   return request(
     () => fetchImpl("/api/contents/reorder", { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(items) }),
     (body) => ({ tree: normalizeTree(body?.data) }),
+  );
+}
+
+/**
+ * Moderação: despublica o conteúdo de outro usuário com o motivo (`PATCH` com `{ status: "DRAFT", reason }`).
+ * @param {string} id
+ * @param {string} reason
+ * @param {typeof fetch} [fetchImpl]
+ */
+export const unpublishWithReason = (id, reason, fetchImpl) => patch(id, { status: "DRAFT", reason }, fetchImpl);
+
+/**
+ * Moderação: exclui o conteúdo de outro usuário e os descendentes, com o motivo (`DELETE ?reason=`).
+ * @param {string} id
+ * @param {string} reason
+ * @param {typeof fetch} [fetchImpl]
+ */
+export function deleteWithReason(id, reason, fetchImpl = fetch) {
+  return request(
+    () => fetchImpl(`/api/contents/${encodeURIComponent(id)}?reason=${encodeURIComponent(reason)}`, { method: "DELETE" }),
+    () => ({}),
   );
 }
 
