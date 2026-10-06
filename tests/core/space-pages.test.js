@@ -25,7 +25,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
 });
 
 import { renderToStaticMarkup } from "react-dom/server";
-import PortalPage from "@/app/(portal)/page";
+import PortalPage, { revalidate as portalRevalidate } from "@/app/(portal)/page";
 import SpaceContentPage, { generateMetadata as contentMetadata, generateStaticParams as slugParams } from "@/app/[handle]/[...slug]/page";
 import SpaceRootLayout, { generateMetadata as layoutMetadata } from "@/app/[handle]/layout";
 import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[handle]/page";
@@ -470,6 +470,10 @@ describe("parâmetros estáticos: sem dado no build, só os públicos em execuç
 
 describe("portal / (RF30, RN28; CT46)", () => {
   const portal = async () => render(await PortalPage());
+
+  it("o portal regenera sozinho depois de 60 s (R-016): a rede de segurança de uma instância recriada", () => {
+    expect(portalRevalidate).toBe(60);
+  });
 
   it("mostra o texto do administrador em Markdown e o nome do site", async () => {
     await updateConfiguration({ siteName: "Vitrine da Turma", homeBody: "# Bem-vindos\n\nTexto **do portal**." });
