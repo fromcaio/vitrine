@@ -59,7 +59,7 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \addlinespace
 \arq{MAX_CONTENTS_PER_USER} & Não & Máximo de conteúdos por usuário, em qualquer estado; padrão 500 (RN25)\\
 \addlinespace
-\arq{MAX_BODY_BYTES} & Não & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 65536 (64~KiB; era 262144 até a \adr{ADR-033}, que o reduziu porque a renderização de um texto grande custa segundos no único processo do servidor); um corpo muito acima é recusado com 413 antes de ser lido (RN25), e o que não renderiza em 2~s, com 422 \arq{CONTENT_TOO_COMPLEX}\\
+\arq{MAX_BODY_BYTES} & Não & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 65536 (64~KiB; era 262144 até a \adr{ADR-033}, que o reduziu porque a renderização de um texto grande custa segundos no único processo do servidor); um corpo muito acima é recusado com 413 antes de ser lido (RN25), e o que não renderiza em 2~s, com 422 \arq{CONTENT_TOO_COMPLEX}. A validação roda em um \texttt{worker\_threads} (\arq{src/lib/render-worker.mjs}, carregado a partir da raiz do projeto: a imagem copia o repositório inteiro e executa \texttt{next start} na raiz, de modo que o arquivo existe; a conferência sobre \texttt{docker compose build} é parte do CT29), com teto de 512~MB de memória, que entra na conta do dimensionamento da máquina; o primeiro salvamento depois da partida paga cerca de 0,85~s\\
 \addlinespace
 \arq{BACKUP_DIR} & Não & Só para \texttt{npm run db:backup}: o diretório onde gravar as cópias do banco (o argumento do comando tem precedência); sem argumento e sem a variável, o comando recusa (Seção~\ref{sec:backup})\\
 \addlinespace
