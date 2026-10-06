@@ -6,6 +6,7 @@
 // Com vários usuários (M15; ADR-023 a ADR-028), toda árvore tem um só dono (`authorId`), imposto pelo
 // banco, e as funções de conteúdo trabalham "por dono". Quem decide QUEM pode fazer o quê é o Core
 // (autorização, RN19): este módulo só recebe o dono como argumento e garante as invariantes de dados.
+import path from "node:path";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 import { buildTree, collectPublicPaths, resolvePath, wouldCreateCycle } from "@/lib/content-tree";
@@ -48,6 +49,21 @@ function createPrismaClient() {
     throw new Error("DATABASE_URL não definida (veja .env.example).");
   }
   return new PrismaClient({ adapter: new VitrineSqliteAdapter({ url, timeout: BUSY_TIMEOUT_MS }) });
+}
+
+/**
+ * Caminho absoluto do arquivo do banco a partir de `DATABASE_URL` (`file:CAMINHO`), pela mesma regra
+ * do adaptador do better-sqlite3 usado em `createPrismaClient`: tira o prefixo `file:` e resolve o
+ * resto a partir do diretório de trabalho (ou de `cwd`). Serve a `npm run db:backup`.
+ * @param {string | undefined} url normalmente `process.env.DATABASE_URL`
+ * @param {{ cwd?: string }} [options]
+ * @returns {string}
+ * @throws {Error} se a URL falta ou não é do tipo `file:`
+ */
+export function databaseFileFromUrl(url, { cwd = process.cwd() } = {}) {
+  if (!url) throw new Error("DATABASE_URL não definida (veja .env.example).");
+  if (!url.startsWith("file:") || url === "file:") throw new Error("DATABASE_URL deve ter o formato file:CAMINHO.");
+  return path.resolve(cwd, url.replace(/^file:/, ""));
 }
 
 // Em desenvolvimento o Hot Module Replacement reavalia este módulo a cada edição; guardar o

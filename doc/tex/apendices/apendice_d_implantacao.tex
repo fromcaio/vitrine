@@ -61,6 +61,8 @@ A Figura~\ref{fig:impl-implantacao} (Capítulo~\ref{cap:arquitetura}) resume a t
 \addlinespace
 \arq{MAX_BODY_BYTES} & Não & Tamanho máximo do corpo de um conteúdo, em \emph{bytes} UTF-8; padrão 262144 (256~KiB); um corpo muito acima é recusado com 413 antes de ser lido (RN25)\\
 \addlinespace
+\arq{BACKUP_DIR} & Não & Só para \texttt{npm run db:backup}: o diretório onde gravar as cópias do banco (o argumento do comando tem precedência); sem argumento e sem a variável, o comando recusa (Seção~\ref{sec:backup})\\
+\addlinespace
 \arq{NODE_ENV} & Sim & Deve ser \texttt{production} na execução em produção (definida na imagem)\\
 \addlinespace
 \arq{PORT} & Não & Porta do servidor Next.js; o padrão é 3000\\
@@ -194,14 +196,31 @@ server {
 
 \section{Cópia de Segurança e Restauração}\label{sec:backup}
 
-O banco é um único arquivo no diretório \arq{data/}; porém, com o modo WAL (que o \arq{db.js} define desde o M15, merge M-012, Seção~\ref{sec:arq-wal}, e que traz os arquivos \arq{-wal} e \arq{-shm} ao lado do banco), copiar os arquivos com o sistema em execução pode produzir uma cópia inconsistente. Com \texttt{synchronous=NORMAL}, uma queda de energia pode perder as últimas escritas confirmadas, mas não corrompe o banco; por isso a frequência da cópia importa mais (com vários autores, prefira cópias de hora em hora a diárias). A forma recomendada é gerar uma cópia consistente com o próprio SQLite, executada no servidor sobre o arquivo do volume, por exemplo:
+O banco é um único arquivo no diretório \arq{data/}; porém, com o modo WAL (que o \arq{db.js} define desde o M15, merge M-012, Seção~\ref{sec:arq-wal}, e que traz os arquivos \arq{-wal} e \arq{-shm} ao lado do banco), copiar os arquivos com o sistema em execução pode produzir uma cópia inconsistente. Com \texttt{synchronous=NORMAL}, uma queda de energia pode perder as últimas escritas confirmadas, mas não corrompe o banco; por isso a frequência da cópia importa mais (com vários autores, prefira cópias de hora em hora a diárias). A forma recomendada é o comando \texttt{npm run db:backup}, que roda \emph{dentro da imagem}, como o \texttt{admin:create} (a imagem não tem a CLI \texttt{sqlite3}), e funciona com o servidor no ar (merge M-026, A-019):
 
-\begin{lstlisting}[language=VSh, caption={Esboço: cópia de segurança consistente do SQLite}, label={lst:backup}]
-# Requer a CLI sqlite3 (SQLite 3.27 ou superior para VACUUM INTO)
-sqlite3 ./data/vitrine.db "VACUUM INTO '/backup/vitrine-$(date +%F).db'"
+\begin{lstlisting}[language=VSh, caption={Cópia de segurança consistente e verificada do SQLite}, label={lst:backup}]
+docker compose run --rm vitrine npm run db:backup -- /data/backups --keep 14
 \end{lstlisting}
 
-Para restaurar: parar o serviço (\texttt{docker compose down}), substituir o arquivo do banco pela cópia, remover os arquivos auxiliares \arq{vitrine.db-wal} e \arq{vitrine.db-shm}, se existirem, e subir novamente (\texttt{docker compose up -d}). A rotina deve ser agendada (por exemplo, diariamente, por \texttt{cron}) e as cópias guardadas \textbf{fora da VPS} (RNF10).
+\textbf{Como funciona.} O comando abre o banco \emph{somente para leitura} e gera a cópia com \texttt{VACUUM INTO}: no modo WAL, a leitura enxerga um instantâneo coerente (uma única transação de leitura), não bloqueia o escritor do servidor e não precisa recomeçar quando ele escreve no meio da cópia. O custo é CPU (a cópia é reconstruída e sai compacta) e espaço temporário do tamanho do banco; em um banco grande, o arquivo \texttt{-wal} cresce enquanto a leitura dura. O destino vem do argumento ou de \arq{BACKUP_DIR}; \emph{sem nenhum dos dois, o comando recusa} (não há um padrão que grave sem querer no volume do banco). A cópia se chama \texttt{vitrine-AAAA-MM-DDThhmmssZ.db} (UTC), nasce com um nome provisório e só ganha o nome final depois de verificada; \emph{nunca sobrescreve} um arquivo, recusa como destino o próprio banco, o \texttt{-wal}, o \texttt{-shm} e o que cair dentro deles, e grava com permissão \texttt{0600} (no Windows não há efeito). Antes de aceitá-la, o comando a abre só para leitura e confere \texttt{integrity\_check} igual a \texttt{ok}, \texttt{foreign\_key\_check} vazio, as tabelas do banco de origem e o histórico de migrações do Prisma, que precisa ser igual ao da origem; se qualquer verificação falhar, a cópia é apagada e o comando sai com código 1. Com \texttt{-{}-keep N}, depois de uma cópia boa, apaga as mais antigas \emph{que casam com o padrão do nome} no mesmo diretório (e nunca outro arquivo), mantendo as \texttt{N} mais recentes. A saída é só o caminho, o tamanho e o resultado da verificação; nunca \arq{DATABASE_URL} nem dados do banco.
+
+\textbf{Para restaurar} (roteiro testado em Linux, com um banco WAL migrado):
+\begin{enumerate}
+  \item pare o serviço (\texttt{docker compose down});
+  \item guarde o banco atual, se ele existir (\texttt{mv data/vitrine.db data/vitrine.db.antigo}), e remova os auxiliares \texttt{data/vitrine.db-wal} e \texttt{data/vitrine.db-shm}, se existirem;
+  \item copie a cópia escolhida para \texttt{data/vitrine.db} e dê o dono do usuário \texttt{node} da imagem (\texttt{chown 1000:1000 data/vitrine.db}; a cópia nasce com permissão \texttt{0600});
+  \item se a cópia for de uma versão \emph{mais antiga} do esquema, aplique as migrações (\texttt{docker compose run -{}-rm vitrine npx prisma migrate deploy}); com a cópia da mesma versão, o comando responde que não há migrações pendentes e serve de conferência (\texttt{npx prisma migrate status} deve dizer que o esquema está em dia);
+  \item suba o serviço (\texttt{docker compose up -d}) e entre no painel para conferir.
+\end{enumerate}
+O arquivo restaurado sai em modo de diário comum (\texttt{journal\_mode} igual a \texttt{delete}), porque o \texttt{VACUUM INTO} não o grava em WAL; não é preciso fazer nada: o \arq{db.js} reaplica \texttt{journal\_mode=WAL} e \texttt{synchronous=NORMAL} a cada conexão. Depois de restaurar, \emph{as sessões e o conteúdo voltam ao instante da cópia}: o que foi escrito depois dela se perde, e os usuários podem precisar entrar de novo.
+
+\textbf{Agendamento e guarda.} A rotina deve ser agendada e as cópias guardadas \textbf{fora da VPS} (RNF10). Com mais de um autor, prefira cópias de hora em hora a diárias; por exemplo, uma tarefa do \texttt{cron} do \emph{servidor} (não do contêiner):
+
+\begin{lstlisting}[language=VSh, caption={Esboço: cópia de hora em hora, com as 48 últimas}, label={lst:backup-cron}]
+0 * * * *  cd /opt/vitrine && docker compose run --rm -T vitrine npm run db:backup -- /data/backups --keep 48
+\end{lstlisting}
+
+O \texttt{-T} evita o terminal interativo no \texttt{cron}. O diretório \texttt{data/backups} está \emph{no mesmo volume} do banco: ele protege de um erro de aplicação, mas não de perder o disco; copie-o para fora (\texttt{rsync}, \texttt{rclone} ou o serviço da hospedagem). \emph{Limitações verificadas:} o comando foi ensaiado no Node, em Linux e em Windows, com um escritor em outro processo gravando durante a cópia; a execução em contêiner, com o volume local de uma VPS Linux, é a que o CT29 confirma (em Windows, com \emph{bind mount} do Docker Desktop, a memória compartilhada do WAL entre contêineres pode não ser confiável, e não é o ambiente-alvo).
 
 \section{Atualização}
 

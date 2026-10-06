@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "admin:create": "tsx --tsconfig jsconfig.json scripts/create-admin.js",
-    "admin:reset-password": "tsx --tsconfig jsconfig.json scripts/reset-password.js"
+    "admin:reset-password": "tsx --tsconfig jsconfig.json scripts/reset-password.js",
+    "db:backup": "tsx --tsconfig jsconfig.json scripts/backup-db.js"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
