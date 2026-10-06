@@ -7,6 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import { contentHref, neighboursOf } from "@/components/layout/space-paths";
 import { DocumentView } from "@/components/reading/DocumentView";
 import { EmptyCollection } from "@/components/reading/EmptyCollection";
+import { documentMetadata } from "../../_lib/metadata";
 import { firstDocumentPath, getPublicPage, publicSlugParams } from "../../_lib/space";
 import { SpaceFrame } from "../../_lib/space-frame";
 
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }) {
   const page = await getPublicPage(handle, slug);
   // Sem a página, o `notFound()` é do componente; o título vale o do espaço.
   if (!page) return {};
-  return { title: page.content.title };
+  return documentMetadata(page);
 }
 
 export default async function SpaceContentPage({ params }) {

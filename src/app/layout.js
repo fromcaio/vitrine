@@ -4,6 +4,7 @@
 // do layout de `/{handle}`. O 404 global usa as paletas padrão do `:root` e do `.dark`.
 import { Geist, Geist_Mono } from "next/font/google";
 import { COLOR_MODE_SCRIPT } from "@/components/layout/color-mode-script";
+import { publicBaseUrl } from "@/lib/seo";
 import { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_NAME } from "./_lib/site";
 import "./globals.css";
 
@@ -18,13 +19,20 @@ const geistMono = Geist_Mono({
 });
 
 /**
- * Metadados padrão, estáticos: valem para a página 404 e para o que não tem layout próprio. O portal,
- * o login e o painel definem os seus (nome e descrição do site) no `generateMetadata` dos layouts.
+ * Metadados padrão, sem consulta ao banco: valem para a página 404 e para o que não tem layout próprio. O
+ * portal, o login e o painel definem os seus (nome e descrição do site) no `generateMetadata` dos layouts.
+ * O `metadataBase` é a URL pública (`BETTER_AUTH_URL`, RF25): torna absolutos o endereço canônico e o Open
+ * Graph de todas as páginas; sem ela, ficam relativos. É lido na hora, e não no `next build`, que no
+ * estágio de build da imagem Docker não a tem.
  */
-export const metadata = {
-  title: { default: DEFAULT_SITE_NAME, template: `%s | ${DEFAULT_SITE_NAME}` },
-  description: DEFAULT_SITE_DESCRIPTION,
-};
+export function generateMetadata() {
+  const base = publicBaseUrl();
+  return {
+    ...(base ? { metadataBase: new URL(base) } : {}),
+    title: { default: DEFAULT_SITE_NAME, template: `%s | ${DEFAULT_SITE_NAME}` },
+    description: DEFAULT_SITE_DESCRIPTION,
+  };
+}
 
 /**
  * O `<html>` leva `suppressHydrationWarning` porque o script do `<head>` adiciona a classe `dark`

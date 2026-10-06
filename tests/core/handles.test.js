@@ -74,8 +74,14 @@ describe("RN20: handles reservados e rotas estáticas", () => {
     // `%5F` é o sublinhado na URL (Next.js): `%5Fnao-encontrado` é o segmento `_nao-encontrado`.
     const all = staticTopSegments(appDir, { onlyDirectories: true }).map((name) => ({ folder: name, segment: decodeURIComponent(name) }));
     const routeFolders = all.filter(({ segment }) => !/^[_[@]/.test(segment)).map(({ segment }) => segment);
-    expect(routeFolders.sort()).toEqual(["admin", "api", "login"]);
-    for (const name of routeFolders) expect(RESERVED_HANDLES).toContain(name);
+    // Uma pasta com ponto (`sitemap.xml`) é uma rota de arquivo (o mapa do site): o ponto nunca é aceito
+    // em um handle, então ela não colide; as demais têm de ser nomes reservados.
+    const dotted = routeFolders.filter((name) => name.includes("."));
+    const named = routeFolders.filter((name) => !name.includes("."));
+    expect(named.sort()).toEqual(["admin", "api", "login"]);
+    for (const name of named) expect(RESERVED_HANDLES).toContain(name);
+    expect(dotted).toEqual(["sitemap.xml"]);
+    for (const name of dotted) expect(handleError(name)).not.toBeNull();
 
     // O segmento com sublinhado (o alvo do 404 do Proxy) é rota de verdade, mas nenhum handle o tem.
     const underscored = all.filter(({ folder, segment }) => segment.startsWith("_") && folder.startsWith("%5F"));
