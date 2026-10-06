@@ -16,11 +16,14 @@ vi.mock("@/app/admin/_lib/session", () => ({
 vi.mock("@/components/admin/NotificationList", () => ({ NotificationList: () => null }));
 
 import { requireSession } from "@/app/admin/_lib/session";
-import { FIRST_PAGE_SIZE, firstNotificationsPage } from "@/app/admin/_lib/notifications";
+import { firstNotificationsPage } from "@/app/admin/_lib/notifications";
 import NotificationsPage, { metadata } from "@/app/admin/notificacoes/page";
 import { NotificationList } from "@/components/admin/NotificationList";
 import { dismiss, markRead, notify } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
+
+/** Itens da primeira página: o contrato da lista (RF33, GET /api/notifications), e não a constante do código. */
+const PAGE_SIZE = 20;
 
 /** @type {{ id: string }} */
 let ana;
@@ -120,32 +123,32 @@ describe("firstNotificationsPage: a forma pública da API", () => {
   });
 
   it("o contador é o de TODAS as não lidas, e não o da página; lidas e dispensadas não contam", async () => {
-    for (let i = 0; i < FIRST_PAGE_SIZE + 5; i++) await note(ana.id);
+    for (let i = 0; i < PAGE_SIZE + 5; i++) await note(ana.id);
     const all = (await firstNotificationsPage(ana.id, 100)).items;
     await markRead(ana.id, [all[0].id]);
     await dismiss(ana.id, all[1].id);
 
     const initial = await firstNotificationsPage(ana.id);
 
-    expect(initial.items).toHaveLength(FIRST_PAGE_SIZE);
-    expect(initial.unreadCount).toBe(FIRST_PAGE_SIZE + 5 - 2);
+    expect(initial.items).toHaveLength(PAGE_SIZE);
+    expect(initial.unreadCount).toBe(PAGE_SIZE + 5 - 2);
   });
 
   it("20 itens por página e o nextCursor só quando há mais: é o id do último item da página", async () => {
-    for (let i = 0; i < FIRST_PAGE_SIZE; i++) await note(ana.id);
+    for (let i = 0; i < PAGE_SIZE; i++) await note(ana.id);
 
     const exact = await firstNotificationsPage(ana.id);
-    expect(exact.items).toHaveLength(FIRST_PAGE_SIZE);
+    expect(exact.items).toHaveLength(PAGE_SIZE);
     expect(exact.nextCursor).toBeNull();
 
     await note(ana.id);
     const more = await firstNotificationsPage(ana.id);
-    expect(more.items).toHaveLength(FIRST_PAGE_SIZE);
-    expect(more.nextCursor).toBe(more.items[FIRST_PAGE_SIZE - 1].id);
+    expect(more.items).toHaveLength(PAGE_SIZE);
+    expect(more.nextCursor).toBe(more.items[PAGE_SIZE - 1].id);
   });
 
   it("o nextCursor continua a lista na API (o cursor é do próprio usuário)", async () => {
-    for (let i = 0; i < FIRST_PAGE_SIZE + 3; i++) await note(ana.id);
+    for (let i = 0; i < PAGE_SIZE + 3; i++) await note(ana.id);
     const first = await firstNotificationsPage(ana.id);
 
     const { listNotifications } = await import("@/lib/db");
