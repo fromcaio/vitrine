@@ -251,3 +251,139 @@ describe("qualquer falha de RENDERIZAÇÃO é \"complexo demais\"; falha de infr
     await budget.shutdownRenderWorker();
   });
 });
+
+describe("justiça (A-022): no máximo UMA validação por usuário, em andamento ou na fila", () => {
+  /** Um orçamento com o worker de mentira que aceita depois de 150 ms: sem custo real, com tempo para a fila se formar. */
+  const slow = () => createRenderBudget({ workerFile: fixture("render-worker-slow-ok.mjs") });
+
+  it("a segunda validação do MESMO usuário, com a primeira em andamento, recebe RenderBusyError (mesmo com vaga na fila)", async () => {
+    const budget = slow();
+    const first = budget.checkRenderable("a1", { userId: "ana" });
+
+    const second = budget.checkRenderable("a2", { userId: "ana" });
+
+    await expect(second).rejects.toBeInstanceOf(RenderBusyError);
+    await expect(second).rejects.toMatchObject({ retryAfter: 3 });
+    expect((await first).renderable).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("a segunda do mesmo usuário também é recusada com a primeira ainda NA FILA (esperando outro usuário)", async () => {
+    const budget = slow();
+    const running = budget.checkRenderable("b", { userId: "beto" });
+    const queued = budget.checkRenderable("a1", { userId: "ana" }); // espera: o worker está com o Beto
+
+    await expect(budget.checkRenderable("a2", { userId: "ana" })).rejects.toBeInstanceOf(RenderBusyError);
+    await Promise.all([running, queued]);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("um usuário NÃO impede os outros: com a validação da Ana em andamento, a do Beto entra na fila e é atendida", async () => {
+    const budget = slow();
+    const ana = budget.checkRenderable("a", { userId: "ana" });
+
+    const beto = budget.checkRenderable("b", { userId: "beto" });
+    const carla = budget.checkRenderable("c", { userId: "carla" });
+
+    expect((await Promise.all([ana, beto, carla])).every((check) => check.renderable)).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("o teto é POR usuário: a Ana ocupada não conta contra o Beto, e o Beto ocupado não conta contra a Ana", async () => {
+    const budget = slow();
+    const ana = budget.checkRenderable("a", { userId: "ana" });
+    const beto = budget.checkRenderable("b", { userId: "beto" });
+
+    await expect(budget.checkRenderable("a2", { userId: "ana" })).rejects.toBeInstanceOf(RenderBusyError);
+    await expect(budget.checkRenderable("b2", { userId: "beto" })).rejects.toBeInstanceOf(RenderBusyError);
+    await Promise.all([ana, beto]);
+    // Terminaram: os dois podem pedir de novo.
+    expect((await budget.checkRenderable("a3", { userId: "ana" })).renderable).toBe(true);
+    expect((await budget.checkRenderable("b3", { userId: "beto" })).renderable).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("o teto GLOBAL continua: 1 rodando + 3 esperando, de usuários diferentes; o quinto usuário recebe RenderBusyError", async () => {
+    const budget = slow();
+    const accepted = ["u1", "u2", "u3", "u4"].map((userId) => budget.checkRenderable(userId, { userId }));
+
+    await expect(budget.checkRenderable("u5", { userId: "u5" })).rejects.toBeInstanceOf(RenderBusyError);
+    expect((await Promise.all(accepted)).every((check) => check.renderable)).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("sem userId, não há teto por usuário (quem não se identifica só tem o global)", async () => {
+    const budget = slow();
+    const results = await Promise.all([budget.checkRenderable("x"), budget.checkRenderable("y"), budget.checkRenderable("z")]);
+
+    expect(results.every((check) => check.renderable)).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("o usuário é liberado ANTES de a resposta chegar: quem recebe o resultado já pode pedir o próximo", async () => {
+    const budget = slow();
+
+    for (let i = 0; i < 3; i++) expect((await budget.checkRenderable(`t${i}`, { userId: "ana" })).renderable).toBe(true);
+    await budget.shutdownRenderWorker();
+  });
+
+  // As seis vias de término: em todas, o usuário sai do teto (o seguinte NÃO é RenderBusyError).
+  it.each([
+    ["sucesso", "render-worker-slow-ok.mjs", {}, (check) => expect(check).toMatchObject({ renderable: true })],
+    ["erro de renderização (o renderizador lança)", "render-worker-error.mjs", {}, (check) => expect(check).toMatchObject({ renderable: false, reason: "error" })],
+    ["morte do worker no meio", "render-worker-dies.mjs", {}, (check) => expect(check).toMatchObject({ renderable: false, reason: "error" })],
+    ["recusa por tempo (o worker nunca responde)", "render-worker-silent.mjs", { budgetMs: 100 }, (check) => expect(check).toMatchObject({ renderable: false, reason: "timeout" })],
+  ])("liberado ao terminar por %s", async (_via, file, options, assertion) => {
+    const budget = createRenderBudget({ workerFile: fixture(file) });
+
+    assertion(await budget.checkRenderable("1", { userId: "ana", ...options }));
+    const next = await budget.checkRenderable("2", { userId: "ana", ...options }).catch((error) => error);
+
+    expect(next).not.toBeInstanceOf(RenderBusyError);
+    assertion(next);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("liberado quando o worker NÃO SOBE (módulo quebrado): a chamada lança o erro de subida, e a seguinte não é BUSY", async () => {
+    const budget = createRenderBudget({ workerFile: fixture("render-worker-broken-start.mjs") });
+
+    await expect(budget.checkRenderable("1", { userId: "ana" })).rejects.toThrow(/worker/i);
+    const second = budget.checkRenderable("2", { userId: "ana" });
+
+    await expect(second).rejects.toThrow(/worker/i);
+    await expect(second).rejects.not.toBeInstanceOf(RenderBusyError);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("liberado quando o worker NUNCA fica pronto (a espera da subida estoura): a seguinte não é BUSY", async () => {
+    const budget = createRenderBudget({ workerFile: fixture("render-worker-never-ready.mjs"), startupTimeoutMs: 150 });
+
+    await expect(budget.checkRenderable("1", { userId: "ana" })).rejects.toThrow(/pronto a tempo/);
+    const second = budget.checkRenderable("2", { userId: "ana" });
+
+    await expect(second).rejects.toThrow(/pronto a tempo/);
+    await expect(second).rejects.not.toBeInstanceOf(RenderBusyError);
+    await budget.shutdownRenderWorker();
+  });
+
+  it("o worker REAL: depois da hostil recusada por tempo, a gravação normal do mesmo usuário funciona", async () => {
+    await checkRenderable("# aquece", { userId: "aquece" });
+
+    const hostile = await checkRenderable(HOSTILE["* em torre (64 KiB)"], { budgetMs: 250, userId: "ana" });
+    const normal = await checkRenderable("# Texto normal\n\nCom **negrito**.", { userId: "ana" });
+
+    expect(hostile).toMatchObject({ renderable: false, reason: "timeout" });
+    expect(normal.renderable).toBe(true);
+  }, 30_000);
+
+  it("o worker REAL: enquanto a Ana tem uma hostil em andamento, o Beto NÃO recebe 503: é atendido depois", async () => {
+    await checkRenderable("# aquece", { userId: "aquece" });
+    const ana = checkRenderable(HOSTILE["* em torre (64 KiB)"], { budgetMs: 600, userId: "ana" });
+
+    await expect(checkRenderable("# de novo", { userId: "ana" })).rejects.toBeInstanceOf(RenderBusyError);
+    const beto = checkRenderable("# Do Beto\n\nTexto normal.", { userId: "beto" });
+
+    expect(await ana).toMatchObject({ renderable: false, reason: "timeout" });
+    expect((await beto).renderable).toBe(true);
+  }, 30_000);
+});
