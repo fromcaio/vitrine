@@ -19,7 +19,7 @@
   \item[Contêiner] Instância em execução de uma imagem Docker; no Vitrine, um único contêiner executa o servidor Next.js (\adr{ADR-011}).
   \item[Conteúdo] Nó da árvore do site: documento ou coleção.
   \item[Core] Agente responsável pela lógica de servidor: API, autenticação, roteamento e revalidação.
-  \item[Cota] Limite por usuário de conteúdos (\texttt{MAX\_CONTENTS\_PER\_USER}, padrão 500) e de tamanho do corpo em \emph{bytes} (\texttt{MAX\_BODY\_BYTES}, padrão 256~KiB); ao excedê-lo, a API responde 422 \arq{QUOTA_EXCEEDED} (RN25).
+  \item[Cota] Limite por usuário de conteúdos (\texttt{MAX\_CONTENTS\_PER\_USER}, padrão 500) e de tamanho do corpo em \emph{bytes} (\texttt{MAX\_BODY\_BYTES}, padrão 64~KiB desde a \adr{ADR-033}); ao excedê-lo, a API responde 422 \arq{QUOTA_EXCEEDED} (RN25).
   \item[Dados] Agente responsável pelo esquema, pelas migrações e pelo acesso ao banco.
   \item[DBML] \en{Database Markup Language}, usada para descrever o modelo de dados como texto.
   \item[Docker] Plataforma de contêineres usada para empacotar e executar o Vitrine em uma VPS (\decisao{D-04}).
