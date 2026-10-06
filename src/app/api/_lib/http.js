@@ -10,7 +10,7 @@ import { validate } from "@/lib/validators";
  * @typedef {"VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "NOT_FOUND"
  *   | "SLUG_CONFLICT" | "INVALID_PARENT" | "CYCLE_DETECTED" | "VERSION_CONFLICT" | "QUOTA_EXCEEDED"
  *   | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "USER_CONFLICT" | "LAST_ADMIN" | "USER_HAS_CONTENT" | "BUSY"
- *   | "INTERNAL_ERROR"} ApiErrorCode
+ *   | "CONTENT_TOO_COMPLEX" | "INTERNAL_ERROR"} ApiErrorCode
  */
 
 /** Erro com resposta HTTP definida; qualquer outro erro vira 500 em `toErrorResponse`. */
@@ -47,6 +47,33 @@ export function ok(data, { status = 200, headers = {}, extra = {} } = {}) {
 /** Resposta 204, sem corpo. */
 export function noContent() {
   return new Response(null, { status: 204, headers: NO_STORE });
+}
+
+/** Mensagem do 422 `CONTENT_TOO_COMPLEX` (ADR-033): a UI a mostra ao autor como está. */
+export const CONTENT_TOO_COMPLEX_MESSAGE = "O texto é complexo demais para publicar: simplifique-o ou divida-o em partes.";
+
+/**
+ * 422 `CONTENT_TOO_COMPLEX` (ADR-033): o texto não renderiza dentro do orçamento (tempo, pilha ou exceção
+ * do renderizador). Nada é gravado. `field` é `body` (conteúdo) ou `homeBody` (texto do portal).
+ * @param {"body" | "homeBody"} field
+ * @param {Record<string, unknown>} [extra] ex.: `reason` e `budgetMs`
+ */
+export function contentTooComplex(field, extra = {}) {
+  return new ApiError(422, "CONTENT_TOO_COMPLEX", CONTENT_TOO_COMPLEX_MESSAGE, [{ field, ...extra }]);
+}
+
+/**
+ * 503 `BUSY` com `Retry-After`: a fila de validações de texto está cheia (ADR-033); repetir é seguro.
+ * @param {number} retryAfter segundos
+ */
+export function renderBusy(retryAfter) {
+  return new ApiError(
+    503,
+    "BUSY",
+    "Há validações de texto demais em andamento. Tente de novo em instantes.",
+    [],
+    { "Retry-After": String(retryAfter) },
+  );
 }
 
 /**

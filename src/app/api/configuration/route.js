@@ -8,6 +8,7 @@ import { configurationUpdateSchema } from "@/lib/validators";
 import { ApiError, contentJsonMaxBytes, ok, parse } from "../_lib/http";
 import { contrastReport, syncContrastNotifications } from "../_lib/contrast";
 import { currentLimits } from "../_lib/limits";
+import { assertRenderable } from "../_lib/render";
 import { route } from "../_lib/route";
 
 /** GET: configuração vigente (registro único, RN08), sem avisos de contraste. */
@@ -34,6 +35,10 @@ export const PUT = route({ action: "site:update", mutation: true, rate: "content
       { field: "body", bytes, max: limits.maxBodyBytes },
     ]);
   }
+
+  // ADR-033: o texto do portal também passa pelo orçamento de renderização, depois da cota em bytes e antes
+  // de gravar (422 `CONTENT_TOO_COMPLEX`, `field: "homeBody"`).
+  await assertRenderable(patch.homeBody, "homeBody");
 
   const configuration = await updateConfiguration(patch);
 

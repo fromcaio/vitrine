@@ -10,6 +10,7 @@ import { withSlugSuggestion } from "../../_lib/contents";
 import { ApiError, contentJsonMaxBytes, noContent, ok, parse } from "../../_lib/http";
 import { currentLimits } from "../../_lib/limits";
 import { MOVE_FIELDS, contentNotification, updateEvent } from "../../_lib/moderation";
+import { assertBodyWithinQuota, assertRenderable } from "../../_lib/render";
 import { captureSpace, revalidateBody, revalidateStructure } from "../../_lib/revalidation";
 import { route } from "../../_lib/route";
 
@@ -81,6 +82,14 @@ export const PATCH = route(
           fields: Object.keys(patch),
         })
       : null;
+
+    // ADR-033: só quando o PATCH altera o corpo (inclusive a moderação) valem a cota em bytes e o orçamento de
+    // renderização; título, estado e slug de um corpo antigo, acima do limite, continuam editáveis. Nada é
+    // gravado se o texto for complexo demais (422 `CONTENT_TOO_COMPLEX`).
+    if (typeof patch.body === "string") {
+      assertBodyWithinQuota(patch.body, limits);
+      await assertRenderable(patch.body, "body");
+    }
 
     // Slug e pai resultantes: o que não vem na entrada permanece como está.
     const slug = patch.slug ?? before.slug;
