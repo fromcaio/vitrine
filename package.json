@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test --grep-invert @a11y",
+    "test:a11y": "playwright test --grep @a11y",
+    "lighthouse": "node scripts/lighthouse.mjs",
     "admin:create": "tsx --tsconfig jsconfig.json scripts/create-admin.js",
     "admin:reset-password": "tsx --tsconfig jsconfig.json scripts/reset-password.js",
     "db:backup": "tsx --tsconfig jsconfig.json scripts/backup-db.js"
@@ -39,6 +41,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.2",
@@ -47,6 +50,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.7",
     "jsdom": "^30.1.1",
+    "lighthouse": "^13.5.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "vitest": "^5.0.3"
