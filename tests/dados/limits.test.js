@@ -25,15 +25,15 @@ describe("bodyBytes (RN25)", () => {
 });
 
 describe("resolveLimits (RN25)", () => {
-  it("os padrões são 500 conteúdos e 256 KiB", () => {
+  it("os padrões são 500 conteúdos e 64 KiB (ADR-033)", () => {
     expect(DEFAULT_MAX_CONTENTS_PER_USER).toBe(500);
-    expect(DEFAULT_MAX_BODY_BYTES).toBe(262_144);
-    expect(resolveLimits(undefined)).toEqual({ maxContentsPerUser: 500, maxBodyBytes: 262_144 });
+    expect(DEFAULT_MAX_BODY_BYTES).toBe(65_536);
+    expect(resolveLimits(undefined)).toEqual({ maxContentsPerUser: 500, maxBodyBytes: 65_536 });
     expect(Object.isFrozen(DEFAULT_LIMITS)).toBe(true);
   });
 
   it("aceita valores informados, em separado", () => {
-    expect(resolveLimits({ maxContentsPerUser: 10 })).toEqual({ maxContentsPerUser: 10, maxBodyBytes: 262_144 });
+    expect(resolveLimits({ maxContentsPerUser: 10 })).toEqual({ maxContentsPerUser: 10, maxBodyBytes: 65_536 });
     expect(resolveLimits({ maxBodyBytes: 100 })).toEqual({ maxContentsPerUser: 500, maxBodyBytes: 100 });
   });
 

@@ -4,7 +4,7 @@
 // dono (404). Contas e conteúdo FICTÍCIOS; o administrador de teste é o de `npm run admin:create`.
 import { signIn } from "./support/auth.js";
 import { ADMIN, e2eEnvironment } from "./support/env.js";
-import { expect, test } from "./support/test.js";
+import { expect, newGuardedContext, test } from "./support/test.js";
 
 const { baseURL } = e2eEnvironment();
 const OWNER = { email: "dona-editor-e2e@exemplo.test", name: "Dona do Editor", handle: "dona-editor-e2e", password: "senha-dona-e2e-9" };
@@ -45,7 +45,7 @@ async function createAccount(playwright, admin, account) {
  * @param {import("@playwright/test").Browser} browser
  */
 async function openSession(browser, credentials) {
-  const context = await browser.newContext({ baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
+  const context = await newGuardedContext(browser, { baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
   const page = await context.newPage();
   await signIn(page, credentials);
   return { context, page };

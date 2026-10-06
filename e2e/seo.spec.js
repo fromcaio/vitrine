@@ -208,16 +208,18 @@ test.describe.serial("SEO", () => {
     expect(times[20]).toBeLessThan(250);
   });
 
-  test("R-018: um documento de 256 KiB de colchetes (o corpo mais hostil) gera a página e a descrição em pouco tempo", async ({ request }) => {
-    // O defeito original (`stripMarkdown` quadrático) bloqueava o servidor por mais de 2 minutos nesta entrada,
-    // a cada geração da página. Aqui: cria pela API e mede a primeira geração (ISR) sobre o build de produção.
-    const hostile = await createContent(ana, { title: "Hostil", slug: "hostil", type: "DOCUMENT", body: "[".repeat(262_000) });
+  test("R-018: um documento de 64 KiB de colchetes (o corpo mais hostil que cabe na cota) gera a página e a descrição em pouco tempo", async ({ request }) => {
+    // O defeito original (`stripMarkdown` quadrático) bloqueava o servidor por mais de 2 minutos com 256 KiB desta
+    // entrada, a cada geração da página. Desde a ADR-033 o corpo cabe em 64 KiB e a gravação o valida (2 s); este
+    // texto cabe e renderiza em ~0,5 s, então é gravado. Aqui: cria pela API e mede a primeira geração (ISR)
+    // sobre o build de produção.
+    const hostile = await createContent(ana, { title: "Hostil", slug: "hostil", type: "DOCUMENT", body: "[".repeat(65_000) });
     try {
       const start = performance.now();
       const response = await request.get("/seo-ana/hostil");
       const html = await response.text();
       const ms = performance.now() - start;
-      console.log(`DIAG primeira geração do documento hostil (262000 colchetes): ${ms.toFixed(0)} ms`);
+      console.log(`DIAG primeira geração do documento hostil (65000 colchetes): ${ms.toFixed(0)} ms`);
 
       expect(response.status()).toBe(200);
       const description = metaOf(html, "name", "description");

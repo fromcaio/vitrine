@@ -4,6 +4,7 @@
 import { expect } from "@playwright/test";
 import { signIn } from "./auth.js";
 import { ADMIN, e2eEnvironment } from "./env.js";
+import { newGuardedContext } from "./test.js";
 
 const { baseURL } = e2eEnvironment();
 
@@ -78,12 +79,12 @@ export async function createContent(owner, body) {
 }
 
 /**
- * Sessão de navegador (contexto novo) já autenticada, com IP próprio.
+ * Sessão de navegador (contexto novo, COM a guarda de CSP) já autenticada, com IP próprio.
  * @param {import("@playwright/test").Browser} browser
  * @param {{ email: string, password: string }} credentials
  */
 export async function openSession(browser, credentials) {
-  const context = await browser.newContext({ baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
+  const context = await newGuardedContext(browser, { baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
   const page = await context.newPage();
   await signIn(page, credentials);
   return { context, page };

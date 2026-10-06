@@ -7,6 +7,7 @@ import { contentCreateSchema } from "@/lib/validators";
 import { withSlugSuggestion } from "../_lib/contents";
 import { ApiError, contentJsonMaxBytes, ok, parse } from "../_lib/http";
 import { currentLimits } from "../_lib/limits";
+import { assertBodyWithinQuota, assertRenderable } from "../_lib/render";
 import { captureSpace, revalidateStructure } from "../_lib/revalidation";
 import { route } from "../_lib/route";
 
@@ -34,6 +35,11 @@ export const POST = route({ action: "content:create", mutation: true, rate: "con
   const limits = currentLimits();
   const input = parse(contentCreateSchema, await readJson({ maxBytes: contentJsonMaxBytes(limits) }));
   const parentId = input.parentId ?? null;
+
+  // ADR-033: primeiro a cota em bytes (barata), depois o orçamento de renderização (um worker), e só então
+  // se grava. Um texto complexo demais responde 422 `CONTENT_TOO_COMPLEX` sem criar nada.
+  assertBodyWithinQuota(input.body, limits);
+  await assertRenderable(input.body, "body");
 
   const snapshot = await captureSpace(actor.id);
   const content = await withSlugSuggestion({ slug: input.slug, parentId, ownerId: actor.id }, () =>

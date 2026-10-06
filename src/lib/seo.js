@@ -5,7 +5,7 @@
 // - `publicBaseUrl`: a URL pública do site (`BETTER_AUTH_URL`, sem barra final), base do `metadataBase`
 //   e das URLs absolutas do mapa do site e do `robots`.
 //
-// CUSTO (requisito de segurança, R-018): o texto vem do usuário (até 256 KiB, RN25) e o servidor é um só
+// CUSTO (requisito de segurança, R-018): o texto vem do usuário (até 64 KiB desde a ADR-033; 256 KiB nos corpos gravados antes, RN25) e o servidor é um só
 // processo Node; `plainDescription` roda a cada regeneração de página. Por isso (1) só o COMEÇO do texto
 // é analisado (`ANALYSIS_LIMIT`), pois a descrição precisa de ~160 caracteres; (2) o bloco de código
 // cercado sai por uma varredura linear de linhas, sem expressão regular; e (3) NENHUM quantificador de

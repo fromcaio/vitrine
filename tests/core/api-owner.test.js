@@ -366,7 +366,7 @@ describe("CT39: cotas e limites (RN25)", () => {
   it("um valor malformado nas variáveis é ignorado: vale o padrão, a cota nunca desliga", async () => {
     for (const value of ["", "abc", "-5", "0", "1.5"]) {
       process.env.MAX_BODY_BYTES = value;
-      const over = await create({ title: "A", slug: `a${value.length}`, type: "DOCUMENT", body: "x".repeat(300_000) }, ana.cookie);
+      const over = await create({ title: "A", slug: `a${value.length}`, type: "DOCUMENT", body: "x".repeat(100_000) }, ana.cookie); // acima de 64 KiB (o padrão) e abaixo do limite de leitura (192 KiB)
       expect(over.status, value).toBe(422);
     }
   });

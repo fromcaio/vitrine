@@ -6,8 +6,8 @@
 /** Máximo de conteúdos de um usuário, em qualquer estado (RN25). */
 export const DEFAULT_MAX_CONTENTS_PER_USER = 500;
 
-/** Máximo do corpo de um conteúdo, em bytes UTF-8 (RN25): 256 KiB. */
-export const DEFAULT_MAX_BODY_BYTES = 256 * 1024;
+/** Máximo do corpo de um conteúdo, em bytes UTF-8 (RN25, ADR-033): 64 KiB (era 256 KiB; o renderizador tem custo superlinear). */
+export const DEFAULT_MAX_BODY_BYTES = 64 * 1024;
 
 /**
  * @typedef {Object} Limits

@@ -184,10 +184,10 @@ describe("/admin/configuracoes", () => {
     expect(configurationMetadata).toEqual({ title: "Configurações do site", robots: { index: false, follow: false } });
   });
 
-  it("sem MAX_BODY_BYTES, vale o padrão do servidor (256 KiB)", async () => {
+  it("sem MAX_BODY_BYTES, vale o padrão do servidor (64 KiB)", async () => {
     session.user = admin;
     vi.stubEnv("MAX_BODY_BYTES", "");
 
-    expect(propsOf(await ConfigurationPage(), ConfigurationForm).maxBodyBytes).toBe(256 * 1024);
+    expect(propsOf(await ConfigurationPage(), ConfigurationForm).maxBodyBytes).toBe(64 * 1024);
   });
 });
