@@ -170,8 +170,8 @@ r = await call(bob, "GET", `/admin/notificacoes?userId=${(await call(admin, "GET
 r = await call(admin, "GET", "/admin/notificacoes"); check("notificações: a página do administrador não traz as do Bob", r.status === 200 && !/Pl.gio comprovado/.test(r.text), `${r.status}`);
 r = await call(null, "GET", "/admin/notificacoes"); check("notificações: sem sessão -> redireciona ao login", [301, 302, 307, 308].includes(r.status) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
 r = await call(bob, "GET", "/admin/aparencia"); check("sino no cabeçalho do painel, com o contador no rótulo acessível", /Notificações, 1 não lida/.test(r.text), r.text.slice(0, 100));
-r = await call(bob, "GET", "/admin"); check("menu do usuário comum: sem Configurações nem Usuários", !/>Configurações</.test(r.text) && !/>Usuários</.test(r.text), `${r.status}`);
-r = await call(admin, "GET", "/admin"); check("menu do administrador: com Configurações", />Configurações</.test(r.text), `${r.status}`);
+r = await call(bob, "GET", "/admin"); check("menu do usuário comum: sem os links de Configurações e Usuários (o cartão \"em breve\" da visão geral não é o menu)", r.status === 200 && !/href="\/admin\/configuracoes"/.test(r.text) && !/href="\/admin\/usuarios"/.test(r.text) && /href="\/admin\/notificacoes"/.test(r.text), `${r.status}`);
+r = await call(admin, "GET", "/admin"); check("menu do administrador: com o link de Configurações", /href="\/admin\/configuracoes"/.test(r.text), `${r.status}`);
 // --- espaços públicos, portal e Proxy (M-022 e M-024)
 const naoExiste = /não existe ou não está disponível/;
 r = await call(null, "GET", "/admin-site"); check("espaço do administrador (/admin-site): 200, lang pt-BR, envoltório, <html> sem style", r.status === 200 && /lang="pt-BR"/.test(r.text) && /vitrine-tema/.test(r.text) && !/<html[^>]*style=/.test(r.text), `${r.status}`);
