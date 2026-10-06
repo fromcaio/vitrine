@@ -12,7 +12,7 @@ vi.mock("next/font/google", () => ({
 }));
 // A sessão do painel depende dos cabeçalhos da requisição: aqui, um usuário fictício.
 vi.mock("@/app/admin/_lib/session", () => ({
-  requireSession: vi.fn(async () => ({ user: { name: "Ada Fictícia", email: "ada@exemplo.test" } })),
+  requireSession: vi.fn(async () => ({ user: { id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" } })),
 }));
 vi.mock("@/app/admin/_lib/actions", () => ({ signOut: vi.fn() }));
 vi.mock("next/navigation", async (importOriginal) => ({
@@ -331,8 +331,12 @@ describe("AdminLayout", () => {
     const shell = wrapper.props.children;
 
     expect(shell.props.siteName).toBe("Notas de Aula");
-    expect(Object.keys(shell.props).sort()).toEqual(["children", "signOutAction", "siteName", "user"]);
-    expect(shell.props.user).toEqual({ name: "Ada Fictícia", email: "ada@exemplo.test" });
+    // Nunca o registro da configuração: o nome do site, o usuário, o papel e o que o painel liga (o sino e
+    // as páginas que existem).
+    expect(Object.keys(shell.props).sort()).toEqual([
+      "availablePaths", "children", "mustChangePassword", "notificationBell", "role", "signOutAction", "siteName", "user",
+    ]);
+    expect(shell.props.user).toEqual({ id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" });
   });
 
   it("o cabeçalho renderizado mostra o nome gravado", async () => {

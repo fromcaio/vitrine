@@ -24,7 +24,7 @@ vi.mock("@/app/api/_lib/moderation", async (importOriginal) => {
 import { revalidatePath } from "next/cache";
 import * as contentRoute from "@/app/api/contents/[id]/route";
 import { createContent, prisma } from "@/lib/db";
-import { apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
+import { aged, apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
 
 /** @type {{ cookie: string, userId: string }} */
 let admin;
@@ -44,8 +44,9 @@ const update = (id, body) =>
 const remove = (id, query) =>
   contentRoute.DELETE(apiRequest(`/api/contents/${id}${query}`, { method: "DELETE", cookie: admin.cookie }), routeContext({ id }));
 const row = (id) => prisma.content.findUnique({ where: { id } });
-const seed = (slug, extra = {}) =>
-  createContent({ title: slug, slug, type: "DOCUMENT", authorId: ana.id, body: "original", ...extra });
+// O conteúdo nasce com a version no passado: a primeira atualização muda a version de forma determinística (`aged`).
+const seed = async (slug, extra = {}) =>
+  aged(await createContent({ title: slug, slug, type: "DOCUMENT", authorId: ana.id, body: "original", ...extra }));
 
 describe("a notificação falha dentro da transação: a escrita é desfeita (CT51)", () => {
   it("PATCH: despublicar não se aplica, e nada é revalidado", async () => {
@@ -104,6 +105,23 @@ describe("a escrita falha: nenhuma notificação nasce", () => {
 
     expect(response.status).toBe(409);
     expect(await prisma.notification.count()).toBe(0);
+  });
+
+  it("o teste da version não depende do relógio: com o relógio PARADO (mesmo milissegundo) o conflito segue", async () => {
+    // Regressão da instabilidade (A-014 Parte 3d, item 2): criar e atualizar no mesmo milissegundo deixava a
+    // version "velha" igual à atual, e o PATCH respondia 200. O `seed` cria no passado (`aged`).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-06T12:00:00.000Z"));
+      const theirs = await seed("da-ana");
+      await prisma.content.update({ where: { id: theirs.id }, data: { body: "do dono" } });
+
+      const response = await update(theirs.id, { body: "do admin", version: theirs.updatedAt.toISOString(), reason: "x" });
+
+      expect(response.status).toBe(409);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

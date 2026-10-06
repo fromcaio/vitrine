@@ -30,6 +30,7 @@ import SpaceContentPage, { generateMetadata as contentMetadata, generateStaticPa
 import SpaceRootLayout, { generateMetadata as layoutMetadata } from "@/app/[handle]/layout";
 import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[handle]/page";
 import { firstDocumentPath, getPublicPage, getSpace } from "@/app/_lib/space";
+import { SpaceHome } from "@/components/layout/SpaceHome";
 import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
 
@@ -226,10 +227,41 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
     expect(html).not.toContain("rascunho");
   });
 
+  it("entrega ao SpaceHome só os itens PUBLICADOS da raiz, na ordem da árvore, com a URL e o tipo de cada um (RN15)", async () => {
+    const ana = await user("ana");
+    const calculo = await collection(ana, "calculo", { order: 0 });
+    await doc(ana, "limites", { parentId: calculo.id });
+    const sobre = await doc(ana, "sobre", { order: 1 });
+    await doc(ana, "rascunho", { order: 2, status: "DRAFT" });
+    await collection(ana, "oculta", { order: 3, status: "DRAFT" });
+    await updateAppearance(ana, { siteName: "Notas da Ana", siteDescription: "Material de Cálculo" });
+
+    const frame = await SpaceHomePage({ params: Promise.resolve({ handle: "ana" }) });
+    const home = frame.props.children;
+
+    expect(home.type).toBe(SpaceHome);
+    expect(home.props.name).toBe("Notas da Ana");
+    expect(home.props.description).toBe("Material de Cálculo");
+    expect(home.props.items).toEqual([
+      { id: calculo.id, title: "Coleção calculo", href: "/ana/calculo", kind: "COLLECTION" },
+      { id: sobre.id, title: "Título sobre", href: "/ana/sobre", kind: "DOCUMENT" },
+    ]);
+  });
+
   it("sem conteúdo publicado: o estado vazio, e não um 404 (o espaço existe)", async () => {
     await user("ana");
 
     expect(await homeOf("ana")).toContain("Este espaço ainda não tem conteúdo publicado.");
+  });
+
+  it("só rascunhos na raiz: o estado vazio (o rascunho nunca chega ao componente)", async () => {
+    const ana = await user("ana");
+    await doc(ana, "rascunho", { status: "DRAFT" });
+
+    const frame = await SpaceHomePage({ params: Promise.resolve({ handle: "ana" }) });
+
+    expect(frame.props.children.props.items).toEqual([]);
+    expect(render(frame)).toContain("Este espaço ainda não tem conteúdo publicado.");
   });
 
   it("a moldura leva a aparência do dono: as duas paletas no envoltório .vitrine-tema, o rodapé e o menu", async () => {
