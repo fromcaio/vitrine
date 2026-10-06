@@ -5,7 +5,7 @@
 import { signIn, waitForHydration } from "./support/auth.js";
 import { adminLogin, nextIp } from "./support/accounts.js";
 import { e2eEnvironment } from "./support/env.js";
-import { expect, test } from "./support/test.js";
+import { expect, newGuardedContext, test } from "./support/test.js";
 
 const { baseURL } = e2eEnvironment();
 
@@ -26,7 +26,7 @@ async function submitLogin(page, credentials) {
 }
 
 async function newSession(browser) {
-  const context = await browser.newContext({ baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
+  const context = await newGuardedContext(browser, { baseURL, locale: "pt-BR", extraHTTPHeaders: { "x-forwarded-for": nextIp() } });
   return { context, page: await context.newPage() };
 }
 
