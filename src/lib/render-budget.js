@@ -74,7 +74,7 @@ export function createRenderBudget({
   maxWaiting = MAX_WAITING,
 } = {}) {
   /** Contadores para o relato e os testes. */
-  const stats = { started: 0, terminated: 0, checks: 0 };
+  const stats = { started: 0, terminated: 0, exited: 0, checks: 0 };
   /** @type {{ worker: Worker, ready: Promise<void> } | null} */
   let current = null;
   let running = false;
@@ -118,6 +118,7 @@ export function createRenderBudget({
     });
     // Um worker que morre (memória, erro) sai de cena: o próximo texto sobe outro.
     worker.once("exit", () => {
+      stats.exited += 1;
       if (current?.worker === worker) current = null;
     });
     return record;

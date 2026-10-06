@@ -4,7 +4,7 @@
 // o laço de eventos sem bloqueio, o worker que dura e é recriado depois do encerramento, a fila (503) e,
 // com workers de mentira (`fixtures/`), as falhas: exceção, morte, silêncio e subida que não acontece.
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import {
   MAX_WAITING,
   RENDER_BUDGET_MS,
@@ -113,6 +113,7 @@ describe("o worker real: o pipeline do MarkdownRenderer", () => {
   }, 60_000);
 
   it("o encerramento no tempo é de verdade: depois do estouro, o texto seguinte é aceito logo, em um worker novo", async () => {
+    await checkRenderable("# aquece"); // já existe um worker: o que estourar o tempo é ele, e o seguinte é um novo
     const before = { ...stats };
 
     const refused = await checkRenderable(HOSTILE["* em torre (64 KiB)"], { budgetMs: 200 });
@@ -124,6 +125,9 @@ describe("o worker real: o pipeline do MarkdownRenderer", () => {
     expect(next.renderable).toBe(true);
     expect(stats.terminated).toBe(before.terminated + 1);
     expect(stats.started).toBe(before.started + 1); // o recriado
+    // O worker preso é ENCERRADO de verdade (e não só esquecido): sem o `terminate`, o laço dele seguiria por
+    // dezenas de segundos e este evento de saída não viria.
+    await vi.waitFor(() => expect(stats.exited).toBeGreaterThanOrEqual(before.exited + 1), { timeout: 3000 });
     // Um worker preso no laço de 30 s ainda estaria ocupado: o texto seguinte só passa com o encerramento.
     expect(total).toBeLessThan(10_000);
   }, 30_000);
