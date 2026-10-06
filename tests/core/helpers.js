@@ -29,6 +29,19 @@ export async function resetDatabase() {
   await prisma.user.deleteMany();
 }
 
+/**
+ * Recua o `updatedAt` (a `version` da RN18) de um conteúdo recém-criado para o passado, e devolve a linha
+ * já recuada. A `version` é o `updatedAt` com precisão de milissegundo: um teste que cria o conteúdo e o
+ * atualiza em seguida pode cair no MESMO milissegundo, e a versão "velha" fica igual à atual (sem
+ * conflito; o teste falhava de vez em quando, A-014 Parte 3d, item 2). Com a criação no passado, a
+ * atualização seguinte muda a versão de forma determinística, sem esperar o relógio.
+ * @param {{ id: string }} content
+ * @param {number} [ms] quanto recuar
+ */
+export function aged(content, ms = 60_000) {
+  return prisma.content.update({ where: { id: content.id }, data: { updatedAt: new Date(Date.now() - ms) } });
+}
+
 // O limitador de tentativas conta por IP e por rota: cada chamada usa um IP próprio, salvo
 // quando o teste quer justamente esgotar o limite.
 let ipCounter = 0;

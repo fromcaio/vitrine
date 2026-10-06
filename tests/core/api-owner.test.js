@@ -15,7 +15,7 @@ import * as reorderRoute from "@/app/api/contents/reorder/route";
 import * as contentsRoute from "@/app/api/contents/route";
 import { RATE_LIMITS } from "@/app/api/_lib/rate-limit";
 import { createContent, prisma } from "@/lib/db";
-import { apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
+import { aged, apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
 
 /** @type {{ cookie: string, userId: string }} */
 let admin;
@@ -52,8 +52,9 @@ const content = (/** @type {string} */ id) => prisma.content.findUniqueOrThrow({
 const slugs = (/** @type {any} */ data) => data.map((/** @type {any} */ node) => node.slug);
 
 /** Conteúdo de um dono, criado direto pela camada de dados. */
-const seed = (/** @type {string} */ authorId, /** @type {string} */ slug, extra = {}) =>
-  createContent({ title: slug, slug, type: "DOCUMENT", authorId, body: "original", ...extra });
+// O conteúdo nasce com a version no passado: a primeira atualização muda a version de forma determinística (`aged`).
+const seed = async (/** @type {string} */ authorId, /** @type {string} */ slug, extra = {}) =>
+  aged(await createContent({ title: slug, slug, type: "DOCUMENT", authorId, body: "original", ...extra }));
 
 describe("CT04: escrita sem sessão e com sessão de outro dono", () => {
   it("toda rota de conteúdo, aparência e configuração responde 401 sem sessão", async () => {
@@ -445,7 +446,6 @@ describe("CT53 (parte do servidor): versão no PATCH (RN18)", () => {
     // outra aba grava primeiro
     const first = await update(mine.id, { body: "da outra aba", version: opened }, ana.cookie);
     const current = (await first.json()).data.updatedAt;
-    // atraso mínimo para o updatedAt mudar de milissegundo em máquinas rápidas
     expect(current).not.toBe(opened);
 
     const stale = await update(mine.id, { body: "da aba antiga", version: opened }, ana.cookie);

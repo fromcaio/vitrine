@@ -29,7 +29,7 @@ import EditContentPage, { metadata as editMetadata } from "@/app/admin/conteudo/
 import NewContentPage, { metadata as newMetadata } from "@/app/admin/conteudo/novo/page";
 import { ContentEditor } from "@/components/editor/ContentEditor";
 import { createContent, getContentById, prisma, updateContent } from "@/lib/db";
-import { createTestUser, resetDatabase } from "./helpers";
+import { aged, createTestUser, resetDatabase } from "./helpers";
 
 /** @type {{ id: string, role: string }} */
 let ana;
@@ -51,8 +51,9 @@ beforeEach(async () => {
   vi.mocked(getContentById).mockClear();
 });
 
-const seed = (authorId, slug, extra = {}) =>
-  createContent({ title: `Título ${slug}`, slug, type: "DOCUMENT", authorId, body: "corpo", ...extra });
+// O conteúdo nasce com a version no passado: a primeira atualização muda a version de forma determinística (`aged`).
+const seed = async (authorId, slug, extra = {}) =>
+  aged(await createContent({ title: `Título ${slug}`, slug, type: "DOCUMENT", authorId, body: "corpo", ...extra }));
 
 /** Props do editor na árvore devolvida pela página. */
 function editorProps(element) {
@@ -152,7 +153,6 @@ describe("/admin/conteudo/[id]", () => {
     const mine = await seed(ana.id, "da-ana");
     const first = editorProps(await editPage(mine.id)).version;
 
-    await new Promise((resolve) => setTimeout(resolve, 5));
     const updated = await updateContent(mine.id, { body: "outro corpo" });
     const second = editorProps(await editPage(mine.id)).version;
 

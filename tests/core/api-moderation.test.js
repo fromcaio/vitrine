@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import * as contentRoute from "@/app/api/contents/[id]/route";
 import * as reorderRoute from "@/app/api/contents/reorder/route";
 import { createContent, listNotifications, prisma } from "@/lib/db";
-import { apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
+import { aged, apiRequest, createAdminSession, createUserSession, resetDatabase, routeContext } from "./helpers";
 
 /** @type {{ cookie: string, userId: string }} */
 let admin;
@@ -45,8 +45,9 @@ const pages = () =>
 const portalCalls = () => vi.mocked(revalidatePath).mock.calls.filter((call) => call[0] === "/");
 
 /** Conteúdo de um dono, criado direto pela camada de dados. */
-const seed = (/** @type {string} */ authorId, /** @type {string} */ slug, extra = {}) =>
-  createContent({ title: `Título ${slug}`, slug, type: "DOCUMENT", authorId, body: "original", ...extra });
+// O conteúdo nasce com a version no passado: a primeira atualização muda a version de forma determinística (`aged`).
+const seed = async (/** @type {string} */ authorId, /** @type {string} */ slug, extra = {}) =>
+  aged(await createContent({ title: `Título ${slug}`, slug, type: "DOCUMENT", authorId, body: "original", ...extra }));
 
 describe("PATCH /api/contents/:id: moderação (RF34, RN19, RN26)", () => {
   it("despublicar: aplica, notifica o dono com o motivo e invalida o espaço DO DONO", async () => {
