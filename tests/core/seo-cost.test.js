@@ -1,5 +1,6 @@
 // Custo da descrição (R-018; Cap. 5 §5.12; RN25): `plainDescription` roda no servidor, que é um só processo
-// Node, sobre o corpo de um conteúdo de até 256 KiB escrito por qualquer usuário. Estes testes rodam a
+// Node, sobre o corpo de um conteúdo escrito por qualquer usuário: até 64 KiB hoje (ADR-033), e até 256 KiB nos
+// corpos gravados antes do limite, que continuam legíveis e por isso seguem como entrada. Estes testes rodam a
 // função sobre entradas HOSTIS (delimitadores que abrem e nunca fecham, repetidos até o limite do corpo) e
 // exigem um teto de tempo: o defeito original levava de 6 s a mais de 2 minutos nelas.
 //
