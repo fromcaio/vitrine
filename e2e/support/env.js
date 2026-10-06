@@ -99,6 +99,9 @@ export function e2eEnvironment() {
       ADMIN_EMAIL: ADMIN.email,
       ADMIN_PASSWORD: ADMIN.password,
       ADMIN_NAME: ADMIN.name,
+      // Cota pequena (RN25), para a prova do aviso e do bloqueio da árvore sem criar centenas de conteúdos:
+      // nenhum spec cria mais de 20 conteúdos para um mesmo usuário.
+      MAX_CONTENTS_PER_USER: "20",
     },
   };
 }
