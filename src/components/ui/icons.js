@@ -348,3 +348,95 @@ export function TwitchIcon(props) {
     </Icon>
   );
 }
+
+// Notificações e menu do painel (A-015, etapa 4): o sino, a gravidade (informação, aviso, crítico)
+// e os ícones das seções. Sempre acompanham um texto visível.
+
+/** @param {{ className?: string }} props */
+export function BellIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+    </Icon>
+  );
+}
+
+/** Gravidade INFO. @param {{ className?: string }} props */
+export function InfoIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </Icon>
+  );
+}
+
+/** Gravidade WARNING. @param {{ className?: string }} props */
+export function WarningIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </Icon>
+  );
+}
+
+/** Gravidade CRITICAL. @param {{ className?: string }} props */
+export function CriticalIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 16h.01" />
+      <path d="M12 8v4" />
+      <path d="M15.3 2a2 2 0 0 1 1.4.6l4.7 4.7A2 2 0 0 1 22 8.7v6.6a2 2 0 0 1-.6 1.4l-4.7 4.7a2 2 0 0 1-1.4.6H8.7a2 2 0 0 1-1.4-.6l-4.7-4.7A2 2 0 0 1 2 15.3V8.7a2 2 0 0 1 .6-1.4l4.7-4.7A2 2 0 0 1 8.7 2z" />
+    </Icon>
+  );
+}
+
+/** Aparência. @param {{ className?: string }} props */
+export function PaletteIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" />
+      <path d="M13.5 6.5h.01" />
+      <path d="M17.5 10.5h.01" />
+      <path d="M8.5 7.5h.01" />
+      <path d="M6.5 12.5h.01" />
+    </Icon>
+  );
+}
+
+/** Perfil. @param {{ className?: string }} props */
+export function UserIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </Icon>
+  );
+}
+
+/** Usuários. @param {{ className?: string }} props */
+export function UsersIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </Icon>
+  );
+}
+
+/** Trocar a senha. @param {{ className?: string }} props */
+export function KeyIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
+      <path d="m21 2-9.6 9.6" />
+      <circle cx="7.5" cy="15.5" r="5.5" />
+    </Icon>
+  );
+}

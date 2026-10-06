@@ -9,6 +9,7 @@
 // localStorage): são lidas dos campos só no envio e os campos são esvaziados quando a troca dá
 // certo. Os limites (8 a 128 caracteres) repetem os do servidor, que é a autoridade (RF21); não se
 // importa o Zod do validators.js aqui para não levar a biblioteca ao navegador.
+import Link from "next/link";
 import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, describedBy } from "@/components/ui/Field";
@@ -239,9 +240,9 @@ export function PasswordChangeForm({
               {general === MESSAGES.unauthenticated ? (
                 <>
                   {" "}
-                  <a href="/login" className="font-medium underline underline-offset-2">
+                  <Link href="/login" className="font-medium underline underline-offset-2">
                     Ir para o login
-                  </a>
+                  </Link>
                   .
                 </>
               ) : null}
