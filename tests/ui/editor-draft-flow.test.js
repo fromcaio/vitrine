@@ -20,6 +20,7 @@ const SAVED_AT_TEXT = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", tim
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
+  vi.useRealTimers(); // só um teste usa o relógio simulado; os demais esperam por estado, em tempo real
   cleanup();
   vi.restoreAllMocks();
 });
@@ -275,6 +276,7 @@ describe("Rascunho defasado: o conteúdo mudou no servidor depois do rascunho", 
   });
 
   it("bloqueia salvar e enviar até haver uma decisão, para não perder o rascunho", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     const { onSubmit } = renderEditor();
     expect(/** @type {HTMLButtonElement} */ (saveLocal()).disabled).toBe(true);
     expect(/** @type {HTMLButtonElement} */ (send()).disabled).toBe(true);
@@ -283,7 +285,9 @@ describe("Rascunho defasado: o conteúdo mudou no servidor depois do rascunho", 
     type(body(), "texto novo");
     fireEvent.keyDown(body(), { key: "s", ctrlKey: true });
     fireEvent.submit(/** @type {HTMLFormElement} */ (document.querySelector("form")));
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Prova negativa: o relógio simulado deixa passar um tempo certo (e as microtarefas da validação
+    // do formulário), em vez de um `sleep` que depende da carga da máquina.
+    await vi.advanceTimersByTimeAsync(100);
     expect(onSubmit).not.toHaveBeenCalled();
     expect(stored().values.title).toBe("Rascunho do autor");
     expect(stored().baseVersion).toBe("v0");
@@ -369,7 +373,11 @@ describe("Aviso ao sair da página com texto que não está em lugar nenhum alé
     expect(leavePageIsBlocked()).toBe(true);
     fireEvent.click(send());
     await screen.findByText(/Nova versão enviada/);
-    expect(leavePageIsBlocked()).toBe(false);
+    // O aviso é um ouvinte de `beforeunload` instalado e removido por um efeito do React. O efeito
+    // roda depois da pintura que mostra "Nova versão enviada", e sob carga o ouvinte velho ainda
+    // existia quando o teste conferia (instável em 3 de 150 rodadas). Espera-se pelo estado
+    // conferido, e não pelo texto da mensagem, que aparece antes.
+    await waitFor(() => expect(leavePageIsBlocked()).toBe(false));
   });
 
   it("avisa se o envio falhar e o texto não puder ser guardado", async () => {
