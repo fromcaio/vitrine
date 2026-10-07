@@ -22,6 +22,7 @@ import { applyFormat, diffRange, findInsecureImages, slugFromTitle } from "./for
 import { Preview } from "./Preview";
 import { EDITOR_FIELDS, editorResolver, valuesEqual } from "./schema";
 import { Toolbar } from "./Toolbar";
+import { useMediaQuery } from "./useMediaQuery";
 
 /** @typedef {import("./draft").EditorValues} EditorValues */
 /** @typedef {import("./draft").Draft} Draft */
@@ -209,6 +210,8 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   const [loginHint, setLoginHint] = useState(false);
   const [slugSuggestion, setSlugSuggestion] = useState(/** @type {string | null} */ (null));
   const [tab, setTab] = useState(/** @type {"edit" | "preview"} */ ("edit"));
+  // A pré-visualização só é renderizada quando está à vista: na tela larga, sempre; na estreita, só na aba dela.
+  const wide = useMediaQuery("(min-width: 768px)");
   // Moderação: o envio que espera o motivo, e o último motivo dado (reaproveitado ao sobrescrever depois de um conflito).
   const [asking, setAsking] = useState(/** @type {{ data: EditorValues, baseVersion: string | null } | null} */ (null));
   const [lastReason, setLastReason] = useState(/** @type {string | null} */ (null));
@@ -722,7 +725,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
           </section>
 
           <section aria-label="Pré-visualização" className={`${tab === "preview" ? "block" : "hidden"} min-w-0 md:block`}>
-            <Preview markdown={deferredBody} pending={deferredBody !== current.body} className="h-[26rem] md:h-[34rem]" />
+            <Preview markdown={current.body} visible={wide || tab === "preview"} className="h-[26rem] md:h-[34rem]" />
           </section>
         </div>
       </div>

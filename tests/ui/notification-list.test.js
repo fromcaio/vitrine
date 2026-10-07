@@ -66,7 +66,7 @@ describe("os itens", () => {
     expect(within(itemOf("n2")).getByText("Aviso")).toBeTruthy();
     expect(within(itemOf("n3")).getByText("Informação")).toBeTruthy();
     for (const id of ["n1", "n2", "n3"]) {
-      expect(within(itemOf(id)).getByRole("heading", { level: 3, name: `Título ${id}` })).toBeTruthy();
+      expect(within(itemOf(id)).getByRole("heading", { level: 2, name: `Título ${id}` })).toBeTruthy();
       expect(within(itemOf(id)).getByText(`Texto ${id}`)).toBeTruthy();
       expect(itemOf(id).querySelector("svg[aria-hidden='true']")).toBeTruthy();
     }
@@ -103,7 +103,7 @@ describe("os itens", () => {
     const item = itemOf("n1");
     expect(item.querySelector("img, script, b, i")).toBeNull();
     expect(item.querySelector("p")?.textContent).toBe(`Motivo: ${hostile}`);
-    expect(item.querySelector("h3")?.textContent).toBe(`<i>${hostile}`);
+    expect(item.querySelector("h2")?.textContent).toBe(`<i>${hostile}`);
     expect(/** @type {any} */ (window).__xss).toBeUndefined();
   });
 
@@ -123,7 +123,7 @@ describe("os itens", () => {
 
   it("um item malformado (sem id) é ignorado", () => {
     render(<NotificationList initial={initial([note("n1"), { title: "sem id" }, null])} />);
-    expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(1);
   });
 
   it("só usa tokens de tema, nunca cores fixas", () => {
@@ -331,7 +331,7 @@ describe("carregar mais, pelo cursor", () => {
     fireEvent.click(button("Carregar mais"));
     await waitFor(() => expect(itemOf("n3")).toBeTruthy());
     expect(urlOf(fetchMock)).toBe("/api/notifications?limit=20&cursor=n1");
-    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual(["Título n1", "Título n2", "Título n3"]);
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Título n1", "Título n2", "Título n3"]);
     // O próximo cursor veio na resposta: o botão continua.
     expect(button("Carregar mais")).toBeTruthy();
   });
