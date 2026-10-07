@@ -9,7 +9,7 @@
 **Identificadores:** `A-nnn` avisos/tarefas do Arquiteto · `M-nnn` pedidos de merge · `P-nnn` pedidos entre domínios · `R-nnn` respostas do Arquiteto.
 **Status de um item:** `ABERTO` → `EM REVISÃO` → `VETADO` / `REABERTO` → `ATENDIDO` (o Arquiteto o remove e o move para o arquivo).
 
-**Fases** (Cap. 3 §3.2): F1 Especificação, F2 Fundação e a especificação multiusuário (F2b) **concluídas**; F2b em implementação: A-013 a A-019 **integradas** (M-012 a M-037, 2026-10-04 a 2026-10-06: banco, autorização, moderação, notificações, modo noturno, layouts, editor, espaços públicos, portal, Proxy, senha provisória, formulários e páginas de aparência e de configuração, notificações na interface, backup do SQLite); **aberta (Core): A-024 (o LCP do RNF02 e o *log* do 503)**; a UI não tem tarefa aberta. F5 (a instalação em uma VPS limpa com HTTPS, CT29, a cargo do Engenheiro Chefe; a imagem já foi verificada em contêiner) e a documentação final seguem depois (Cap. 6).
+**Fases** (Cap. 3 §3.2): F1 Especificação, F2 Fundação e a especificação multiusuário (F2b) **concluídas**; F2b em implementação: A-013 a A-019 **integradas** (M-012 a M-037, 2026-10-04 a 2026-10-06: banco, autorização, moderação, notificações, modo noturno, layouts, editor, espaços públicos, portal, Proxy, senha provisória, formulários e páginas de aparência e de configuração, notificações na interface, backup do SQLite); **o épico v1 (aparência, mídia e navegação; A-025 a A-030, decidido em 07/10/2026) é a última fase de funcionalidades**; A-024 (Core) está **pausada**. F5 (a instalação em uma VPS limpa com HTTPS, CT29, a cargo do Engenheiro Chefe; a imagem já foi verificada em contêiner) e a documentação final vêm depois do épico.
 
 ---
 
@@ -26,19 +26,49 @@
 
 ---
 
-### A-024 · [TAREFA] Arquiteto → @Core · 2026-10-06 · **ABERTA** — o LCP simulado do Lighthouse (RNF02; atende o P-017 da UI) e a higiene do *log* do 503 `BUSY`
+## Épico v1: aparência, mídia e navegação (decidido em 07/10/2026; **fonte: `doc/ref/epico-v1-aparencia-midia.md`**)
 
-**Estado.** A UI mediu (A-023, M-037) o Lighthouse móvel sobre o `build` de produção: desempenho ≥ 90 nas quatro páginas, mas o **LCP simulado passa de 2,5 s** (RNF02) no **documento com matemática (2,89 s)** e no **`/login` (2,59 s)**; o portal (1,82 s) e o espaço (1,87 s) passam. Com a rede e a CPU **aplicadas de verdade** no Chromium, o LCP é de 0,93 a 1,16 s nas quatro; os 2,6 a 2,9 s são da **simulação** (que soma o peso de tudo o que carrega antes do LCP, cerca de 250 a 300 KiB). O que pesa está em `src/app/**` (Core): um `favicon.ico` de **26 KiB com prioridade alta** e a fonte **Geist Mono** (23 KiB) pré-carregada em **toda** página, embora só blocos de código e campos `font-mono` a usem. O experimento da UI (já revertido) levou o documento a **2,68 s** e o `/login` a **2,51 s**: ajuda, mas **não basta sozinho para o documento**. **O Arquiteto reproduziu a medição** (mesma máquina, mediana de 3): portal 1,82 s, **espaço 2,43 s** (2,37 a 2,44: passa por **0,07 s**), documento 2,76 s (2,19 a 2,82), `/login` 2,58 s; a variação entre execuções chega a 0,5 s, então a **margem do espaço e do portal é estreita** e os ajustes devem melhorá-los também (confira que **nenhum** regride). O texto completo do pedido está em `doc/ref/mural-arquivo.md` (`grep -n 'P-017' doc/ref/mural-arquivo.md`).
-**Primeiro passo (modo local):** `git worktree add ../vitrine-core-desempenho -b feat/core-desempenho main`; no *worktree*, `npm ci`, `printf 'DATABASE_URL=file:./dev.db\nBETTER_AUTH_SECRET=segredo-ficticio-local-0123456789abcdef\nBETTER_AUTH_URL=http://localhost:3000\n' > .env` (`.env` fictício; **não** copie o `.env.example`) e `npx prisma generate`. Sem *push*. **Leia:** Cap. 4 RNF02; Cap. 5 §5.7 (ISR) e §5.12 (a CSP); `src/app/layout.js`, `src/app/favicon.ico` e `security-headers.mjs`; **`scripts/lighthouse.mjs`** (da UI; `npm run lighthouse` mede **3 rodadas** por página e dá a **mediana**; **só o use**) e o relatório do M-037 no arquivo do mural.
-**Tarefas (`feat/core-desempenho`)** — **meça antes e depois de cada mudança** (`npm run lighthouse`, as mesmas quatro páginas, mediana de 3; um por vez, o Lighthouse é pesado) e **fique só com o que ganha sem regredir**; não arredonde nem fabrique resultado.
-1. **`Geist_Mono({ preload: false })`** em `src/app/layout.js` (a fonte continua carregando, sob demanda, onde for usada).
-2. **O favicon:** troque o `src/app/favicon.ico` de 26 KiB por um de **poucos KiB** (ou um `icon.svg` de 1 a 2 KiB com um ícone ICO mínimo de reserva): uma marca **neutra** do projeto (a letra "V" ou uma forma simples), **sem logotipo de terceiros**, que funcione em fundo claro e escuro; confira que o navegador o pede e o mostra.
-3. **Os candidatos seguintes** (só se a mediana do documento ainda passar de 2,5 s; cada um com o ganho **medido**, e **descarte o que não ganhar**): (a) *preload* das três fontes do KaTeX **só** nas páginas com matemática (a cadeia CSS → fontes custa cerca de 50 KiB; use a API de *preload* do React/Next, com a CSP intacta); (b) uma lista de navegadores moderna (`browserslist` no `package.json`; arquivo compartilhado, declare-o no pedido) para tirar os 14 KiB de *Legacy JavaScript* que o Lighthouse aponta; (c) o *render-blocking* da folha de estilos (o relatório estima 760 ms): diga o que dá para fazer **sem** quebrar a CSP (o `inlineCss` do Next **não serve**: `style-src 'self'` o bloqueia). **Não** mexa no `LoginForm` (é da UI: tirar o cliente do `better-auth`, −13,7 KiB, muda o tratamento de erro da suspensão): se medir que seria decisivo, **diga o número** e abra um `[PEDIDO]` à UI.
-4. **Higiene do *log* (backlog da R-025):** `src/app/api/_lib/http.js` registra **todo** status ≥ 500 com `console.error("[api] erro não previsto:", error)`, inclusive o 503 `BUSY`, que é **esperado** sob carga (no contêiner, sete linhas com a pilha depois do ensaio). Registre o `BUSY` (e só ele) em nível baixo e **sem a pilha**; os demais 5xx continuam como estão. Teste: o `BUSY` não chama `console.error`; um 500 de verdade chama.
-5. **As duas figuras de teste do Core** (`cd doc/tex && make pendentes AGENTE=Core`): `figuras/testes/teste-isr-cabecalhos.png` (a **captura real** dos cabeçalhos `x-nextjs-cache` de uma página do espaço sobre o *build* de produção: a primeira requisição, as seguintes em `HIT` e a primeira depois de uma mutação, CT21 e CT22; use `curl -I` ou o equivalente, **dados fictícios**) e `figuras/testes/teste-suite-automatizada.png` (a **saída real** de `npm test`, com o resumo dos arquivos e dos testes). Nos caminhos exatos dos *placeholders*; **não se fabrica captura**; se a descrição do *placeholder* não bater com o que se vê, diga-o no `[MERGE]`.
-**Critérios de aceite:** a tabela **antes e depois** das quatro páginas (móvel e desktop: desempenho, LCP, CLS, TBT; mediana e dispersão); o que foi aplicado e o que foi **descartado** (com o número); `lint`, `build` (também com `DATABASE_URL` de diretório inexistente e de banco vazio), `npm test -- --maxWorkers=4`, `test:e2e` e `test:a11y` (**uma vez** cada; o favicon e a fonte não podem regredir a acessibilidade nem a CSP: console sem violação sobre `build` + `start`); **mutações** do item 4 (o `BUSY` volta a registrar a pilha; um 500 deixa de registrar). **Não** edite `doc/**` (o Arquiteto decide, com os seus números, como o RNF02 fica documentado); imagens novas só se um *placeholder* pedir. **Memória:** o Vitest já está limitado a 4 processos; **um** `build`, `test:e2e`, `test:a11y`, `lighthouse` ou Docker por vez.
+O Engenheiro Chefe trouxe 10 mudanças e **aprovou** as decisões **D-30 a D-38** (imagens como BLOB no SQLite reencodadas com `sharp`, sem SVG; modo por cookie lido só pelo *script* do `<head>`, sem "automático"; topbar e logo no site **e** em cada espaço; o par de ícones do botão de modo escolhido pelo administrador; rodapé por ícones, até 8 por dono, um por ícone, preenchido por cada usuário; avatar; título do diretório). **Nada disto está no LaTeX nem no código ainda** (a documentação vem antes: A-025). **Congelamento de escopo:** depois desta lista, ideia nova vai para o backlog "v1.1". **Os prompts de cada agente estão em `doc/ref/prompts/{arquiteto,dados,ui,core}.md`.** **Ordem de lançamento ao retomar:** (1) Arquiteto A-025 (**passo 1 primeiro**) **e** UI A-027 em paralelo; (2) com o passo 1 na `main`, **Dados** A-026; (3) com o passo 2 na `main`, UI A-028; (4) com a A-026 integrada, **Core** A-024 e A-029 (**o Core não roda agora**); (5) integração e fechamento (A-030). **No máximo dois agentes pesados ao mesmo tempo.**
 
-**Status:** **ABERTA** (2026-10-06).
+### A-024 · [TAREFA] Arquiteto → @Core · 2026-10-06 · **PAUSADA** (o Core não roda agora; **independente** do épico, pode ir primeiro) — o LCP do RNF02 (P-017) e o *log* do 503
+**Estado.** O Lighthouse móvel (M-037, reproduzido pelo Arquiteto): desempenho ≥ 90 nas quatro páginas, mas o **LCP simulado** passa de 2,5 s no documento (2,76 a 2,89 s) e no `/login` (2,58 s); o espaço passa por pouco (2,43 s); o LCP real, com rede e CPU estranguladas, é de ~1 s. O que pesa está em `src/app/**`: o `favicon.ico` de 26 KiB e a fonte Geist Mono pré-carregada em toda página. **Itens (só estes; o prompt é `doc/ref/prompts/core.md`, pedido 1):** (1) `Geist_Mono({ preload: false })`; (2) um favicon de poucos KiB, neutro, que será o **padrão de reserva** do épico; (3) o *log* do 503 `BUSY` em nível baixo e sem a pilha (os demais 5xx seguem); (4) as figuras `teste-isr-cabecalhos` e `teste-suite-automatizada` (capturas reais). **Os candidatos extras de LCP ficam para o fim do épico** (as imagens mudam o LCP). Meça antes e depois (`npm run lighthouse`, mediana de 3). O Arquiteto e o Engenheiro Chefe decidem, com os números, como o RNF02 fica documentado.
+**Status:** **PAUSADA** (2026-10-07).
+
+---
+
+### A-025 · [TAREFA] Chefe → @Arquiteto · 2026-10-07 · **ABERTA ao retomar** — transformar o documento-fonte em especificação (DDD)
+**Passo 1 (dados, commitado primeiro; libera o Dados):** `dados.tex`, Apêndice A, `er-vitrine.dbml`, **ADR-034** (mídia) e **ADR-035** (rodapé por ícones, substitui a ADR-013). **Passo 2:** Cap. 4 (RF24 e RN17 substituídos; RF/RN novos), Cap. 5 (`api`, `rotas`, `seguranca`, `tema`, `isr`, `autenticacao`), Apêndices D, E (**ADR-036** modo por cookie; **ADR-037** topbar, par de ícones, título, avatar e navegação) e G, Cap. 6, Cap. 7 (CT56 em diante) e `CLAUDE.md`. **Passo 3:** abrir A-027 a A-030 no mural. Prompt: `doc/ref/prompts/arquiteto.md`.
+**Status:** **ABERTA ao retomar.**
+
+---
+
+### A-026 · [TAREFA] Arquiteto → @Dados · 2026-10-07 · **AGUARDA** o passo 1 da A-025 — esquema e funções (branch `feat/dados-midia`)
+`Image`, `User.avatarImageId`, `FooterLink`, os campos novos de `SiteConfiguration` e `Appearance` (`logoImageId`, `faviconImageId`, `showLogo`, `showName`, `modeIconPair`, `directoryTitle`) e a **remoção** de `logoUrl`, `faviconUrl` e dos seis campos sociais; migração que **converte** os seis em `FooterLink` e **descarta** as URLs; funções (`saveImage`, `replaceImage`, `deleteOwnedImages`, `replaceFooterLinks`...); **backup e restauração com imagens**; testes e mutações. Prompt: `doc/ref/prompts/dados.md`.
+**Status:** **AGUARDA.**
+
+---
+
+### A-027 · [TAREFA] Chefe → @UI · 2026-10-07 · **ABERTA ao retomar** (onda 0; não depende do esquema) — popout, navegação, modo por cookie, topbar, campos novos e o defeito do item 6 (branch `feat/ui-onda0`)
+Itens 1, 5, 7, 4, 10, 9 e 6 do épico: o popout do sino; o `AdminLink` (cookie-marcador `vitrine-logado`) e o nome do site no painel levando a `/`; o `ColorModeToggle` de dois estados com o cookie `vitrine-modo` e o par de ícones (também no painel); `showLogo` e `showName`; `directoryTitle` e `modeIconPair` nos formulários; e o `router.refresh()` do `ConfigurationForm` (**hipótese do item 6**: o layout do painel persiste entre navegações; **confirmar medindo**). Exceção declarada: `e2e/tema.spec.js` (só os casos do "automático"). Prompt: `doc/ref/prompts/ui.md`, pedido 1.
+**Status:** **ABERTA ao retomar.**
+
+---
+
+### A-028 · [TAREFA] Chefe → @UI · 2026-10-07 · **AGUARDA** o passo 2 da A-025 — `ImageUpload`, `Avatar`, `IconPicker`, `FooterLinksEditor`, `Footer` e a moderação do avatar (branch `feat/ui-midia`)
+Contra o contrato de API do documento-fonte (§4), com `fetch` simulado; ícones do Simple Icons (CC0) inline; a CSP sem `https:` em `img-src`. Prompt: `doc/ref/prompts/ui.md`, pedido 2.
+**Status:** **AGUARDA.**
+
+---
+
+### A-029 · [TAREFA] Chefe → @Core · 2026-10-07 · **AGUARDA** a A-026 integrada (**o Core não roda agora**) — mídia, rodapé, favicon por espaço, CSP e ligações (branch `feat/core-midia`)
+`sharp` (processamento, 422 `INVALID_IMAGE`, concorrência de um por usuário e dois no total), o modo `multipart` do `route()`, `PUT`/`DELETE` das imagens e do avatar, `DELETE /api/users/:id/avatar` com motivo, `GET /media/<id>` imutável, `/api/footer-links`, os campos novos, o `generateMetadata` do favicon, **`img-src 'self' data:`**, e2e e mutações. Prompt: `doc/ref/prompts/core.md`, pedido 2.
+**Status:** **AGUARDA.**
+
+---
+
+### A-030 · [TAREFA] Chefe → @Arquiteto · 2026-10-07 · **AGUARDA** as entregas dos agentes — integrar e fechar
+Integrar cada pedido (simulação em Linux, ensaio e mutações **ampliados**, e2e e `test:a11y`, mutações próprias no upload); **F6 de novo** (`test:a11y` e `lighthouse`: as imagens mudam o LCP; a decisão do RNF02 e a do **limite pelo peso do DOM** são do Engenheiro Chefe); **CT29 de novo** (Docker com o `sharp`); a documentação final (relatos pendentes do Cap. 6, a tabela de cobertura do Cap. 8, as dificuldades técnicas); **push** se o Engenheiro Chefe o pedir. Prompt: `doc/ref/prompts/arquiteto.md`.
+**Status:** **AGUARDA.**
 
 ---
 
