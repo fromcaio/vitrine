@@ -98,6 +98,8 @@ Nos merges M-032, M-034 e M-033 (A-021, A-014 Parte 3e-1 e A-015 etapa 5b), o Co
 
 Nos merges M-035 e M-036 (A-022 e A-014 Parte 3e-2), o Core acrescentou os testes do teto de uma validação por usuário (\arq{render-budget}, \arq{api-render-busy}, \arq{api-render-budget}), da montagem do processador (\arq{render-pipeline}: as sete junções e o \emph{worker} real com um orçamento de 300~ms), das páginas de usuários e de moderação (\arq{admin-usuarios-pages}), do \arq{remove-later.mjs} (\arq{e2e-remove-later}) e do \emph{sandbox} do \texttt{os.tmpdir()}, o \en{spec} \arq{e2e/usuarios.spec.js} (13 testes) e o caso novo de \arq{e2e/limite-corpo.spec.js} (seis envios hostis da mesma conta: 1 resposta 422 e 5 respostas 503). O Arquiteto reexecutou os dois merges em Linux (\texttt{lint}, \texttt{build} e \textbf{3173 testes aprovados}), o ensaio HTTP, que passou de 230 para \textbf{233 verificações}, sem falhas, e o e2e no Windows (\textbf{97 de 97}); e aplicou 8 mutações próprias, todas detectadas (o teto por usuário removido, nunca liberado, nunca registrado; o documento a moderar sem conferir o dono ou o tipo; \arq{/admin/usuarios} sem o papel e com o link para o usuário comum; a lista com o registro cru).
 
+No merge M-037 (A-023), a UI acrescentou os testes do orçamento da pré-visualização (\arq{preview-budget}, \arq{preview-worker}, \arq{preview} e \arq{editor-preview-budget}, com um \emph{worker} de mentira que responde, que não responde e que falha), a varredura \arq{e2e/acessibilidade.spec.js} (35 testes, marcados \texttt{@a11y} e excluídos do \texttt{npm run test:e2e}, que segue com 97) e o \texttt{npm run lighthouse}; a suíte do Vitest passou a 3222 testes (1493 da UI). O Arquiteto reexecutou, em Linux, \texttt{lint}, \texttt{build}, os 3222 testes e o ensaio HTTP (233 verificações, sem falhas).
+
 \section{Testes de Ponta a Ponta}\label{sec:testes-e2e}
 
 A base dos testes de ponta a ponta foi entregue pelo Core no merge M-010 (tarefa A-012, Parte~2), com o Playwright \cite{playwright} na versão 1.63.0 (licença Apache-2.0; \decisao{D-12}, \adr{ADR-017}). O comando é \texttt{npm run test:e2e} (\texttt{playwright test}); a configuração está em \arq{playwright.config.js}, e os \en{specs}, que terminam em \texttt{.spec.js}, ficam em \arq{e2e/}, fora de \arq{tests/}, que é do Vitest: o \arq{vitest.config.mjs} exclui \arq{e2e/**}, e \texttt{npm test} não os coleta. Os navegadores não ficam no repositório nem na imagem Docker: instalam-se uma vez por máquina (\texttt{npx playwright install chromium}).
@@ -190,12 +192,32 @@ CT53 & Editar com a versão desatualizada (duas abas, ou o administrador e o don
 
 \subsection{Desempenho e ISR}
 
-O desempenho será medido com o Lighthouse \cite{lighthouse} sobre o \en{build} de produção, em perfil móvel simulado e em desktop, registrando as métricas centrais de experiência \cite{webvitals}, em especial o \en{Largest Contentful Paint} (LCP). A meta é LCP $\leq$ 2,5 s no percentil 75 e pontuação de desempenho $\geq$ 90 (\req{RNF02}). O comportamento do cache será verificado por requisições repetidas à mesma página, observando o cabeçalho \arq{x-nextjs-cache}: a primeira requisição deve resultar em \texttt{MISS} ou \texttt{HIT} conforme a pré-renderização, as seguintes em \texttt{HIT}, e a primeira após uma mutação em \texttt{MISS} ou \texttt{REVALIDATED} (casos CT21 e CT22).
+O desempenho foi medido com o Lighthouse \cite{lighthouse} (versão 13.5) sobre o \en{build} de produção, em perfil móvel simulado e em desktop, registrando as métricas centrais de experiência \cite{webvitals}, em especial o \en{Largest Contentful Paint} (LCP). A meta é LCP $\leq$ 2,5 s no percentil 75 e pontuação de desempenho $\geq$ 90 (\req{RNF02}). O comportamento do cache será verificado por requisições repetidas à mesma página, observando o cabeçalho \arq{x-nextjs-cache}: a primeira requisição deve resultar em \texttt{MISS} ou \texttt{HIT} conforme a pré-renderização, as seguintes em \texttt{HIT}, e a primeira após uma mutação em \texttt{MISS} ou \texttt{REVALIDATED} (casos CT21 e CT22).
+
+\textbf{Lighthouse (A-023, merge M-037, 06/10/2026).} \texttt{npm run lighthouse} (\arq{scripts/lighthouse.mjs}) sobe o \en{build} de produção com um banco temporário, monta dados de verdade pela API e roda três vezes cada página; a Tabela~\ref{tab:lighthouse-movel} traz a mediana. A pontuação de desempenho atinge a meta nas quatro páginas, e a acessibilidade, as boas práticas e o SEO ficam em 100 (o SEO do \texttt{/login} é 63 por desenho: a página é \texttt{noindex}). O \textbf{LCP simulado} cumpre os 2,5~s no portal e no espaço, mas \emph{não} no documento com matemática (2,89~s) nem no \texttt{/login} (2,59~s). Com a rede (4G lenta) e a CPU (4$\times$ mais lenta) \emph{aplicadas de verdade} no Chromium, o LCP é de 0,93 a 1,16~s nas quatro páginas: o excesso é da simulação do Lighthouse, que soma o peso de tudo o que carrega antes do LCP (250 a 300~KiB). O que pesa está em \arq{src/app/**}: o \arq{favicon.ico} de 26~KiB, com prioridade alta, e a fonte Geist Mono (23~KiB), pré-carregada em toda página embora só os blocos de código a usem; um experimento temporário (revertido) com os dois ajustes levou o documento a 2,68~s e o \texttt{/login} a 2,51~s, o que não basta para o documento (pedido P-017, tarefa A-024). No \emph{desktop}, as quatro páginas dão 100 de desempenho (LCP de 0,55 a 0,60~s). Não foi possível medir em aparelho real.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Lighthouse, perfil móvel simulado, mediana de três rodadas (A-023)}\label{tab:lighthouse-movel}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Página} & \textbf{Desempenho} & \textbf{LCP} & \textbf{Acessibilidade} & \textbf{Boas práticas} & \textbf{SEO}\\
+\midrule
+Portal & 95 & 1,82~s & 100 & 100 & 100\\
+Início de um espaço & 96 & 1,87~s & 100 & 100 & 100\\
+Documento (matemática e código) & 93 & 2,89~s & 100 & 100 & 100\\
+\texttt{/login} & 92 & 2,59~s & 100 & 100 & 63\\
+\bottomrule
+\end{tabular}
+\fonte{Elaborado pelos autores (\texttt{npm run lighthouse}, \en{build} de produção, Node.js 24).}
+\end{table}
+O Arquiteto reproduziu a medição no Windows (a mesma máquina, três rodadas): portal 96 e 1,82~s; espaço 94 e 	extbf{2,43~s} (de 2,37 a 2,44~s); documento 94 e 2,76~s (de 2,19 a 2,82~s); 	exttt{/login} 92 e 2,58~s; no desktop, 100 e de 0,55 a 0,60~s nas quatro. Os valores confirmam os da UI, com uma diferença que importa: o espaço, que cumpre a meta por pouco, ficou a 0,07~s do limite, e a variação entre execuções chega a 0,5~s, de modo que a margem do portal e do espaço é estreita; os ajustes da tarefa A-024 as beneficiam também.
 
 \textbf{Desempenho das leituras de dados (A-018, merge M-018, 05/10/2026).} Antes das páginas públicas, o Dados mediu, em um banco temporário com 50 usuários de 500 conteúdos cada (25\,000 linhas, cinco níveis, cerca de 20\% de rascunhos, três espaços sem raiz publicada e um suspenso) e 1000 notificações de um usuário, 14 chamadas, 200 vezes cada depois de 20 de aquecimento, uma por vez, variando o dono, na máquina de desenvolvimento (Windows, SQLite em disco local; \emph{não} é a VPS-alvo). A mediana de cada função ficou entre 0,3~ms e 5,1~ms, o p95 máximo foi de 9,3~ms (\texttt{getPublicPaths} do espaço inteiro) e o pior caso, de 25,6~ms (\texttt{listNotifications}); a primeira chamada fria mais lenta foi a de \texttt{listPublicSpaces}, com 27,7~ms. Nenhum pior caso passou de 50~ms, e todos os planos de consulta usam índice; os únicos \texttt{SCAN} são o de \texttt{user} em \texttt{listPublicSpaces} (50 usuários, com subconsulta indexada) e o \texttt{TEMP B-TREE} da ordenação de \texttt{listNotifications} (no máximo 1000 linhas do usuário). O arquivo de teste tem tetos generosos (p95 abaixo de 250~ms, sem \texttt{SCAN} nas consultas que devem usar índice) e um controle que prova que ele detecta (um banco sem o índice \texttt{contents\_authorId\_parentId\_order\_idx} faz o teste falhar), e só roda com \texttt{MEDICAO=1} (cerca de 22~s). \texttt{getContentByPath} e \texttt{getPublicPaths} leem a árvore inteira do dono (cerca de 500 linhas, sem o corpo) a cada chamada, por cerca de 4 a 5~ms, folgado para o ISR. Esta medição é de acesso a dados e não substitui o Lighthouse e o LCP do RNF02.
 
 \vitrinefigura[tipo=teste, arquivo=teste-lighthouse-mobile, agente=UI, largura=0.85,
-  descricao={Relatório do Lighthouse em perfil móvel para uma página de documento no build de produção, com as quatro pontuações e as métricas LCP, CLS e TBT.}]
+  descricao={Relatório real do Lighthouse em perfil móvel para a página de um documento com matemática e código, no build de produção (rodada mediana): desempenho 93, acessibilidade 100, boas práticas 100 e SEO 100; LCP 2,9~s (em laranja, acima da meta de 2,5~s), TBT 160~ms e CLS 0,001.}]
   {Relatório do Lighthouse (perfil móvel)}{fig:teste-lh-mobile}
 
 \vitrinefigura[tipo=teste, arquivo=teste-isr-cabecalhos, agente=Core, largura=0.85,
@@ -214,10 +236,14 @@ A verificação de segurança consiste em: executar os casos CT02, CT04, CT06, C
 
 \subsection{Acessibilidade}
 
-A acessibilidade será avaliada segundo o WCAG 2.1 nível AA \cite{wcag21}, combinando verificação automatizada (contraste, rótulos, estrutura de títulos) e verificação manual (navegação apenas por teclado, foco visível, leitura por leitor de tela em um fluxo representativo).
+A acessibilidade foi avaliada segundo o WCAG 2.1 nível AA \cite{wcag21}, combinando verificação automatizada (contraste, rótulos, estrutura de títulos) e verificação manual (navegação apenas por teclado, foco visível), \emph{sem} a leitura por leitor de tela, que não foi possível aqui.
+
+\textbf{Verificação automatizada (A-023, merge M-037).} O \texttt{axe-core} \cite{axecore} 4.13 (licença MPL-2.0), pelo \texttt{@axe-core/playwright}, varre, sobre o \en{build} de produção, 32 estados (as páginas públicas, as do painel do administrador e do usuário comum e os estados com diálogo aberto ou o painel da senha provisória), nos dois modos e em 1280 e 320~px: 128 varreduras, com as regras WCAG 2.0 e 2.1 A e AA e as boas práticas. Resultado: \textbf{nenhuma violação de qualquer impacto}, depois de corrigir 8 sérias e 4 moderadas que a primeira rodada achou. Dois testes-canário injetam um botão sem nome, uma imagem sem \texttt{alt}, um campo sem rótulo e um contraste abaixo de 4,5:1 e exigem que a varredura os aponte.
+
+\textbf{Verificação manual (Chromium sobre o \en{build} de produção).} Navegação de ponta a ponta só com o teclado (entrar, criar e enviar um documento, alternar o estado, moderar com o diálogo); foco visível em todas as paradas de 12 páginas (de 20 a 54 paradas cada, nenhuma sem indicador); \emph{skip link} visível ao primeiro Tab; um \texttt{h1} e nenhum salto de título; \texttt{lang="pt-BR"}; zoom a 200\% e a 400\% e texto a 200\%, sem rolagem horizontal; espaçamento de texto da WCAG 1.4.12 sem texto cortado; \texttt{prefers-reduced-motion} respeitado. O corpo Markdown de um autor com \texttt{\# } gera um segundo \texttt{h1}, o que o WCAG permite. \emph{Não foi feito:} leitor de tela real (NVDA, VoiceOver, TalkBack); o \texttt{ariaSnapshot} do Playwright foi o substituto parcial.
 
 \vitrinefigura[tipo=teste, arquivo=teste-acessibilidade, agente=UI, largura=0.85,
-  descricao={Resultado da verificação automatizada de acessibilidade (por exemplo, categoria Acessibilidade do Lighthouse ou ferramenta equivalente) para as páginas pública e do painel.}]
+  descricao={Saída real de \texttt{npm run test:a11y}: 35 testes aprovados (32 estados de página, 10 deles com diálogo aberto, e os testes-canário) e o relatório da varredura com o axe-core (WCAG 2.0 e 2.1, A e AA): 128 varreduras, nenhuma violação.}]
   {Resultado da verificação automatizada de acessibilidade}{fig:teste-a11y}
 
 \subsection{Usabilidade}
