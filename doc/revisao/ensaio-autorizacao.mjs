@@ -146,7 +146,22 @@ r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#2563eb" }); chec
 for (const [pagina, jar] of [["/", null], ["/login", null], ["/admin", admin]]) {
   r = await call(jar, "GET", pagina);
   const htmlTag = (r.text.match(/<html[^>]*>/) ?? [""])[0];
-  check(`${pagina}: 200, <html lang="pt-BR"> sem style, script do modo no <head>`, r.status === 200 && /lang="pt-BR"/.test(htmlTag) && !/style=/.test(htmlTag) && /<head>[\s\S]*vitrine:modo[\s\S]*<\/head>/.test(r.text), `${r.status} ${htmlTag}`);
+  check(`${pagina}: 200, <html lang="pt-BR"> sem style, script do modo no <head>`, r.status === 200 && /lang="pt-BR"/.test(htmlTag) && !/style=/.test(htmlTag) && /<head>[\s\S]*vitrine-modo[\s\S]*<\/head>/.test(r.text), `${r.status} ${htmlTag}`);
+}
+// --- épico v1, A-027 (M-038): modo por cookie lido só pelo script do <head>; marcador de sessão; CSP mantém https:
+{
+  const anonima = await call(null, "GET", "/");
+  const comCookies = await call(null, "GET", "/", undefined, { cookie: "vitrine-modo=dark; vitrine-logado=1" });
+  const script = (anonima.text.match(/<head>[\s\S]*?<\/head>/) ?? [""])[0];
+  check("o script do modo lê o cookie vitrine-modo, sem localStorage nem matchMedia (sem \"automático\")", /vitrine-modo/.test(script) && !/localStorage|matchMedia|vitrine:modo/.test(script), script.slice(0, 200));
+  check("o servidor NÃO lê vitrine-modo nem vitrine-logado: o HTML de / é o mesmo com e sem os cookies, e sem class=\"dark\" no <html>", anonima.status === 200 && anonima.text === comCookies.text && !/<html[^>]*class="[^"]*dark/.test(comCookies.text), `${anonima.status} ${comCookies.status} ${anonima.text.length} ${comCookies.text.length}`);
+  check("/ não define cookie algum (nem de modo, nem marcador)", (anonima.headers.getSetCookie?.() ?? []).length === 0, String(anonima.headers.getSetCookie?.()));
+  check("o cache de / não muda com os cookies (mesmo Cache-Control)", anonima.headers.get("cache-control") === comCookies.headers.get("cache-control"), `${anonima.headers.get("cache-control")} | ${comCookies.headers.get("cache-control")}`);
+  const logada = await call(admin, "GET", "/");
+  check("página pública estática: mesmo com sessão, o servidor não escreve o link Administração (quem decide é o navegador)", logada.status === 200 && logada.text === anonima.text, `${logada.status} ${logada.text.length} ${anonima.text.length}`);
+  const csp = anonima.headers.get("content-security-policy") ?? "";
+  check("CSP da v1 mantém https: no img-src (ADR-034, item 11)", /img-src 'self' data: https:(;|$)/.test(csp), csp.slice(0, 300));
+  check("a CSP não admite connect-src de outro site (get-session é da mesma origem)", /connect-src 'self'(;|$)/.test(csp), csp.slice(0, 300));
 }
 r = await call(null, "GET", "/"); check("o portal leva o envoltório .vitrine-tema", /class="[^"]*vitrine-tema/.test(r.text), r.text.slice(0, 200));
 r = await call(null, "GET", "/admin/conteudo/novo"); check("editor sem sessão -> redireciona ao /login com o destino", (r.status === 307 || r.status === 302 || r.status === 308) && /\/login\?redirectTo=/.test(r.headers.get("location") ?? ""), `${r.status} ${r.headers.get("location")}`);
@@ -170,6 +185,8 @@ r = await call(bob, "GET", `/admin/notificacoes?userId=${(await call(admin, "GET
 r = await call(admin, "GET", "/admin/notificacoes"); check("notificações: a página do administrador não traz as do Bob", r.status === 200 && !/Pl.gio comprovado/.test(r.text), `${r.status}`);
 r = await call(null, "GET", "/admin/notificacoes"); check("notificações: sem sessão -> redireciona ao login", [301, 302, 307, 308].includes(r.status) && /\/login/.test(r.headers.get("location") ?? ""), `${r.status}`);
 r = await call(bob, "GET", "/admin/aparencia"); check("sino no cabeçalho do painel, com o contador no rótulo acessível", /Notificações, 1 não lida/.test(r.text), r.text.slice(0, 100));
+check("o sino é um botão de divulgação, fechado de saída (aria-expanded=false, aria-controls), e não mais um link", /<button[^>]*aria-label="Notificações, 1 não lida"[^>]*aria-expanded="false"[^>]*aria-controls="/.test(r.text) || /<button[^>]*aria-expanded="false"[^>]*aria-label="Notificações, 1 não lida"/.test(r.text), (r.text.match(/<button[^>]*Notificações[^>]*>/) ?? [""])[0]);
+check("o painel do popout não carrega a lista de outro dono: no HTML inicial o painel está vazio e oculto", !/Notificações recentes/.test(r.text), "popout já renderizado no servidor");
 r = await call(bob, "GET", "/admin"); check("menu do usuário comum: sem os links de Configurações e Usuários (o cartão \"em breve\" da visão geral não é o menu)", r.status === 200 && !/href="\/admin\/configuracoes"/.test(r.text) && !/href="\/admin\/usuarios"/.test(r.text) && /href="\/admin\/notificacoes"/.test(r.text), `${r.status}`);
 r = await call(admin, "GET", "/admin"); check("menu do administrador: com o link de Configurações", /href="\/admin\/configuracoes"/.test(r.text), `${r.status}`);
 // --- A-021 (M-032): 64 KiB e o orçamento de renderização na gravação (ADR-033)
