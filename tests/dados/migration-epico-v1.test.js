@@ -86,12 +86,13 @@ function populateRealistic(db) {
   insert(db, "contents", { id: "c2", title: "Doc ação", slug: "doc", body: "Fórmula $E=mc^2$ 😀", type: "DOCUMENT", status: "DRAFT", order: 0, parentId: "c1", authorId: "u2", createdAt: T0, updatedAt: T0 });
   insert(db, "notifications", { id: "n1", userId: "u2", type: "MODERATION", severity: "WARNING", dedupeKey: null, data: '{"event":"CONTENT_EDITED","reason":"x"}', readAt: null, resolvedAt: null, createdAt: T0, updatedAt: T0 });
 
-  // O site: dois https, um http, um vazio, um nulo e um em branco; logo e favicon por URL
+  // O site: os seis links https (todo ramo da conversão tem dado); logo e favicon por URL
   insert(db, "configurations", {
     id: "default", siteName: "Meu Site", siteDescription: "Descrição", ...OLD, primaryColor: "#123456",
     logoUrl: "https://x.test/logo.png", faviconUrl: "https://x.test/favicon.ico",
-    discordUrl: "https://discord.gg/site", githubUrl: "http://github.com/inseguro", youtubeUrl: "https://youtube.com/@site",
-    instagramUrl: "", linkedinUrl: null, twitchUrl: "   ", homeBody: "# Portal", directoryEnabled: 0, updatedAt: T0,
+    discordUrl: "https://discord.gg/site", githubUrl: "https://github.com/site", youtubeUrl: "https://youtube.com/@site",
+    instagramUrl: "https://instagram.com/site", linkedinUrl: "https://linkedin.com/in/site", twitchUrl: "https://twitch.tv/site",
+    homeBody: "# Portal", directoryEnabled: 0, updatedAt: T0,
   });
 
   // O administrador: paleta clara personalizada em UMA cor; noturna e nome no padrão antigo
@@ -228,13 +229,17 @@ describe("migração do épico v1 (A-026)", () => {
       }
     });
 
-    it("converte os links https do SITE em footer_links, na sequência dos ícones, e descarta o http, o vazio e o nulo", () => {
+    it("converte os seis links https do SITE em footer_links (dono nulo), na sequência dos ícones", () => {
       const { db } = migrated();
       try {
         const site = footerLinks(db).filter((l) => l[0] === null);
         expect(site).toEqual([
           [null, "discord", "https://discord.gg/site", 0],
-          [null, "youtube", "https://youtube.com/@site", 1],
+          [null, "github", "https://github.com/site", 1],
+          [null, "youtube", "https://youtube.com/@site", 2],
+          [null, "instagram", "https://instagram.com/site", 3],
+          [null, "linkedin", "https://linkedin.com/in/site", 4],
+          [null, "twitch", "https://twitch.tv/site", 5],
         ]);
       } finally {
         db.close();
@@ -262,10 +267,11 @@ describe("migração do épico v1 (A-026)", () => {
       }
     });
 
-    it("só o que é https:// vira link: ftp, javascript:, mailto:, http e o esquema sozinho são descartados; o esquema em maiúsculas é mantido", () => {
+    it("só o que é https:// vira link: nulo, ftp, javascript:, mailto:, http e o esquema sozinho são descartados; o esquema em maiúsculas é mantido", () => {
       const { db } = migrated();
       try {
         expect(footerLinks(db).filter((l) => l[0] === "u3")).toEqual([["u3", "linkedin", "HTTPS://Exemplo.TEST/bia", 0]]);
+        expect(footerLinks(db).filter((l) => l[0] === "u1").map((l) => l[1])).toEqual(["github", "twitch"]); // os demais eram nulos
         for (const [, , url] of footerLinks(db)) expect(url.toLowerCase(), url).toMatch(/^https:\/\/./);
       } finally {
         db.close();
@@ -276,7 +282,7 @@ describe("migração do épico v1 (A-026)", () => {
       const { db } = migrated();
       try {
         const rows = /** @type {any[]} */ (db.prepare('SELECT id, createdAt, updatedAt FROM "footer_links"').all());
-        expect(rows).toHaveLength(2 + 2 + 6 + 1);
+        expect(rows).toHaveLength(6 + 2 + 6 + 1);
         expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
         for (const row of rows) {
           expect(row.id).toMatch(/^[0-9a-f]{24}$/);
@@ -379,7 +385,7 @@ describe("migração do épico v1 (A-026)", () => {
       const client = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: toFileUrl(file) }) });
       try {
         const links = await client.footerLink.findMany({ orderBy: [{ ownerId: "asc" }, { order: "asc" }] });
-        expect(links).toHaveLength(11);
+        expect(links).toHaveLength(15);
         for (const l of links) {
           expect(l.createdAt).toBeInstanceOf(Date);
           expect(Number.isNaN(l.createdAt.getTime())).toBe(false);
@@ -518,7 +524,7 @@ describe("migração do épico v1 (A-026)", () => {
         expect(indexProblems(migrated, ALL_REQUIRED_INDEXES)).toEqual([]);
         expect(migrated.pragma("foreign_key_check")).toEqual([]);
         expect(migrated.prepare('SELECT count(*) AS n FROM "contents"').get()).toEqual({ n: 2 });
-        expect(migrated.prepare('SELECT count(*) AS n FROM "footer_links"').get()).toEqual({ n: 11 });
+        expect(migrated.prepare('SELECT count(*) AS n FROM "footer_links"').get()).toEqual({ n: 15 });
       } finally {
         migrated.close();
       }
