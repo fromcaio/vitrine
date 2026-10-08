@@ -3,11 +3,16 @@
 // dos erros da API. Funções puras: rodam sem navegador.
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_DIRECTORY_TITLE,
+  INHERIT_FLAG,
+  MESSAGES,
   bodyTooLong,
   changedFields,
   draftOf,
   groupWarnings,
+  inheritPalette,
   interpretFailure,
+  isPaletteInherited,
   normalizeValue,
   patchOf,
   previewLinks,
@@ -55,8 +60,8 @@ describe("draftOf", () => {
   it("a aparência não tem texto do portal nem diretório; a configuração tem", () => {
     expect(draftOf(RECORD, "appearance")).not.toHaveProperty("homeBody");
     expect(draftOf(RECORD, "appearance")).not.toHaveProperty("directoryEnabled");
-    expect(draftOf(CONFIG, "configuration")).toMatchObject({ homeBody: "# Portal", directoryEnabled: false });
-    expect(draftOf({ ...CONFIG, homeBody: null, directoryEnabled: undefined }, "configuration")).toMatchObject({ homeBody: "", directoryEnabled: true });
+    expect(draftOf(CONFIG, "portal")).toMatchObject({ homeBody: "# Portal", directoryEnabled: false });
+    expect(draftOf({ ...CONFIG, homeBody: null, directoryEnabled: undefined }, "portal")).toMatchObject({ homeBody: "", directoryEnabled: true });
   });
 
   it("cores ausentes ficam com o padrão da ADR-031", () => {
@@ -90,7 +95,7 @@ describe("normalizeValue, changedFields e patchOf (envio parcial)", () => {
   });
 
   it("na configuração, o texto do portal e o diretório entram no corpo só se mudaram", () => {
-    const base = draftOf(CONFIG, "configuration");
+    const base = draftOf(CONFIG, "portal");
     expect(patchOf({ ...base, directoryEnabled: true }, base)).toEqual({ directoryEnabled: true });
     expect(patchOf({ ...base, homeBody: "# Novo" }, base)).toEqual({ homeBody: "# Novo" });
     expect(patchOf({ ...base, homeBody: "# Portal  \n" }, base)).toEqual({});
@@ -104,8 +109,11 @@ describe("validateDraft (RN09, RN17, D-10, RN25)", () => {
     expect(validateDraft(ok(), OPTIONS)).toEqual({});
   });
 
-  it("o nome é obrigatório", () => {
-    expect(validateDraft({ ...ok(), siteName: "   " }, OPTIONS)).toEqual({ siteName: "O nome do site é obrigatório." });
+  it("o nome do SISTEMA é obrigatório; o da página do usuário pode ficar vazio (herda)", () => {
+    expect(validateDraft({ ...draftOf(RECORD, "site"), siteName: "   " }, { kind: "site", maxBodyBytes: 1000 })).toEqual({
+      siteName: "O nome do site é obrigatório.",
+    });
+    expect(validateDraft({ ...ok(), siteName: "   " }, OPTIONS)).toEqual({});
   });
 
   it.each(["laranja", "#fff", "#12345g", "2563eb", "#2563eb0", ""])("recusa a cor %j (RN09)", (value) => {
@@ -149,18 +157,18 @@ describe("validateDraft (RN09, RN17, D-10, RN25)", () => {
   });
 
   it("o limite do texto do portal é de bytes UTF-8, e não de caracteres (RN25)", () => {
-    const base = draftOf(CONFIG, "configuration");
-    const options = { kind: /** @type {const} */ ("configuration"), maxBodyBytes: 10 };
+    const base = draftOf(CONFIG, "portal");
+    const options = { kind: /** @type {const} */ ("portal"), maxBodyBytes: 10 };
     expect(validateDraft({ ...base, homeBody: "a".repeat(10) }, options)).toEqual({});
     expect(validateDraft({ ...base, homeBody: "a".repeat(11) }, options)).toEqual({ homeBody: bodyTooLong(11, 10) });
     // "ação" = 4 caracteres, 6 bytes.
-    expect(validateDraft({ ...base, homeBody: "ação" }, { kind: "configuration", maxBodyBytes: 5 })).toEqual({ homeBody: bodyTooLong(6, 5) });
-    expect(validateDraft({ ...base, homeBody: "ação" }, { kind: "configuration", maxBodyBytes: 6 })).toEqual({});
+    expect(validateDraft({ ...base, homeBody: "ação" }, { kind: "portal", maxBodyBytes: 5 })).toEqual({ homeBody: bodyTooLong(6, 5) });
+    expect(validateDraft({ ...base, homeBody: "ação" }, { kind: "portal", maxBodyBytes: 6 })).toEqual({});
   });
 
   it("o limite é do texto aparado, como o servidor o grava; a aparência não tem texto do portal", () => {
-    const base = draftOf(CONFIG, "configuration");
-    expect(validateDraft({ ...base, homeBody: `${"a".repeat(10)}${" ".repeat(50)}` }, { kind: "configuration", maxBodyBytes: 10 })).toEqual({});
+    const base = draftOf(CONFIG, "portal");
+    expect(validateDraft({ ...base, homeBody: `${"a".repeat(10)}${" ".repeat(50)}` }, { kind: "portal", maxBodyBytes: 10 })).toEqual({});
     expect(validateDraft({ ...draftOf(RECORD, "appearance"), homeBody: "x".repeat(5000) }, OPTIONS)).toEqual({});
   });
 
@@ -272,7 +280,7 @@ describe("interpretFailure: 401, 403, 413, 422 e 429 em português", () => {
 
   it("403: o texto depende de quem edita (aparência do usuário ou configuração do site)", async () => {
     expect((await interpretFailure(failure(403, [], "FORBIDDEN"), "appearance")).general).toBe("Você não tem permissão para alterar esta aparência.");
-    expect((await interpretFailure(failure(403, [], "FORBIDDEN"), "configuration")).general).toBe("Só o administrador pode alterar a configuração do site.");
+    expect((await interpretFailure(failure(403, [], "FORBIDDEN"), "portal")).general).toBe("Só o administrador pode alterar a configuração do site.");
   });
 
   it("429: pede para aguardar e, com o Retry-After, diz os segundos", async () => {
@@ -310,7 +318,7 @@ describe("interpretFailure: 401, 403, 413, 422 e 429 em português", () => {
   it("422 QUOTA_EXCEEDED: o texto do portal passa os bytes e o máximo (o servidor chama o campo de body)", async () => {
     const { fields } = await interpretFailure(
       failure(422, [{ field: "body", bytes: 300000, max: 262144 }], "QUOTA_EXCEEDED"),
-      "configuration",
+      "portal",
     );
     expect(fields).toEqual({ homeBody: "O texto do portal tem 300000 bytes; o máximo é 262144 (256 KiB)." });
   });
@@ -319,12 +327,12 @@ describe("interpretFailure: 401, 403, 413, 422 e 429 em português", () => {
     expect((await interpretFailure(failure(422, []), "appearance")).general).toBe(
       "O servidor não aceitou os dados enviados. Confira os campos e tente de novo.",
     );
-    const quota = await interpretFailure(json(422, { error: { code: "QUOTA_EXCEEDED", message: "O texto do portal excede o tamanho máximo.", details: [] } }), "configuration");
+    const quota = await interpretFailure(json(422, { error: { code: "QUOTA_EXCEEDED", message: "O texto do portal excede o tamanho máximo.", details: [] } }), "portal");
     expect(quota.general).toBe("O texto do portal excede o tamanho máximo.");
   });
 
   it("413: o texto do portal é grande demais para ser enviado", async () => {
-    const { fields } = await interpretFailure(failure(413, [], "PAYLOAD_TOO_LARGE"), "configuration");
+    const { fields } = await interpretFailure(failure(413, [], "PAYLOAD_TOO_LARGE"), "portal");
     expect(fields.homeBody).toBe("O texto do portal é grande demais para ser enviado.");
   });
 
@@ -335,5 +343,180 @@ describe("interpretFailure: 401, 403, 413, 422 e 429 em português", () => {
     expect((await interpretFailure(new Response(null, { status: 422 }), "appearance")).general).toBe(
       "O servidor não aceitou os dados enviados. Confira os campos e tente de novo.",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// A-027: barra superior (D-34), título do diretório (D-38), par de ícones (D-35) e a herança (D-40).
+
+describe("barra superior: showLogo e showName (D-34)", () => {
+  it("valem ligados quando o registro não os traz, e seguem o que o registro diz", () => {
+    expect(draftOf(RECORD, "appearance")).toMatchObject({ showLogo: true, showName: true });
+    expect(draftOf({ ...RECORD, showLogo: false }, "site")).toMatchObject({ showLogo: false, showName: true });
+    expect(draftOf({ ...RECORD, showName: false }, "appearance")).toMatchObject({ showLogo: true, showName: false });
+  });
+
+  it("os dois desligados são recusados (pelo menos um fica ligado), na aparência e no sistema", () => {
+    for (const kind of /** @type {const} */ (["appearance", "site"])) {
+      const base = draftOf(RECORD, kind);
+      expect(validateDraft({ ...base, showLogo: false, showName: false }, { kind, maxBodyBytes: 1000 })).toEqual({ showName: MESSAGES.topbar });
+      expect(validateDraft({ ...base, showLogo: false, showName: true }, { kind, maxBodyBytes: 1000 })).toEqual({});
+      expect(validateDraft({ ...base, showLogo: true, showName: false }, { kind, maxBodyBytes: 1000 })).toEqual({});
+    }
+  });
+
+  it("só o que mudou vai no corpo", () => {
+    const base = draftOf(RECORD, "appearance");
+    expect(patchOf({ ...base, showLogo: false }, base)).toEqual({ showLogo: false });
+    expect(patchOf({ ...base }, base)).toEqual({});
+  });
+});
+
+describe("par de ícones do botão de modo (D-35)", () => {
+  it("só o sistema o tem; um valor desconhecido vira o padrão", () => {
+    expect(draftOf(RECORD, "appearance")).not.toHaveProperty("modeIconPair");
+    expect(draftOf(RECORD, "site").modeIconPair).toBe("sun_moon");
+    expect(draftOf({ ...RECORD, modeIconPair: "lightbulb" }, "site").modeIconPair).toBe("lightbulb");
+    expect(draftOf({ ...RECORD, modeIconPair: "roxo" }, "site").modeIconPair).toBe("sun_moon");
+  });
+
+  it("vai no corpo só quando mudou", () => {
+    const base = draftOf({ ...RECORD, modeIconPair: "lightbulb" }, "site");
+    expect(patchOf({ ...base, modeIconPair: "contrast_half" }, base)).toEqual({ modeIconPair: "contrast_half" });
+    expect(patchOf(base, base)).toEqual({});
+  });
+});
+
+describe("título do diretório (D-38)", () => {
+  const portal = (/** @type {object} */ extra = {}) => ({ ...draftOf({ homeBody: "x" }, "portal"), ...extra });
+
+  it("o padrão é Espaços", () => {
+    expect(DEFAULT_DIRECTORY_TITLE).toBe("Espaços");
+    expect(draftOf({}, "portal").directoryTitle).toBe("Espaços");
+    expect(draftOf({ directoryTitle: "  " }, "portal").directoryTitle).toBe("Espaços");
+    expect(draftOf({ directoryTitle: "Pessoas" }, "portal").directoryTitle).toBe("Pessoas");
+  });
+
+  it("aceita de 1 a 40 caracteres (contando como pessoa, não como byte) e recusa o resto", () => {
+    const options = { kind: /** @type {const} */ ("portal"), maxBodyBytes: 1000 };
+    expect(validateDraft(portal({ directoryTitle: "A" }), options)).toEqual({});
+    expect(validateDraft(portal({ directoryTitle: "a".repeat(40) }), options)).toEqual({});
+    expect(validateDraft(portal({ directoryTitle: "ç".repeat(40) }), options)).toEqual({});
+    expect(validateDraft(portal({ directoryTitle: "a".repeat(41) }), options)).toEqual({ directoryTitle: MESSAGES.directoryTitle });
+    expect(validateDraft(portal({ directoryTitle: "   " }), options)).toEqual({ directoryTitle: MESSAGES.directoryTitle });
+    expect(validateDraft(portal({ directoryTitle: "" }), options)).toEqual({ directoryTitle: MESSAGES.directoryTitle });
+  });
+
+  it("vai no corpo, aparado, só quando mudou", () => {
+    const base = portal();
+    expect(patchOf(portal({ directoryTitle: "  Pessoas " }), base)).toEqual({ directoryTitle: "Pessoas" });
+    expect(patchOf(base, base)).toEqual({});
+  });
+
+  it("o portal não tem nenhum campo de identidade", () => {
+    expect(Object.keys(draftOf(CONFIG, "portal")).sort()).toEqual(["directoryEnabled", "directoryTitle", "homeBody"]);
+  });
+});
+
+describe("herança da aparência do sistema (D-40)", () => {
+  const nullPalette = (/** @type {"light" | "dark"} */ mode) =>
+    Object.fromEntries(Object.keys(DEFAULT_PALETTES[mode]).map((field) => [field, null]));
+  const SYSTEM = {
+    siteName: "Vitrine da Casa",
+    primaryColor: "#112233",
+    secondaryColor: "#223344",
+    accentColor: "#334455",
+    darkPrimaryColor: "#ccddee",
+    darkSecondaryColor: "#bbccdd",
+    darkAccentColor: "#aabbcc",
+  };
+
+  it("a paleta com as TRÊS cores nulas é herdada; com uma só nula, ou ausente, não", () => {
+    expect(isPaletteInherited({ ...RECORD, ...nullPalette("light") }, "light")).toBe(true);
+    expect(isPaletteInherited({ ...RECORD, ...nullPalette("light") }, "dark")).toBe(false);
+    expect(isPaletteInherited({ ...RECORD, ...nullPalette("light"), accentColor: "#000000" }, "light")).toBe(false);
+    expect(isPaletteInherited({ siteName: "X" }, "light")).toBe(false);
+  });
+
+  it("um modo herdado vem com o interruptor ligado e as cores do SISTEMA no rascunho", () => {
+    const draft = draftOf({ ...RECORD, ...nullPalette("light") }, "appearance", SYSTEM);
+    expect(draft[INHERIT_FLAG.light]).toBe(true);
+    expect(draft[INHERIT_FLAG.dark]).toBe(false);
+    expect(draft).toMatchObject({ primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" });
+    expect(draft.darkPrimaryColor).toBe(DEFAULT_PALETTES.dark.darkPrimaryColor);
+  });
+
+  it("sem a referência do sistema, a paleta herdada cai nas paletas padrão", () => {
+    const draft = draftOf({ ...RECORD, ...nullPalette("dark") }, "appearance");
+    expect(draft[INHERIT_FLAG.dark]).toBe(true);
+    expect(draft.darkPrimaryColor).toBe(DEFAULT_PALETTES.dark.darkPrimaryColor);
+  });
+
+  it("uma cor inválida do sistema é ignorada na referência", () => {
+    const draft = draftOf({ ...RECORD, ...nullPalette("light") }, "appearance", { ...SYSTEM, primaryColor: "laranja" });
+    expect(draft.primaryColor).toBe(DEFAULT_PALETTES.light.primaryColor);
+  });
+
+  it("o nome nulo vira vazio (herda) e o sistema não tem interruptores de herança", () => {
+    expect(draftOf({ ...RECORD, siteName: null }, "appearance").siteName).toBe("");
+    expect(draftOf(RECORD, "site")).not.toHaveProperty("inheritLight");
+    expect(draftOf(RECORD, "portal")).not.toHaveProperty("inheritLight");
+  });
+
+  it("passar a herdar manda as TRÊS cores do modo como null, e só elas", () => {
+    const base = draftOf(RECORD, "appearance", SYSTEM);
+    const next = inheritPalette(base, "light", draftOf(SYSTEM, "site"));
+    expect(next[INHERIT_FLAG.light]).toBe(true);
+    expect(patchOf(next, base)).toEqual({ primaryColor: null, secondaryColor: null, accentColor: null });
+    const dark = inheritPalette(base, "dark", draftOf(SYSTEM, "site"));
+    expect(patchOf(dark, base)).toEqual({ darkPrimaryColor: null, darkSecondaryColor: null, darkAccentColor: null });
+  });
+
+  it("herdar repõe no rascunho as cores do sistema (a pré-visualização mostra a efetiva)", () => {
+    const base = draftOf(RECORD, "appearance", SYSTEM);
+    const edited = { ...base, primaryColor: "#ff0000" };
+    const next = inheritPalette(edited, "light", draftOf(SYSTEM, "site"));
+    expect(next).toMatchObject({ primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" });
+  });
+
+  it("continuar herdando não manda nada", () => {
+    const record = { ...RECORD, ...nullPalette("light") };
+    const base = draftOf(record, "appearance", SYSTEM);
+    expect(patchOf({ ...base }, base)).toEqual({});
+    // Mesmo que as cores do rascunho tenham sido mexidas, o modo herdado não envia cor alguma.
+    expect(patchOf({ ...base, primaryColor: "#ff0000" }, base)).toEqual({});
+  });
+
+  it("passar de herdada a PRÓPRIA manda as três cores (a paleta é completa quando definida)", () => {
+    const base = draftOf({ ...RECORD, ...nullPalette("light") }, "appearance", SYSTEM);
+    const next = { ...base, [INHERIT_FLAG.light]: false };
+    expect(patchOf(next, base)).toEqual({ primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" });
+    expect(patchOf({ ...next, accentColor: "#ABCDEF" }, base)).toEqual({ primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#abcdef" });
+  });
+
+  it("uma paleta própria que só muda uma cor manda só essa cor", () => {
+    const base = draftOf(RECORD, "appearance", SYSTEM);
+    expect(patchOf({ ...base, secondaryColor: "#ABCDEF" }, base)).toEqual({ secondaryColor: "#abcdef" });
+  });
+
+  it("o nome esvaziado vai como null (herda o do sistema); preenchido, vai o texto", () => {
+    const base = draftOf(RECORD, "appearance");
+    expect(patchOf({ ...base, siteName: "   " }, base)).toEqual({ siteName: null });
+    expect(patchOf({ ...base, siteName: " Novo " }, base)).toEqual({ siteName: "Novo" });
+  });
+
+  it("no sistema, o nome esvaziado NÃO vai como null (é obrigatório)", () => {
+    const base = draftOf(RECORD, "site");
+    expect(patchOf({ ...base, siteName: "" }, base)).toEqual({ siteName: "" });
+  });
+
+  it("a paleta herdada não é validada nem gera aviso de contraste; a própria, sim", () => {
+    const base = draftOf({ ...RECORD, ...nullPalette("light") }, "appearance", SYSTEM);
+    expect(validateDraft({ ...base, primaryColor: "laranja" }, OPTIONS)).toEqual({});
+    expect(validateDraft({ ...base, [INHERIT_FLAG.light]: false, primaryColor: "laranja" }, OPTIONS)).toHaveProperty("primaryColor");
+    // Contraste: uma primária quase branca avisa na paleta própria e cala na herdada.
+    const pale = { ...base, primaryColor: "#fefefe" };
+    expect(warningsByMode(pale).light).toEqual([]);
+    expect(warningsByMode({ ...pale, [INHERIT_FLAG.light]: false }).light.length).toBeGreaterThan(0);
   });
 });

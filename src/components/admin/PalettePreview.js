@@ -20,11 +20,13 @@ const NAV_ITEMS = [
  * @param {"light" | "dark"} props.mode modo mostrado
  * @param {string} props.id prefixo dos ids (o do `<main>` da amostra não repete o da página)
  * @param {string} props.name nome do site ou do espaço
- * @param {string | null} [props.logoUrl] logotipo válido, se houver
+ * @param {string | null} [props.logoUrl] logotipo válido, se houver; sem ele, o logo embutido
+ * @param {boolean} [props.showLogo] mostra o logo na barra (padrão)
+ * @param {boolean} [props.showName] mostra o nome na barra (padrão)
  * @param {import("@/components/layout/SocialLinks").SocialLinksValue} [props.links] links válidos
  * @param {Record<string, string>} props.themeStyle as dez variáveis do envoltório (`previewStyle`)
  */
-export function PalettePreview({ mode, id, name, logoUrl = null, links = {}, themeStyle }) {
+export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true, showName = true, links = {}, themeStyle }) {
   const light = mode === "light";
   return (
     <div
@@ -38,6 +40,8 @@ export function PalettePreview({ mode, id, name, logoUrl = null, links = {}, the
           name={name}
           homeHref="#"
           logoUrl={logoUrl}
+          showLogo={showLogo}
+          showName={showName}
           navItems={NAV_ITEMS}
           socialLinks={links}
           year={2026}
