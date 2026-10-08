@@ -137,11 +137,14 @@ r = await call(admin, "PUT", "/api/configuration", { darkPrimaryColor: "#333333"
 r = await call(admin, "GET", "/api/notifications"); check("salvar de novo reabre a mesma notificação (uma só por modo e escopo)", (r.json?.data ?? []).filter((n) => n.type === "CONTRAST").length === 1, r.text.slice(0, 300));
 r = await call(admin, "PUT", "/api/configuration", { darkPrimaryColor: "#60a5fa" }); check("paleta corrigida -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0,200));
 r = await call(admin, "GET", "/api/notifications?unread=1"); check("a notificação de contraste resolvida sai das não lidas", !(r.json?.data ?? []).some((n) => n.type === "CONTRAST"), r.text.slice(0, 300));
-r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#f0f0f0" }); check("PUT da aparência do Bob com a primária clara demais -> aviso do modo claro", r.status === 200 && (r.json?.warnings ?? []).some((w) => w.field === "primaryColor"), `${r.status} ${r.text.slice(0,200)}`);
+r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#f0f0f0", secondaryColor: "#1e293b", accentColor: "#b45309" }); check("PUT da aparência do Bob com a primária clara demais -> aviso do modo claro", r.status === 200 && (r.json?.warnings ?? []).some((w) => w.field === "primaryColor"), `${r.status} ${r.text.slice(0,200)}`);
 r = await call(bob, "GET", "/api/notifications?unread=1"); const nBob = (r.json?.data ?? []).find((n) => n.type === "CONTRAST");
 check("o Bob recebe a notificação CONTRAST do escopo da aparência", !!nBob && nBob.data?.scope === "appearance" && /do seu espaço/.test(nBob.text), JSON.stringify(nBob)?.slice(0, 300));
 r = await call(admin, "GET", "/api/notifications?unread=1"); check("a notificação do Bob não aparece para o administrador", !(r.json?.data ?? []).some((n) => n.type === "CONTRAST"), r.text.slice(0, 200));
-r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#2563eb" }); check("o Bob corrige a paleta -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0, 200));
+r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#2563eb", secondaryColor: "#1e293b", accentColor: "#b45309" }); check("o Bob corrige a paleta -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0, 200));
+// Épico v1 (M-039, ADR-038): a paleta de um modo é uma unidade e a nula herda; o contraste vale sobre a aparência EFETIVA.
+r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#112233" }); check("uma cor sozinha de uma paleta -> 422 (a paleta é por inteiro)", r.status === 422, `${r.status} ${r.text.slice(0, 150)}`);
+r = await call(bob, "PUT", "/api/appearance", { siteName: "Só o nome do Bob" }); check("só o nome (paletas herdadas) -> 200, não 500, e sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, `${r.status} ${r.text.slice(0, 150)}`);
 // --- layout raiz estático, tema por envoltório e páginas do editor (M-021)
 for (const [pagina, jar] of [["/", null], ["/login", null], ["/admin", admin]]) {
   r = await call(jar, "GET", pagina);
@@ -285,7 +288,7 @@ r = await call(bob, "GET", "/api/users/idinexistente123"); check("Bob consulta u
 r = await call(bob, "PATCH", "/api/users/me", { role: "admin", name: "Bob B" }); check("PATCH /me ignora role ou recusa", r.status === 200 || r.status === 422, `${r.status}`);
 const me = (await call(bob, "GET", "/api/users/me")).json?.data; check("Bob continua 'user'", me?.role === "user", JSON.stringify(me));
 // aparência
-r = await call(bob, "PUT", "/api/appearance", { siteName: "Espaço do Bob", primaryColor: "#112233" }); check("Bob grava a própria aparência", r.status === 200, `${r.status} ${r.text.slice(0,150)}`);
+r = await call(bob, "PUT", "/api/appearance", { siteName: "Espaço do Bob", primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" }); check("Bob grava a própria aparência", r.status === 200, `${r.status} ${r.text.slice(0,150)}`);
 r = await call(admin, "GET", "/api/appearance"); check("admin lê a própria aparência (não a do Bob)", r.status === 200 && r.json?.data?.siteName !== "Espaço do Bob", r.text.slice(0,150));
 // suspensão
 r = await call(admin, "POST", `/api/users/${bobId}/ban`, {}); check("suspender sem motivo -> 422", r.status === 422, `${r.status}`);

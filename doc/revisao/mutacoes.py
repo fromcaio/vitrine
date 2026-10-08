@@ -119,7 +119,8 @@ DADOS=[
  ("prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql","AND lower(\"secondaryColor\") = '#1e293b' AND lower(\"accentColor\") = '#b45309';","AND lower(\"secondaryColor\") = '#1e293b';","M23 migração anula a paleta se só duas cores são padrão"),
  ("prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql","ORDER BY \"seq\") - 1,","ORDER BY \"seq\"),","M24 migração numera a ordem do rodapé a partir de 1"),
  ("src/lib/footer-icons.js","export const MAX_FOOTER_LINKS = 8;","export const MAX_FOOTER_LINKS = 9;","M25 teto do rodapé 9"),
- ("src/lib/db.js","directoryTitle.length > DIRECTORY_TITLE_MAX_LENGTH","directoryTitle.length >= DIRECTORY_TITLE_MAX_LENGTH","M26 título do diretório: limite off-by-one"),
+ ("src/lib/db.js","[...directoryTitle].length > DIRECTORY_TITLE_MAX_LENGTH","[...directoryTitle].length >= DIRECTORY_TITLE_MAX_LENGTH","M26 título do diretório: limite off-by-one"),
+ ("src/lib/db.js","[...directoryTitle].length > DIRECTORY_TITLE_MAX_LENGTH","directoryTitle.length > DIRECTORY_TITLE_MAX_LENGTH","M29 título do diretório conta unidades UTF-16"),
  ("src/lib/db.js","if (typeof mime !== \"string\" || !mime.startsWith(\"image/\")) {","if (typeof mime !== \"string\") {","M27 imagem com mime que não é de imagem"),
  ("src/lib/db.js","if (ownerId === null && kind !== \"avatar\") return;","if (ownerId === null) return;","M28 avatar do site (sem dono) aceito"),
 ]
