@@ -397,6 +397,23 @@ describe("db.js: imagens", () => {
       expect(await prisma.user.count({ where: { id: ana.id } })).toBe(1);
     });
 
+    it("a limpeza das imagens é um passo EXPLÍCITO da transação de deleteUser (a cascata do banco é só a rede de segurança)", async () => {
+      // O resultado observável é o mesmo com ou sem o passo (a cascata de ownerId apagaria as imagens),
+      // por isso o passo é fixado por interceptação: se a transação falha em image.deleteMany, a
+      // exclusão inteira é desfeita; sem o passo explícito, nada falharia e o usuário seria excluído.
+      const admin = await createUser("admin");
+      await prisma.user.update({ where: { id: admin.id }, data: { role: "admin" } });
+      const ana = await createUser("ana");
+      const avatar = await replaceImage("avatar", ana.id, sampleImage("a-ana"));
+      const spy = failTransactionAt("image", "deleteMany");
+
+      await expect(deleteUser(ana.id)).rejects.toThrow("falha injetada");
+      spy.mockRestore();
+
+      expect(await prisma.user.count({ where: { id: ana.id } })).toBe(1);
+      expect(await getImage(avatar.id)).not.toBeNull();
+    });
+
     it("a cascata do banco apaga as imagens mesmo se o usuário for removido direto (rede de segurança)", async () => {
       const ana = await createUser("ana");
       await replaceImage("avatar", ana.id, sampleImage("a-ana"));
