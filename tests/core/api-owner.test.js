@@ -516,20 +516,46 @@ describe("GET/PUT /api/appearance: a aparência é do próprio usuário (RN19)",
     const { data } = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data).toMatchObject({ ownerId: ana.id, siteName: "Ana", persisted: false });
+    // ADR-038: nulo = herda o sistema (o nome e as paletas não são preenchidos com o do usuário).
+    expect(data).toMatchObject({
+      ownerId: ana.id,
+      siteName: null,
+      primaryColor: null,
+      darkPrimaryColor: null,
+      persisted: false,
+    });
     expect(await prisma.appearance.count()).toBe(0);
   });
 
   it("PUT parcial grava a aparência do usuário e devolve avisos; a do outro não muda", async () => {
-    const response = await put({ siteName: "Espaço da Ana", primaryColor: "#FFFF00", darkPrimaryColor: "#112233" }, ana.cookie);
+    // A paleta de um modo é uma unidade (as três cores); o outro modo continua herdando (nulo).
+    const light = { primaryColor: "#FFFF00", secondaryColor: "#FFFFAA", accentColor: "#FFFF55" };
+    const response = await put({ siteName: "Espaço da Ana", ...light }, ana.cookie);
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.data).toMatchObject({ ownerId: ana.id, siteName: "Espaço da Ana", primaryColor: "#FFFF00", darkPrimaryColor: "#112233", persisted: true });
+    expect(body.data).toMatchObject({ ownerId: ana.id, siteName: "Espaço da Ana", ...light, darkPrimaryColor: null, persisted: true });
     expect(body.warnings.map((/** @type {any} */ w) => w.field)).toContain("primaryColor");
 
-    expect((await (await get(beto.cookie)).json()).data).toMatchObject({ siteName: "Beto", persisted: false });
+    expect((await (await get(beto.cookie)).json()).data).toMatchObject({ siteName: null, persisted: false });
     expect(await prisma.appearance.count()).toBe(1);
+  });
+
+  it("quem não personalizou nada grava só o nome: 200, tudo o mais fica nulo (herda) e não há aviso", async () => {
+    const response = await put({ siteName: "Só o nome" }, ana.cookie);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ siteName: "Só o nome", primaryColor: null, darkAccentColor: null });
+    expect(body.warnings).toEqual([]); // as paletas padrão do sistema atendem ao contraste
+  });
+
+  it("uma cor sozinha de uma paleta responde 422 e não grava nada (a paleta é por inteiro)", async () => {
+    const response = await put({ primaryColor: "#112233" }, ana.cookie);
+
+    expect(response.status).toBe(422);
+    expect((await errorOf(response)).code).toBe("VALIDATION_ERROR");
+    expect(await prisma.appearance.count()).toBe(0);
   });
 
   it("o administrador edita apenas a própria aparência: não há como informar a de outro", async () => {

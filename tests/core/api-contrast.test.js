@@ -207,3 +207,45 @@ describe("a gravação não depende de a paleta ser boa", () => {
     expect(await prisma.appearance.findFirstOrThrow({ where: { ownerId: ana.id } })).toMatchObject(BAD_LIGHT);
   });
 });
+
+// ADR-038: a paleta nula herda a do sistema; o contraste vale para a aparência EFETIVA. Antes, a rota
+// calculava sobre a linha gravada e respondia 500 (TypeError: "Cor fora do formato #RRGGBB: null") a
+// quem não personalizou as duas paletas.
+describe("a paleta herdada: o contraste vale sobre a aparência efetiva", () => {
+  it("tudo nulo (só o nome): 200 e, com as paletas padrão do sistema, nenhum aviso", async () => {
+    const response = await putAppearance({ siteName: "Só o nome" }, ana.cookie);
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).warnings).toEqual([]);
+    expect(await prisma.notification.count()).toBe(0);
+  });
+
+  it("só o modo claro definido: o noturno herda e o aviso vem só do que vale (aqui, o claro)", async () => {
+    const body = await (await putAppearance({ ...BAD_LIGHT }, ana.cookie)).json();
+
+    expect(body.data).toMatchObject({ ...BAD_LIGHT, darkPrimaryColor: null });
+    expect(fields(body.warnings)).toEqual(["primaryColor", "secondaryColor", "accentColor"]);
+  });
+
+  it("só o modo noturno definido: o claro herda e o aviso vem só do noturno", async () => {
+    const body = await (await putAppearance({ ...BAD_DARK }, ana.cookie)).json();
+
+    expect(body.data).toMatchObject({ ...BAD_DARK, primaryColor: null });
+    expect(fields(body.warnings)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
+  });
+
+  it("o modo herdado é conferido contra a paleta do SISTEMA, e não contra um padrão fixo", async () => {
+    await putSite({ ...BAD_DARK });
+
+    const body = await (await putAppearance({ siteName: "Herdeira" }, ana.cookie)).json();
+
+    expect(fields(body.warnings)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
+  });
+
+  it("uma ou duas cores de uma paleta: 422, e a aparência não muda", async () => {
+    const response = await putAppearance({ primaryColor: "#112233", secondaryColor: "#223344" }, ana.cookie);
+
+    expect(response.status).toBe(422);
+    expect(await prisma.appearance.count({ where: { ownerId: ana.id } })).toBe(0);
+  });
+});

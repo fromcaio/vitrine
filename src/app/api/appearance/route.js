@@ -2,7 +2,7 @@
 // recebe identificador: age sempre sobre o dono da sessão, de modo que não há como pedir a de outro
 // (nem o administrador edita a de outro usuário; a suspensão é o recurso contra uma aparência
 // abusiva).
-import { getAppearance, updateAppearance } from "@/lib/db";
+import { getAppearance, getEffectiveAppearance, updateAppearance } from "@/lib/db";
 import { appearanceUpdateSchema } from "@/lib/validators";
 import { contrastReport, syncContrastNotifications } from "../_lib/contrast";
 import { ok, parse } from "../_lib/http";
@@ -20,7 +20,8 @@ export const GET = route({ action: "appearance:read", load: ownAppearance }, asy
 /**
  * PUT: atualização parcial de identidade, links sociais (RN17) e das paletas clara e noturna (RN09,
  * RN27); campos ausentes não mudam. Responde `{ data, warnings }`, como a configuração do site:
- * `warnings` traz os avisos de contraste dos DOIS modos sobre a paleta gravada. Cada modo com aviso
+ * `warnings` traz os avisos de contraste dos DOIS modos sobre a paleta efetiva (a do usuário, ou a do
+ * sistema quando ele não definiu a do modo). Cada modo com aviso
  * gera (ou reabre) a notificação `CONTRAST` `contrast:{modo}` do usuário; o modo que passa a atender
  * resolve a sua (RN26).
  * Revalida o espaço inteiro do dono (a página inicial e todos os caminhos públicos) e, se mudou o
@@ -32,7 +33,10 @@ export const PUT = route(
     const patch = parse(appearanceUpdateSchema, await readJson());
     const appearance = await updateAppearance(actor.id, patch);
     await revalidateWholeSpace({ ownerId: actor.id, directory: "siteName" in patch || "siteDescription" in patch });
-    const { byMode, warnings } = contrastReport(appearance);
+    // A paleta nula herda a do sistema (ADR-038): o contraste vale para a aparência EFETIVA, e não
+    // para a linha gravada, que pode ter paleta nula.
+    const effective = await getEffectiveAppearance(actor.id);
+    const { byMode, warnings } = contrastReport(effective ?? appearance);
     await syncContrastNotifications({ userId: actor.id, scope: "appearance", byMode });
     return ok(appearance, { extra: { warnings } });
   },
