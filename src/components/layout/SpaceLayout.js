@@ -18,7 +18,11 @@ import { Sidebar } from "./Sidebar";
  *   `--vitrine-dark-*` da aparência do dono; sem elas valem as paletas padrão do CSS
  * @param {string} props.name nome do espaço (ou do site, no portal)
  * @param {string} props.homeHref início do espaço (`/maria`; `/` no portal)
- * @param {string | null} [props.logoUrl] logotipo, se houver
+ * @param {string | null} [props.logoUrl] logo (`/media/<id>`), se houver; sem ele, o logo embutido
+ * @param {boolean} [props.showLogo] mostra o logo na barra (padrão); pelo menos um de `showLogo` e
+ *   `showName` fica ligado (D-34)
+ * @param {boolean} [props.showName] mostra o nome na barra (padrão)
+ * @param {string} [props.modeIconPair] par de ícones do botão de modo (`modeIconPair` do site)
  * @param {import("./Navbar").NavbarItem[]} [props.navItems] coleções raiz (`navItemsOf`)
  * @param {import("@/lib/content-tree").ContentNode | null} [props.collection] coleção raiz corrente;
  *   sem ela (início do espaço, portal), não há sidebar
@@ -26,7 +30,8 @@ import { Sidebar } from "./Sidebar";
  * @param {string[]} [props.activePath] cadeia de slugs da página corrente
  * @param {import("./SocialLinks").SocialLinksValue | null} [props.socialLinks] links do rodapé
  * @param {number} [props.year] ano dos direitos
- * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor na barra (padrão)
+ * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor e o link "Administração" na
+ *   barra (padrão); a pré-visualização omite os dois, porque nela nada é interativo
  * @param {string} [props.mainId] id do `<main>`, alvo do atalho; só a pré-visualização o troca, para
  *   não repetir o id da página
  * @param {import("react").ReactNode} props.children a página
@@ -36,6 +41,9 @@ export function SpaceLayout({
   name,
   homeHref,
   logoUrl = null,
+  showLogo = true,
+  showName = true,
+  modeIconPair,
   navItems = [],
   collection = null,
   basePath = "",
@@ -55,7 +63,17 @@ export function SpaceLayout({
       >
         Pular para o conteúdo
       </a>
-      <Navbar name={name} homeHref={homeHref} logoUrl={logoUrl} items={navItems} modeToggle={modeToggle} />
+      <Navbar
+        name={name}
+        homeHref={homeHref}
+        logoUrl={logoUrl}
+        showLogo={showLogo}
+        showName={showName}
+        items={navItems}
+        modeToggle={modeToggle}
+        adminLink={modeToggle}
+        modeIconPair={modeIconPair}
+      />
       <div className="flex flex-1 flex-col md:flex-row">
         {collection ? <Sidebar collection={collection} basePath={basePath} activePath={activePath} /> : null}
         {/* tabIndex -1: recebe o foco do atalho sem entrar na ordem de tabulação. */}

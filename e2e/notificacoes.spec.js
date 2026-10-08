@@ -58,7 +58,7 @@ test.describe.serial("notificações, sino e menu", () => {
   test("o sino do dono mostra o contador e o rótulo acessível; o menu por papel só liga as páginas que existem (CT50)", async ({ page }) => {
     await login(page, ANA);
 
-    await expect(page.getByRole("link", { name: "Notificações, 3 não lidas" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, 3 não lidas" })).toBeVisible();
     // O menu lateral (o do celular é o mesmo, recolhido): todas as páginas do usuário comum já existem (Aparência, Notificações, Conteúdo, Perfil e a troca da senha são links), e nada fica "em breve".
     const menu = page.locator('nav[aria-label="Navegação do painel"]:visible');
     await expect(menu.getByRole("link", { name: "Aparência" })).toBeVisible();
@@ -74,7 +74,8 @@ test.describe.serial("notificações, sino e menu", () => {
 
   test("a lista: texto em português com o motivo ESCAPADO; ler, dispensar e marcar todas derrubam o contador (CT50, CT47)", async ({ page }) => {
     await login(page, ANA);
-    await page.getByRole("link", { name: "Notificações, 3 não lidas" }).click();
+    await page.getByRole("button", { name: "Notificações, 3 não lidas" }).click();
+    await page.getByRole("link", { name: "Ver todas" }).click();
     await expect(page).toHaveURL(/\/admin\/notificacoes$/);
     // Sem a hidratação da lista, o clique não faz nada: o React 19 grava `__reactProps$…` nos elementos que controla.
     await page.waitForFunction(() => {
@@ -96,23 +97,23 @@ test.describe.serial("notificações, sino e menu", () => {
 
     // Marcar uma como lida: o contador da lista e o do sino caem para 2.
     await list.getByRole("button", { name: "Marcar como lida: Conteúdo despublicado" }).first().click();
-    await expect(page.getByRole("link", { name: "Notificações, 2 não lidas" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, 2 não lidas" })).toBeVisible();
     await expect(list.getByText("2 não lidas.")).toBeVisible();
 
     // Dispensar a exclusão (não lida): sai da lista e o contador cai para 1.
     await list.getByRole("button", { name: "Dispensar: Conteúdo excluído" }).click();
     await expect(list.getByText("Um administrador excluiu", { exact: false })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Notificações, 1 não lida" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, 1 não lida" })).toBeVisible();
 
     // Marcar todas: zero, no sino e na lista.
     await list.getByRole("button", { name: "Marcar todas como lidas" }).click();
-    await expect(page.getByRole("link", { name: "Notificações, nenhuma não lida" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, nenhuma não lida" })).toBeVisible();
     await expect(list.getByText("Nenhuma não lida.")).toBeVisible();
     await expect(list.getByRole("button", { name: "Marcar todas como lidas" })).toBeDisabled();
 
     // O servidor guardou: ao recarregar, o contador inicial (lido no servidor) e a lista seguem assim.
     await page.reload();
-    await expect(page.getByRole("link", { name: "Notificações, nenhuma não lida" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, nenhuma não lida" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Notificações" }).getByText("Nenhuma não lida.")).toBeVisible();
     await expect(page.getByRole("region", { name: "Notificações" }).getByText("Um administrador despublicou", { exact: false })).toHaveCount(2);
     expect(await page.evaluate(() => /** @type {any} */ (window).__xss)).toBeUndefined();
@@ -143,7 +144,7 @@ test.describe.serial("notificações, sino e menu", () => {
   test("só as notificações do próprio usuário (RN19): outro usuário abre a página e vê a dele, vazia", async ({ page }) => {
     await login(page, BETO);
 
-    await expect(page.getByRole("link", { name: "Notificações, nenhuma não lida" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, nenhuma não lida" })).toBeVisible();
     await page.goto("/admin/notificacoes?userId=qualquer&user=notif-ana");
     await expect(page.getByText("Nenhuma notificação.", { exact: true })).toBeVisible();
     await expect(page.getByText("Um administrador", { exact: false })).toHaveCount(0);

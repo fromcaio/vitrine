@@ -231,6 +231,61 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // Estados do épico v1 (A-027): o popout do sino, o link "Administração" e a herança da aparência
+  // ---------------------------------------------------------------------------------------------
+
+  test("popout: o sino aberto, com as notificações recentes (painel, não modal)", async ({ browser }) => {
+    await withSession(browser, ANA, async (page) => {
+      await page.goto("/admin");
+      await ready(page);
+      const bell = page.getByRole("button", { name: /^Notificações,/ });
+      await bell.click();
+      await expect(bell).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText("Conteúdo desatualizado: revise antes de publicar.")).toBeVisible();
+      await expect(page.getByRole("link", { name: "Ver todas" })).toBeVisible();
+      await check(page, "popout: o sino aberto");
+    });
+  });
+
+  test("público: portal e espaço com o link Administração (sessão ativa, cookie-marcador)", async ({ browser }) => {
+    await withSession(browser, ANA, async (page) => {
+      await page.context().addCookies([{ name: "vitrine-logado", value: "1", url: baseURL }]);
+      for (const [name, path] of /** @type {const} */ ([
+        ["público: portal com o link Administração", "/"],
+        ["público: espaço com o link Administração", `/${ANA.handle}`],
+      ])) {
+        await page.goto(path);
+        await ready(page);
+        await expect(page.getByRole("link", { name: "Administração" })).toBeVisible();
+        await check(page, name);
+      }
+    });
+  });
+
+  test("usuário: aparência com a paleta herdada do sistema (referência somente leitura)", async ({ browser }) => {
+    await withSession(browser, ANA, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await page.getByRole("button", { name: "Usar a aparência do sistema (paleta clara)" }).click();
+      await page.getByRole("button", { name: "Usar a aparência do sistema (paleta noturna)" }).click();
+      await expect(page.getByRole("list", { name: "Paleta do sistema, modo claro" })).toBeVisible();
+      await check(page, "usuário: aparência com a paleta herdada");
+    });
+  });
+
+  test("admin: configurações com o seletor de ícones e a barra superior desligada em parte", async ({ browser }) => {
+    await withSession(browser, ADMIN, async (page) => {
+      await page.goto("/admin/configuracoes");
+      await ready(page);
+      await page.getByRole("checkbox", { name: "Mostrar o logotipo" }).first().uncheck();
+      await page.getByRole("radio", { name: "Lâmpada acesa e apagada" }).check();
+      await page.getByRole("checkbox", { name: "Mostrar o nome" }).first().click(); // recusado: pelo menos um fica ligado
+      await expect(page.getByText("Deixe pelo menos um ligado: o logotipo ou o nome.")).toBeVisible();
+      await check(page, "admin: configurações com a barra superior e o erro do último ligado");
+    });
+  });
+
+  // ---------------------------------------------------------------------------------------------
   // Estados com diálogo aberto
   // ---------------------------------------------------------------------------------------------
 
