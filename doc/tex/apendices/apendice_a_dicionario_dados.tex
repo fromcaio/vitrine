@@ -183,3 +183,80 @@ As tabelas acima descrevem o esquema \emph{inicial} (migração \arq{20261001034
 \end{tabularx}
 \fonte{Elaborado pelos autores, a partir da \adr{ADR-028}.}
 \end{table}
+
+\section*{Acréscimos do épico v1 (alvo; A-026)}
+
+As Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} descrevem o esquema \emph{integrado} (migrações \arq{20261001034824_init} e \arq{20261004120000_multiusuario}). A Tabela~\ref{tab:dicionario-v1} lista o que o épico v1 (\adr{ADR-034}, \adr{ADR-035}, \adr{ADR-038}; Seção~\ref{sec:arq-dados-v1}) \emph{cria, muda ou remove}. Ela é \textbf{alvo}: vale para a especificação desde a A-025 e passa a descrever o banco quando a A-026 for integrada; até lá, em caso de divergência, o \arq{prisma/schema.prisma} (Apêndice~\ref{ap:schema}) descreve o que existe. As linhas das Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} que esta tabela remove ou altera (\texttt{logoUrl}, \texttt{faviconUrl}, os seis links sociais, os padrões de cores e de \texttt{siteName} de \texttt{appearances}) valem só até esse merge.
+
+\begin{longtable}{@{}L{3.9cm}L{1.8cm}L{3.3cm}L{5.0cm}@{}}
+\caption{Dicionário de dados: o que o épico v1 acrescenta, altera ou remove}\label{tab:dicionario-v1}\\
+\toprule
+\textbf{Coluna} & \textbf{Tipo} & \textbf{Restrição / padrão} & \textbf{Descrição}\\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Coluna} & \textbf{Tipo} & \textbf{Restrição / padrão} & \textbf{Descrição}\\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{4}{@{}l}{\textbf{Tabela \arq{images} (modelo \texttt{Image}) --- nova}}\\[2pt]
+\texttt{id} & String & PK; \texttt{cuid()} & Identificador \emph{opaco} (vai na URL \texttt{/media/<id>}); imutável\\
+\texttt{kind} & String & Obrigatório & \texttt{avatar}, \texttt{logo} ou \texttt{favicon}; validado na aplicação\\
+\texttt{mime} & String & Obrigatório & Tipo da \emph{saída} reencodada: \texttt{image/webp} (avatar e logo) ou \texttt{image/png} (\en{favicon})\\
+\texttt{bytes} & Bytes & Obrigatório; \en{BLOB} & Conteúdo reencodado pelo \texttt{sharp}, sem metadados (\adr{ADR-034}); só \texttt{getImage} o lê\\
+\texttt{width}, \texttt{height} & Int & Obrigatórios & Dimensões da saída\\
+\texttt{sha256} & String & Obrigatório; não único & \en{Hash} do conteúdo; serve de \en{ETag}\\
+\texttt{ownerId} & String? & FK $\rightarrow$ \arq{user.id}; \texttt{Cascade}; índice & Dono da imagem; nulo = imagem do site\\
+\texttt{createdAt} & DateTime & \texttt{now()} & Carimbo de criação\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \arq{footer_links} (modelo \texttt{FooterLink}) --- nova}}\\[2pt]
+\texttt{id} & String & PK; \texttt{cuid()} & Identificador\\
+\texttt{ownerId} & String? & FK $\rightarrow$ \arq{user.id}; \texttt{Cascade} & Dono do rodapé; nulo = o rodapé do site\\
+\texttt{icon} & String & Obrigatório; lista fechada & Um dos dezoito ícones da \adr{ADR-035}; validado na camada de dados\\
+\texttt{url} & String & Obrigatório & \texttt{https://} ou, no ícone \texttt{email}, \texttt{mailto:}; validado pelo Core (RN17)\\
+\texttt{order} & Int & Renumerada de 0 a $n-1$ & Posição no rodapé\\
+\texttt{createdAt}, \texttt{updatedAt} & DateTime & \texttt{now()}; \texttt{@updatedAt} & Carimbos de tempo\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \texttt{user} --- coluna nova}}\\[2pt]
+\texttt{avatarImageId} & String? & Único; FK $\rightarrow$ \arq{images.id}; \texttt{SetNull} & Avatar do usuário (D-37); sai com a conta\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \arq{configurations} (o site) --- removidas e novas}}\\[2pt]
+\arq{logoUrl}, \arq{faviconUrl} & --- & \emph{Removidas} & Substituídas por imagens (D-30)\\
+\arq{discordUrl}, \arq{githubUrl}, \arq{youtubeUrl}, \arq{instagramUrl}, \arq{linkedinUrl}, \arq{twitchUrl} & --- & \emph{Removidas} & Convertidas em linhas de \arq{footer_links} pela migração (RN17, \adr{ADR-035})\\
+\arq{logoImageId}, \arq{faviconImageId} & String? & FK $\rightarrow$ \arq{images.id}; \texttt{SetNull} & Logo e \en{favicon} do site; nulo = padrão embutido\\
+\texttt{showLogo}, \texttt{showName} & Boolean & \texttt{true}; ao menos um verdadeiro & Mostra o logo e/ou o nome na barra superior (D-34)\\
+\arq{modeIconPair} & String & \arq{sun_moon} & Par de ícones do botão de modo, \emph{só do site}: \arq{sun_moon}, \arq{sun_moon_outline}, \texttt{lightbulb} ou \arq{contrast_half} (D-35)\\
+\arq{directoryTitle} & String & \texttt{"Espaços"}; 1 a 40 caracteres & Título do diretório de espaços na página \texttt{/} (D-38)\\
+\midrule
+\multicolumn{4}{@{}l}{\textbf{Tabela \arq{appearances} --- removidas, novas e alteradas}}\\[2pt]
+\arq{logoUrl}, \arq{faviconUrl}, os seis links sociais & --- & \emph{Removidas} & Como em \arq{configurations}\\
+\arq{logoImageId}, \arq{faviconImageId} & String? & FK $\rightarrow$ \arq{images.id}; \texttt{SetNull} & Logo e \en{favicon} do espaço; nulo = herda (site e, depois, o embutido)\\
+\texttt{showLogo}, \texttt{showName} & Boolean & \texttt{true}; ao menos um verdadeiro & Barra superior do espaço; \emph{não herdam}\\
+\arq{siteName} & String? & \emph{Anulável}; sem padrão & Nome do espaço; nulo herda o do site (\adr{ADR-038})\\
+\arq{primaryColor}, \arq{secondaryColor}, \arq{accentColor} & String? & \emph{Anuláveis}; as três nulas ou as três definidas & Paleta clara; nula herda a do site\\
+\arq{darkPrimaryColor}, \arq{darkSecondaryColor}, \arq{darkAccentColor} & String? & \emph{Anuláveis}; as três nulas ou as três definidas & Paleta noturna; nula herda a do site\\
+\arq{siteDescription} & String? & Opcional & Não herda\\
+\end{longtable}
+\fonte{Elaborado pelos autores, a partir das ADR-034, ADR-035 e ADR-038 e do documento-fonte do épico (\arq{doc/ref/epico-v1-aparencia-midia.md}, §3 e §11).}
+
+\begin{table}[htb]
+\caption{Índices e restrições acrescentados pelo épico v1}\label{tab:indices-v1}
+\small
+\begin{tabularx}{\linewidth}{@{}L{5.0cm}L{4.2cm}Y@{}}
+\toprule
+\textbf{Índice ou restrição} & \textbf{Colunas} & \textbf{Finalidade}\\
+\midrule
+\arq{images_ownerId_idx} & (\texttt{ownerId}) & Apagar e listar as imagens de um dono\\
+\addlinespace
+\arq{user_avatarImageId_key} & único: \texttt{avatarImageId} & Um avatar pertence a um só usuário\\
+\addlinespace
+\arq{footer_links_ownerId_icon_key} & único: (\texttt{ownerId}, \texttt{icon}) & Um ícone por dono (D-36); não cobre o site, pois \texttt{NULL} é distinto de \texttt{NULL}\\
+\addlinespace
+\arq{footer_links_site_icon_key} & único parcial: \texttt{icon} \texttt{WHERE ownerId IS NULL}; SQL manual & Um ícone no rodapé do site; recriar em toda migração de \texttt{footer\_links} (Código~\ref{lst:indices-v1})\\
+\addlinespace
+\arq{footer_links_ownerId_order_idx} & (\texttt{ownerId}, \texttt{order}) & Leitura do rodapé de um dono, na ordem\\
+\bottomrule
+\end{tabularx}
+\fonte{Elaborado pelos autores, a partir da \adr{ADR-035} e da Seção~\ref{sec:arq-dados-v1}. O teto de 8 links por dono, a identidade do dono e do tipo de cada imagem e a regra de ``ao menos um de \texttt{showLogo} e \texttt{showName}'' não são impostos pelo banco: são da camada de dados.}
+\end{table}

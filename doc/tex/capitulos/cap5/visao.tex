@@ -45,7 +45,7 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-010} & Fluxo Git por domínios com mural na \texttt{main} & Coordenação assíncrona rastreável\\
 \adr{ADR-011} & Implantação por imagem Docker em VPS tradicional, com volume para o SQLite & Persistência do arquivo de banco e ambiente reprodutível (resolve D-04)\\
 \adr{ADR-012} & Estado de publicação \texttt{DRAFT}/\texttt{PUBLISHED}, padrão \texttt{PUBLISHED} & Rascunhos sem histórico de versões (resolve D-15)\\
-\adr{ADR-013} & Seis campos opcionais de redes sociais em \texttt{Configuration} & Rodapé configurável sem tabela adicional (resolve D-19)\\
+\adr{ADR-013} & \emph{Substituída pela ADR-035.} Seis campos opcionais de redes sociais em \texttt{Configuration} & Rodapé configurável sem tabela adicional (resolve D-19)\\
 \adr{ADR-014} & Adaptador \texttt{better-sqlite3} e conformidade com o Prisma 7 & O Prisma 7 exige \en{driver adapter} para o SQLite (resolve D-09)\\
 \adr{ADR-015} & Nome Vitrine e licença MIT & Identidade e licença permissiva do código aberto (resolve D-01 e D-02)\\
 \adr{ADR-016} & Documento de Arquitetura e Requisitos de Software, sem formato acadêmico & Documentação a serviço do produto (resolve D-18)\\
@@ -65,6 +65,10 @@ As decisões estruturantes estão registradas como ADR no Apêndice~\ref{ap:adr}
 \adr{ADR-030} & Revalidação por espaço por caminhos literais e layout raiz sem dados do banco (ajusta a ADR-024, item 5, e a ADR-021) & A revalidação do layout de um \en{handle} não funciona como escrita e a de um layout invalida todos os espaços\\
 \adr{ADR-031} & Paleta padrão clara acessível: \texttt{\#2563eb}, \texttt{\#1e293b} e \texttt{\#b45309} (D-29) & A paleta anterior gerava dois avisos de contraste em toda aparência salva com os padrões\\
 \adr{ADR-032} & Aceitar os cinco alertas altos do \texttt{braces}, restritos à cadeia do ESLint & Ferramenta de desenvolvimento, não exercida pelo produto; condição verificada por \texttt{npm ls braces -{}-omit=dev}\\
+\adr{ADR-033} & Limite do corpo de 64~KiB e orçamento de renderização na gravação & Um texto hostil ou muito grande bloqueava o servidor a cada regeneração de página\\
+\adr{ADR-034} & Imagens como \en{BLOB} no SQLite, reencodadas com o \texttt{sharp} e servidas em \texttt{/media} (épico v1; D-30 a D-32) & Upload de logo, \en{favicon} e avatar sem volume novo, sem SVG e sem vazar o IP do leitor a terceiros\\
+\adr{ADR-035} & Rodapé por ícones, por dono, em uma tabela de links (substitui a ADR-013; D-36) & Rodapé escolhido por cada usuário, de uma lista fechada, até 8 links\\
+\adr{ADR-038} & Aparência em duas camadas, cadeia de padrões e seletor Sistema/Minha página (ajusta as ADR-025 e ADR-030; D-40 e D-41) & O sistema é o padrão e a página do usuário o sobrescreve; o administrador edita as duas\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 \endgroup

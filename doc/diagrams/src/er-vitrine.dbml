@@ -22,6 +22,13 @@
 //   - tabelas novas: appearances (uma por usuário) e notifications;
 //   - padrões das cores: ADR-031 (clara) e Cap. 5 §5.9 (noturna).
 // Espelha prisma/schema.prisma e a migração 20261004120000_multiusuario.
+// ÉPICO V1 (ALVO; A-025, ADR-034, ADR-035 e ADR-038; integra com a A-026): este arquivo já descreve
+// o modelo ALVO; o prisma/schema.prisma só o terá depois do merge da A-026.
+//   - tabelas novas: images (BLOB reencodado) e footer_links (rodapé por ícones);
+//   - user ganha avatarImageId; configurations e appearances trocam logoUrl/faviconUrl por
+//     logoImageId/faviconImageId, perdem os seis links sociais e ganham showLogo/showName;
+//   - configurations ganha modeIconPair e directoryTitle;
+//   - appearances: as seis cores e siteName ficam ANULÁVEIS (nulo = herda o sistema; ADR-038).
 // Renderizar: https://dbdiagram.io (colar o conteúdo e exportar PNG) - ver README.
 // ////////////////////////////////////////////////////////
 
@@ -45,6 +52,7 @@ Table user {
   banExpires timestamp [note: 'Fim da suspensão; vencido, a conta volta sozinha']
   handle varchar [unique, note: 'Identificador público do espaço (RN20); nulo até o administrador defini-lo']
   mustChangePassword boolean [not null, default: false, note: 'Troca de senha obrigatória (RN21)']
+  avatarImageId varchar [unique, note: 'Avatar (D-37, épico v1); SetNull; sai com a conta']
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null, note: '@updatedAt']
 }
@@ -142,18 +150,19 @@ Table configurations {
   homeBody text [note: 'Texto do portal, em Markdown']
   directoryEnabled boolean [not null, default: true, note: 'Liga o diretório de espaços']
 
-  // Metadados adicionais
-  logoUrl varchar
-  faviconUrl varchar
+  // Mídia e barra superior (épico v1; D-30, D-34): substituem logoUrl e faviconUrl.
+  // Nulo = padrão embutido (logo genérico, favicon neutro, ADR-038).
+  logoImageId varchar [note: 'Logo do site; SetNull']
+  faviconImageId varchar [note: 'Favicon do site; SetNull']
+  showLogo boolean [not null, default: true, note: 'Ao menos um de showLogo e showName (D-34)']
+  showName boolean [not null, default: true]
 
-  // Links sociais do rodapé (RF24, D-19): todos opcionais e independentes;
-  // somente URLs http(s) são aceitas (RN17); vazio = ícone não exibido
-  discordUrl varchar
-  githubUrl varchar
-  youtubeUrl varchar
-  instagramUrl varchar
-  linkedinUrl varchar
-  twitchUrl varchar
+  // Só do site (D-35, D-38)
+  modeIconPair varchar [not null, default: 'sun_moon', note: 'sun_moon | sun_moon_outline | lightbulb | contrast_half']
+  directoryTitle varchar [not null, default: 'Espaços', note: '1 a 40 caracteres']
+
+  // Os seis links sociais do rodapé (RF24, D-19) foram REMOVIDOS: viram linhas de
+  // footer_links (ownerId nulo), pela migração do épico v1 (ADR-035).
 
   updatedAt timestamp [not null]
 }
@@ -165,24 +174,62 @@ Table configurations {
 // ////////////////////////////////////////////////////////
 Table appearances {
   ownerId varchar [pk]
-  siteName varchar [not null, default: 'Vitrine']
+  // Nulo = herda o do sistema (ADR-038); a descrição não herda
+  siteName varchar [note: 'Anulável: nulo herda configurations.siteName']
   siteDescription text
-  primaryColor varchar [not null, default: '#2563eb']
-  secondaryColor varchar [not null, default: '#1e293b']
-  accentColor varchar [not null, default: '#b45309']
-  darkPrimaryColor varchar [not null, default: '#60a5fa']
-  darkSecondaryColor varchar [not null, default: '#cbd5e1']
-  darkAccentColor varchar [not null, default: '#fbbf24']
-  logoUrl varchar
-  faviconUrl varchar
-  discordUrl varchar
-  githubUrl varchar
-  youtubeUrl varchar
-  instagramUrl varchar
-  linkedinUrl varchar
-  twitchUrl varchar
+  // Paleta de cada modo: as três cores nulas (herda) ou as três definidas
+  primaryColor varchar [note: 'Anulável (herda a do sistema)']
+  secondaryColor varchar [note: 'Anulável']
+  accentColor varchar [note: 'Anulável']
+  darkPrimaryColor varchar [note: 'Anulável (herda a do sistema)']
+  darkSecondaryColor varchar [note: 'Anulável']
+  darkAccentColor varchar [note: 'Anulável']
+  logoImageId varchar [note: 'Logo do espaço; nulo herda (sistema e, depois, o embutido); SetNull']
+  faviconImageId varchar [note: 'Favicon do espaço; nulo herda; SetNull']
+  showLogo boolean [not null, default: true, note: 'Não herda; ao menos um de showLogo e showName']
+  showName boolean [not null, default: true]
   createdAt timestamp [not null, default: `now()`]
   updatedAt timestamp [not null]
+}
+
+// ////////////////////////////////////////////////////////
+// IMAGENS (ÉPICO V1; ADR-034): BLOB no SQLite, reencodado com sharp; imutável.
+// Servido em /media/<id>. Trocar a imagem cria uma linha nova e apaga a antiga.
+// ////////////////////////////////////////////////////////
+Table images {
+  id varchar [pk, note: 'cuid(); opaco']
+  kind varchar [not null, note: 'avatar | logo | favicon (validado na aplicação)']
+  mime varchar [not null, note: 'Da saída: image/webp (avatar, logo) ou image/png (favicon)']
+  bytes blob [not null]
+  width integer [not null]
+  height integer [not null]
+  sha256 varchar [not null, note: 'ETag; não único']
+  ownerId varchar [note: 'Dono; nulo = imagem do site']
+  createdAt timestamp [not null, default: `now()`]
+
+  indexes {
+    ownerId [name: 'images_ownerId_idx']
+  }
+}
+
+// ////////////////////////////////////////////////////////
+// RODAPÉ POR ÍCONES (ÉPICO V1; ADR-035, substitui a ADR-013): até 8 por dono, um por ícone.
+// ownerId nulo = rodapé do site.
+// ////////////////////////////////////////////////////////
+Table footer_links {
+  id varchar [pk]
+  ownerId varchar [note: 'Dono; nulo = o site']
+  icon varchar [not null, note: 'Lista fechada de 18 ícones (ADR-035)']
+  url varchar [not null, note: 'https:// ou, no ícone email, mailto:']
+  order integer [not null, default: 0]
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  indexes {
+    (ownerId, icon) [unique, name: 'footer_links_ownerId_icon_key', note: 'Um ícone por dono; NULL é distinto de NULL no SQLite']
+    icon [unique, name: 'footer_links_site_icon_key', note: 'Índice parcial (migração SQL manual): UNIQUE (icon) WHERE ownerId IS NULL; o site']
+    (ownerId, order) [name: 'footer_links_ownerId_order_idx']
+  }
 }
 
 // ////////////////////////////////////////////////////////
@@ -222,6 +269,14 @@ Ref: account.userId > user.id [delete: cascade]
 Ref: contents.authorId > user.id [delete: restrict]
 Ref: appearances.ownerId - user.id [delete: cascade]
 Ref: notifications.userId > user.id [delete: cascade]
+// Épico v1 (ADR-034, ADR-035): imagens e rodapé
+Ref: images.ownerId > user.id [delete: cascade]
+Ref: footer_links.ownerId > user.id [delete: cascade]
+Ref: user.avatarImageId - images.id [delete: set null]
+Ref: configurations.logoImageId - images.id [delete: set null]
+Ref: configurations.faviconImageId - images.id [delete: set null]
+Ref: appearances.logoImageId - images.id [delete: set null]
+Ref: appearances.faviconImageId - images.id [delete: set null]
 // Dono único por árvore (ADR-028): FK composta (parentId, authorId) -> (id, authorId), Cascade
 Ref: contents.(parentId, authorId) > contents.(id, authorId) [delete: cascade]
 
