@@ -25,14 +25,17 @@ import { HANDLE_MAX_LENGTH as S_MAX, HANDLE_MIN_LENGTH as S_MIN, HANDLE_PATTERN 
 /** @param {Partial<import("@/components/admin/user-model").PublicUser>} [over] */
 const user = (over = {}) => ({
   id: "u1", name: "Ana Souza", email: "ana@exemplo.com", handle: "ana", role: /** @type {const} */ ("user"), suspended: false,
-  banReason: null, banExpires: null, mustChangePassword: false, createdAt: "2026-10-01T10:00:00.000Z", updatedAt: null, ...over,
+  banReason: null, banExpires: null, avatarImageId: null, mustChangePassword: false, createdAt: "2026-10-01T10:00:00.000Z", updatedAt: null, ...over,
 });
 
 describe("as regras repetem as do servidor", () => {
   it("handle: limites, padrão e nomes reservados", () => {
     expect([HANDLE_MIN_LENGTH, HANDLE_MAX_LENGTH]).toEqual([S_MIN, S_MAX]);
     expect(HANDLE_PATTERN.source).toBe(S_PATTERN.source);
-    expect([...RESERVED_HANDLES]).toEqual([...S_RESERVED]);
+    // A interface reserva tudo o que o servidor reserva e, desde o épico v1 (ADR-034), também "media" (o Core
+    // acrescenta o mesmo nome ao servidor); a lista da interface pode ser a maior sem quebrar este teste.
+    for (const name of S_RESERVED) expect(RESERVED_HANDLES).toContain(name);
+    expect(RESERVED_HANDLES).toContain("media");
     expect(NAME_MAX_LENGTH).toBe(S_NAME);
     expect(EMAIL_MAX_LENGTH).toBe(254);
   });
@@ -47,7 +50,7 @@ describe("as regras repetem as do servidor", () => {
 describe("normalizeUser e normalizePage", () => {
   it("só os campos conhecidos, com os tipos certos", () => {
     const result = normalizeUser({ id: "x", name: 5, email: "e@x.com", handle: "", role: "root", suspended: "sim", mustChangePassword: true, passwordHash: "segredo", extra: 1 });
-    expect(result).toEqual({ id: "x", name: "", email: "e@x.com", handle: null, role: "user", suspended: false, banReason: null, banExpires: null, mustChangePassword: true, createdAt: null, updatedAt: null });
+    expect(result).toEqual({ id: "x", name: "", email: "e@x.com", handle: null, role: "user", suspended: false, banReason: null, banExpires: null, avatarImageId: null, mustChangePassword: true, createdAt: null, updatedAt: null });
     expect(JSON.stringify(result)).not.toMatch(/segredo/);
   });
 

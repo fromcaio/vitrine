@@ -15,6 +15,7 @@
  * @property {boolean} suspended a suspensão VIGENTE (um prazo vencido não conta, RN23)
  * @property {string | null} banReason
  * @property {string | null} banExpires ISO 8601
+ * @property {string | null} avatarImageId o identificador da imagem do avatar (`/media/<id>`), ou nulo sem avatar (RF36)
  * @property {boolean} mustChangePassword senha provisória pendente (RN21)
  * @property {string | null} createdAt
  * @property {string | null} updatedAt
@@ -25,7 +26,7 @@ export const HANDLE_MIN_LENGTH = 3;
 export const HANDLE_MAX_LENGTH = 30;
 export const HANDLE_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** RN20: nomes que o handle não pode ter (repete `RESERVED_HANDLES`; um teste os compara). */
-export const RESERVED_HANDLES = Object.freeze(["admin", "api", "login", "logout", "_next"]);
+export const RESERVED_HANDLES = Object.freeze(["admin", "api", "login", "logout", "_next", "media"]);
 /** Limite do nome de exibição (repete `NAME_MAX_LENGTH`). */
 export const NAME_MAX_LENGTH = 100;
 /** Limite do e-mail (repete o do validador de criação). */
@@ -50,6 +51,7 @@ export function normalizeUser(raw) {
     suspended: raw.suspended === true,
     banReason: maybe(raw.banReason),
     banExpires: maybe(raw.banExpires),
+    avatarImageId: typeof raw.avatarImageId === "string" && /^[A-Za-z0-9_-]+$/.test(raw.avatarImageId) ? raw.avatarImageId : null,
     mustChangePassword: raw.mustChangePassword === true,
     createdAt: maybe(raw.createdAt),
     updatedAt: maybe(raw.updatedAt),
@@ -77,7 +79,7 @@ export const isActiveAdmin = (user) => user.role === "admin" && !user.suspended;
  * @param {PublicUser} user
  * @param {{ currentUserId: string, activeAdminCount?: number | null }} context
  * @returns {{ self: boolean, lastAdmin: boolean, canSuspend: boolean, canReactivate: boolean, canDelete: boolean, canChangeRole: boolean,
- *   suspendReason: string | null, deleteReason: string | null, roleReason: string | null }}
+ *   canRemoveAvatar: boolean, suspendReason: string | null, deleteReason: string | null, roleReason: string | null }}
  */
 export function permissionsFor(user, { currentUserId, activeAdminCount = null }) {
   const self = user.id === currentUserId;
@@ -93,6 +95,8 @@ export function permissionsFor(user, { currentUserId, activeAdminCount = null })
     canReactivate: user.suspended,
     canDelete: deleteReason === null,
     canChangeRole: !lastAdmin,
+    // RF36: o administrador remove o avatar de OUTRO usuário (o próprio, ele troca em /admin/perfil).
+    canRemoveAvatar: !self && user.avatarImageId !== null,
     suspendReason,
     deleteReason,
     roleReason: lastAdmin ? lastNote : null,
