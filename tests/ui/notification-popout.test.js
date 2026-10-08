@@ -233,6 +233,24 @@ describe("fechar", () => {
   });
 });
 
+describe("rodadas de abertura", () => {
+  it("fechar e reabrir com a primeira resposta ainda pendente: ela é descartada, vale a da segunda abertura", async () => {
+    const releases = /** @type {((value: Response) => void)[]} */ ([]);
+    const pending = () => new Promise((resolve) => releases.push(resolve));
+    stubFetch(pending, pending);
+    renderBell();
+    fireEvent.click(bell()); // rodada 1
+    fireEvent.click(bell()); // fecha
+    fireEvent.click(bell()); // rodada 2
+    await act(async () => releases[0](page([note("n1")])));
+    expect(within(panel()).queryByText("Título n1")).toBeNull();
+    expect(within(panel()).getByText("Carregando as notificações…")).toBeTruthy();
+    await act(async () => releases[1](page([note("n2")])));
+    expect(within(panel()).getByText("Título n2")).toBeTruthy();
+    expect(within(panel()).queryByText("Título n1")).toBeNull();
+  });
+});
+
 describe("ler e dispensar dentro do painel", () => {
   it("dispensar chama o PATCH, tira o item e atualiza o contador do sino", async () => {
     const fetchMock = stubFetch(page([note("n1"), note("n2")], 2), json(200, { data: { id: "n1", dismissed: true }, unreadCount: 1 }));

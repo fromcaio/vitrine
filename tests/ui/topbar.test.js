@@ -138,6 +138,26 @@ describe("Navbar (o espaço, o portal e o documento)", () => {
     expect(within(header).queryByText("Espaço")).toBeNull();
   });
 
+  it("o link Administração está na barra para quem tem o marcador de sessão, e a pré-visualização o omite", async () => {
+    document.cookie = "vitrine-logado=1; Path=/";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ user: { id: "u" } }), { status: 200 })));
+    try {
+      const first = render(<Navbar name="X" homeHref="/x" />);
+      expect((await screen.findByRole("link", { name: "Administração" })).getAttribute("href")).toBe("/admin");
+      first.unmount();
+      render(<Navbar name="X" homeHref="/x" adminLink={false} />);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("link", { name: "Administração" })).toBeNull();
+      cleanup();
+      render(<SpaceLayout name="X" homeHref="/x" modeToggle={false}><p>x</p></SpaceLayout>);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(screen.queryByRole("link", { name: "Administração" })).toBeNull();
+    } finally {
+      document.cookie = "vitrine-logado=; Path=/; Max-Age=0";
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("a pré-visualização (modeToggle=false) não leva o botão de modo nem o link de administração", () => {
     render(<Navbar name="X" homeHref="/x" modeToggle={false} adminLink={false} />);
     expect(screen.queryByRole("group", { name: "Modo de cor" })).toBeNull();
