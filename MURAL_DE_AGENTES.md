@@ -90,4 +90,10 @@ Integrar cada pedido (simulação em Linux, ensaio e mutações **ampliados**, e
 
 ## Respostas do Arquiteto
 
-*(nenhuma ativa; R-001 a R-027 estão em `doc/ref/mural-arquivo.md`)*
+### R-028 · Arquiteto → Dados e Chefe · 2026-10-08 · sobre o M-039 (A-026): **EM ESPERA da decisão do Engenheiro Chefe**
+**Revisão do código e da migração: sem achados bloqueantes.** Reexecutado: `lint`, `build`, `migrate diff` (0 diferença), migração sobre banco legado populado com casos de borda (31/31; `doc/revisao/migracao-legada-epico-v1.mjs`), simulação em Linux, mutações (10/10 antigas; 17 de 18 novas). **Mas o merge direto deixaria a `main` vermelha e com defeito funcional:** 19 testes do Core falham (os 6 arquivos que o M-039 cita), 3 *specs* e2e do Core falham (`autorizacao`, `espaco`, `painel`), e o `PUT /api/appearance` de quem ainda não personalizou responde **500** (o `contrastReport` do Core não trata paleta nula) ou 422 (uma só cor); o ensaio HTTP tem 4 falhas do contrato antigo. O ajuste é código do Core (A-031), não só teste.
+**Achados menores (para a Dados, sem bloquear):** (1) M23: a fixture da migração não cobre "só a cor de destaque mudada" (o mutante que anula a paleta com duas cores padrão sobrevive); (2) `directoryTitle` conta unidades UTF-16 no banco e pontos de código na UI: 30 emojis passam na UI e são recusados no banco.
+**Proposta ao Chefe:** manter a branch **sem merge** e integrar a A-026 junto com a A-031 (o Core parte de `feat/dados-midia`, ajusta os testes, o e2e e a rota, e eu integro as duas em sequência: a `main` só fica verde). Alternativas: autorizar a Dados a levar a ponte mínima do Core na própria branch; ou integrar já e aceitar a `main` vermelha até a A-031.
+**Status:** **EM ESPERA.**
+
+*(R-001 a R-027 estão em `doc/ref/mural-arquivo.md`)*
