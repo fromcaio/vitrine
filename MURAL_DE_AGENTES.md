@@ -28,7 +28,7 @@
 
 ## Épico v1: aparência, mídia e navegação (decidido em 07/10/2026; **fonte: `doc/ref/epico-v1-aparencia-midia.md`**)
 
-O Engenheiro Chefe trouxe 10 mudanças e **aprovou** as decisões **D-30 a D-38** (imagens como BLOB no SQLite reencodadas com `sharp`, sem SVG; modo por cookie lido só pelo *script* do `<head>`, sem "automático"; topbar e logo no site **e** em cada espaço; o par de ícones do botão de modo escolhido pelo administrador; rodapé por ícones, até 8 por dono, um por ícone, preenchido por cada usuário; avatar; título do diretório). **Nada disto está no LaTeX nem no código ainda** (a documentação vem antes: A-025). **Congelamento de escopo:** depois desta lista, ideia nova vai para o backlog "v1.1". **Os prompts de cada agente estão em `doc/ref/prompts/{arquiteto,dados,ui,core}.md`.** **Ordem de lançamento ao retomar (depois do gate):** (1) **Arquiteto A-025** (passo 1 primeiro; a escrita do LaTeX é leve) **e UI A-027** em paralelo; (2) com o passo 1 na `main`: **Dados A-026** (a UI A-027 continua); (3) com o passo 2 na `main` e a A-027 integrada: **UI A-028** (o mesmo agente da UI, o pedido 2); (4) com a A-026, a A-027 e a A-028 integradas: **Core A-024** (independente: pode ir antes de tudo, quando o Engenheiro Chefe o liberar), **A-031** e **A-029**, nesta ordem (**o Core não roda agora**); (5) **Arquiteto A-030**, a integração e o fechamento. **No máximo dois agentes pesados ao mesmo tempo** (o Arquiteto só escrevendo documentação não conta). **No máximo dois agentes pesados ao mesmo tempo.** **GATE (08/10/2026): o Engenheiro Chefe vai REVISAR a lista do épico de novo; nenhuma tarefa A-025 a A-031 é lançada antes de ele dizer que a revisão terminou.** Alterações de 08/10: o **administrador mantém handle, espaço e conteúdo** (a limitação proposta em 07/10 foi retirada); a tela de aparência ganha o **seletor Sistema/Minha página** para o administrador; o **limite pelo peso do DOM** é backlog v1.1 (§12 do documento-fonte).
+O Engenheiro Chefe trouxe 10 mudanças e **aprovou** as decisões **D-30 a D-38** (imagens como BLOB no SQLite reencodadas com `sharp`, sem SVG; modo por cookie lido só pelo *script* do `<head>`, sem "automático"; topbar e logo no site **e** em cada espaço; o par de ícones do botão de modo escolhido pelo administrador; rodapé por ícones, até 8 por dono, um por ícone, preenchido por cada usuário; avatar; título do diretório). **Nada disto está no LaTeX nem no código ainda** (a documentação vem antes: A-025). **Congelamento de escopo:** depois desta lista, ideia nova vai para o backlog "v1.1". **Os prompts de cada agente estão em `doc/ref/prompts/{arquiteto,dados,ui,core}.md`.** **Ordem de lançamento:** (1) **Arquiteto A-025** (passo 1 primeiro; a escrita do LaTeX é leve) **e UI A-027** em paralelo; (2) com o passo 1 na `main`: **Dados A-026** (a UI A-027 continua); (3) com o passo 2 na `main` e a A-027 integrada: **UI A-028** (o mesmo agente da UI, o pedido 2); (4) com a A-026, a A-027 e a A-028 integradas: **Core A-024** (independente: pode ir antes de tudo, quando o Engenheiro Chefe o liberar), **A-031** e **A-029**, nesta ordem (**o Core não roda agora**); (5) **Arquiteto A-030**, a integração e o fechamento. **No máximo dois agentes pesados ao mesmo tempo** (o Arquiteto só escrevendo documentação não conta). **No máximo dois agentes pesados ao mesmo tempo.** **Revisão do Engenheiro Chefe CONCLUÍDA (08/10/2026): o gate foi levantado.** Alterações de 08/10: o **administrador mantém handle, espaço e conteúdo** (a limitação proposta em 07/10 foi retirada); a tela de aparência ganha o **seletor Sistema/Minha página** para o administrador; o **limite pelo peso do DOM** é backlog v1.1 (§12 do documento-fonte).
 
 ### A-024 · [TAREFA] Arquiteto → @Core · 2026-10-06 · **PAUSADA** (o Core não roda agora; **independente** do épico, pode ir primeiro) — o LCP do RNF02 (P-017) e o *log* do 503
 **Estado.** O Lighthouse móvel (M-037, reproduzido pelo Arquiteto): desempenho ≥ 90 nas quatro páginas, mas o **LCP simulado** passa de 2,5 s no documento (2,76 a 2,89 s) e no `/login` (2,58 s); o espaço passa por pouco (2,43 s); o LCP real, com rede e CPU estranguladas, é de ~1 s. O que pesa está em `src/app/**`: o `favicon.ico` de 26 KiB e a fonte Geist Mono pré-carregada em toda página. **Itens (só estes; o prompt é `doc/ref/prompts/core.md`, pedido 1):** (1) `Geist_Mono({ preload: false })`; (2) um favicon de poucos KiB, neutro, que será o **padrão de reserva** do épico; (3) o *log* do 503 `BUSY` em nível baixo e sem a pilha (os demais 5xx seguem); (4) as figuras `teste-isr-cabecalhos` e `teste-suite-automatizada` (capturas reais). **Os candidatos extras de LCP ficam para o fim do épico** (as imagens mudam o LCP). Meça antes e depois (`npm run lighthouse`, mediana de 3). O Arquiteto e o Engenheiro Chefe decidem, com os números, como o RNF02 fica documentado.
@@ -36,9 +36,9 @@ O Engenheiro Chefe trouxe 10 mudanças e **aprovou** as decisões **D-30 a D-38*
 
 ---
 
-### A-025 · [TAREFA] Chefe → @Arquiteto · 2026-10-07 · **ABERTA ao retomar** — transformar o documento-fonte em especificação (DDD)
+### A-025 · [TAREFA] Chefe → @Arquiteto · 2026-10-07 · **ABERTA** — transformar o documento-fonte em especificação (DDD)
 **Passo 1 (dados, commitado primeiro; libera o Dados):** `dados.tex`, Apêndice A, `er-vitrine.dbml`, **ADR-034** (mídia) e **ADR-035** (rodapé por ícones, substitui a ADR-013). **Passo 2:** Cap. 4 (RF24 e RN17 substituídos; RF/RN novos), Cap. 5 (`api`, `rotas`, `seguranca`, `tema`, `isr`, `autenticacao`), Apêndices D, E (**ADR-036** modo por cookie; **ADR-037** topbar, par de ícones, título, avatar e navegação) e G, Cap. 6, Cap. 7 (CT56 em diante) e `CLAUDE.md`. **Passo 3:** abrir A-027 a A-030 no mural. Prompt: `doc/ref/prompts/arquiteto.md`.
-**Status:** **ABERTA ao retomar.**
+**Status:** **ABERTA.**
 
 ---
 
@@ -48,9 +48,9 @@ O Engenheiro Chefe trouxe 10 mudanças e **aprovou** as decisões **D-30 a D-38*
 
 ---
 
-### A-027 · [TAREFA] Chefe → @UI · 2026-10-07 · **ABERTA ao retomar** (onda 0; não depende do esquema) — popout, navegação, modo por cookie, topbar, campos novos e o defeito do item 6 (branch `feat/ui-onda0`)
+### A-027 · [TAREFA] Chefe → @UI · 2026-10-07 · **ABERTA** (onda 0; não depende do esquema) — popout, navegação, modo por cookie, topbar, campos novos e o defeito do item 6 (branch `feat/ui-onda0`)
 Itens 1, 5, 7, 4, 10, 9 e 6 do épico: o popout do sino; o `AdminLink` (cookie-marcador `vitrine-logado`) e o nome do site no painel levando a `/`; o `ColorModeToggle` de dois estados com o cookie `vitrine-modo` e o par de ícones (também no painel); `showLogo` e `showName`; `directoryTitle` e `modeIconPair` nos formulários; e o `router.refresh()` do `ConfigurationForm` e do `AppearanceForm` (**hipótese do item 6**: o layout do painel persiste entre navegações; **confirmar medindo**); **rodada 2 revista: a herança do sistema no `AppearanceForm` e o seletor Sistema/Minha página do administrador**. Exceção declarada: `e2e/tema.spec.js` (só os casos do "automático"). Prompt: `doc/ref/prompts/ui.md`, pedido 1.
-**Status:** **ABERTA ao retomar.**
+**Status:** **ABERTA.**
 
 ---
 
@@ -66,7 +66,7 @@ Contra o contrato de API do documento-fonte (§4), com `fetch` simulado; ícones
 
 ---
 
-### A-031 · [TAREFA] Chefe → @Core · 2026-10-07 (revista em 08/10) · **AGUARDA** a A-026 e a A-027 integradas e o gate (**o Core não roda agora**) — a aparência em duas camadas e o seletor do administrador (branch `feat/core-aparencia`)
+### A-031 · [TAREFA] Chefe → @Core · 2026-10-07 (revista em 08/10) · **AGUARDA** a A-026 e a A-027 integradas (**o Core não roda agora**) — a aparência em duas camadas e o seletor do administrador (branch `feat/core-aparencia`)
 **D-40 e D-41:** a aparência efetiva (a do usuário sobre a do sistema, com a cadeia de padrões embutidos) no espaço de cada usuário (inclusive o do administrador) e no painel do usuário comum; o painel do administrador, o `/login` e o portal só com a do sistema (**o espaço continua ISR**); `/admin/aparencia` com o seletor `?alvo=sistema|pagina` para o administrador; e2e do item 6 e da herança. **O administrador mantém handle, espaço e conteúdo: nada muda na matriz.** Prompt: `doc/ref/prompts/core.md`, pedido 2.
 **Status:** **AGUARDA.**
 
