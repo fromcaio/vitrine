@@ -106,7 +106,7 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
     expect(html.match(/<script/g)).toHaveLength(1);
     // O script aplica a classe dark antes da primeira pintura, lendo a escolha do leitor.
     expect(COLOR_MODE_SCRIPT).toContain('classList.add("dark")');
-    expect(COLOR_MODE_SCRIPT).toContain("vitrine:modo");
+    expect(COLOR_MODE_SCRIPT).toContain("vitrine-modo");
   });
 
   it("o <html> leva suppressHydrationWarning: a classe dark muda antes da hidratação (CT47)", () => {

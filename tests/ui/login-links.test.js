@@ -14,6 +14,8 @@ vi.mock("next/link", async () => {
   };
 });
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
 import { NotificationList } from "@/components/admin/NotificationList";
 import { PasswordChangeForm } from "@/components/admin/PasswordChangeForm";
 import { AppearanceForm } from "@/components/admin/AppearanceForm";

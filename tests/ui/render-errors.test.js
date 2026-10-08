@@ -116,12 +116,12 @@ describe("Editor: o texto não se perde", () => {
 
 describe("formulário do portal (appearance-model)", () => {
   it("422 CONTENT_TOO_COMPLEX: a mensagem exata vai para o campo homeBody", async () => {
-    const failure = await interpretFailure(reply(422, "CONTENT_TOO_COMPLEX", [{ field: "homeBody", message: "x" }]), "configuration");
+    const failure = await interpretFailure(reply(422, "CONTENT_TOO_COMPLEX", [{ field: "homeBody", message: "x" }]), "portal");
     expect(failure).toEqual({ fields: { homeBody: TOO_COMPLEX_MESSAGE }, general: "" });
   });
 
   it("503 BUSY: a mensagem geral com o Retry-After", async () => {
-    const failure = await interpretFailure(reply(503, "BUSY", [], { "Retry-After": "3" }), "configuration");
+    const failure = await interpretFailure(reply(503, "BUSY", [], { "Retry-After": "3" }), "portal");
     expect(failure).toEqual({ fields: {}, general: "O servidor está ocupado agora. Tente de novo em 3 segundos." });
   });
 });

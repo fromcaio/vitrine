@@ -15,6 +15,10 @@ import { AdminSidebar } from "./AdminSidebar";
  *   usuário da sessão, já validada no servidor
  * @param {() => Promise<void>} props.signOutAction Server Function que encerra a sessão (RF20)
  * @param {string} [props.siteName] nome do site; o padrão é o da RN08
+ * @param {string | null} [props.logoUrl] logo do site (`/media/<id>`); sem ele, o logo embutido
+ * @param {boolean} [props.showLogo] mostra o logo na barra (padrão)
+ * @param {boolean} [props.showName] mostra o nome na barra (padrão)
+ * @param {string} [props.modeIconPair] par de ícones do botão de modo (`modeIconPair` do site)
  * @param {"admin" | "user"} [props.role] papel; o padrão é `user.role` (e, sem ele, usuário comum)
  * @param {boolean} [props.mustChangePassword] senha provisória; o padrão é `user.mustChangePassword`
  * @param {import("react").ReactNode} [props.notificationBell] o sino (`NotificationBell`) para a barra
@@ -26,6 +30,10 @@ export function AdminShell({
   user,
   signOutAction,
   siteName = "Vitrine",
+  logoUrl = null,
+  showLogo = true,
+  showName = true,
+  modeIconPair,
   role,
   mustChangePassword,
   notificationBell = null,
@@ -45,6 +53,10 @@ export function AdminShell({
       </a>
       <AdminHeader
         siteName={siteName}
+        logoUrl={logoUrl}
+        showLogo={showLogo}
+        showName={showName}
+        modeIconPair={modeIconPair}
         user={user}
         signOutAction={signOutAction}
         notificationBell={temporary ? null : notificationBell}

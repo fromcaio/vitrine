@@ -9,6 +9,10 @@
 // de texto do React, sempre escapado. O `unreadCount` de cada resposta é anunciado ao sino por um
 // evento do navegador (`notification-events.js`). Um 404 (já dispensada em outra aba) remove o
 // item; um 422 do cursor (um item dispensado entre duas páginas) recarrega a lista do início.
+//
+// Modo `compact` (o popout do sino, A-027): a mesma lista, sem o filtro e sem "carregar mais", com o
+// título de cada item em parágrafo (o popout fica no cabeçalho, antes do h1 da página, e não deve
+// criar títulos fora de ordem). O `NotificationBell` busca as 8 mais recentes e a monta.
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
@@ -53,8 +57,10 @@ const SEVERITY = {
  * @param {object} props
  * @param {InitialNotifications} props.initial a primeira página já lida pelo Core
  * @param {number} [props.pageSize] itens por página (1 a 100); o padrão é 20
+ * @param {boolean} [props.compact] versão do popout do sino: sem filtro nem "carregar mais", itens
+ *   enxutos e o título em parágrafo; o padrão é a lista completa da página
  */
-export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
+export function NotificationList({ initial, pageSize = PAGE_SIZE, compact = false }) {
   const base = useId();
   const [items, setItems] = useState(() => /** @type {PublicNotification[]} */ (initial.items.map(normalizeNotification).filter(Boolean)));
   const [unreadCount, setUnreadCount] = useState(initial.unreadCount);
@@ -72,7 +78,7 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
     focusAfter.current = null;
     const element = document.getElementById(`${base}-${target}`);
     const focusable = element?.matches("button, input") ? element : element?.querySelector("button:not(:disabled)");
-    /** @type {HTMLElement | null} */ (focusable ?? document.getElementById(`${base}-filtro`))?.focus();
+    /** @type {HTMLElement | null} */ (focusable ?? document.getElementById(`${base}-filtro`) ?? document.getElementById(`${base}-raiz`))?.focus();
   }, [items, base]);
 
   /** Adota o contador de uma resposta e o anuncia ao sino. @param {number | null} count */
@@ -201,21 +207,29 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
   }
 
   return (
-    <section aria-label="Notificações" aria-busy={pending} className="flex flex-col gap-4">
+    <section
+      id={`${base}-raiz`}
+      tabIndex={-1}
+      aria-label={compact ? "Notificações recentes" : "Notificações"}
+      aria-busy={pending}
+      className={`flex flex-col outline-none ${compact ? "gap-3" : "gap-4"}`}
+    >
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div className="flex items-center gap-2">
-          <input
-            id={`${base}-filtro`}
-            type="checkbox"
-            checked={onlyUnread}
-            disabled={pending}
-            onChange={(event) => changeFilter(event.target.checked)}
-            className="size-5 cursor-pointer"
-          />
-          <label htmlFor={`${base}-filtro`} className="text-sm font-medium">
-            Mostrar só as não lidas
-          </label>
-        </div>
+        {compact ? null : (
+          <div className="flex items-center gap-2">
+            <input
+              id={`${base}-filtro`}
+              type="checkbox"
+              checked={onlyUnread}
+              disabled={pending}
+              onChange={(event) => changeFilter(event.target.checked)}
+              className="size-5 cursor-pointer"
+            />
+            <label htmlFor={`${base}-filtro`} className="text-sm font-medium">
+              Mostrar só as não lidas
+            </label>
+          </div>
+        )}
         <p className="text-sm text-muted">{unreadCount === 0 ? "Nenhuma não lida." : `${unreadCount} ${unreadCount === 1 ? "não lida" : "não lidas"}.`}</p>
         <Button variant="outline" onClick={readAll} disabled={pending || unreadCount === 0} className="sm:ml-auto">
           Marcar todas como lidas
@@ -255,7 +269,7 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
           {onlyUnread ? "Nenhuma notificação não lida." : "Nenhuma notificação."}
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className={`flex flex-col ${compact ? "gap-2" : "gap-3"}`}>
           {items.map((item) => {
             const severity = SEVERITY[item.severity] ?? SEVERITY.INFO;
             const unread = item.readAt === null;
@@ -264,7 +278,7 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
                 key={item.id}
                 id={`${base}-item-${item.id}`}
                 data-severity={item.severity}
-                className={`flex flex-col gap-2 rounded-md border p-4 ${unread ? "border-foreground bg-surface" : "border-border"}`}
+                className={`flex flex-col gap-2 rounded-md border ${compact ? "p-3" : "p-4"} ${unread ? "border-foreground bg-surface" : "border-border"}`}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   <span className={`inline-flex items-center gap-1.5 font-semibold ${severity.tone}`.trim()}>
@@ -278,7 +292,11 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
                   </time>
                 </div>
                 {/* h2: a página tem o h1 e a lista de notificações vem logo abaixo, sem h2 no meio (o axe, `heading-order`). */}
-                <h2 className="font-semibold break-words">{item.title}</h2>
+                {compact ? (
+                  <p className="font-semibold break-words">{item.title}</p>
+                ) : (
+                  <h2 className="font-semibold break-words">{item.title}</h2>
+                )}
                 <p className="break-words whitespace-pre-line">{item.text}</p>
                 <div className="flex flex-wrap gap-2">
                   {unread ? (
@@ -296,7 +314,7 @@ export function NotificationList({ initial, pageSize = PAGE_SIZE }) {
         </ul>
       )}
 
-      {nextCursor ? (
+      {nextCursor && !compact ? (
         <div>
           <Button variant="outline" onClick={loadMore} disabled={pending}>
             {pending ? "Carregando…" : "Carregar mais"}

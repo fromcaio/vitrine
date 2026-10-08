@@ -11,13 +11,15 @@ import { PortalDirectory } from "./PortalDirectory";
  * @param {import("./PortalDirectory").PublicSpace[] | null} [props.spaces] os espaços; `null` com o
  *   diretório desligado (`directoryEnabled` falso), e então a lista nem é exibida
  * @param {string} props.title título da página (um `h1`, o nome do site)
+ * @param {string} [props.directoryTitle] título da seção do diretório (`directoryTitle` da
+ *   configuração, D-38); o padrão é "Espaços"
  */
-export function PortalHome({ body = null, spaces = null, title }) {
+export function PortalHome({ body = null, spaces = null, title, directoryTitle }) {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
       <h1 className="text-3xl font-semibold break-words">{title}</h1>
       {body ? <MarkdownRenderer markdown={body} /> : null}
-      {spaces ? <PortalDirectory spaces={spaces} /> : null}
+      {spaces ? <PortalDirectory spaces={spaces} heading={directoryTitle || undefined} /> : null}
     </div>
   );
 }

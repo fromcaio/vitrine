@@ -93,7 +93,7 @@ describe("SpaceLayout: landmarks e atalho (RNF05)", () => {
     renderLayout();
     const names = [...document.querySelectorAll("a, button")].map((el) => el.getAttribute("aria-label") ?? el.textContent);
     const at = (/** @type {RegExp | string} */ needle) => names.findIndex((name) => (needle instanceof RegExp ? needle.test(name ?? "") : name === needle));
-    const order = [at("Pular para o conteúdo"), at("Espaço da Maria"), at("Claro"), at("Algoritmos e Estruturas de Dados"), at(/^Menu:/), at(/^GitHub/)];
+    const order = [at("Pular para o conteúdo"), at("Espaço da Maria"), at("Mudar para o modo escuro"), at("Algoritmos e Estruturas de Dados"), at(/^Menu:/), at(/^GitHub/)];
     expect(order.every((index) => index >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
@@ -175,11 +175,11 @@ describe("Navbar (RF13)", () => {
     expect(screen.getByRole("link", { name: "C" }).className).not.toMatch(/(^| )underline( |$)/);
   });
 
-  it("o seletor de modo de cor fica na barra", () => {
+  it("o botão de modo de cor fica na barra: um só, que muda para o modo escuro", () => {
     render(<Navbar name="X" homeHref="/x" />);
-    const group = screen.getByRole("group", { name: "Modo de cor" });
-    expect(within(group).getAllByRole("button").map((b) => b.textContent)).toEqual(["Claro", "Escuro", "Automático"]);
-    expect(screen.getByRole("banner").contains(group)).toBe(true);
+    const button = screen.getByRole("button", { name: "Mudar para o modo escuro" });
+    expect(screen.getAllByRole("button", { name: /^Mudar para o modo/ })).toHaveLength(1);
+    expect(screen.getByRole("banner").contains(button)).toBe(true);
   });
 
   it("o logotipo só aparece quando existe, decorativo (o nome já está ao lado)", () => {

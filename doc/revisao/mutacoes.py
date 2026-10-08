@@ -103,6 +103,25 @@ DADOS=[
  ("prisma/migrations/20261004120000_multiusuario/migration.sql","  AND \"authorId\" <> (SELECT \"rootOwner\" FROM \"tree\" WHERE \"tree\".\"id\" = \"contents\".\"id\");","  AND 0;","M8 migração não normaliza o dono"),
  ("src/lib/db.js","if (total >= quota.maxContentsPerUser) {","if (total > quota.maxContentsPerUser) {","M9 cota off-by-one"),
  ("src/lib/db.js","await tx.verification.deleteMany({ where: { identifier: user.email } });","","M10 deleteUser deixa verificação"),
+ # M-039 (A-026): épico v1, dados
+ ("src/lib/db.js","if (previous !== null) await tx.image.deleteMany({ where: { id: previous } });","","M11 replaceImage não apaga a imagem antiga"),
+ ("src/lib/db.js","      await writeImageReference(tx, kind, ownerId, null);\n      await tx.image.deleteMany({ where: { id: previous } });\n      return { removed: true","      await writeImageReference(tx, kind, ownerId, null);\n      return { removed: true","M12 removeImage deixa a imagem órfã"),
+ ("src/lib/db.js","      await writeNotification(tx, parsed, now);\n      return imageId;","      return imageId;","M13 removeAvatar não avisa o dono"),
+ ("src/lib/db.js","if (links.length > MAX_FOOTER_LINKS) {","if (links.length > MAX_FOOTER_LINKS + 1) {","M14 rodapé aceita um link além do teto"),
+ ("src/lib/db.js","    if (seen.has(icon)) {","    if (false) {","M15 rodapé aceita ícone repetido"),
+ ("src/lib/db.js","      await tx.footerLink.deleteMany({ where: { ownerId } });\n      for (const [order","      for (const [order","M16 replaceFooterLinks acumula em vez de substituir"),
+ ("src/lib/db.js","const ownLight = LIGHT_PALETTE.every((field) => own[field] != null);","const ownLight = LIGHT_PALETTE.some((field) => own[field] != null);","M17 herança por cor, não por paleta"),
+ ("src/lib/db.js","siteName: own.siteName ?? base.siteName,","siteName: base.siteName,","M18 aparência efetiva ignora o nome próprio"),
+ ("src/lib/db.js","if (defined !== 0 && defined !== fields.length) {","if (false) {","M19 paleta incompleta aceita"),
+ ("src/lib/db.js","  if (!showLogo && !showName) {","  if (!showLogo || !showName) {","M20 logo e nome: recusa também com um só desligado"),
+ ("src/lib/db.js","      avatarImageId: user.avatarImageId,\n    }))","      avatarImageId: null,\n    }))","M21 diretório sem o avatar"),
+ ("prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql","WHERE lower(trim(\"url\")) LIKE 'https://_%'","WHERE lower(trim(\"url\")) LIKE 'http%'","M22 migração converte links http"),
+ ("prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql","AND lower(\"secondaryColor\") = '#1e293b' AND lower(\"accentColor\") = '#b45309';","AND lower(\"secondaryColor\") = '#1e293b';","M23 migração anula a paleta se só duas cores são padrão"),
+ ("prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql","ORDER BY \"seq\") - 1,","ORDER BY \"seq\"),","M24 migração numera a ordem do rodapé a partir de 1"),
+ ("src/lib/footer-icons.js","export const MAX_FOOTER_LINKS = 8;","export const MAX_FOOTER_LINKS = 9;","M25 teto do rodapé 9"),
+ ("src/lib/db.js","directoryTitle.length > DIRECTORY_TITLE_MAX_LENGTH","directoryTitle.length >= DIRECTORY_TITLE_MAX_LENGTH","M26 título do diretório: limite off-by-one"),
+ ("src/lib/db.js","if (typeof mime !== \"string\" || !mime.startsWith(\"image/\")) {","if (typeof mime !== \"string\") {","M27 imagem com mime que não é de imagem"),
+ ("src/lib/db.js","if (ownerId === null && kind !== \"avatar\") return;","if (ownerId === null) return;","M28 avatar do site (sem dono) aceito"),
 ]
 
 ap = argparse.ArgumentParser()

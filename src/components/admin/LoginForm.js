@@ -9,6 +9,7 @@
 // são lidas dos campos apenas no envio.
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { setSessionMarker } from "@/components/layout/session-marker";
 import { AlertIcon } from "@/components/ui/icons";
 import { authClient } from "@/lib/auth-client";
 
@@ -57,6 +58,8 @@ export function LoginForm({ redirectTo }) {
         password: String(form.get("password") ?? ""),
       });
       if (!error) {
+        // O marcador (sem segredo) avisa as páginas públicas de que vale perguntar pela sessão.
+        setSessionMarker();
         // Navegação completa: a próxima requisição já leva o cookie de sessão ao Proxy e ao
         // servidor. O botão segue desabilitado até a página de destino carregar.
         window.location.assign(redirectTo);

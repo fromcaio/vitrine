@@ -238,6 +238,9 @@ test.describe.serial("espaço público e portal", () => {
 
     const classAtDomContentLoaded = async (scheme) => {
       await page.emulateMedia({ colorScheme: scheme });
+      // O modo vem do cookie `vitrine-modo` (ADR-036), e já não do sistema operacional.
+      await page.context().clearCookies({ name: "vitrine-modo" });
+      if (scheme === "dark") await page.context().addCookies([{ name: "vitrine-modo", value: "dark", url: baseURL }]);
       await page.addInitScript(() => {
         document.addEventListener("DOMContentLoaded", () => {
           // @ts-expect-error variável de ensaio

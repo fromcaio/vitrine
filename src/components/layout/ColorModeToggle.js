@@ -1,104 +1,104 @@
 "use client";
 
-// Seletor do modo de cor do leitor: Claro, Escuro ou Automático (RF32, RN27; Cap. 5 §5.9). A
-// escolha fica no localStorage (chave `vitrine:modo`) e vale só neste navegador; o script do
-// <head> (color-mode-script.js) a aplica antes da primeira pintura, e este componente a
-// alterna depois, trocando a classe .dark do <html>. Em Automático, acompanha a preferência do
-// sistema enquanto a página está aberta.
+// Botão do modo de cor do leitor: UM botão que alterna entre Claro e Escuro, só dois estados (RF32,
+// RN32, D-33, ADR-036; Cap. 5 §5.9). O nome acessível diz o que o clique faz, "Mudar para o modo escuro"
+// ou "Mudar para o modo claro", e o ícone é o do modo para o qual ele muda. A escolha vai ao cookie `vitrine-modo` (um ano, `SameSite=Lax`, sem `HttpOnly`),
+// ESCRITO por este componente e LIDO só pelo script do <head> (color-mode-script.js), que a aplica
+// antes da primeira pintura; este componente a alterna depois, trocando a classe .dark do <html>.
+// Quem nunca escolheu vê o modo claro. O servidor nunca lê o cookie (o ISR continua valendo).
 //
-// Não conhece o dono nem o tema do espaço: só cores de tokens (Button). O lugar dele nos
-// cabeçalhos é das páginas (etapas 2 e 5 da A-015).
+// O par de ícones (o do modo claro e o do escuro) vem por `iconPair` (escolha do administrador para o site, `modeIconPair`): sol e
+// lua (padrão), sol e lua de contorno, lâmpada ou círculo meio cheio. Não conhece o dono nem o tema
+// do espaço: só tokens de cor. O lugar dele nos cabeçalhos é das páginas.
 import { useEffect, useSyncExternalStore } from "react";
-import { Button } from "@/components/ui/Button";
-import { COLOR_MODE_STORAGE_KEY, wantsDark } from "./color-mode-script";
+import {
+  LEGACY_STORAGE_KEY,
+  modeCookieString,
+  readModeCookie,
+  wantsDark,
+} from "./color-mode-script";
+import { modeIconsOf } from "./mode-icon-pairs";
 
 /** @typedef {import("./color-mode-script").ColorModeChoice} ColorModeChoice */
 
-/** Evento próprio: o `storage` do navegador só dispara nas OUTRAS abas. */
+/** Evento próprio: o cookie não avisa a própria aba quando muda. */
 const CHANGE_EVENT = "vitrine:modo-change";
 
 /** @type {{ value: ColorModeChoice | null }} */
 const memory = { value: null };
 
-const OPTIONS = /** @type {const} */ ([
-  { value: "light", label: "Claro" },
-  { value: "dark", label: "Escuro" },
-  { value: "auto", label: "Automático" },
-]);
-
-/** @param {unknown} value */
-function toChoice(value) {
-  return value === "light" || value === "dark" ? value : "auto";
-}
-
-/** @returns {ColorModeChoice} a escolha guardada; `auto` sem escolha ou sem armazenamento */
+/** @returns {ColorModeChoice} a escolha guardada; `light` sem escolha ou sem cookies */
 function readChoice() {
   try {
-    return toChoice(localStorage.getItem(COLOR_MODE_STORAGE_KEY));
+    const stored = readModeCookie(document.cookie);
+    if (stored === "dark" || stored === "light") return stored;
   } catch {
-    // Armazenamento bloqueado: vale o que o leitor escolheu nesta página, se escolheu.
-    return memory.value ?? "auto";
+    // Cookies bloqueados: vale o que o leitor escolheu nesta página, se escolheu.
   }
+  return memory.value ?? "light";
 }
 
 /** @param {ColorModeChoice} choice */
 function writeChoice(choice) {
+  // A memória só guarda a escolha se o navegador NÃO guardou o cookie (cookies bloqueados): a
+  // escolha vale então até a página fechar. Com o cookie funcionando, ele é a única fonte.
   memory.value = choice;
   try {
-    localStorage.setItem(COLOR_MODE_STORAGE_KEY, choice);
+    document.cookie = modeCookieString(choice, window.location.protocol === "https:");
+    if (readModeCookie(document.cookie) === choice) memory.value = null;
   } catch {
-    // Sem armazenamento: a escolha vale até a página fechar.
+    // Sem cookies: fica a memória.
+  }
+  try {
+    // A versão anterior guardava a escolha aqui, com o "automático": some de vez.
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    // Armazenamento bloqueado: nada a apagar.
   }
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
 /** @param {() => void} notify */
 function subscribe(notify) {
-  window.addEventListener("storage", notify);
   window.addEventListener(CHANGE_EVENT, notify);
+  // Outra aba pode ter mudado o cookie: ao voltar a esta, relê.
+  window.addEventListener("focus", notify);
   return () => {
-    window.removeEventListener("storage", notify);
     window.removeEventListener(CHANGE_EVENT, notify);
+    window.removeEventListener("focus", notify);
   };
 }
 
-/** @returns {boolean} a preferência do sistema é noturna */
-function systemPrefersDark() {
-  return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
-}
+/**
+ * @param {object} props
+ * @param {string} [props.iconPair] o par de ícones (`sun_moon`, `sun_moon_outline`, `lightbulb` ou
+ *   `contrast_half`); um valor desconhecido vale `sun_moon`
+ * @param {string} [props.className]
+ */
+export function ColorModeToggle({ iconPair, className = "" }) {
+  // No servidor e na hidratação vale `light`; o valor guardado entra logo depois, sem divergência.
+  const choice = useSyncExternalStore(subscribe, readChoice, () => /** @type {ColorModeChoice} */ ("light"));
+  const icons = modeIconsOf(iconPair);
 
-/** @param {ColorModeChoice} choice */
-function applyChoice(choice) {
-  document.documentElement.classList.toggle("dark", wantsDark(choice, systemPrefersDark()));
-}
-
-/** @param {{ className?: string }} props */
-export function ColorModeToggle({ className = "" }) {
-  // No servidor e na hidratação vale `auto`; o valor guardado entra logo depois, sem divergência.
-  const choice = useSyncExternalStore(subscribe, readChoice, () => /** @type {ColorModeChoice} */ ("auto"));
-
-  // Aplica a escolha (também a feita em outra aba) e, em Automático, acompanha o sistema.
+  // Aplica a escolha (também a feita em outra aba).
   useEffect(() => {
-    applyChoice(choice);
-    if (choice !== "auto" || typeof matchMedia !== "function") return undefined;
-    const query = matchMedia("(prefers-color-scheme: dark)");
-    const follow = () => applyChoice("auto");
-    query.addEventListener("change", follow);
-    return () => query.removeEventListener("change", follow);
+    document.documentElement.classList.toggle("dark", wantsDark(choice));
   }, [choice]);
 
+  const dark = choice === "dark";
+  // O botão leva ao OUTRO modo: o nome e o ícone dizem para onde ele vai.
+  const label = dark ? "Mudar para o modo claro" : "Mudar para o modo escuro";
+  const Icon = dark ? icons.Light : icons.Dark;
+
   return (
-    <div role="group" aria-label="Modo de cor" className={`inline-flex gap-1 ${className}`.trim()}>
-      {OPTIONS.map(({ value, label }) => (
-        <Button
-          key={value}
-          variant={choice === value ? "primary" : "outline"}
-          aria-pressed={choice === value}
-          onClick={() => writeChoice(value)}
-        >
-          {label}
-        </Button>
-      ))}
-    </div>
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => writeChoice(dark ? "light" : "dark")}
+      className={`inline-flex size-10 cursor-pointer items-center justify-center rounded-md border border-border-strong bg-background text-foreground hover:border-foreground hover:bg-surface ${className}`.trim()}
+    >
+      <Icon />
+    </button>
   );
 }

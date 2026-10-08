@@ -8,7 +8,13 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppearanceForm } from "@/components/admin/AppearanceForm";
 import { ConfigurationForm } from "@/components/admin/ConfigurationForm";
+import { PortalSettingsForm } from "@/components/admin/PortalSettingsForm";
+import { SiteIdentityForm } from "@/components/admin/SiteIdentityForm";
 import { DEFAULT_PALETTES } from "@/lib/theme";
+
+// O roteador do Next: o formulário chama `router.refresh()` depois de salvar (defeito do item 6).
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 // O Markdown é testado à parte (markdown-renderer.test.js): aqui basta ver que o texto chega a ele.
 vi.mock("@/components/markdown/MarkdownRenderer", async () => {
@@ -49,7 +55,10 @@ function stubFetch(...responses) {
   return fetchMock;
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  refresh.mockClear();
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -180,9 +189,9 @@ describe("aviso de contraste por modo, enquanto se edita (RN09, RN27; CT24)", ()
   });
 });
 
-describe("restaurar as paletas padrão (ADR-031)", () => {
+describe("restaurar as paletas padrão do sistema (ADR-031)", () => {
   it("restaura só a paleta do botão clicado, e o aviso daquele modo some", async () => {
-    render(<AppearanceForm initial={RECORD} />);
+    render(<SiteIdentityForm initial={RECORD} />);
     typeIn(color("clara", "Primária"), "#ffff00");
     typeIn(color("noturna", "Primária"), "#333333");
     await within(palette("noturna")).findByText(/abaixo do mínimo/);
@@ -198,7 +207,7 @@ describe("restaurar as paletas padrão (ADR-031)", () => {
   it("restaura as três cores do modo e o envio leva só as que diferiam da gravada", async () => {
     const custom = { ...RECORD, darkPrimaryColor: "#fdba74", darkSecondaryColor: "#7c2d12", darkAccentColor: "#fb923c" };
     const fetchMock = stubFetch(saved(RECORD));
-    render(<AppearanceForm initial={custom} />);
+    render(<SiteIdentityForm initial={custom} />);
     fireEvent.click(screen.getByRole("button", { name: "Restaurar a paleta noturna padrão" }));
     for (const [label, value] of [["Primária", "#60a5fa"], ["Secundária", "#cbd5e1"], ["Destaque", "#fbbf24"]]) {
       expect(color("noturna", label).value).toBe(value);
@@ -209,7 +218,7 @@ describe("restaurar as paletas padrão (ADR-031)", () => {
   });
 
   it("apaga o erro de formato das cores restauradas", () => {
-    render(<AppearanceForm initial={RECORD} />);
+    render(<SiteIdentityForm initial={RECORD} />);
     typeIn(color("clara", "Primária"), "#12");
     submit();
     expect(within(palette("clara")).getByText("A cor deve estar no formato #RRGGBB.")).toBeTruthy();
@@ -218,7 +227,7 @@ describe("restaurar as paletas padrão (ADR-031)", () => {
   });
 
   it("restaurar uma paleta que já é a padrão não cria alteração", () => {
-    render(<AppearanceForm initial={RECORD} />);
+    render(<SiteIdentityForm initial={RECORD} />);
     fireEvent.click(screen.getByRole("button", { name: "Restaurar a paleta clara padrão" }));
     expect(screen.getByText("Nenhuma alteração pendente.")).toBeTruthy();
   });
@@ -345,7 +354,7 @@ describe("avisos do servidor depois de gravar (RN26)", () => {
 
   it("uma gravação sem avisos mostra o OK nos dois modos, e a paleta corrigida tira o aviso", async () => {
     stubFetch(saved({ ...RECORD, darkPrimaryColor: "#333333" }, [SERVER_WARNING]), saved(RECORD, []));
-    render(<AppearanceForm initial={RECORD} />);
+    render(<SiteIdentityForm initial={RECORD} />);
     typeIn(color("noturna", "Primária"), "#333333");
     submit();
     await within(palette("noturna")).findByText(SERVER_WARNING.message, { selector: "span" });
@@ -353,7 +362,7 @@ describe("avisos do servidor depois de gravar (RN26)", () => {
     submit();
     await waitFor(() => expect(within(palette("noturna")).queryByText(SERVER_WARNING.message, { selector: "span" })).toBeNull());
     expect(within(palette("noturna")).getByText("O servidor não encontrou problemas de contraste.")).toBeTruthy();
-    expect((await screen.findByText(/Aparência salva às/)).textContent).not.toContain("notificações");
+    expect((await screen.findByText(/Aparência do sistema salva às/)).textContent).not.toContain("notificações");
   });
 
   it("os avisos do servidor só aparecem depois da primeira gravação", () => {
@@ -365,13 +374,13 @@ describe("avisos do servidor depois de gravar (RN26)", () => {
 describe("validação no navegador, sem enviar", () => {
   it("o nome em branco, com o foco nele", () => {
     const fetchMock = stubFetch();
-    render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("Nome do espaço"), "   ");
+    render(<SiteIdentityForm initial={RECORD} />);
+    typeIn(field("Nome do site"), "   ");
     submit();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText("O nome do site é obrigatório.")).toBeTruthy();
-    expect(field("Nome do espaço").getAttribute("aria-invalid")).toBe("true");
-    expect(document.activeElement).toBe(field("Nome do espaço"));
+    expect(field("Nome do site").getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(field("Nome do site"));
   });
 
   it("a cor fora do formato, no campo da paleta certa", () => {
@@ -424,7 +433,7 @@ describe("erros da API em português; o rascunho fica na tela", () => {
   async function failWith(/** @type {Response | (() => Promise<Response>)} */ response, kind = "appearance") {
     const fetchMock = stubFetch(response);
     if (kind === "appearance") render(<AppearanceForm initial={RECORD} />);
-    else render(<ConfigurationForm initial={CONFIG} />);
+    else render(<SiteIdentityForm initial={CONFIG} />);
     typeIn(field(kind === "appearance" ? "Nome do espaço" : "Nome do site"), "Nome editado");
     typeIn(color("clara", "Destaque"), "#aa5500");
     submit();
@@ -445,7 +454,7 @@ describe("erros da API em português; o rascunho fica na tela", () => {
     await failWith(failure(403, [], "FORBIDDEN"));
     expect(await screen.findByText("Você não tem permissão para alterar esta aparência.")).toBeTruthy();
     cleanup();
-    await failWith(failure(403, [], "FORBIDDEN"), "configuration");
+    await failWith(failure(403, [], "FORBIDDEN"), "site");
     expect(await screen.findByText("Só o administrador pode alterar a configuração do site.")).toBeTruthy();
   });
 
@@ -505,7 +514,7 @@ describe("pré-visualização nos dois modos (RF31)", () => {
     for (const mode of /** @type {const} */ (["claro", "noturno"])) {
       expect(previewOf(mode).querySelector("[inert]")).toBeTruthy();
       expect(previewOf(mode).querySelector("main")?.id).toMatch(/-amostra$/);
-      expect(previewOf(mode).querySelector("button[role], [role=group][aria-label='Modo de cor']")).toBeNull();
+      expect(previewOf(mode).querySelector("button[role], button[aria-label^='Mudar para o modo']")).toBeNull();
     }
   });
 
@@ -583,26 +592,26 @@ describe("pré-visualização nos dois modos (RF31)", () => {
 describe("configuração do site: portal e diretório (RF30, RN28)", () => {
   it("envia para /api/configuration, só o que mudou", async () => {
     const fetchMock = stubFetch(saved({ ...CONFIG, directoryEnabled: false }));
-    render(<ConfigurationForm initial={CONFIG} />);
+    render(<PortalSettingsForm initial={CONFIG} />);
     fireEvent.click(screen.getByRole("checkbox", { name: "Mostrar o diretório de espaços no portal" }));
     submit();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(fetchMock.mock.calls[0][0]).toBe("/api/configuration");
     expect(bodyOf(fetchMock)).toEqual({ directoryEnabled: false });
-    expect(await screen.findByText(/^Configuração salva às/)).toBeTruthy();
+    expect(await screen.findByText(/^Portal salvo às/)).toBeTruthy();
   });
 
   it("o diretório vem marcado se a configuração o liga, e desmarcado se a desliga", () => {
-    const { unmount } = render(<ConfigurationForm initial={CONFIG} />);
+    const { unmount } = render(<PortalSettingsForm initial={CONFIG} />);
     expect(/** @type {HTMLInputElement} */ (screen.getByRole("checkbox")).checked).toBe(true);
     unmount();
-    render(<ConfigurationForm initial={{ ...CONFIG, directoryEnabled: false }} />);
+    render(<PortalSettingsForm initial={{ ...CONFIG, directoryEnabled: false }} />);
     expect(/** @type {HTMLInputElement} */ (screen.getByRole("checkbox")).checked).toBe(false);
   });
 
   it("o texto do portal vai no corpo quando muda; o Markdown é do autor", async () => {
     const fetchMock = stubFetch(saved({ ...CONFIG, homeBody: "# Novo\n\ntexto" }));
-    render(<ConfigurationForm initial={CONFIG} />);
+    render(<PortalSettingsForm initial={CONFIG} />);
     typeIn(field("Texto do portal (Markdown)"), "# Novo\n\ntexto");
     submit();
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
@@ -611,7 +620,7 @@ describe("configuração do site: portal e diretório (RF30, RN28)", () => {
 
   it("mostra o consumo em bytes e recusa o texto acima do limite, sem enviar (RN25)", () => {
     const fetchMock = stubFetch();
-    render(<ConfigurationForm initial={{ ...CONFIG, homeBody: "abc" }} maxBodyBytes={10} />);
+    render(<PortalSettingsForm initial={{ ...CONFIG, homeBody: "abc" }} maxBodyBytes={10} />);
     expect(screen.getByText(/3 de 10 bytes/)).toBeTruthy();
     typeIn(field("Texto do portal (Markdown)"), "ação ação ação");
     expect(screen.getByText(/20 de 10 bytes/)).toBeTruthy();
@@ -623,7 +632,7 @@ describe("configuração do site: portal e diretório (RF30, RN28)", () => {
 
   it("o limite é do servidor: 422 QUOTA_EXCEEDED mostra os bytes no campo do texto, e o rascunho fica", async () => {
     stubFetch(failure(422, [{ field: "body", bytes: 300000, max: 262144 }], "QUOTA_EXCEEDED"));
-    render(<ConfigurationForm initial={CONFIG} />);
+    render(<PortalSettingsForm initial={CONFIG} />);
     typeIn(field("Texto do portal (Markdown)"), "# um texto");
     submit();
     expect(await screen.findByText("O texto do portal tem 300000 bytes; o máximo é 262144 (256 KiB).")).toBeTruthy();
@@ -632,7 +641,7 @@ describe("configuração do site: portal e diretório (RF30, RN28)", () => {
   });
 
   it("a pré-visualização do texto é opcional e usa o MarkdownRenderer", async () => {
-    render(<ConfigurationForm initial={CONFIG} />);
+    render(<PortalSettingsForm initial={CONFIG} />);
     expect(screen.queryByTestId("renderizado")).toBeNull();
     const toggle = screen.getByRole("button", { name: "Pré-visualizar o texto do portal" });
     fireEvent.click(toggle);
@@ -643,7 +652,7 @@ describe("configuração do site: portal e diretório (RF30, RN28)", () => {
   });
 
   it("tem os mesmos blocos de identidade, redes e paletas da aparência, com o aviso por modo", async () => {
-    render(<ConfigurationForm initial={CONFIG} />);
+    render(<SiteIdentityForm initial={CONFIG} />);
     for (const name of ["Identidade", "Redes sociais", "Paleta clara", "Paleta noturna"]) expect(screen.getByRole("group", { name })).toBeTruthy();
     typeIn(color("noturna", "Primária"), "#222222");
     await within(palette("noturna")).findByText(/primária noturna/);
