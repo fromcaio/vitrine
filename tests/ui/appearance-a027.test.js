@@ -29,14 +29,6 @@ import { DEFAULT_PALETTES } from "@/lib/theme";
 const RECORD = {
   siteName: "Espaço da Maria",
   siteDescription: null,
-  logoUrl: null,
-  faviconUrl: null,
-  discordUrl: null,
-  githubUrl: null,
-  youtubeUrl: null,
-  instagramUrl: null,
-  linkedinUrl: null,
-  twitchUrl: null,
   ...DEFAULT_PALETTES.light,
   ...DEFAULT_PALETTES.dark,
 };
