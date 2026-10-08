@@ -41,3 +41,16 @@ Implemente o §4 e o §5 do documento-fonte sobre as funções que o Dados entre
 ## Entrega (por pedido)
 1. Árvore limpa e commits feitos. Na **cópia principal** (na `main`), escreva o `[MERGE]` no mural, no modelo de `DESENVOLVEDORES.md` §4, **curto (≤ ~40 linhas)**, em commit **exclusivo do mural** (`chore(mural): solicita merge de feat/core-desempenho (Core, A-024)` e `feat/core-aparencia (Core, A-031)` e `feat/core-midia (Core, A-029)`), **relendo o mural antes de editar**. Sem `git push`. Diga o que a documentação precisa mudar e **o que não foi possível**, com o número.
 2. Resposta final: **(a) O que mudou** (≤ 10 linhas) · **(b) Evidência** (comando → resultado, a tabela antes e depois no pedido 1, mutações, contagem de testes e de e2e, o que foi verificado no navegador) · **(c) Branch e SHA** · **(d) Desvios, dúvidas e o que depende do Engenheiro Chefe**.
+
+
+---
+
+## Ajustes da especificação final (Arquiteto, 08/10/2026) — **valem sobre o texto acima**
+O contrato está no LaTeX: **Cap. 5 `api.tex`, `sec:arq-api-v1` (`tab:api-v1`)**, `seguranca.tex` (`sec:arq-upload`, a tabela da CSP), `tema.tex` (`sec:arq-tema-efetiva`), `isr.tex` (a revalidação) e `autenticacao.tex` (o cookie-marcador); Cap. 4 RN17 e RN29 a RN34; **ADR-034, ADR-035, ADR-037 e ADR-038**. Onde divergirem do texto acima, vale a especificação:
+1. **Rodapé do site:** `GET`/`PUT /api/configuration/footer-links` (administrador); o do dono, `GET`/`PUT /api/footer-links`. Corpo `{ links: [{ icon, url }] }`, ordem do vetor, 0 a 8 itens.
+2. **Moderação do avatar:** o Dados traz `removeAvatar(userId, { notification })` (apaga e notifica na mesma transação; `data = { event: "AVATAR_REMOVED", reason }`); a rota só autoriza, valida o `reason` e chama a função. 404 se o usuário não tem avatar.
+3. **`/media/<id>` serve também a imagem de um espaço suspenso** (decidido na ADR-034, item 8); teste-o. `media` passa a ser **nome reservado**: acrescente-o a `RESERVED_HANDLES` (`src/lib/validators.js`) e à lista de segmentos reservados do `src/proxy.js` (a UI faz o mesmo em `user-model.js`).
+4. **Respostas do envio:** `PUT` 200 com `data: { id, url, width, height }`; `DELETE` 204. Conta com senha provisória pendente: 403 `PASSWORD_CHANGE_REQUIRED`. Corpo que não é `multipart/form-data`: 400 `VALIDATION_ERROR`.
+5. **`GET /api/appearance`** devolve a aparência **crua** (com nulos) em `data` e, ao lado, `effective` e `inherits` (do Dados); `PUT` aceita `null` nas seis cores e no `siteName`; paleta de um modo com uma ou duas cores nulas é 422 (`details[0].field` igual a `lightPalette` ou `darkPalette`); `showLogo` e `showName` ambos falsos é 422 (`field` igual a `showName`).
+6. **Imagens externas do Markdown (ADR-034, item 11, a confirmar pelo Engenheiro Chefe):** a CSP restrita **quebra** a imagem externa dos documentos; a decisão do Engenheiro Chefe sai antes de a A-029 ser lançada. Não decida por ele.
+7. **Revalidação:** mudar a paleta de um modo, o nome, o logo ou o favicon do **sistema** revalida o portal **e os espaços que herdam aquela unidade** (caminhos literais, ADR-030); meça o custo e relate (A-031).

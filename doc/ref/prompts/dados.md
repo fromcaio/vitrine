@@ -24,3 +24,15 @@ Você é o **Arquiteto de Dados** do projeto Vitrine (Prisma 7 com o *driver ada
 ## Entrega
 1. Árvore limpa e commits feitos. Na **cópia principal** (na `main`), escreva o `[MERGE]` em *Solicitações de merge*, no modelo de `DESENVOLVEDORES.md` §4, **curto (≤ ~40 linhas)**, em commit **exclusivo do mural** (`chore(mural): solicita merge de feat/dados-midia (Dados, A-026)`), **relendo o mural antes de editar**. Sem `git push`. Diga **as assinaturas exatas das funções** (o Core as consome), o que a migração converteu e descartou, e o que o Core precisa saber.
 2. Resposta final: **(a) O que mudou** (≤ 10 linhas) · **(b) Evidência** (comando → resultado, mutações aplicadas/detectadas, contagem de testes) · **(c) Branch e SHA** · **(d) Desvios, dúvidas e o que depende do Engenheiro Chefe**.
+
+
+---
+
+## Ajustes da especificação final (Arquiteto, 08/10/2026) — **valem sobre o texto acima**
+A especificação do seu pedido está no LaTeX: **Cap. 5 `dados.tex`, `sec:arq-dados-v1`** (e `sec:arq-indice-parcial`), Apêndice A (`tab:dicionario-v1`, `tab:indices-v1`), `doc/diagrams/src/er-vitrine.dbml` e as **ADR-034, ADR-035 e ADR-038**. Onde o texto acima e a especificação divergirem, vale a especificação:
+1. O modelo do site é **`Configuration`** (tabela `configurations`), não `SiteConfiguration`. Tabelas novas: `images` e `footer_links`.
+2. `Image.ownerId` é chave estrangeira para `User` (`Cascade`; nulo = site); `User.avatarImageId` é `@unique`, `SetNull`; as referências de logo e favicon são `SetNull`.
+3. `footer_links`: `@@unique([ownerId, icon])` **e**, em SQL manual na migração, o índice parcial `footer_links_site_icon_key` (`UNIQUE (icon) WHERE ownerId IS NULL`), porque `NULL` é distinto de `NULL` no SQLite; **`tests/dados/indexes.test.js` o confere**, e a migração recria também o índice parcial de `contents` se redefinir a tabela.
+4. Funções a mais: `removeImage(kind, ownerId)` e `removeAvatar(userId, { notification })` (apaga e grava a notificação **na mesma transação**: tipo `MODERATION`, gravidade `WARNING`, `data = { event: "AVATAR_REMOVED", reason }`). Listas fechadas (18 ícones, 4 pares de ícones do modo) no módulo puro **`src/lib/footer-icons.js`**.
+5. **`getAppearance` sem linha devolve nulos** (não preenche o nome com o do usuário) e `updateAppearance` **não** preenche `siteName` ao criar a linha; um modo com uma ou duas cores nulas é `INVALID_INPUT`; `showLogo` e `showName` não podem ficar ambos falsos (avalie o estado **resultante**, na transação). `getEffectiveAppearance` devolve também `inherits` e **nunca** o padrão embutido (é do Core); `listPublicSpaces` ganha `avatarImageId` e **mantém** `Appearance.siteName ?? User.name` como nome do espaço.
+6. Migração: ids de `footer_links` gerados em SQL; só os links `https://` viram linhas (os `http` são descartados); paleta de um modo (três cores) e `siteName` iguais ao padrão viram nulos; **não** mexa em usuários, conteúdo, notificações nem na linha de `Appearance` do administrador além dessa conversão.

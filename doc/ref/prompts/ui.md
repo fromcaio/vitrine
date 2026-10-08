@@ -36,3 +36,15 @@ Componentes, **contra o contrato de API do §4 do documento-fonte** (com `fetch`
 ## Entrega (por pedido)
 1. Árvore limpa e commits feitos. Na **cópia principal** (na `main`), escreva o `[MERGE]` no mural, no modelo de `DESENVOLVEDORES.md` §4, **curto (≤ ~40 linhas)**, em commit **exclusivo do mural** (`chore(mural): solicita merge de feat/ui-onda0 (UI, A-027)`; o segundo, `feat/ui-midia (UI, A-028)`), **relendo o mural antes de editar**. Sem `git push`. Traga as *props* exatas de cada componente novo e **o que o Core precisa ligar** (as rotas, os campos, o `/media`).
 2. Resposta final: **(a) O que mudou** (≤ 10 linhas) · **(b) Evidência** (comando → resultado, mutações aplicadas/detectadas, contagem de testes, o que foi verificado no navegador e como) · **(c) Branch e SHA** · **(d) Desvios, dúvidas e o que depende do Engenheiro Chefe**.
+
+
+---
+
+## Ajustes da especificação final (Arquiteto, 08/10/2026) — **valem sobre o texto acima**
+A especificação está no LaTeX: **Cap. 4 (RF35 a RF41; RN17 e RN29 a RN34; UC20 a UC22), Cap. 5 `rotas.tex` (o inventário de componentes, linhas "Alvo") e `api.tex` (`sec:arq-api-v1`: o contrato do pedido 2, no lugar do §4 do documento-fonte), `tema.tex`, `autenticacao.tex`; ADR-034 a ADR-038.** Onde divergirem do texto acima, vale a especificação:
+1. **Cookies:** o modo é `vitrine-modo` (`light`|`dark`; `Path=/`, um ano, `SameSite=Lax`, `Secure` sob HTTPS, sem `HttpOnly`); o marcador é `vitrine-logado=1` (sem validade: dura a sessão do navegador). O `LoginForm` escreve o marcador; ele é apagado ao sair e quando `get-session` devolve vazio. Primeira visita, sem cookie: **claro** (mesmo com o sistema em escuro).
+2. **Nome reservado `media`:** acrescente-o a `RESERVED_HANDLES` em `src/components/admin/user-model.js` (o Core faz o mesmo no servidor).
+3. **Rodapé do site:** o `FooterLinksEditor` fala com `/api/footer-links` (próprio) ou `/api/configuration/footer-links` (alvo "sistema"), por um cliente recebido por *prop*; o corpo é `{ links: [{ icon, url }] }`.
+4. **Moderação do avatar:** `DELETE /api/users/:id/avatar?reason=` (ou corpo com `reason`), 204; 404 se o usuário não tem avatar.
+5. **Imagens externas do Markdown (ADR-034, item 11, a confirmar pelo Engenheiro Chefe):** com `img-src 'self' data:` a imagem externa de um documento deixa de carregar. **Não altere o `MarkdownRenderer` por conta própria**; aguarde a decisão (a recomendação é exibir a imagem externa como link de texto com o `alt`).
+6. **`GET /api/appearance`** devolve `data` (crua, com nulos), `effective` e `inherits`; o `AppearanceForm` usa `inherits` e a paleta do sistema (em `effective`/por *prop*) como referência.

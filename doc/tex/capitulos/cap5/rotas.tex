@@ -27,19 +27,21 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 \addlinespace
 \arq{/admin/conteudo}, \arq{/admin/conteudo/novo} e \arq{/admin/conteudo/[id]} & Dono & Árvore do próprio usuário, novo conteúdo e editor (\texttt{?pai=} só aceita coleção do próprio usuário)\\
 \addlinespace
-\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, links e as duas paletas\\
+\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, logotipo e \en{favicon}, barra superior, rodapé e as duas paletas, com a herança do sistema. \emph{Alvo (épico v1, \adr{ADR-038}):} para o administrador, um seletor de dois alvos, \texttt{?alvo=sistema} (padrão dele) e \texttt{?alvo=pagina}\\
 \addlinespace
 \arq{/admin/senha} & Sessão & Troca de senha (UC14); alvo do redirecionamento com senha provisória (R-006)\\
 \addlinespace
-\arq{/admin/perfil} & Sessão & Nome de exibição do próprio usuário\\
+\arq{/admin/perfil} & Sessão & Nome de exibição do próprio usuário e, no épico v1 (alvo), o avatar (UC14, UC21)\\
 \addlinespace
 \arq{/admin/notificacoes} & Dono & Lista de notificações\\
 \addlinespace
-\arq{/admin/configuracoes} & Admin & Configuração do site e do portal\\
+\arq{/admin/configuracoes} & Admin & Configuração do site e do portal; no épico v1 (alvo), só o que não é visual: texto inicial do portal, \texttt{directoryEnabled} e \texttt{directoryTitle} (a identidade visual do sistema passa a \arq{/admin/aparencia?alvo=sistema})\\
 \addlinespace
 \arq{/admin/usuarios} & Admin & Lista de usuários, com criar, editar, redefinir a senha, suspender, reativar e excluir \emph{no lugar} (UC13); não há página por usuário (decisão de 06/10/2026: a \texttt{UserTable} edita na própria lista)\\
 \addlinespace
 \arq{/admin/usuarios/[id]/conteudo} e \arq{/admin/usuarios/[id]/conteudo/[contentId]} & Admin & Árvore de outro usuário, com os rascunhos, e o editor do conteúdo dele (só se o conteúdo for desse usuário; senão, 404), para a moderação (UC15)\\
+\addlinespace
+\arq{/media/[id]} & Público & \emph{Alvo (épico v1, \adr{ADR-034}):} a imagem (logotipo, \en{favicon} ou avatar), por identificador opaco; \en{Route Handler} fora de \texttt{/api}, dinâmico só na resposta, com \texttt{Cache-Control} imutável (Seção~\ref{sec:arq-api-v1}); não passa pelo Proxy dos espaços, por ser um segmento reservado (RN03)\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores, a partir das ADR-023 e ADR-024. Cada página protegida repete a verificação de sessão e de dono no servidor (RN19).}
@@ -79,6 +81,19 @@ LoginForm & \arq{components/admin} & Formulário de autenticação (RF01, UC08):
 Button, Field, icons & \arq{components/ui} & Botão com as variantes \texttt{primary}, \texttt{inverse} e \texttt{outline}, só com tokens de tema; campo de formulário com rótulo, ajuda e erro ligados por \texttt{aria-describedby}; e ícones em SVG embutido, decorativos (RF19) & Implementado\\
 ColorField & \arq{components/ui} & Campo de cor: seletor nativo e texto \texttt{\#RRGGBB}, validado como no servidor, sem o JIT do Zod & Implementado (M-023)\\
 Demais primitivos & \arq{components/ui} & Diálogo de confirmação e \en{toast} & Planejado\\
+\multicolumn{4}{@{}l}{\emph{Épico v1 (alvo; \adr{ADR-034} a \adr{ADR-038}): componentes novos ou alterados. Todos recebem tudo por} props\emph{, só usam tokens de tema e têm mensagens em português.}}\\[2pt]
+NotificationBell (painel suspenso) & \arq{components/admin} & O sino abre um \emph{painel não modal} (padrão \en{disclosure}: \texttt{aria-expanded} e \texttt{aria-controls}, sem \texttt{aria-modal}) ancorado ao botão, com até 8 notificações (ler e dispensar em cada uma, ``Marcar todas como lidas'' e o link ``Ver todas''); \emph{Esc} e o clique fora fecham e devolvem o foco ao sino, e o \emph{Tab} sai sem prender; abaixo de 640~px ocupa a largura da tela (RF40) & Alvo (M22, A-027)\\
+AdminLink & \arq{components/layout} & Item ``Administração'' das páginas públicas, só para quem está autenticado; Componente Cliente mínimo, que só consulta \texttt{get-session} se existir o \en{cookie}-marcador (RF39, RN34) & Alvo (M22)\\
+ColorModeToggle (alterado) & \arq{components/layout} & Dois estados (claro e escuro), sem ``Automático'', com o \en{cookie} \texttt{vitrine-modo} (RN32) e o par de ícones recebido por \emph{prop}; no cabeçalho do painel também (RF32) & Alvo (M22)\\
+DefaultLogo & \arq{components/layout} & Logotipo genérico provisório, SVG \en{inline} que usa as cores do tema, sem arquivo: o nível embutido da cadeia de padrões (RN30) & Alvo (M22)\\
+Navbar (alterada) & \arq{components/layout} & \emph{Props} \texttt{showLogo} e \texttt{showName}: logotipo, nome ou os dois, o logotipo primeiro (RF37, RN31) & Alvo (M22)\\
+AppearanceTargetTabs & \arq{components/admin} & Seletor ``Aparência do sistema'' / ``Minha página'' do administrador, por links recebidos por \emph{prop} (RF41) & Alvo (M22)\\
+AppearanceForm, ConfigurationForm (alterados) & \arq{components/admin} & ``Usar a aparência do sistema'' por modo, com a paleta do sistema como referência; \texttt{router.refresh()} depois de salvar; o \texttt{ConfigurationForm} se divide em identidade visual (usada em \arq{/admin/aparencia}) e portal (\texttt{homeBody}, \texttt{directoryEnabled}, \texttt{directoryTitle}) (RF41, RF38) & Alvo (M22)\\
+ImageUpload & \arq{components/ui} & Seletor de arquivo com pré-visualização local, tamanho e formatos aceitos, o erro \arq{INVALID_IMAGE} em português e ``Remover''; fala com a API por um cliente recebido (RF35) & Alvo (M23, A-028)\\
+Avatar & \arq{components/ui} & Imagem do avatar ou as iniciais em um círculo; \texttt{alt} vazio quando o nome está ao lado (RF36) & Alvo (M23)\\
+IconPicker, FooterLinksEditor & \arq{components/admin} & Lista de até 8 links, um por ícone, com validação local de \texttt{https} e \texttt{mailto} e o aviso de que o e-mail fica público (RF24, RN17) & Alvo (M23)\\
+Footer (alterado) & \arq{components/layout} & Substitui o \texttt{Footer} e o \texttt{SocialLinks}: direitos e a fila de ícones do Simple Icons \emph{inline}, com o nome acessível do ícone e \texttt{noopener noreferrer} (RF24, RN17) & Alvo (M23)\\
+Moderação do avatar & \arq{components/admin} & Ação ``Remover avatar'' da \texttt{UserTable}, sobre o \texttt{ModerationDialog}, com o motivo (RF36) & Alvo (M23)\\
 SpaceLayout & \arq{components/layout} & Layout do espaço: envoltório \texttt{vitrine-tema} com o \texttt{themeStyle} (filtrado por \texttt{safeThemeStyle}) no mesmo elemento da classe, atalho para o conteúdo, \en{landmarks}, barra superior, \en{sidebar} e rodapé (RF29; M17) & Implementado (M-020); ainda sem página que o use\\
 ColorModeToggle & \arq{components/layout} & Seletor Claro, Escuro ou Automático; Componente Cliente que grava \texttt{vitrine:modo} (RF32; M18); o \en{script} do \texttt{<head>} está em \arq{components/layout/color-mode-script.js} (\texttt{COLOR\_MODE\_SCRIPT}, para o layout raiz) & Integrado (M-017), ainda sem página que o use\\
 AppearanceForm, ConfigurationForm & \arq{components/admin} & Invólucros finos do \texttt{SiteAppearanceForm} (Cliente): identidade, logotipo e favicon (D-10), os seis links (RN17), as duas paletas com pré-visualização inerte nos dois modos, aviso de contraste por modo (local, adiado 350~ms, e o \texttt{warnings} do servidor depois de gravar), restaurar cada paleta (ADR-031) e \texttt{PUT} parcial; o de configuração acrescenta o texto do portal (limite em \en{bytes}) e o diretório (RF18, RF19, RF30, RF31; M18) & Implementado (M-023); as páginas são da Parte 3c\\

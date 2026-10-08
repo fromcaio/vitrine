@@ -7,7 +7,11 @@
 \begin{description}[style=nextline, leftmargin=0.6cm, itemsep=4pt]
   \item[Administrador] Autor com o papel \texttt{admin}: além do próprio espaço, gerencia o site (portal, login e painel), as contas dos usuários e a moderação (\adr{ADR-023}, \adr{ADR-027}). Hoje é o único perfil autenticado; as contas de usuário só existem depois do M16.
   \item[Agente] Participante especializado do desenvolvimento (Arquiteto, Dados, Core ou UI), em geral uma ferramenta de inteligência artificial operada sob supervisão humana.
-  \item[Aparência] Conjunto de identidade (nome, descrição, logotipo, \en{favicon}), links sociais e duas paletas (clara e noturna) de um proprietário; o site e cada usuário têm a sua (RF31, RN08, \adr{ADR-025}). Substitui, no escopo multiusuário, o termo \emph{Tema}.
+  \item[Aparência] Conjunto de identidade (nome, descrição, logotipo, \en{favicon}), barra superior e duas paletas (clara e noturna) de um proprietário; o site e cada usuário têm a sua (RF31, RN08, \adr{ADR-025}). Substitui, no escopo multiusuário, o termo \emph{Tema}. No épico v1 há duas camadas: a do \emph{sistema} e a da \emph{página do usuário}, que a sobrescreve (ver \emph{Herança}).
+  \item[Aparência efetiva] A aparência de um espaço ou do painel de um usuário comum depois da mescla: a página do usuário sobre a do sistema, por unidade de herança, e, abaixo, o padrão embutido (RN30, \adr{ADR-038}).
+  \item[Avatar] Imagem de perfil do usuário (256$\times$256, WebP), enviada em \texttt{/admin/perfil}; sem ela, aparecem as \emph{iniciais} em um círculo. Dado pessoal; o administrador a remove, com motivo (RF36, RN29, \adr{ADR-034}).
+  \item[Cadeia de padrões] Ordem de resolução do logotipo, do \en{favicon} e do nome: embutido, sistema, usuário (o último que estiver definido vale); remover uma imagem volta ao nível de baixo (RN30, \adr{ADR-038}).
+  \item[\en{Cookie}-marcador] O \en{cookie} \texttt{vitrine-logado=1}, sem segredo, que só indica ao navegador que vale consultar a sessão para mostrar ``Administração''; nunca autoriza nada (RN34, \adr{ADR-037}).
   \item[App Router] Sistema de roteamento do Next.js baseado na estrutura do diretório \arq{src/app}.
   \item[Arquiteto] Agente que governa a documentação, revisa pedidos de integração e executa os \en{merges} na \texttt{main}; também chamado Redator Técnico e \en{Merge Master}.
   \item[ADR] \en{Architecture Decision Record}: registro curto de uma decisão arquitetural com contexto, decisão e consequências.
@@ -34,10 +38,14 @@
   \item[Índice parcial] Índice do banco que vale apenas para as linhas que satisfazem uma condição; no Vitrine, o índice único de \en{slug} restrito aos conteúdos de raiz (\texttt{WHERE parentId IS NULL}), escrito à mão na migração inicial (Seção~\ref{sec:arq-indice-parcial}).
   \item[ISR] \en{Incremental Static Regeneration}: estratégia do Next.js que serve páginas estáticas e as regenera de forma incremental.
   \item[KaTeX] Biblioteca de composição de fórmulas matemáticas para a web.
-  \item[Link social] Um dos seis campos opcionais da configuração do site (Discord, GitHub, YouTube, Instagram, LinkedIn e Twitch) que originam os ícones do rodapé (RF24, RN17).
+  \item[Herança] Regra pela qual a página do usuário, quando não define uma unidade (a paleta de um modo, o nome, o logotipo ou o \en{favicon}), usa a do sistema; coluna nula significa herdar. O rodapé, a descrição e os interruptores da barra superior não herdam (RN30).
+  \item[Imagem] Registro da tabela \texttt{images}: logotipo, \en{favicon} ou avatar, reencodado pelo \texttt{sharp}, imutável e servido em \texttt{/media/<id>} (RN29, \adr{ADR-034}).
+  \item[Link do rodapé] Um dos até 8 links do rodapé de um dono, cada um com um ícone de uma lista fechada de dezoito e uma URL \texttt{https} (ou \texttt{mailto:} no ícone de e-mail); substitui os seis campos fixos da versão anterior, o \emph{Link social} (RF24, RN17, \adr{ADR-035}).
   \item[Merge] Integração de uma ramificação na \texttt{main}.
   \item[Moderação] Conjunto de ações do administrador sobre o conteúdo e a conta de outro usuário (ver, despublicar, editar, excluir, suspender e reativar); toda ação exige o motivo e notifica o dono (RF34, RN19, RN26, \adr{ADR-027}).
-  \item[Modo noturno] Variante escura da aparência, com paleta própria sobre neutros fixos; o leitor escolhe Claro, Escuro ou Automático, e a escolha vale só no navegador (RF32, RN27, \adr{ADR-025}).
+  \item[Modo noturno] Variante escura da aparência, com paleta própria sobre neutros fixos; o leitor alterna entre Claro e Escuro (sem Automático; primeira visita: claro), e a escolha vale só no navegador, no \en{cookie} \texttt{vitrine-modo} (RF32, RN27, RN32, \adr{ADR-025}, \adr{ADR-036}).
+  \item[Painel suspenso] O painel não modal que o sino abre, com as 8 notificações mais recentes e o link ``Ver todas'' (RF40).
+  \item[Par de ícones] Um dos quatro pares de ícones do botão de modo (\texttt{sun\_moon}, \texttt{sun\_moon\_outline}, \texttt{lightbulb}, \texttt{contrast\_half}), escolhido pelo administrador para o site inteiro (RN32, \adr{ADR-037}).
   \item[Monólito modular] Aplicação implantada como uma unidade, com módulos internos bem delimitados.
   \item[Mural] Arquivo \arq{MURAL_DE_AGENTES.md}, canal de comunicação e de pedidos de integração, editado somente na \texttt{main}.
   \item[Notificação] Aviso interno gerado pelo servidor por evento (contraste da paleta, moderação, conta), visível só ao destinatário, com contador de não lidas; não há e-mail nem tempo real (RF33, RN26, \adr{ADR-026}).
