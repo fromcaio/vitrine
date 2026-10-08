@@ -196,6 +196,29 @@ describe("Navbar (RF13)", () => {
   });
 });
 
+describe("Footer no SpaceLayout (RF24, RN17)", () => {
+  it("o rodapé do espaço mostra os links recebidos em footerLinks", () => {
+    renderLayout();
+    const nav = screen.getByRole("navigation", { name: "Links do rodapé" });
+    expect([...nav.querySelectorAll("a")].map((a) => a.getAttribute("aria-label"))).toEqual(["GitHub", "E-mail"]);
+  });
+
+  it("sem footerLinks, vale o registro antigo (transição): os seis campos viram links", () => {
+    renderLayout({ footerLinks: null, socialLinks: { githubUrl: "https://github.com/maria", twitchUrl: "http://twitch.tv/x" } });
+    expect([...screen.getByRole("navigation", { name: "Links do rodapé" }).querySelectorAll("a")].map((a) => a.getAttribute("aria-label"))).toEqual(["GitHub"]);
+  });
+
+  it("footerLinks vazio vence o registro antigo: o rodapé novo não herda nada", () => {
+    renderLayout({ footerLinks: [], socialLinks: { githubUrl: "https://github.com/maria" } });
+    expect(screen.queryByRole("navigation", { name: "Links do rodapé" })).toBeNull();
+  });
+
+  it("os direitos vêm do nome e do ano", () => {
+    renderLayout();
+    expect(screen.getByRole("contentinfo").textContent).toContain("© 2026 Espaço da Maria. Todos os direitos reservados.");
+  });
+});
+
 describe("PortalDirectory e PortalHome (RF30, RN28)", () => {
   const spaces = [
     { id: "u1", handle: "ana", name: "Espaço da Ana", description: "Notas de cálculo." },
