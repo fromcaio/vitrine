@@ -1,17 +1,15 @@
 // Cookie-marcador de sessão `vitrine-logado=1` (ADR-037; Cap. 5 §5.6): diz às páginas PÚBLICAS, que
 // são estáticas (ISR) e não sabem quem lê, que vale a pena perguntar a `GET /api/auth/get-session`
 // se há alguém logado (o link "Administração", `AdminLink`). NÃO é a sessão: não tem segredo, não
-// autentica nada e pode ficar velho; quem confirma é o servidor. É escrito pelo `LoginForm` ao
-// entrar e apagado pelo `SignOutForm` e pelo `AdminLink` quando o `get-session` devolve `null`.
+// autentica nada e pode ficar velho; quem confirma é o servidor. É um cookie de SESSÃO DO NAVEGADOR
+// (sem `Max-Age`: some quando o navegador fecha), escrito pelo `LoginForm` ao entrar e apagado pelo
+// `SignOutForm` e pelo `AdminLink` quando o `get-session` devolve `null`.
 // Visitante anônimo não tem o marcador e, por isso, não faz requisição alguma.
 //
 // Módulo de navegador (usa `document.cookie`), sem React. Cookies bloqueados nunca lançam erro.
 
 /** Nome do cookie-marcador. */
 export const SESSION_MARKER_COOKIE = "vitrine-logado";
-
-/** Validade: a da sessão (7 dias, `session.expiresIn` do better-auth), em segundos. */
-export const SESSION_MARKER_MAX_AGE = 604_800;
 
 /**
  * Há o marcador em uma string `document.cookie`? Só o valor exato `1` vale.
@@ -28,11 +26,12 @@ export function hasSessionMarker(cookieString) {
 }
 
 /**
- * Texto de `document.cookie` que grava o marcador (`Secure` em HTTPS; sem `HttpOnly`: o cliente o lê).
+ * Texto de `document.cookie` que grava o marcador (de sessão do navegador; `Secure` em HTTPS; sem
+ * `HttpOnly`: o cliente o lê).
  * @param {boolean} secure
  */
 export function markerCookieString(secure) {
-  return `${SESSION_MARKER_COOKIE}=1; Path=/; Max-Age=${SESSION_MARKER_MAX_AGE}; SameSite=Lax${secure ? "; Secure" : ""}`;
+  return `${SESSION_MARKER_COOKIE}=1; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`;
 }
 
 /**

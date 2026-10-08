@@ -18,7 +18,6 @@ import { SignOutForm } from "@/components/admin/SignOutForm";
 import { AdminLink, SESSION_URL } from "@/components/layout/AdminLink";
 import {
   SESSION_MARKER_COOKIE,
-  SESSION_MARKER_MAX_AGE,
   clearedMarkerCookieString,
   hasSessionMarker,
   markerCookieString,
@@ -57,12 +56,11 @@ afterEach(() => {
 });
 
 describe("o cookie-marcador", () => {
-  it("o nome e o formato: Path=/, SameSite=Lax, sem HttpOnly, validade da sessão (7 dias); Secure só em HTTPS", () => {
+  it("o nome e o formato: de SESSÃO do navegador (sem Max-Age nem Expires), Path=/, SameSite=Lax, sem HttpOnly; Secure só em HTTPS", () => {
     expect(SESSION_MARKER_COOKIE).toBe("vitrine-logado");
-    expect(SESSION_MARKER_MAX_AGE).toBe(7 * 24 * 60 * 60);
-    expect(markerCookieString(false)).toBe(`vitrine-logado=1; Path=/; Max-Age=${SESSION_MARKER_MAX_AGE}; SameSite=Lax`);
-    expect(markerCookieString(true)).toBe(`vitrine-logado=1; Path=/; Max-Age=${SESSION_MARKER_MAX_AGE}; SameSite=Lax; Secure`);
-    expect(markerCookieString(false)).not.toMatch(/HttpOnly/i);
+    expect(markerCookieString(false)).toBe("vitrine-logado=1; Path=/; SameSite=Lax");
+    expect(markerCookieString(true)).toBe("vitrine-logado=1; Path=/; SameSite=Lax; Secure");
+    expect(markerCookieString(false)).not.toMatch(/HttpOnly|Max-Age|Expires/i);
     expect(clearedMarkerCookieString(false)).toMatch(/^vitrine-logado=; Path=\/; Max-Age=0/);
   });
 

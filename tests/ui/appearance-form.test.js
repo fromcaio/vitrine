@@ -514,7 +514,7 @@ describe("pré-visualização nos dois modos (RF31)", () => {
     for (const mode of /** @type {const} */ (["claro", "noturno"])) {
       expect(previewOf(mode).querySelector("[inert]")).toBeTruthy();
       expect(previewOf(mode).querySelector("main")?.id).toMatch(/-amostra$/);
-      expect(previewOf(mode).querySelector("button[role], [role=group][aria-label='Modo de cor']")).toBeNull();
+      expect(previewOf(mode).querySelector("button[role], button[aria-label^='Mudar para o modo']")).toBeNull();
     }
   });
 

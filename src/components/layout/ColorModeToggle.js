@@ -1,12 +1,13 @@
 "use client";
 
-// Seletor do modo de cor do leitor: Claro ou Escuro, só dois estados (RF32, RN27, D-33, ADR-036;
-// Cap. 5 §5.9). A escolha vai ao cookie `vitrine-modo` (um ano, `SameSite=Lax`, sem `HttpOnly`),
+// Botão do modo de cor do leitor: UM botão que alterna entre Claro e Escuro, só dois estados (RF32,
+// RN32, D-33, ADR-036; Cap. 5 §5.9). O nome acessível diz o que o clique faz, "Mudar para o modo escuro"
+// ou "Mudar para o modo claro", e o ícone é o do modo para o qual ele muda. A escolha vai ao cookie `vitrine-modo` (um ano, `SameSite=Lax`, sem `HttpOnly`),
 // ESCRITO por este componente e LIDO só pelo script do <head> (color-mode-script.js), que a aplica
 // antes da primeira pintura; este componente a alterna depois, trocando a classe .dark do <html>.
 // Quem nunca escolheu vê o modo claro. O servidor nunca lê o cookie (o ISR continua valendo).
 //
-// O par de ícones vem por `iconPair` (escolha do administrador para o site, `modeIconPair`): sol e
+// O par de ícones (o do modo claro e o do escuro) vem por `iconPair` (escolha do administrador para o site, `modeIconPair`): sol e
 // lua (padrão), sol e lua de contorno, lâmpada ou círculo meio cheio. Não conhece o dono nem o tema
 // do espaço: só tokens de cor. O lugar dele nos cabeçalhos é das páginas.
 import { useEffect, useSyncExternalStore } from "react";
@@ -25,11 +26,6 @@ const CHANGE_EVENT = "vitrine:modo-change";
 
 /** @type {{ value: ColorModeChoice | null }} */
 const memory = { value: null };
-
-const OPTIONS = /** @type {const} */ ([
-  { value: "light", label: "Modo claro", icon: "Light" },
-  { value: "dark", label: "Modo escuro", icon: "Dark" },
-]);
 
 /** @returns {ColorModeChoice} a escolha guardada; `light` sem escolha ou sem cookies */
 function readChoice() {
@@ -89,29 +85,20 @@ export function ColorModeToggle({ iconPair, className = "" }) {
     document.documentElement.classList.toggle("dark", wantsDark(choice));
   }, [choice]);
 
+  const dark = choice === "dark";
+  // O botão leva ao OUTRO modo: o nome e o ícone dizem para onde ele vai.
+  const label = dark ? "Mudar para o modo claro" : "Mudar para o modo escuro";
+  const Icon = dark ? icons.Light : icons.Dark;
+
   return (
-    <div role="group" aria-label="Modo de cor" className={`inline-flex gap-1 ${className}`.trim()}>
-      {OPTIONS.map(({ value, label, icon }) => {
-        const Icon = icons[icon];
-        const pressed = choice === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            aria-label={label}
-            aria-pressed={pressed}
-            title={label}
-            onClick={() => writeChoice(value)}
-            className={`inline-flex size-10 cursor-pointer items-center justify-center rounded-md border ${
-              pressed
-                ? "border-primary bg-primary text-on-primary"
-                : "border-border-strong bg-background text-foreground hover:border-foreground hover:bg-surface"
-            }`}
-          >
-            <Icon />
-          </button>
-        );
-      })}
-    </div>
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => writeChoice(dark ? "light" : "dark")}
+      className={`inline-flex size-10 cursor-pointer items-center justify-center rounded-md border border-border-strong bg-background text-foreground hover:border-foreground hover:bg-surface ${className}`.trim()}
+    >
+      <Icon />
+    </button>
   );
 }

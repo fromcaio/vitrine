@@ -160,7 +160,7 @@ describe("Navbar (o espaço, o portal e o documento)", () => {
 
   it("a pré-visualização (modeToggle=false) não leva o botão de modo nem o link de administração", () => {
     render(<Navbar name="X" homeHref="/x" modeToggle={false} adminLink={false} />);
-    expect(screen.queryByRole("group", { name: "Modo de cor" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Mudar para o modo/ })).toBeNull();
   });
 });
 
@@ -194,17 +194,15 @@ describe("AdminHeader (o painel)", () => {
 
   it("tem o botão de modo claro/escuro (item 7), com o par de ícones do site", () => {
     const first = header({ modeIconPair: "contrast_half" });
-    const group = screen.getByRole("group", { name: "Modo de cor" });
-    expect(within(group).getAllByRole("button")).toHaveLength(2);
-    const contrast = group.innerHTML;
+    const contrast = screen.getByRole("button", { name: "Mudar para o modo escuro" }).innerHTML;
     first.unmount();
     header({ modeIconPair: "sun_moon" });
-    expect(screen.getByRole("group", { name: "Modo de cor" }).innerHTML).not.toBe(contrast);
+    expect(screen.getByRole("button", { name: "Mudar para o modo escuro" }).innerHTML).not.toBe(contrast);
   });
 
   it("modeToggle=false o omite", () => {
     header({ modeToggle: false });
-    expect(screen.queryByRole("group", { name: "Modo de cor" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Mudar para o modo/ })).toBeNull();
   });
 
   it("o AdminShell repassa a marca e o par de ícones ao cabeçalho", () => {
@@ -215,7 +213,7 @@ describe("AdminHeader (o painel)", () => {
     );
     const banner = screen.getByRole("banner");
     expect(banner.querySelector("img").getAttribute("src")).toBe(LOGO);
-    expect(within(banner).getByRole("group", { name: "Modo de cor" })).toBeTruthy();
+    expect(within(banner).getByRole("button", { name: "Mudar para o modo escuro" })).toBeTruthy();
     expect(within(banner).queryByText("Casa")).toBeNull();
   });
 });

@@ -71,10 +71,10 @@ test.describe.serial("tema por modo e modo de cor", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     await page.addInitScript(() => localStorage.setItem("vitrine:modo", "dark"));
     await page.goto("/");
-    await expect(page.getByRole("group", { name: "Modo de cor" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mudar para o modo escuro" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(false);
 
-    await page.getByRole("button", { name: "Modo escuro" }).click();
+    await page.getByRole("button", { name: "Mudar para o modo escuro" }).click();
     expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(true);
     const cookie = (await page.context().cookies(baseURL)).find((item) => item.name === "vitrine-modo");
     expect(cookie?.value).toBe("dark");
@@ -87,7 +87,7 @@ test.describe.serial("tema por modo e modo de cor", () => {
     const classes = await classAtDomContentLoaded(page, "/");
     expect(classes.split(/\s+/).includes("dark")).toBe(true);
 
-    await page.getByRole("button", { name: "Modo claro" }).click();
+    await page.getByRole("button", { name: "Mudar para o modo claro" }).click();
     expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(false);
     expect((await page.context().cookies(baseURL)).find((item) => item.name === "vitrine-modo")?.value).toBe("light");
   });

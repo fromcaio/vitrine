@@ -141,59 +141,56 @@ describe("o cookie e o script do <head>", () => {
   });
 });
 
-describe("ColorModeToggle", () => {
-  const pressed = () =>
-    screen
-      .getAllByRole("button")
-      .filter((button) => button.getAttribute("aria-pressed") === "true")
-      .map((button) => button.getAttribute("aria-label"));
+describe("ColorModeToggle: UM botão que alterna entre dois modos", () => {
+  const button = () => screen.getByRole("button", { name: /^Mudar para o modo/ });
 
-  it("tem DUAS opções num grupo rotulado, Modo claro marcado para quem nunca escolheu (sem 'Automático')", () => {
+  it("é um único botão, sem 'Automático': na primeira visita muda para o modo escuro", () => {
     render(<ColorModeToggle />);
-    expect(screen.getByRole("group", { name: "Modo de cor" })).toBeTruthy();
-    expect(screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual(["Modo claro", "Modo escuro"]);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo escuro");
+    expect(button().getAttribute("title")).toBe("Mudar para o modo escuro");
+    expect(button().hasAttribute("aria-pressed")).toBe(false);
     expect(screen.queryByText(/Autom/)).toBeNull();
-    expect(pressed()).toEqual(["Modo claro"]);
     expect(html.classList.contains("dark")).toBe(false);
   });
 
   it("primeira visita com o sistema escuro continua clara", () => {
     vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} })));
     render(<ColorModeToggle />);
-    expect(pressed()).toEqual(["Modo claro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo escuro");
     expect(html.classList.contains("dark")).toBe(false);
   });
 
-  it("Escuro: grava o cookie, aplica a classe e marca a opção", () => {
+  it("clicar no claro: grava dark, aplica a classe e o botão passa a oferecer o modo claro", () => {
     render(<ColorModeToggle />);
-    fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
+    fireEvent.click(button());
     expect(readModeCookie(document.cookie)).toBe("dark");
     expect(html.classList.contains("dark")).toBe(true);
-    expect(pressed()).toEqual(["Modo escuro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo claro");
   });
 
-  it("Claro: grava o cookie, remove a classe e marca a opção", () => {
+  it("clicar no escuro: grava light, remove a classe e volta a oferecer o modo escuro", () => {
     setCookie("dark");
     html.classList.add("dark"); // aplicada pelo script antes da hidratação
     render(<ColorModeToggle />);
-    expect(pressed()).toEqual(["Modo escuro"]);
-    fireEvent.click(screen.getByRole("button", { name: "Modo claro" }));
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo claro");
+    fireEvent.click(button());
     expect(readModeCookie(document.cookie)).toBe("light");
     expect(html.classList.contains("dark")).toBe(false);
-    expect(pressed()).toEqual(["Modo claro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo escuro");
   });
 
   it("escrever o cookie apaga o localStorage antigo (vitrine:modo some)", () => {
     localStorage.setItem("vitrine:modo", "auto");
     render(<ColorModeToggle />);
-    fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
+    fireEvent.click(button());
     expect(localStorage.getItem("vitrine:modo")).toBeNull();
   });
 
   it("nunca grava nada no localStorage", () => {
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     render(<ColorModeToggle />);
-    fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
+    fireEvent.click(button());
     expect(setItem).not.toHaveBeenCalled();
   });
 
@@ -210,7 +207,7 @@ describe("ColorModeToggle", () => {
     });
     try {
       render(<ColorModeToggle />);
-      fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
+      fireEvent.click(button());
     } finally {
       delete (/** @type {any} */ (document).cookie);
     }
@@ -223,7 +220,7 @@ describe("ColorModeToggle", () => {
   it("lê a escolha guardada ao montar e a aplica", () => {
     setCookie("dark");
     render(<ColorModeToggle />);
-    expect(pressed()).toEqual(["Modo escuro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo claro");
     expect(html.classList.contains("dark")).toBe(true);
   });
 
@@ -232,7 +229,7 @@ describe("ColorModeToggle", () => {
       cleanup();
       setCookie(value);
       render(<ColorModeToggle />);
-      expect(pressed(), value).toEqual(["Modo claro"]);
+      expect(button().getAttribute("aria-label"), value).toBe("Mudar para o modo escuro");
     }
   });
 
@@ -249,12 +246,12 @@ describe("ColorModeToggle", () => {
 
   it("volta a ler o cookie ao recuperar o foco (a escolha feita em outra aba)", () => {
     render(<ColorModeToggle />);
-    expect(pressed()).toEqual(["Modo claro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo escuro");
     act(() => {
       setCookie("dark");
       window.dispatchEvent(new Event("focus"));
     });
-    expect(pressed()).toEqual(["Modo escuro"]);
+    expect(button().getAttribute("aria-label")).toBe("Mudar para o modo claro");
     expect(html.classList.contains("dark")).toBe(true);
   });
 
@@ -265,8 +262,8 @@ describe("ColorModeToggle", () => {
         <ColorModeToggle />
       </>,
     );
-    fireEvent.click(screen.getAllByRole("button", { name: "Modo escuro" })[0]);
-    expect(screen.getAllByRole("button", { name: "Modo escuro" }).map((button) => button.getAttribute("aria-pressed"))).toEqual(["true", "true"]);
+    fireEvent.click(screen.getAllByRole("button")[0]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual(["Mudar para o modo claro", "Mudar para o modo claro"]);
   });
 
   it("cookies bloqueados: a escolha ainda vale nesta página, sem lançar", () => {
@@ -281,36 +278,27 @@ describe("ColorModeToggle", () => {
     });
     try {
       render(<ColorModeToggle />);
-      fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
+      fireEvent.click(button());
       expect(html.classList.contains("dark")).toBe(true);
-      expect(pressed()).toEqual(["Modo escuro"]);
+      expect(button().getAttribute("aria-label")).toBe("Mudar para o modo claro");
+      // Devolve a memória do módulo ao claro, para não vazar para os outros testes.
+      fireEvent.click(button());
+      expect(html.classList.contains("dark")).toBe(false);
     } finally {
       delete (/** @type {any} */ (document).cookie);
     }
   });
 
-  it("a opção marcada usa os tokens de tema, nunca cores fixas", () => {
+  it("só usa tokens de tema, nunca cores fixas, e o ícone é decorativo", () => {
     render(<ColorModeToggle />);
-    const [light, dark] = screen.getAllByRole("button");
-    fireEvent.click(dark);
-    expect(dark.className).toMatch(/bg-primary/);
-    expect(dark.className).toMatch(/text-on-primary/);
-    expect(light.className).not.toMatch(/bg-primary/);
-    expect(screen.getByRole("group").outerHTML).not.toMatch(/text-white|bg-white|bg-black|#[0-9a-f]{3,6}/i);
-  });
-
-  it("os botões têm nome acessível e título, e o ícone é decorativo", () => {
-    render(<ColorModeToggle />);
-    for (const button of screen.getAllByRole("button")) {
-      expect(button.getAttribute("title")).toBe(button.getAttribute("aria-label"));
-      expect(button.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-    }
+    expect(button().outerHTML).not.toMatch(/text-white|bg-white|bg-black|#[0-9a-f]{3,6}/i);
+    expect(button().querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
   });
 });
 
 describe("o par de ícones (D-35)", () => {
-  /** O desenho dos dois botões, para comparar pares. */
-  const drawings = () => screen.getAllByRole("button").map((button) => button.querySelector("svg")?.innerHTML);
+  /** O desenho do botão, para comparar pares. */
+  const drawing = () => screen.getByRole("button").querySelector("svg")?.innerHTML;
 
   it("são quatro pares fechados, o primeiro é o padrão", () => {
     expect([...MODE_ICON_PAIRS]).toEqual(["sun_moon", "sun_moon_outline", "lightbulb", "contrast_half"]);
@@ -319,32 +307,43 @@ describe("o par de ícones (D-35)", () => {
 
   it("sem prop vale sun_moon, e um valor desconhecido também", () => {
     const { unmount } = render(<ColorModeToggle />);
-    const standard = drawings();
+    const standard = drawing();
     unmount();
     render(<ColorModeToggle iconPair="nao-existe" />);
-    expect(drawings()).toEqual(standard);
+    expect(drawing()).toEqual(standard);
     expect(modeIconsOf(undefined)).toBe(MODE_ICON_PAIR_OPTIONS.sun_moon);
     expect(modeIconsOf("<script>")).toBe(MODE_ICON_PAIR_OPTIONS.sun_moon);
   });
 
-  it("cada par desenha dois ícones diferentes entre si, e os pares diferem uns dos outros", () => {
+  it("no modo claro o botão mostra o ícone do modo ESCURO do par (para onde ele muda) e vice-versa", () => {
+    for (const pair of MODE_ICON_PAIRS) {
+      cleanup();
+      html.className = "";
+      clearCookie();
+      const { unmount } = render(<ColorModeToggle iconPair={pair} />);
+      const inLight = drawing();
+      fireEvent.click(screen.getByRole("button"));
+      const inDark = drawing();
+      expect(inLight, pair).toBeTruthy();
+      expect(inLight, pair).not.toBe(inDark);
+      unmount();
+      const { Light, Dark } = MODE_ICON_PAIR_OPTIONS[pair];
+      const reference = render(<Dark />);
+      expect(inLight, pair).toBe(reference.container.querySelector("svg")?.innerHTML);
+      reference.unmount();
+      const reference2 = render(<Light />);
+      expect(inDark, pair).toBe(reference2.container.querySelector("svg")?.innerHTML);
+    }
+  });
+
+  it("os quatro pares desenham botões diferentes", () => {
     /** @type {string[]} */
     const seen = [];
     for (const pair of MODE_ICON_PAIRS) {
       cleanup();
       render(<ColorModeToggle iconPair={pair} />);
-      const [light, dark] = drawings();
-      expect(light, pair).toBeTruthy();
-      expect(light, pair).not.toBe(dark);
-      seen.push(`${light}|${dark}`);
+      seen.push(String(drawing()));
     }
     expect(new Set(seen).size).toBe(4);
-  });
-
-  it("trocar o modo não troca o par: o ícone de cada botão é sempre o do seu modo", () => {
-    render(<ColorModeToggle iconPair="lightbulb" />);
-    const before = drawings();
-    fireEvent.click(screen.getByRole("button", { name: "Modo escuro" }));
-    expect(drawings()).toEqual(before);
   });
 });
