@@ -143,7 +143,7 @@ check("o Bob recebe a notificação CONTRAST do escopo da aparência", !!nBob &&
 r = await call(admin, "GET", "/api/notifications?unread=1"); check("a notificação do Bob não aparece para o administrador", !(r.json?.data ?? []).some((n) => n.type === "CONTRAST"), r.text.slice(0, 200));
 r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#2563eb", secondaryColor: "#1e293b", accentColor: "#b45309" }); check("o Bob corrige a paleta -> sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, r.text.slice(0, 200));
 // Épico v1 (M-039, ADR-038): a paleta de um modo é uma unidade e a nula herda; o contraste vale sobre a aparência EFETIVA.
-r = await call(bob, "PUT", "/api/appearance", { primaryColor: "#112233" }); check("uma cor sozinha de uma paleta -> 422 (a paleta é por inteiro)", r.status === 422, `${r.status} ${r.text.slice(0, 150)}`);
+r = await call(bob, "PUT", "/api/appearance", { darkPrimaryColor: "#112233" }); check("uma cor sozinha de um modo ainda sem paleta -> 422 (a paleta fica por inteiro)", r.status === 422, `${r.status} ${r.text.slice(0, 150)}`);
 r = await call(bob, "PUT", "/api/appearance", { siteName: "Só o nome do Bob" }); check("só o nome (paletas herdadas) -> 200, não 500, e sem aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, `${r.status} ${r.text.slice(0, 150)}`);
 // --- layout raiz estático, tema por envoltório e páginas do editor (M-021)
 for (const [pagina, jar] of [["/", null], ["/login", null], ["/admin", admin]]) {

@@ -90,6 +90,9 @@ CORE=[
  ("src/app/admin/usuarios/page.js","requireSession({ role: \"admin\", path: \"/admin/usuarios\" })","requireSession({ path: \"/admin/usuarios\" })","M72 o usuário comum abre /admin/usuarios"),
  ("src/app/admin/_lib/menu.js","  \"/admin/perfil\",\n];","  \"/admin/perfil\",\n  \"/admin/usuarios\",\n];","M73 o usuário comum vê o link de Usuários"),
  ("src/app/admin/_lib/users.js","JSON.stringify({ data: users.map(publicUser), total","JSON.stringify({ data: users, total","M74 a lista de usuários da página traz o que não é público (hash, contas)"),
+ # M-039 (A-026): contraste da aparência sobre a paleta efetiva (ADR-038)
+ ("src/app/api/appearance/route.js","contrastReport(effective ?? appearance)","contrastReport(appearance)","M75 contraste da aparência sobre a linha crua (paleta nula quebra)"),
+ ("src/app/api/appearance/route.js","const effective = await getEffectiveAppearance(actor.id);","const effective = null;","M76 contraste da aparência ignora a herança do sistema"),
 ]
 
 DADOS=[
