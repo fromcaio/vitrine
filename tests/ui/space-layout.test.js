@@ -1,14 +1,12 @@
 // @vitest-environment jsdom
 // Componentes de apresentação do espaço público (RF12 a RF14, RF24, RF29, RF30, RN14, RN17, RN28,
-// RNF05; M17): landmarks, o envoltório .vitrine-tema, rodapé, redes sociais, diretório do portal,
+// RNF05; M17): landmarks, o envoltório .vitrine-tema, rodapé, diretório do portal,
 // leitura do documento e o estado vazio da coleção. As medidas e o contraste vão ao navegador.
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { PortalDirectory } from "@/components/layout/PortalDirectory";
 import { PortalHome } from "@/components/layout/PortalHome";
-import { SocialLinks } from "@/components/layout/SocialLinks";
 import { SpaceLayout } from "@/components/layout/SpaceLayout";
 import { navItemsOf } from "@/components/layout/space-paths";
 import { DocumentView } from "@/components/reading/DocumentView";
@@ -36,14 +34,10 @@ const THEME = {
   "--vitrine-dark-on-secondary": "#000000",
 };
 
-const ALL_LINKS = {
-  discordUrl: "https://discord.gg/exemplo",
-  githubUrl: "https://github.com/exemplo",
-  youtubeUrl: "https://youtube.com/@exemplo",
-  instagramUrl: "https://instagram.com/exemplo",
-  linkedinUrl: "https://linkedin.com/in/exemplo",
-  twitchUrl: "https://twitch.tv/exemplo",
-};
+const LINKS = [
+  { icon: "github", url: "https://github.com/exemplo" },
+  { icon: "email", url: "mailto:oi@exemplo.com" },
+];
 
 function renderLayout(props = {}) {
   const collection = sampleCollection();
@@ -56,7 +50,7 @@ function renderLayout(props = {}) {
       collection={collection}
       basePath="/maria"
       activePath={["algoritmos", "variaveis"]}
-      socialLinks={ALL_LINKS}
+      footerLinks={LINKS}
       year={2026}
       {...props}
     >
@@ -72,7 +66,7 @@ describe("SpaceLayout: landmarks e atalho (RNF05)", () => {
     expect(screen.getByRole("navigation", { name: "Coleções" })).toBeTruthy();
     expect(screen.getByRole("navigation", { name: /^Coleção Algoritmos/ })).toBeTruthy();
     expect(screen.getByRole("main")).toBeTruthy();
-    expect(screen.getByRole("navigation", { name: "Redes sociais" })).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: "Links do rodapé" })).toBeTruthy();
     expect(screen.getByRole("contentinfo")).toBeTruthy();
     expect(screen.getAllByRole("main")).toHaveLength(1);
     const tags = [...container.querySelectorAll("header, main, footer")].map((el) => el.tagName);
@@ -199,73 +193,6 @@ describe("Navbar (RF13)", () => {
   it("um nome longo quebra de linha em vez de estourar a barra", () => {
     render(<Navbar name={"Nome-muito-longo-".repeat(8)} homeHref="/x" />);
     expect(screen.getByRole("link").querySelector("span")?.className).toMatch(/break-words/);
-  });
-});
-
-describe("SocialLinks e Footer (RF24, RN17)", () => {
-  it("mostra os seis, na ordem fixa, cada um com o nome da rede e rel noopener noreferrer", () => {
-    render(<SocialLinks links={ALL_LINKS} />);
-    const links = screen.getAllByRole("link");
-    expect(links.map((a) => a.getAttribute("aria-label"))).toEqual([
-      "Discord (abre em uma nova aba)",
-      "GitHub (abre em uma nova aba)",
-      "YouTube (abre em uma nova aba)",
-      "Instagram (abre em uma nova aba)",
-      "LinkedIn (abre em uma nova aba)",
-      "Twitch (abre em uma nova aba)",
-    ]);
-    for (const a of links) {
-      expect(a.getAttribute("rel")).toBe("noopener noreferrer");
-      expect(a.getAttribute("target")).toBe("_blank");
-    }
-    expect(links[1].getAttribute("href")).toBe("https://github.com/exemplo");
-  });
-
-  it("só as redes com link: campo vazio, em branco, nulo ou ausente não mostra o ícone", () => {
-    render(<SocialLinks links={{ discordUrl: "", githubUrl: "https://github.com/x", youtubeUrl: "   ", instagramUrl: null, linkedinUrl: undefined }} />);
-    expect(screen.getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual(["GitHub (abre em uma nova aba)"]);
-  });
-
-  it("descarta o que não é uma URL http(s) absoluta (defesa em profundidade, RN17)", () => {
-    render(
-      <SocialLinks
-        links={{
-          discordUrl: "javascript:alert(1)",
-          githubUrl: "data:text/html,x",
-          youtubeUrl: "//exemplo.com/x",
-          instagramUrl: "ftp://exemplo.com",
-          linkedinUrl: "exemplo.com/in/x",
-          twitchUrl: "http://twitch.tv/x",
-        }}
-      />,
-    );
-    expect(screen.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["http://twitch.tv/x"]);
-  });
-
-  it("sem nenhum link, não renderiza nada (nem a navegação vazia)", () => {
-    const { container } = render(<SocialLinks links={{}} />);
-    expect(container.innerHTML).toBe("");
-    const { container: other } = render(<SocialLinks links={null} />);
-    expect(other.innerHTML).toBe("");
-  });
-
-  it("os ícones são decorativos, ocultos das tecnologias assistivas", () => {
-    const { container } = render(<SocialLinks links={ALL_LINKS} />);
-    const icons = container.querySelectorAll("svg");
-    expect(icons).toHaveLength(6);
-    for (const icon of icons) expect(icon.getAttribute("aria-hidden")).toBe("true");
-  });
-
-  it("o rodapé gera os direitos do nome e do ano e traz as redes", () => {
-    render(<Footer name="Espaço da Maria" socialLinks={{ githubUrl: "https://github.com/x" }} year={2026} />);
-    expect(screen.getByRole("contentinfo").textContent).toContain("© 2026 Espaço da Maria. Todos os direitos reservados.");
-    expect(screen.getByRole("link", { name: /GitHub/ })).toBeTruthy();
-  });
-
-  it("o ano padrão é o corrente, e um espaço sem redes tem rodapé sem a navegação social", () => {
-    render(<Footer name="X" />);
-    expect(screen.getByRole("contentinfo").textContent).toContain(`© ${new Date().getFullYear()} X.`);
-    expect(screen.queryByRole("navigation")).toBeNull();
   });
 });
 

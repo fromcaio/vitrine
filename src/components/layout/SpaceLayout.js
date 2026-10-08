@@ -28,7 +28,8 @@ import { Sidebar } from "./Sidebar";
  *   sem ela (início do espaço, portal), não há sidebar
  * @param {string} [props.basePath] prefixo do espaço, sem barra final (`/maria`; "" no portal)
  * @param {string[]} [props.activePath] cadeia de slugs da página corrente
- * @param {import("./SocialLinks").SocialLinksValue | null} [props.socialLinks] links do rodapé
+ * @param {{ icon: string, url: string }[] | null} [props.footerLinks] os links do rodapé do dono, na ordem
+ *   (RN17; o rodapé não herda: vazio por padrão)
  * @param {number} [props.year] ano dos direitos
  * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor e o link "Administração" na
  *   barra (padrão); a pré-visualização omite os dois, porque nela nada é interativo
@@ -48,7 +49,7 @@ export function SpaceLayout({
   collection = null,
   basePath = "",
   activePath = [],
-  socialLinks = null,
+  footerLinks = null,
   year,
   modeToggle = true,
   mainId = "conteudo-principal",
@@ -81,7 +82,7 @@ export function SpaceLayout({
           {children}
         </main>
       </div>
-      <Footer name={name} socialLinks={socialLinks} year={year} />
+      <Footer name={name} links={footerLinks} year={year} />
     </div>
   );
 }

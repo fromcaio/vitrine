@@ -1,12 +1,12 @@
 // Pré-visualização da aparência em um dos dois modos (RF31, RN27): a barra, uma coleção, um botão
-// primário, o destaque e o rodapé com as redes preenchidas, desenhados pelos mesmos componentes do
+// primário, o destaque e o rodapé (direitos), desenhados pelos mesmos componentes do
 // espaço público (SpaceLayout, Navbar, Footer) com o `themeStyle` do que está sendo editado.
 //
 // O modo é forçado pela classe `vitrine-modo-claro` ou `vitrine-modo-escuro` (globals.css), seja
 // qual for o da página. Nada nela é interativo: o `inert` tira os links e botões da ordem de
 // tabulação e da árvore de acessibilidade, de modo que a pré-visualização não rouba o foco nem
 // repete os marcos (banner, main, rodapé) da página; o grupo rotulado a identifica. Não conhece o
-// dono: recebe o nome, o logotipo, os links e as variáveis por props.
+// dono: recebe o nome, o logotipo e as variáveis por props.
 import { SpaceLayout } from "@/components/layout/SpaceLayout";
 import { Button } from "@/components/ui/Button";
 
@@ -23,10 +23,9 @@ const NAV_ITEMS = [
  * @param {string | null} [props.logoUrl] logotipo válido, se houver; sem ele, o logo embutido
  * @param {boolean} [props.showLogo] mostra o logo na barra (padrão)
  * @param {boolean} [props.showName] mostra o nome na barra (padrão)
- * @param {import("@/components/layout/SocialLinks").SocialLinksValue} [props.links] links válidos
  * @param {Record<string, string>} props.themeStyle as dez variáveis do envoltório (`previewStyle`)
  */
-export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true, showName = true, links = {}, themeStyle }) {
+export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true, showName = true, themeStyle }) {
   const light = mode === "light";
   return (
     <div
@@ -43,7 +42,6 @@ export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true
           showLogo={showLogo}
           showName={showName}
           navItems={NAV_ITEMS}
-          socialLinks={links}
           year={2026}
           modeToggle={false}
           mainId={`${id}-amostra`}
