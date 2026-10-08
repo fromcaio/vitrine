@@ -291,6 +291,31 @@ describe("ImageUpload: antes de enviar", () => {
     await waitFor(() => expect(preview.getAttribute("src")).toMatch(/^data:image\/jpeg/));
   });
 
+  it("uma leitura antiga que termina DEPOIS da nova não a sobrepõe", async () => {
+    /** @type {(() => void)[]} */
+    const finishers = [];
+    class SlowReader {
+      /** @type {null | (() => void)} */ onload = null;
+      result = "";
+      readAsDataURL(/** @type {File} */ chosen) {
+        finishers.push(() => {
+          this.result = `data:${chosen.type};base64,AAAA`;
+          this.onload?.();
+        });
+      }
+    }
+    vi.stubGlobal("FileReader", SlowReader);
+    render(<ImageUpload label="Logotipo" client={fakeClient()} />);
+    choose(file("a.png", "image/png"));
+    choose(file("b.jpg", "image/jpeg"));
+    finishers[1]();
+    const preview = await screen.findByRole("img", { name: "Pré-visualização: logotipo" });
+    expect(preview.getAttribute("src")).toMatch(/^data:image\/jpeg/);
+    finishers[0]();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByRole("img", { name: "Pré-visualização: logotipo" }).getAttribute("src")).toMatch(/^data:image\/jpeg/);
+  });
+
   it("'Cancelar' descarta o arquivo, não envia e devolve o foco ao seletor", async () => {
     const client = fakeClient();
     render(<ImageUpload label="Logotipo" client={client} />);

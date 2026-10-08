@@ -79,6 +79,10 @@ describe("linkUrlError (RN17)", () => {
     }
   });
 
+  it("no ícone de e-mail, o prefixo mailto: é exigido: sem ele, nem um endereço que sobra depois de sete caracteres vale", () => {
+    expect(linkUrlError(EMAIL_ICON, "1234567x@exemplo.com")).toBe(MESSAGES.email);
+  });
+
   it("mailto: não vale em ícone de rede (o esquema certo é por ícone)", () => {
     for (const icon of FOOTER_ICONS.filter((name) => name !== EMAIL_ICON)) expect(linkUrlError(icon, "mailto:a@b.co")).toBe(MESSAGES.https);
   });
