@@ -57,6 +57,7 @@ export function AdminLink({ className = "" }) {
   return (
     <Link
       href={session.temporary ? "/admin/senha" : "/admin"}
+      prefetch={false}
       className={`inline-flex min-h-10 items-center rounded-md border border-on-secondary px-3 text-sm font-medium hover:bg-on-secondary hover:text-secondary ${className}`.trim()}
     >
       Administração

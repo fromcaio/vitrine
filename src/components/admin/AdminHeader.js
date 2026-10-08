@@ -35,8 +35,9 @@ export function AdminHeader({
 }) {
   return (
     <header className="flex flex-wrap items-center gap-x-4 gap-y-2 bg-secondary px-4 py-3 text-on-secondary">
-      {/* A marca leva ao site (`/`); o painel se alcança pelo menu e pelo "Administração" do site. */}
-      <Link href="/" className="mr-auto flex min-w-0 items-center gap-3 rounded-sm">
+      {/* A marca leva ao site (`/`); o painel se alcança pelo menu e pelo "Administração" do site. Sem
+          prefetch: o portal traz a folha do KaTeX, e pré-carregá-la aqui geraria o aviso de recurso não usado. */}
+      <Link href="/" prefetch={false} className="mr-auto flex min-w-0 items-center gap-3 rounded-sm">
         <SiteBrand name={siteName} logoUrl={logoUrl} showLogo={showLogo} showName={showName} />
         <span className="shrink-0 text-sm">Painel</span>
       </Link>
