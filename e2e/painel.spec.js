@@ -105,8 +105,10 @@ test.describe.serial("aparência, configuração e portal", () => {
 
     await page.getByLabel("Nome do site").fill("Portal do painel e2e");
     await page.getByLabel("Texto do portal (Markdown)").fill("Texto **do painel** e2e.");
-    await page.getByRole("button", { name: "Salvar a configuração" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Configuração salva" })).toBeVisible();
+    await page.getByRole("button", { name: "Salvar a aparência do sistema" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Aparência do sistema salva" })).toBeVisible();
+    await page.getByRole("button", { name: "Salvar o portal" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Portal salvo" })).toBeVisible();
 
     const { body } = await fetchUntil(request, "/", (html) => html.includes("Texto <strong>do painel</strong> e2e."));
     expect(body).toContain("Portal do painel e2e");

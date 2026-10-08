@@ -265,7 +265,7 @@ test.describe.serial("usuários e moderação", () => {
     await login(page, ANA);
     await page.goto("/admin/notificacoes");
 
-    await expect(page.getByRole("link", { name: "Notificações, 2 não lidas" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Notificações, 2 não lidas" })).toBeVisible();
     const list = page.getByRole("region", { name: "Notificações" });
     await expect(list.getByText(`Motivo: ${HOSTILE_REASON}`, { exact: false })).toBeVisible();
     await expect(list.getByText("Motivo: excluída por duplicidade", { exact: false })).toBeVisible();
