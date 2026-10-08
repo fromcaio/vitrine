@@ -47,8 +47,18 @@ describe("GET /api/configuration", () => {
       primaryColor: "#2563eb",
       secondaryColor: "#1e293b",
       accentColor: "#b45309",
-      githubUrl: null,
+      // Épico v1: o site tem imagens por referência (sem upload ainda), os dois itens da barra
+      // superior ligados, o par de ícones do modo e o título do diretório; os links sociais saíram da
+      // configuração (viraram o rodapé por ícones, FooterLink).
+      logoImageId: null,
+      faviconImageId: null,
+      showLogo: true,
+      showName: true,
+      modeIconPair: "sun_moon",
+      directoryTitle: "Espaços",
     });
+    expect(body.data).not.toHaveProperty("githubUrl");
+    expect(body.data).not.toHaveProperty("logoUrl");
     expect(await prisma.configuration.count()).toBe(1);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
@@ -64,13 +74,11 @@ describe("GET /api/configuration", () => {
 });
 
 describe("PUT /api/configuration", () => {
-  it("atualiza identidade, cores e links, e revalida só o portal `/` (RN10, ADR-030)", async () => {
+  it("atualiza identidade e cores, e revalida só o portal `/` (RN10, ADR-030)", async () => {
     const response = await put({
       siteName: "Notas de Aula",
       siteDescription: "Material didático de Cálculo",
       primaryColor: "#112233",
-      githubUrl: "https://github.com/exemplo",
-      logoUrl: "/logo.svg",
     });
 
     expect(response.status).toBe(200);
@@ -79,8 +87,6 @@ describe("PUT /api/configuration", () => {
       siteDescription: "Material didático de Cálculo",
       primaryColor: "#112233",
       secondaryColor: "#1e293b", // campo ausente não muda
-      githubUrl: "https://github.com/exemplo",
-      logoUrl: "/logo.svg",
     });
     expect(await prisma.configuration.count()).toBe(1);
     expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/");
@@ -113,24 +119,6 @@ describe("PUT /api/configuration", () => {
       expect(error.details.map((detail) => detail.field)).toEqual([field]);
     }
     expect(revalidatePath).not.toHaveBeenCalled();
-  });
-
-  it("CT33: campo vazio é aceito e remove o link (RN17)", async () => {
-    await put({ githubUrl: "https://github.com/exemplo", youtubeUrl: "https://youtube.com/@exemplo" });
-
-    const response = await put({ githubUrl: "", youtubeUrl: null });
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).data).toMatchObject({ githubUrl: null, youtubeUrl: null });
-  });
-
-  it("aceita os seis links sociais http(s)", async () => {
-    const links = Object.fromEntries(SOCIAL_URL_FIELDS.map((field) => [field, `https://exemplo.test/${field}`]));
-
-    const response = await put(links);
-
-    expect(response.status).toBe(200);
-    expect((await response.json()).data).toMatchObject(links);
   });
 
   it("recusa nome em branco, corpo vazio e JSON malformado", async () => {

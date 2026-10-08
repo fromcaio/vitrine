@@ -267,14 +267,22 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
   it("a moldura leva a aparência do dono: as duas paletas no envoltório .vitrine-tema, o rodapé e o menu", async () => {
     const ana = await user("ana");
     await collection(ana, "calculo");
-    await updateAppearance(ana, { primaryColor: "#1d4ed8", darkPrimaryColor: "#93c5fd", githubUrl: "https://github.com/ana" });
+    // A paleta de cada modo vai inteira (ADR-038). Os links do rodapé agora são por ícone (FooterLink) e a
+    // moldura ainda não os lê: isso é da A-031.
+    await updateAppearance(ana, {
+      primaryColor: "#1d4ed8",
+      secondaryColor: "#1e293b",
+      accentColor: "#b45309",
+      darkPrimaryColor: "#93c5fd",
+      darkSecondaryColor: "#cbd5e1",
+      darkAccentColor: "#fbbf24",
+    });
 
     const html = await homeOf("ana");
 
     expect(html).toContain("vitrine-tema");
     expect(html).toContain("--vitrine-light-primary:#1d4ed8");
     expect(html).toContain("--vitrine-dark-primary:#93c5fd");
-    expect(html).toContain('href="https://github.com/ana"');
     expect(html).toContain('href="/ana/calculo"'); // a aba da coleção raiz
   });
 
@@ -518,14 +526,14 @@ describe("portal / (RF30, RN28; CT46)", () => {
     expect(html).toContain("Texto <strong>do portal</strong>.");
   });
 
-  it("a aparência do site: as duas paletas no envoltório, o logotipo e os links do rodapé", async () => {
-    await updateConfiguration({ primaryColor: "#1d4ed8", darkPrimaryColor: "#93c5fd", githubUrl: "https://github.com/turma" });
+  it("a aparência do site: as duas paletas no envoltório e o logotipo padrão", async () => {
+    await updateConfiguration({ primaryColor: "#1d4ed8", darkPrimaryColor: "#93c5fd" });
 
     const html = await portal();
 
     expect(html).toContain("--vitrine-light-primary:#1d4ed8");
     expect(html).toContain("--vitrine-dark-primary:#93c5fd");
-    expect(html).toContain('href="https://github.com/turma"');
+    expect(html).toContain('data-testid="logo-padrao"'); // sem logo enviado (logoImageId nulo), o logotipo padrão
   });
 
   it("o diretório lista só espaços ativos com ao menos uma raiz publicada, em ordem alfabética (sem acentos nem caixa)", async () => {

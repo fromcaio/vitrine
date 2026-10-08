@@ -48,10 +48,13 @@ test.describe.serial("aparência, configuração e portal", () => {
     await page.goto("/admin/aparencia");
     await expect(page.getByRole("heading", { name: "Aparência do seu espaço", level: 1 })).toBeVisible();
     await waitForHydration(page);
-    // A aparência é a do usuário da sessão: o nome padrão é o dele.
-    await expect(page.getByLabel("Nome do espaço")).toHaveValue("Ana do Painel");
+    // A aparência é a do usuário da sessão; quem não personalizou tem o nome nulo (herda o do sistema, ADR-038).
+    await expect(page.getByLabel("Nome do espaço")).toHaveValue("");
 
     await page.getByLabel("Nome do espaço").fill("Espaço do painel e2e");
+    // Quem não personalizou herda a paleta do sistema nos dois modos (ADR-038): define as próprias antes.
+    await page.getByRole("button", { name: "Definir uma paleta clara própria" }).click();
+    await page.getByRole("button", { name: "Definir uma paleta noturna própria" }).click();
     await page.getByRole("group", { name: "Paleta clara" }).getByLabel("Primária", { exact: true }).fill("#7c3aed");
     const dark = page.getByRole("group", { name: "Paleta noturna" });
     await dark.getByLabel("Primária", { exact: true }).fill("#222222"); // quase o fundo noturno: contraste insuficiente
@@ -92,7 +95,7 @@ test.describe.serial("aparência, configuração e portal", () => {
     await page.goto("/admin/aparencia");
     await waitForHydration(page);
 
-    await expect(page.getByLabel("Nome do espaço")).toHaveValue(ADMIN.name);
+    await expect(page.getByLabel("Nome do espaço")).toHaveValue(""); // o administrador não personalizou: nome nulo (herda, ADR-038)
     await expect(page.getByLabel("Nome do espaço")).not.toHaveValue("Espaço do painel e2e");
     await context.close();
   });
