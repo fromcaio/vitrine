@@ -433,9 +433,9 @@ describe("a lista e o sino conversam por um evento do navegador", () => {
         <NotificationList initial={initial([note("n1"), note("n2")], 2)} />
       </>,
     );
-    expect(screen.getByRole("link", { name: "Notificações, 2 não lidas" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Notificações, 2 não lidas" })).toBeTruthy();
     fireEvent.click(button("Dispensar: Título n1"));
-    await screen.findByRole("link", { name: "Notificações, 1 não lida" });
+    await screen.findByRole("button", { name: "Notificações, 1 não lida" });
   });
 
   it("o evento tem o nome e o detail combinados com o sino", async () => {

@@ -39,7 +39,7 @@ function stubFetch(...responses) {
 }
 
 const advance = (/** @type {number} */ ms) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
-const link = () => screen.getByRole("link");
+const link = () => screen.getByRole("button", { name: /^Notificações/ });
 const live = () => /** @type {HTMLElement} */ (screen.getByRole("status"));
 
 describe("bellLabel e bellAnnouncement", () => {
@@ -57,18 +57,13 @@ describe("bellLabel e bellAnnouncement", () => {
 });
 
 describe("o sino", () => {
-  it("é um link para a lista, com o rótulo acessível que inclui o contador", () => {
+  it("é um botão de divulgação (não um link), com o rótulo acessível que inclui o contador", () => {
     stubFetch();
     render(<NotificationBell initialUnreadCount={3} />);
-    expect(link().getAttribute("href")).toBe("/admin/notificacoes");
+    expect(link().tagName).toBe("BUTTON");
     expect(link().getAttribute("aria-label")).toBe("Notificações, 3 não lidas");
+    expect(link().getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByTestId("contador-nao-lidas").textContent).toBe("3");
-  });
-
-  it("o endereço da lista é configurável", () => {
-    stubFetch();
-    render(<NotificationBell initialUnreadCount={1} href="/outro" />);
-    expect(link().getAttribute("href")).toBe("/outro");
   });
 
   it("sem não lidas, não mostra a bolinha, e o rótulo diz que não há", () => {
