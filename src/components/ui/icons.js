@@ -518,3 +518,101 @@ export function EyeOffIcon(props) {
     </Icon>
   );
 }
+
+// Pares de ícones do botão de modo de cor (D-35, ADR-037): o administrador escolhe um dos quatro
+// para o site inteiro. Cada par tem o ícone do modo CLARO e o do modo ESCURO. São decorativos: o
+// botão que os contém leva o nome do modo.
+
+/** Sol cheio (modo claro do par `sun_moon`). @param {{ className?: string }} props */
+export function SunIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" fill="currentColor" />
+      <path d="M12 2.5v2" />
+      <path d="M12 19.5v2" />
+      <path d="M2.5 12h2" />
+      <path d="M19.5 12h2" />
+      <path d="m5.3 5.3 1.4 1.4" />
+      <path d="m17.3 17.3 1.4 1.4" />
+      <path d="m5.3 18.7 1.4-1.4" />
+      <path d="m17.3 6.7 1.4-1.4" />
+    </Icon>
+  );
+}
+
+/** Lua cheia (modo escuro do par `sun_moon`). @param {{ className?: string }} props */
+export function MoonIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="currentColor" />
+    </Icon>
+  );
+}
+
+/** Sol de contorno (modo claro do par `sun_moon_outline`). @param {{ className?: string }} props */
+export function SunOutlineIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2" />
+      <path d="M12 19.5v2" />
+      <path d="M2.5 12h2" />
+      <path d="M19.5 12h2" />
+      <path d="m5.3 5.3 1.4 1.4" />
+      <path d="m17.3 17.3 1.4 1.4" />
+      <path d="m5.3 18.7 1.4-1.4" />
+      <path d="m17.3 6.7 1.4-1.4" />
+    </Icon>
+  );
+}
+
+/** Lua de contorno (modo escuro do par `sun_moon_outline`). @param {{ className?: string }} props */
+export function MoonOutlineIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
+    </Icon>
+  );
+}
+
+/** Lâmpada acesa (modo claro do par `lightbulb`). @param {{ className?: string }} props */
+export function LightbulbOnIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9 18h6" />
+      <path d="M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" fill="currentColor" />
+    </Icon>
+  );
+}
+
+/** Lâmpada apagada (modo escuro do par `lightbulb`). @param {{ className?: string }} props */
+export function LightbulbOffIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M9 18h6" />
+      <path d="M10 21h4" />
+      <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" />
+    </Icon>
+  );
+}
+
+/** Círculo com a metade esquerda cheia (modo claro do par `contrast_half`). @param {{ className?: string }} props */
+export function ContrastLightIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" />
+    </Icon>
+  );
+}
+
+/** Círculo com a metade direita cheia (modo escuro do par `contrast_half`). @param {{ className?: string }} props */
+export function ContrastDarkIcon(props) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
+    </Icon>
+  );
+}

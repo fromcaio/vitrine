@@ -40,20 +40,24 @@ test.describe.serial("tema por modo e modo de cor", () => {
     expect(html).not.toContain("--vitrine-light-primary");
     expect(html).not.toContain("--vitrine-dark-primary");
     const head = html.match(/<head>(.*?)<\/head>/s)?.[1] ?? "";
-    expect(head).toContain("vitrine:modo");
+    // O modo vem do cookie `vitrine-modo` (ADR-036): o script o lê, e o servidor nunca.
+    expect(head).toContain("vitrine-modo");
+    expect(head).not.toContain("localStorage");
     expect(head).toContain('classList.add("dark")');
   });
 
+  // Só dois modos (D-33): o cookie decide; a primeira visita é CLARA, mesmo com o sistema escuro, e o
+  // valor antigo "auto" já não vale.
   for (const [scheme, stored, dark] of [
-    ["dark", null, true],
+    ["dark", null, false],
     ["light", null, false],
     ["light", "dark", true],
     ["dark", "light", false],
-    ["dark", "auto", true],
+    ["dark", "auto", false],
   ]) {
-    test(`modo noturno antes da primeira pintura (CT47): sistema ${scheme}, escolha ${stored ?? "nenhuma"} → ${dark ? "noturno" : "claro"}`, async ({ page }) => {
+    test(`modo noturno antes da primeira pintura (CT47): sistema ${scheme}, cookie ${stored ?? "nenhum"} → ${dark ? "noturno" : "claro"}`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: /** @type {"dark" | "light"} */ (scheme) });
-      if (stored) await page.addInitScript((value) => localStorage.setItem("vitrine:modo", value), stored);
+      if (stored) await page.context().addCookies([{ name: "vitrine-modo", value: stored, url: baseURL }]);
 
       const classes = await classAtDomContentLoaded(page);
 
@@ -62,6 +66,31 @@ test.describe.serial("tema por modo e modo de cor", () => {
       expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(dark);
     });
   }
+
+  test("o localStorage antigo (vitrine:modo) é ignorado, e o botão grava o cookie e vale na próxima carga (ADR-036)", async ({ page }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.addInitScript(() => localStorage.setItem("vitrine:modo", "dark"));
+    await page.goto("/");
+    await expect(page.getByRole("group", { name: "Modo de cor" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(false);
+
+    await page.getByRole("button", { name: "Modo escuro" }).click();
+    expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(true);
+    const cookie = (await page.context().cookies(baseURL)).find((item) => item.name === "vitrine-modo");
+    expect(cookie?.value).toBe("dark");
+    expect(cookie?.httpOnly).toBe(false);
+    expect(cookie?.sameSite).toBe("Lax");
+    expect(cookie?.path).toBe("/");
+    expect(await page.evaluate(() => localStorage.getItem("vitrine:modo"))).toBeNull();
+
+    // Na próxima carga o script do <head> já aplica o modo, antes da hidratação.
+    const classes = await classAtDomContentLoaded(page, "/");
+    expect(classes.split(/\s+/).includes("dark")).toBe(true);
+
+    await page.getByRole("button", { name: "Modo claro" }).click();
+    expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(false);
+    expect((await page.context().cookies(baseURL)).find((item) => item.name === "vitrine-modo")?.value).toBe("light");
+  });
 
   test("o 404 global usa as paletas padrão: sem envoltório do tema do site", async ({ request }) => {
     const response = await request.get("/pagina-que-nao-existe-e2e");
@@ -108,7 +137,7 @@ test.describe.serial("tema por modo e modo de cor", () => {
     expect(await primaryOfLoginButton()).toBe("rgb(29, 78, 216)");
     await expect(page).toHaveTitle("Entrar | Site e2e do tema");
 
-    await page.addInitScript(() => localStorage.setItem("vitrine:modo", "dark"));
+    await page.context().addCookies([{ name: "vitrine-modo", value: "dark", url: baseURL }]);
     await page.goto("/login");
     await expect(page.getByRole("button", { name: "Entrar" })).toBeVisible();
     expect(await primaryOfLoginButton()).toBe("rgb(147, 197, 253)");
@@ -118,10 +147,8 @@ test.describe.serial("tema por modo e modo de cor", () => {
     const wrapperVariable = () =>
       page.locator(".vitrine-tema").first().evaluate((element) => getComputedStyle(element).getPropertyValue("--vitrine-primary").trim());
     expect(await wrapperVariable()).toBe("#93c5fd");
-    await page.evaluate(() => {
-      localStorage.setItem("vitrine:modo", "light");
-      document.documentElement.classList.remove("dark");
-    });
+    await page.context().addCookies([{ name: "vitrine-modo", value: "light", url: baseURL }]);
+    await page.evaluate(() => document.documentElement.classList.remove("dark"));
     expect(await wrapperVariable()).toBe("#1d4ed8");
     await expect(page).toHaveTitle("Painel administrativo | Site e2e do tema");
 
