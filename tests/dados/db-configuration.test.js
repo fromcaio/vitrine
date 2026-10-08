@@ -135,6 +135,25 @@ describe("db.js: configuração", () => {
       }
       expect((await getConfiguration()).directoryTitle).toBe("Pessoas");
     });
+
+    // A interface conta caracteres (pontos de código), e não unidades UTF-16: 40 emojis são 80 unidades.
+    it("conta caracteres (pontos de código): 40 emojis passam, 41 não", async () => {
+      const quarenta = "😀".repeat(40);
+      expect(quarenta.length).toBe(80);
+      expect((await updateConfiguration({ directoryTitle: quarenta })).directoryTitle).toBe(quarenta);
+
+      await expect(updateConfiguration({ directoryTitle: "😀".repeat(41) })).rejects.toMatchObject({
+        code: "INVALID_INPUT",
+        details: { field: "directoryTitle", max: 40 },
+      });
+      expect((await getConfiguration()).directoryTitle).toBe(quarenta);
+    });
+
+    it("o limite vale com letras acentuadas e fora do plano básico misturados", async () => {
+      const misto = "ção😀".repeat(10); // 40 pontos de código, 50 unidades UTF-16
+      expect((await updateConfiguration({ directoryTitle: misto })).directoryTitle).toBe(misto);
+      await expect(updateConfiguration({ directoryTitle: `${misto}x` })).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    });
   });
 
   describe("D-34: showLogo e showName não podem ficar ambos falsos (estado resultante)", () => {

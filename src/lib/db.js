@@ -1186,7 +1186,8 @@ export async function updateConfiguration(patch) {
   const directoryTitle = /** @type {any} */ (patch)?.directoryTitle;
   if (directoryTitle !== undefined) {
     assertNonEmptyString(directoryTitle, "directoryTitle");
-    if (directoryTitle.length > DIRECTORY_TITLE_MAX_LENGTH) {
+    // Pontos de código, e não unidades UTF-16 (`length`): um emoji conta 1, como na interface.
+    if ([...directoryTitle].length > DIRECTORY_TITLE_MAX_LENGTH) {
       throw new DataError(
         "INVALID_INPUT",
         `O título do diretório deve ter de 1 a ${DIRECTORY_TITLE_MAX_LENGTH} caracteres.`,

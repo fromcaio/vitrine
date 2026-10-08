@@ -80,6 +80,8 @@ function populateRealistic(db) {
   insert(db, "user", { id: "u1", name: "Admin", email: "admin@exemplo.test", emailVerified: 1, createdAt: T0, updatedAt: T0, role: "admin", handle: "admin" });
   insert(db, "user", { id: "u2", name: "Ana", email: "ana@exemplo.test", emailVerified: 1, createdAt: T0, updatedAt: T0, role: "user", handle: "ana" });
   insert(db, "user", { id: "u3", name: "Bia", email: "bia@exemplo.test", emailVerified: 1, createdAt: T0, updatedAt: T0, role: "user", handle: null });
+  insert(db, "user", { id: "u4", name: "Caio", email: "caio@exemplo.test", emailVerified: 1, createdAt: T0, updatedAt: T0, role: "user", handle: "caio" });
+  insert(db, "user", { id: "u5", name: "Davi", email: "davi@exemplo.test", emailVerified: 1, createdAt: T0, updatedAt: T0, role: "user", handle: "davi" });
   insert(db, "account", { id: "acc1", accountId: "u1", providerId: "credential", userId: "u1", password: "hash-ficticio", createdAt: T0, updatedAt: T0 });
   insert(db, "session", { id: "ses1", expiresAt: "2026-12-01T00:00:00.000+00:00", token: "tok1", userId: "u1", ipAddress: "203.0.113.7", userAgent: "ficticio", createdAt: T0, updatedAt: T0 });
   insert(db, "contents", { id: "c1", title: "Raiz", slug: "raiz", body: null, type: "COLLECTION", status: "PUBLISHED", order: 0, parentId: null, authorId: "u2", createdAt: T0, updatedAt: T0 });
@@ -115,6 +117,16 @@ function populateRealistic(db) {
     ownerId: "u3", siteName: "Bia", siteDescription: null, ...OLD, logoUrl: null, faviconUrl: null,
     discordUrl: "ftp://exemplo.test/x", githubUrl: "javascript:alert(1)", youtubeUrl: "https://", instagramUrl: "mailto:bia@exemplo.test",
     linkedinUrl: "HTTPS://Exemplo.TEST/bia", twitchUrl: "http://twitch.tv/bia", createdAt: T0, updatedAt: T0,
+  });
+  // Caio: SÓ a cor de destaque mudada, nos dois modos (as outras duas de cada modo no padrão)
+  insert(db, "appearances", {
+    ownerId: "u4", siteName: "Caio", siteDescription: null, ...OLD, accentColor: "#0f766e", darkAccentColor: "#f59e0b",
+    logoUrl: null, faviconUrl: null, ...NO_LINKS, createdAt: T0, updatedAt: T0,
+  });
+  // Davi: SÓ a secundária mudada no claro e SÓ a primária mudada no noturno
+  insert(db, "appearances", {
+    ownerId: "u5", siteName: "Davi", siteDescription: null, ...OLD, secondaryColor: "#334155", darkPrimaryColor: "#38bdf8",
+    logoUrl: null, faviconUrl: null, ...NO_LINKS, createdAt: T0, updatedAt: T0,
   });
 }
 
@@ -334,6 +346,16 @@ describe("migração do épico v1 (A-026)", () => {
         // u2: claro no padrão em MAIÚSCULAS vira nulo; noturno com uma cor mudada permanece inteiro
         expect([row("u2").primaryColor, row("u2").secondaryColor, row("u2").accentColor]).toEqual([null, null, null]);
         expect(row("u2")).toMatchObject({ darkPrimaryColor: OLD.darkPrimaryColor, darkSecondaryColor: "#000000", darkAccentColor: OLD.darkAccentColor });
+        // u4 e u5: uma ÚNICA cor mudada em cada modo, qualquer que seja ela (primária, secundária ou
+        // destaque), mantém a paleta daquele modo inteira; a anulação exige as TRÊS no padrão
+        expect(row("u4")).toMatchObject({
+          primaryColor: OLD.primaryColor, secondaryColor: OLD.secondaryColor, accentColor: "#0f766e",
+          darkPrimaryColor: OLD.darkPrimaryColor, darkSecondaryColor: OLD.darkSecondaryColor, darkAccentColor: "#f59e0b",
+        });
+        expect(row("u5")).toMatchObject({
+          primaryColor: OLD.primaryColor, secondaryColor: "#334155", accentColor: OLD.accentColor,
+          darkPrimaryColor: "#38bdf8", darkSecondaryColor: OLD.darkSecondaryColor, darkAccentColor: OLD.darkAccentColor,
+        });
         // u3: tudo no padrão: os dois modos viram nulos
         const u3 = row("u3");
         expect([u3.primaryColor, u3.secondaryColor, u3.accentColor, u3.darkPrimaryColor, u3.darkSecondaryColor, u3.darkAccentColor]).toEqual([null, null, null, null, null, null]);
@@ -346,7 +368,7 @@ describe("migração do épico v1 (A-026)", () => {
       const { db } = migrated();
       try {
         const names = Object.fromEntries(/** @type {any[]} */ (db.prepare('SELECT ownerId, siteName FROM "appearances"').all()).map((r) => [r.ownerId, r.siteName]));
-        expect(names).toEqual({ u1: null, u2: "Notas da Ana", u3: "Bia" });
+        expect(names).toEqual({ u1: null, u2: "Notas da Ana", u3: "Bia", u4: "Caio", u5: "Davi" });
       } finally {
         db.close();
       }
