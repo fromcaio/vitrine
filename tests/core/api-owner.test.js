@@ -565,7 +565,7 @@ describe("GET/PUT /api/appearance: a aparência é do próprio usuário (RN19)",
     expect(await prisma.appearance.findUnique({ where: { ownerId: ana.id } })).toBeNull();
   });
 
-  it("cor inválida, link malicioso e corpo vazio respondem 422", async () => {
+  it("cor inválida, link social fixo (saiu na A-029: sozinho não é campo) e corpo vazio respondem 422", async () => {
     expect((await put({ primaryColor: "vermelho" }, ana.cookie)).status).toBe(422);
     expect((await put({ githubUrl: "javascript:alert(1)" }, ana.cookie)).status).toBe(422);
     expect((await put({}, ana.cookie)).status).toBe(422);

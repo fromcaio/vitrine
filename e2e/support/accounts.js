@@ -53,10 +53,15 @@ export async function adminLogin(playwright) {
 /**
  * Cria a conta pelo administrador e troca a senha provisória: devolve o identificador e as credenciais.
  * @param {import("@playwright/test").APIRequestContext} admin
- * @param {{ email: string, name: string, handle?: string | null, password: string }} account
+ * @param {{ email: string, name: string, handle?: string | null, password: string, role?: "admin" | "user" }} account
  */
 export async function createAccount(playwright, admin, account) {
-  const body = { email: account.email, name: account.name, ...(account.handle ? { handle: account.handle } : {}) };
+  const body = {
+    email: account.email,
+    name: account.name,
+    ...(account.handle ? { handle: account.handle } : {}),
+    ...(account.role ? { role: account.role } : {}),
+  };
   const created = await admin.post("/api/users", { data: body });
   expect(created.status(), `criar ${account.email}`).toBe(201);
   const { data } = await created.json();
@@ -109,3 +114,28 @@ export async function fetchUntil(client, url, done, { attempts = 15, delay = 300
 
 /** Valor de `x-nextjs-cache` de uma resposta, ou `(sem cabeçalho)`. */
 export const cacheState = (response) => response.headers()["x-nextjs-cache"] ?? "(sem cabeçalho)";
+
+/**
+ * Um SEGUNDO administrador para as sessões de NAVEGADOR que escrevem em `/api/users` (suspender, excluir, remover
+ * avatar...). O limite de escritas do grupo `users` (20 por minuto, RN25) é POR USUÁRIO e dura uma janela fixa,
+ * e os specs, em série, gastam o do administrador único: a requisição da interface que cai com a janela cheia
+ * responde 429 e o diálogo fica aberto, sem como esperar o `Retry-After` (o que o cliente de API de
+ * `adminLogin` faz). Com um administrador só para a interface, a janela dela começa vazia. Quem o cria o remove
+ * (`removeAccount`) no fim: os testes do "último administrador" supõem um só.
+ * @param {import("@playwright/test").PlaywrightWorkerArgs["playwright"]} playwright
+ * @param {import("@playwright/test").APIRequestContext} admin
+ * @param {{ email: string, name: string, password: string }} account
+ */
+export function createAdminAccount(playwright, admin, account) {
+  return createAccount(playwright, admin, { ...account, role: "admin" });
+}
+
+/**
+ * Remove a conta (sem conteúdo) pelo administrador.
+ * @param {import("@playwright/test").APIRequestContext} admin
+ * @param {string} id
+ */
+export async function removeAccount(admin, id) {
+  const response = await admin.delete(`/api/users/${id}`);
+  expect([200, 404], `remover a conta ${id}`).toContain(response.status());
+}

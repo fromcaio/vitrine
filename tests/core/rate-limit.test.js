@@ -6,8 +6,8 @@ import { RATE_LIMITS, RATE_WINDOW_MS, resetRateLimits, takeToken } from "@/app/a
 beforeEach(() => resetRateLimits());
 
 describe("takeToken", () => {
-  it("os limites são os da ADR-029 (60 em conteúdo, 20 em usuários, 5 em senha) e 60 em notificações, janela de 60 s", () => {
-    expect(RATE_LIMITS).toEqual({ content: 60, users: 20, password: 5, notifications: 60 });
+  it("os limites são os da ADR-029 (60 em conteúdo, 20 em usuários, 5 em senha), 60 em notificações e 10 em imagens (A-029), janela de 60 s", () => {
+    expect(RATE_LIMITS).toEqual({ content: 60, users: 20, password: 5, notifications: 60, media: 10 });
     expect(RATE_WINDOW_MS).toBe(60_000);
     expect(Object.isFrozen(RATE_LIMITS)).toBe(true);
   });

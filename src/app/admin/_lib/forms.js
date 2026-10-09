@@ -61,3 +61,19 @@ export const configurationInitial = (record) => pick(record, [...SHARED_FIELDS, 
  * @param {Record<string, unknown>} record `getConfiguration()`
  */
 export const systemReference = (record) => pick(record, SYSTEM_REFERENCE_FIELDS);
+
+/**
+ * A prop `media` dos formulários de aparência (A-029): o logotipo e o favicon como `/media/<id>` (a UI exibe a
+ * imagem atual e o envio), ou `null` quando não há imagem própria.
+ * @param {Record<string, unknown>} record `getAppearance(user.id)` ou `getConfiguration()`
+ */
+export function mediaOf(record) {
+  const url = (/** @type {unknown} */ id) => (typeof id === "string" && id !== "" ? `/media/${id}` : null);
+  return { logoUrl: url(record.logoImageId), faviconUrl: url(record.faviconImageId) };
+}
+
+/**
+ * A prop `footerLinks` dos formulários: só o ícone e a URL, na ordem (a mesma forma de `GET /api/footer-links`).
+ * @param {Array<{ icon: string, url: string }>} links `listFooterLinks(ownerId)`
+ */
+export const footerLinksOf = (links) => links.map(({ icon, url }) => ({ icon, url }));

@@ -4,25 +4,26 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as z from "zod";
 import { CONTENT_STATUSES as DB_STATUSES, CONTENT_TYPES as DB_TYPES } from "@/lib/db";
+import { FOOTER_ICONS } from "@/lib/footer-icons";
 import {
   CONTENT_STATUSES,
   CONTENT_TYPES,
   HANDLE_PATTERN,
   RESERVED_HANDLES,
   SLUG_MAX_LENGTH,
-  SOCIAL_URL_FIELDS,
   adminBootstrapSchema,
   appearanceUpdateSchema,
+  avatarRemovalQuerySchema,
   banSchema,
   configurationUpdateSchema,
   contentCreateSchema,
   contentReorderSchema,
   contentUpdateSchema,
+  footerLinksSchema,
+  footerUrlError,
   handleError,
   handleSchema,
   hexColorSchema,
-  isAssetUrl,
-  isHttpUrl,
   normalizeHandle,
   passwordChangeSchema,
   passwordResetCommandSchema,
@@ -35,7 +36,6 @@ import {
   userUpdateSchema,
   versionSchema,
   slugSchema,
-  socialUrlSchema,
   suggestSlug,
   validate,
 } from "@/lib/validators";
@@ -113,60 +113,98 @@ describe("cor (RN09)", () => {
   });
 });
 
-describe("URL http(s) dos links sociais (RN17)", () => {
+describe("URL de um link do rodapé (RN17, ADR-035; A-029)", () => {
   it.each([
-    "https://github.com/exemplo",
-    "http://exemplo.test",
-    "https://discord.gg/abc123",
-    "HTTPS://EXEMPLO.TEST/Canal?x=1#topo",
-    "https://exemplo.test:8443/a/b",
-  ])("aceita %s", (url) => {
-    expect(isHttpUrl(url)).toBe(true);
-    expect(validate(socialUrlSchema, url)).toEqual({ ok: true, data: url });
+    ["github", "https://github.com/exemplo"],
+    ["website", "https://exemplo.test:8443/a/b?x=1#topo"],
+    ["discord", "HTTPS://DISCORD.GG/abc123"],
+    ["email", "mailto:alguem@exemplo.com.br"],
+    ["email", "mailto:a.b+c@sub.exemplo.org"],
+  ])("aceita %s: %s", (icon, url) => {
+    expect(footerUrlError(icon, url)).toBeNull();
   });
 
   it.each([
-    "javascript:alert(1)",
-    "data:text/html,<script>alert(1)</script>",
-    "ftp://exemplo.test/arquivo",
-    "mailto:alguem@exemplo.test",
-    "//exemplo.test/caminho",
-    "/caminho/relativo",
-    "exemplo.test",
-    "http:exemplo.test",
-    "https://",
-    "https:// exemplo.test",
-    "vbscript:msgbox(1)",
-  ])("recusa %s", (url) => {
-    expect(isHttpUrl(url)).toBe(false);
-    expect(validate(socialUrlSchema, url).ok).toBe(false);
-  });
-
-  it("campo vazio (ou só com espaços) equivale a link ausente", () => {
-    expect(validate(socialUrlSchema, "")).toEqual({ ok: true, data: null });
-    expect(validate(socialUrlSchema, "   ")).toEqual({ ok: true, data: null });
-    expect(validate(socialUrlSchema, null)).toEqual({ ok: true, data: null });
-  });
-
-  it("apara os espaços em volta de uma URL válida", () => {
-    expect(validate(socialUrlSchema, "  https://exemplo.test  ")).toEqual({
-      ok: true,
-      data: "https://exemplo.test",
-    });
+    ["github", "javascript:alert(1)"],
+    ["github", "data:text/html,<script>alert(1)</script>"],
+    ["github", "http://exemplo.test"],
+    ["github", "ftp://exemplo.test/arquivo"],
+    ["github", "mailto:alguem@exemplo.test"],
+    ["github", "//exemplo.test/caminho"],
+    ["github", "/caminho/relativo"],
+    ["github", "exemplo.test"],
+    ["github", "https:exemplo.test"],
+    ["github", "https://"],
+    ["github", "https:// exemplo.test"],
+    ["github", "https://exemplo.test/a b"],
+    ["github", `https://exemplo.test/${"a".repeat(2100)}`],
+    ["github", "vbscript:msgbox(1)"],
+    ["email", "https://exemplo.test"],
+    ["email", "javascript:alert(1)"],
+    ["email", "alguem@exemplo.test"],
+    ["email", "mailto:"],
+    ["email", "mailto:sem-arroba"],
+    ["email", "mailto:alguem@semponto"],
+    ["email", "mailto:alguem@exemplo.test?subject=oi"],
+    ["email", "mailto:a?bcc=x@exemplo.test"],
+    ["email", "mailto:a#b@exemplo.test"],
+    ["email", "mailto:dois@exemplo.test,tres@exemplo.test"],
+    ["email", "mailto:com espaço@exemplo.test"],
+  ])("recusa %s: %s", (icon, url) => {
+    expect(footerUrlError(icon, url)).not.toBeNull();
   });
 });
 
-describe("logotipo e favicon (D-10)", () => {
-  it.each(["https://exemplo.test/logo.png", "/logo.svg", "/imagens/favicon.ico"])("aceita %s", (url) => {
-    expect(isAssetUrl(url)).toBe(true);
+describe("rodapé (PUT /api/footer-links; RF24, RN17)", () => {
+  /** @param {unknown} input */
+  const fields = (input) => {
+    const result = validate(footerLinksSchema, input, { bracketIndexes: true });
+    return result.ok ? [] : result.details.map((detail) => detail.field);
+  };
+
+  it("aceita de 0 a 8 links, na ordem do vetor, com a URL aparada", () => {
+    expect(validate(footerLinksSchema, { links: [] })).toEqual({ ok: true, data: { links: [] } });
+    const input = { links: [{ icon: "github", url: "  https://github.com/ana " }, { icon: "email", url: "mailto:ana@exemplo.com" }] };
+    expect(validate(footerLinksSchema, input)).toEqual({
+      ok: true,
+      data: { links: [{ icon: "github", url: "https://github.com/ana" }, { icon: "email", url: "mailto:ana@exemplo.com" }] },
+    });
+    const eight = FOOTER_ICONS.slice(0, 8).map((icon) => ({ icon, url: icon === "email" ? "mailto:a@b.co" : "https://exemplo.test/x" }));
+    expect(validate(footerLinksSchema, { links: eight }).ok).toBe(true);
   });
 
-  it.each(["//exemplo.test/logo.png", "logo.png", "javascript:alert(1)", "data:image/png;base64,AAAA", "/\\exemplo.test"])(
-    "recusa %s",
-    (url) => {
-      expect(isAssetUrl(url)).toBe(false);
-    },
-  );
+  it("o teto é 8: o nono link recusa o lote", () => {
+    const nine = FOOTER_ICONS.slice(0, 9).map((icon) => ({ icon, url: "https://exemplo.test/x" }));
+    expect(fields({ links: nine })).toEqual(["links"]);
+  });
+
+  it("um ícone fora da lista fechada é recusado, com o campo do item", () => {
+    expect(fields({ links: [{ icon: "github", url: "https://a.test" }, { icon: "tiktok", url: "https://a.test" }] })).toEqual(["links[1].icon"]);
+  });
+
+  it("o mesmo ícone duas vezes é recusado no SEGUNDO item", () => {
+    expect(fields({ links: [{ icon: "github", url: "https://a.test" }, { icon: "x", url: "https://b.test" }, { icon: "github", url: "https://c.test" }] })).toEqual(["links[2].icon"]);
+  });
+
+  it("a URL inválida é recusada com links[i].url, e cada item inválido tem o seu details", () => {
+    expect(fields({ links: [{ icon: "github", url: "javascript:alert(1)" }, { icon: "x", url: "https://x.test" }, { icon: "email", url: "https://nao-e-mailto.test" }] })).toEqual([
+      "links[0].url",
+      "links[2].url",
+    ]);
+  });
+
+  it("URL vazia ou ausente, e corpo que não é { links: [...] }, são recusados", () => {
+    expect(fields({ links: [{ icon: "github", url: "   " }] })).toEqual(["links[0].url"]);
+    expect(fields({ links: [{ icon: "github" }] })).toEqual(["links[0].url"]);
+    expect(fields({})).toEqual(["links"]);
+    expect(fields({ links: "github" })).toEqual(["links"]);
+    expect(fields(null)).not.toEqual([]);
+  });
+
+  it("sem bracketIndexes, o campo usa o ponto (a convenção das outras rotas)", () => {
+    const result = validate(footerLinksSchema, { links: [{ icon: "github", url: "x" }] });
+    expect(result.ok ? [] : result.details.map((detail) => detail.field)).toEqual(["links.0.url"]);
+  });
 });
 
 describe("criação de conteúdo (POST /api/contents)", () => {
@@ -264,18 +302,21 @@ describe("lote de reordenação (PATCH /api/contents/reorder)", () => {
 });
 
 describe("configuração (PUT /api/configuration)", () => {
-  it("aceita identidade, cores e os seis links sociais", () => {
+  it("aceita identidade e cores", () => {
     const input = {
       siteName: "Notas de Aula",
       siteDescription: "Material didático",
       primaryColor: "#112233",
       secondaryColor: "#445566",
       accentColor: "#778899",
-      logoUrl: "/logo.svg",
-      faviconUrl: "https://exemplo.test/favicon.ico",
-      ...Object.fromEntries(SOCIAL_URL_FIELDS.map((field) => [field, `https://exemplo.test/${field}`])),
     };
     expect(validate(configurationUpdateSchema, input)).toEqual({ ok: true, data: input });
+  });
+
+  it("não aceita mais as URLs de logotipo e favicon nem os links sociais fixos (A-029): são descartados", () => {
+    const legacy = { logoUrl: "/logo.svg", faviconUrl: "https://exemplo.test/favicon.ico", githubUrl: "https://github.com/x", discordUrl: "javascript:alert(1)" };
+    expect(validate(configurationUpdateSchema, { siteName: "Nome", ...legacy })).toEqual({ ok: true, data: { siteName: "Nome" } });
+    expect(validate(configurationUpdateSchema, legacy).ok).toBe(false); // sem campo válido: "informe ao menos um campo"
   });
 
   it("recusa cor fora de #RRGGBB em cada um dos três campos (CT24)", () => {
@@ -284,17 +325,8 @@ describe("configuração (PUT /api/configuration)", () => {
     }
   });
 
-  it("recusa link social que não seja http(s) em cada um dos seis campos (CT33)", () => {
-    for (const field of SOCIAL_URL_FIELDS) {
-      expect(invalidFields(configurationUpdateSchema, { [field]: "javascript:alert(1)" })).toEqual([field]);
-    }
-  });
-
   it("converte campos opcionais vazios em null (RN17)", () => {
-    expect(validate(configurationUpdateSchema, { githubUrl: "", siteDescription: "  ", logoUrl: "" })).toEqual({
-      ok: true,
-      data: { githubUrl: null, siteDescription: null, logoUrl: null },
-    });
+    expect(validate(configurationUpdateSchema, { siteDescription: "  " })).toEqual({ ok: true, data: { siteDescription: null } });
   });
 
   it("recusa nome do site em branco e atualização sem campos", () => {
@@ -351,7 +383,7 @@ describe("destino do redirecionamento após o login (UC08)", () => {
 
 describe("handle (RN20)", () => {
   it("a lista de reservados é a da RN20 e não tem repetidos", () => {
-    expect([...RESERVED_HANDLES]).toEqual(["admin", "api", "login", "logout", "_next"]);
+    expect([...RESERVED_HANDLES]).toEqual(["admin", "api", "login", "logout", "media", "_next"]);
     expect(new Set(RESERVED_HANDLES).size).toBe(RESERVED_HANDLES.length);
   });
 
@@ -375,6 +407,7 @@ describe("handle (RN20)", () => {
     ["reservado api", "api"],
     ["reservado login", "login"],
     ["reservado logout", "logout"],
+    ["reservado media (as imagens, /media/<id>; A-029)", "media"],
     ["reservado _next", "_next"],
     ["número", 42],
   ])("handleError recusa %s", (_label, handle) => {
@@ -444,8 +477,11 @@ describe("configuração do site e aparência (RF30, RF31)", () => {
 
   it("a aparência vale as mesmas regras de cor e de link", () => {
     expect(invalidFields(appearanceUpdateSchema, { primaryColor: "vermelho" })).toEqual(["primaryColor"]);
-    expect(invalidFields(appearanceUpdateSchema, { githubUrl: "javascript:alert(1)" })).toEqual(["githubUrl"]);
-    expect(validate(appearanceUpdateSchema, { discordUrl: "" })).toEqual({ ok: true, data: { discordUrl: null } });
+    // Os links sociais fixos e as URLs de imagem saíram (A-029): são descartados, e o rodapé é de /api/footer-links.
+    expect(validate(appearanceUpdateSchema, { siteName: "Meu espaço", githubUrl: "javascript:alert(1)", logoUrl: "/x.png" })).toEqual({
+      ok: true,
+      data: { siteName: "Meu espaço" },
+    });
   });
 });
 

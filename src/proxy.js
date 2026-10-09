@@ -33,8 +33,8 @@ import {
  */
 export const NOT_FOUND_SEGMENT = "_nao-encontrado";
 
-/** Primeiros segmentos que não são de espaço: o Next.js, a API e o login (o painel tem o ramo próprio). */
-const STATIC_SEGMENTS = new Set(["api", "_next", "login", NOT_FOUND_SEGMENT]);
+/** Primeiros segmentos que não são de espaço: o Next.js, a API, as imagens e o login (o painel tem o ramo próprio). */
+const STATIC_SEGMENTS = new Set(["api", "_next", "login", "media", NOT_FOUND_SEGMENT]);
 
 /** @param {string} value */
 const isHandleShape = (value) =>
@@ -95,8 +95,9 @@ export async function proxy(request) {
 export const config = {
   matcher: [
     "/admin/:path*",
-    // Todo primeiro segmento público: tudo, menos a raiz (o portal), `api`, `_next`, `login`, o painel (já
-    // coberto acima) e os arquivos com extensão (`favicon.ico`, `/public`).
-    "/((?!api(?:/|$)|_next(?:/|$)|login(?:/|$)|admin(?:/|$)|.*\\.[^/]*$).+)",
+    // Todo primeiro segmento público: tudo, menos a raiz (o portal), `api`, `_next`, `login`, `media` (as imagens,
+    // que não passam pela consulta do handle), o painel (já coberto acima) e os arquivos com extensão
+    // (`favicon.ico`, `/public`).
+    "/((?!api(?:/|$)|_next(?:/|$)|login(?:/|$)|media(?:/|$)|admin(?:/|$)|.*\\.[^/]*$).+)",
   ],
 };

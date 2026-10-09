@@ -18,6 +18,9 @@ export async function resetContent() {
   resetRateLimits();
   await prisma.content.deleteMany();
   await prisma.configuration.deleteMany();
+  // O logotipo, o favicon e o rodapé do SISTEMA não têm dono (os de usuário saem em cascata com a conta).
+  await prisma.footerLink.deleteMany({ where: { ownerId: null } });
+  await prisma.image.deleteMany({ where: { ownerId: null } });
 }
 
 /** Remove tudo, inclusive usuários (sessões e contas saem em cascata). */

@@ -15,7 +15,6 @@ import { revalidatePath } from "next/cache";
 import * as configurationRoute from "@/app/api/configuration/route";
 import { prisma } from "@/lib/db";
 import { contrastWarnings } from "@/lib/theme";
-import { SOCIAL_URL_FIELDS } from "@/lib/validators";
 import { apiRequest, createAdminSession, resetContent } from "./helpers";
 
 /** @type {string} */
@@ -109,16 +108,15 @@ describe("PUT /api/configuration", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it.each(SOCIAL_URL_FIELDS)("CT33: %s com protocolo diferente de http(s) responde 422", async (field) => {
-    for (const url of ["javascript:alert(1)", "data:text/html,x", "ftp://exemplo.test"]) {
-      const response = await put({ [field]: url });
+  it("as URLs de logotipo e favicon e os links sociais fixos saíram (A-029): são descartados, não gravados nem devolvidos", async () => {
+    const response = await put({ siteName: "Notas", logoUrl: "/logo.svg", faviconUrl: "https://exemplo.test/f.ico", githubUrl: "javascript:alert(1)" });
 
-      expect(response.status).toBe(422);
-      const { error } = await response.json();
-      expect(error.code).toBe("VALIDATION_ERROR");
-      expect(error.details.map((detail) => detail.field)).toEqual([field]);
-    }
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    const { data } = await response.json();
+    expect(data.siteName).toBe("Notas");
+    for (const field of ["logoUrl", "faviconUrl", "githubUrl", "discordUrl"]) expect(data).not.toHaveProperty(field);
+    // Sozinhos, não sobra campo a atualizar.
+    expect((await put({ githubUrl: "https://github.com/x" })).status).toBe(422);
   });
 
   it("recusa nome em branco, corpo vazio e JSON malformado", async () => {

@@ -126,6 +126,11 @@ export function describeNotification({ type, data }) {
         title: "Sua senha foi redefinida",
         text: "Um administrador redefiniu a sua senha. Entre com a senha provisória que ele lhe passou e troque-a em seguida.",
       };
+    case "AVATAR_REMOVED":
+      return {
+        title: "Avatar removido",
+        text: `Um administrador removeu o seu avatar. Você pode enviar outro em Perfil.${reasonSentence(data.reason)}`,
+      };
     case "CONTENT_UNPUBLISHED":
       return {
         title: "Conteúdo despublicado",

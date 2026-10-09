@@ -4,6 +4,7 @@
 // (`SpaceLayout`) é montada pelas páginas (`SpaceFrame`), porque a *sidebar* depende do caminho.
 // Tudo passa pela guarda do `next build` (`getSpace`): o build não consulta o banco (ADR-021).
 import { notFound } from "next/navigation";
+import { faviconMetadata } from "../_lib/site";
 import { getSpace } from "../_lib/space";
 
 /** Rede de segurança do ISR (Cap. 5 §5.7): as escritas revalidam por caminhos literais. */
@@ -19,6 +20,8 @@ export async function generateMetadata({ params }) {
     // `absolute`: o título do próprio espaço ignora o modelo do layout raiz ("Vitrine").
     title: { absolute: space.name, template: `%s | ${space.name}` },
     ...(description ? { description } : {}),
+    // O favicon efetivo do espaço: o do dono, ou o do sistema se ele não enviou um (ADR-038).
+    ...faviconMetadata(space.appearance.faviconImageId),
   };
 }
 

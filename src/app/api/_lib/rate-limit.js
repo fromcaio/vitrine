@@ -14,6 +14,8 @@ export const RATE_LIMITS = Object.freeze({
   password: 5,
   /** Notificações: marcar como lida e dispensar (o painel marca uma a uma, ao abrir). */
   notifications: 60,
+  /** Envio e remoção de imagem (logotipo, favicon, avatar; A-029, ADR-034, item 4): cada envio decodifica e reencoda. */
+  media: 10,
 });
 
 /** Duração da janela, em milissegundos. */

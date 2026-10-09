@@ -173,26 +173,3 @@ export function validateLinks(links) {
   });
   return { rows, general: links.length > MAX_FOOTER_LINKS ? MESSAGES.full : "" };
 }
-
-/** Os seis campos do registro antigo e o ícone de cada um, na ordem em que o rodapé antigo os mostrava. */
-const LEGACY_FIELDS = /** @type {const} */ ([
-  ["discordUrl", "discord"],
-  ["githubUrl", "github"],
-  ["youtubeUrl", "youtube"],
-  ["instagramUrl", "instagram"],
-  ["linkedinUrl", "linkedin"],
-  ["twitchUrl", "twitch"],
-]);
-
-/**
- * TRANSIÇÃO (até o Core ligar o rodapé novo, A-029; depois, apague): o registro antigo de aparência ou de
- * configuração, com os seis campos `*Url` (ADR-013), vira a lista de links do rodapé novo. Só passa o que o
- * rodapé aceita (`renderableLinks`): um `http://` antigo, que a RN17 nova recusa, fica de fora. Sem o
- * registro, lista vazia.
- * @param {Record<string, unknown> | null | undefined} record
- * @returns {FooterLink[]}
- */
-export function legacyFooterLinks(record) {
-  if (!record) return [];
-  return renderableLinks(LEGACY_FIELDS.map(([field, icon]) => ({ icon, url: record[field] })));
-}

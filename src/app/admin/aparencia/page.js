@@ -5,13 +5,14 @@
 // escolhe o alvo por `?alvo=` (`AppearanceTargetTabs`): `sistema` (o padrão; `SiteIdentityForm`, contra
 // `PUT /api/configuration`: o que se vê em `/`, no login e no painel dele, e a base de quem não definiu a
 // própria) ou `pagina` (o espaço dele); qualquer outro valor cai no padrão. A API é quem recusa o usuário
-// comum que tente o alvo do sistema (403): aqui ele nunca o vê.
+// comum que tente o alvo do sistema (403): aqui ele nunca o vê. O logotipo, o favicon e o rodapé são do alvo
+// (`media` e `footerLinks`): o do sistema ou o do espaço do dono, nunca o de outro.
 import { AppearanceForm } from "@/components/admin/AppearanceForm";
 import { AppearanceTargetTabs } from "@/components/admin/AppearanceTargetTabs";
 import { SiteIdentityForm } from "@/components/admin/SiteIdentityForm";
-import { getAppearance, getConfiguration } from "@/lib/db";
+import { getAppearance, getConfiguration, listFooterLinks } from "@/lib/db";
 import { notFound } from "next/navigation";
-import { appearanceInitial, configurationInitial, systemReference } from "../_lib/forms";
+import { appearanceInitial, configurationInitial, footerLinksOf, mediaOf, systemReference } from "../_lib/forms";
 import { requireSession } from "../_lib/session";
 
 export const metadata = {
@@ -31,7 +32,12 @@ export default async function AppearancePage({ searchParams }) {
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
         <h1 className="text-2xl font-semibold">Aparência do sistema</h1>
         <AppearanceTargetTabs role={user.role} active={target} />
-        <SiteIdentityForm key={target} initial={configurationInitial(configuration)} />
+        <SiteIdentityForm
+          key={target}
+          initial={configurationInitial(configuration)}
+          media={mediaOf(configuration)}
+          footerLinks={footerLinksOf(await listFooterLinks(null))}
+        />
       </div>
     );
   }
@@ -42,7 +48,13 @@ export default async function AppearancePage({ searchParams }) {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <h1 className="text-2xl font-semibold">Aparência do seu espaço</h1>
       <AppearanceTargetTabs role={user.role} active={target} />
-      <AppearanceForm key={target} initial={appearanceInitial(appearance)} system={systemReference(configuration)} />
+      <AppearanceForm
+        key={target}
+        initial={appearanceInitial(appearance)}
+        system={systemReference(configuration)}
+        media={mediaOf(appearance)}
+        footerLinks={footerLinksOf(await listFooterLinks(user.id))}
+      />
     </div>
   );
 }

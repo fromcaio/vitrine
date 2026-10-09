@@ -17,6 +17,7 @@ export function publicUser(user) {
     name: user.name,
     email: user.email,
     handle: user.handle ?? null,
+    avatarImageId: user.avatarImageId ?? null,
     role: user.role,
     suspended: isSuspended(user),
     banReason: user.banned ? (user.banReason ?? null) : null,

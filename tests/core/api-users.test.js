@@ -84,7 +84,7 @@ describe("POST /api/users: só o administrador cria contas (CT06)", () => {
   it("a resposta nunca traz a senha em hash, as contas nem as sessões", async () => {
     const { data } = await (await create({ email: "carla@exemplo.test", name: "Carla" })).json();
     expect(Object.keys(data).sort()).toEqual(
-      ["banExpires", "banReason", "createdAt", "email", "handle", "id", "mustChangePassword", "name", "role", "suspended", "temporaryPassword", "updatedAt"].sort(),
+      ["avatarImageId", "banExpires", "banReason", "createdAt", "email", "handle", "id", "mustChangePassword", "name", "role", "suspended", "temporaryPassword", "updatedAt"].sort(),
     );
   });
 

@@ -4,13 +4,14 @@
 // modo é só do sistema. O painel é dinâmico, então a mescla é feita a cada requisição. Pasta privada do
 // App Router: não gera rota.
 import { getEffectiveAppearance } from "@/lib/db";
-import { siteNameOf } from "../../_lib/site";
+import { mediaUrlOf, siteNameOf } from "../../_lib/site";
 
 /**
  * @typedef {object} PanelAppearance
  * @property {Record<string, unknown> | null} theme o registro de que `buildThemeStyle` tira as paletas
  *   (`null`: valem as paletas padrão do globals.css)
  * @property {string} siteName
+ * @property {string | null} logoUrl o logotipo (`/media/<id>`), ou `null` para o embutido (RN29)
  * @property {boolean} showLogo
  * @property {boolean} showName
  * @property {string | undefined} modeIconPair
@@ -28,10 +29,18 @@ export async function panelAppearance({ role, userId, configuration }) {
     return {
       theme: configuration,
       siteName: siteNameOf(configuration),
+      logoUrl: mediaUrlOf(configuration?.logoImageId),
       showLogo: configuration?.showLogo ?? true,
       showName: configuration?.showName ?? true,
       modeIconPair,
     };
   }
-  return { theme: effective, siteName: effective.siteName, showLogo: effective.showLogo, showName: effective.showName, modeIconPair };
+  return {
+    theme: effective,
+    siteName: effective.siteName,
+    logoUrl: mediaUrlOf(effective.logoImageId),
+    showLogo: effective.showLogo,
+    showName: effective.showName,
+    modeIconPair,
+  };
 }

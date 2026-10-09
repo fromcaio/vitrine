@@ -199,6 +199,16 @@ describe("/admin/perfil: o perfil da sessão", () => {
     expect(JSON.stringify(props)).not.toContain("segredo");
   });
 
+  it("o avatar é o do usuário da sessão (/media/<id>), ou null sem avatar (A-029, RF36)", async () => {
+    expect(propsOf(await ProfilePage(), ProfileFormWithRefresh).avatar).toEqual({ url: null });
+
+    const { replaceImage } = await import("@/lib/db");
+    const sent = await replaceImage("avatar", ana.id, { mime: "image/webp", bytes: Buffer.from("x"), width: 256, height: 256, sha256: "f".repeat(64) });
+    session.user = { ...ana, avatarImageId: sent.id };
+
+    expect(propsOf(await ProfilePage(), ProfileFormWithRefresh).avatar).toEqual({ url: `/media/${sent.id}` });
+  });
+
   it("sem handle, o endereço do espaço é null (a UI mostra o aviso)", async () => {
     session.user = { ...ana, handle: null };
 
@@ -209,7 +219,7 @@ describe("/admin/perfil: o perfil da sessão", () => {
   });
 
   it("o envoltório Cliente atualiza o cabeçalho: onSaved chama router.refresh()", () => {
-    const element = ProfileFormWithRefresh({ user: { name: "Ana", email: "a@x.test", handle: "ana", role: "user" }, spaceHref: "/ana" });
+    const element = ProfileFormWithRefresh({ user: { name: "Ana", email: "a@x.test", handle: "ana", role: "user" }, spaceHref: "/ana", avatar: { url: null } });
 
     expect(element.type).toBe(ProfileForm);
     expect(element.props).toMatchObject({ spaceHref: "/ana", user: { name: "Ana" } });

@@ -5,8 +5,8 @@
 // (ADR-021): no build, valem os padrões e nenhuma consulta é feita; o `revalidate` de 60 s o põe em dia.
 import { PortalHome } from "@/components/layout/PortalHome";
 import { SpaceLayout } from "@/components/layout/SpaceLayout";
-import { listPublicSpaces } from "@/lib/db";
-import { buildThemeStyle, getSiteConfiguration, siteNameOf } from "../_lib/site";
+import { listFooterLinks, listPublicSpaces } from "@/lib/db";
+import { buildThemeStyle, getSiteConfiguration, mediaUrlOf, siteNameOf } from "../_lib/site";
 
 /**
  * Rede de segurança do ISR do portal: 60 s (R-016). O portal sai do `next build` com os padrões (o build
@@ -21,16 +21,19 @@ export default async function PortalPage() {
   const name = siteNameOf(configuration);
   // Sem configuração (build, ou o banco fora do ar), nem o diretório é consultado.
   const spaces = configuration?.directoryEnabled ? await listPublicSpaces() : null;
+  // O rodapé do sistema (RN17): sem configuração (build, banco fora do ar), nenhuma consulta e rodapé vazio.
+  const footerLinks = configuration ? await listFooterLinks(null) : [];
 
   return (
     <SpaceLayout
       themeStyle={buildThemeStyle(configuration)}
       name={name}
       homeHref="/"
+      logoUrl={mediaUrlOf(configuration?.logoImageId)}
       showLogo={configuration?.showLogo ?? true}
       showName={configuration?.showName ?? true}
       modeIconPair={configuration?.modeIconPair ?? undefined}
-      socialLinks={configuration}
+      footerLinks={footerLinks}
     >
       <PortalHome
         title={name}

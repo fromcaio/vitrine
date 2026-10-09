@@ -8,7 +8,7 @@
 // exercitou isto contra o servidor real); (h) o usuário comum recebe 404 nas páginas novas. Contas e conteúdo
 // FICTÍCIOS. As sessões usam a fixture `page`, então a guarda de CSP vale em todo o fluxo.
 import { signIn, waitForHydration } from "./support/auth.js";
-import { adminLogin, apiLogin, createAccount, createContent, nextIp } from "./support/accounts.js";
+import { adminLogin, apiLogin, createAccount, createAdminAccount, createContent, nextIp, removeAccount } from "./support/accounts.js";
 import { ADMIN } from "./support/env.js";
 import { expect, test } from "./support/test.js";
 
@@ -18,6 +18,8 @@ const BETO = mk("beto", "Beto Editado");
 const SUSP = mk("susp", "Susp do Teste");
 const V1 = mk("v1", "Vítima Transferida");
 const V2 = mk("v2", "Vítima Apagada");
+/** O segundo administrador, só da interface (teste "(0)"): ver o comentário dele. */
+const ADMIN_UI = { email: "admin-ui-usr-e2e@exemplo.test", name: "Administrador da Interface", password: "senha-admin-ui-usr-9" };
 const NOVO = { email: "novo-usr-e2e@exemplo.test", name: "Novo pela Interface", handle: "usr-novo" };
 
 /** O motivo de moderação com marcação: nada disto pode virar HTML nem executar. */
@@ -59,6 +61,8 @@ test.describe.serial("usuários e moderação", () => {
   /** @type {Record<string, import("@playwright/test").APIRequestContext>} */
   const api = {};
   const ids = { aula: "", rascunho: "", colecao: "", docBeto: "" };
+  /** @type {{ id: string, email: string, password: string }} */
+  let adminUi;
 
   test.beforeAll(async ({ playwright }) => {
     // O limite de escritas do administrador (RN25) pode fazer a criação das contas esperar o Retry-After.
@@ -80,12 +84,43 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test.afterAll(async () => {
+    // O segundo administrador sai: os testes dos outros specs supõem um só (o último administrador).
+    if (adminUi) await removeAccount(admin, adminUi.id);
     await admin?.dispose();
     for (const context of Object.values(api)) await context.dispose();
   });
 
-  test("(a) criar usuário: a senha provisória aparece UMA vez, funciona no login e não volta ao recarregar", async ({ page, playwright }) => {
+  test("(d) a própria conta e o último administrador: nada de suspender, excluir ou rebaixar a si mesmo", async ({ page }) => {
     await login(page, ADMIN);
+    await page.goto("/admin/usuarios");
+    await usersReady(page);
+    const mine = await findUser(page, { email: ADMIN.email, name: ADMIN.name });
+
+    await expect(mine.getByRole("button", { name: `Suspender: ${ADMIN.name}` })).toBeDisabled();
+    await expect(mine.getByRole("button", { name: `Excluir: ${ADMIN.name}` })).toBeDisabled();
+    await mine.getByRole("button", { name: `Editar: ${ADMIN.name}` }).click();
+    await expect(page.getByLabel("Papel")).toBeDisabled(); // o único administrador ativo não é rebaixado
+    await expect(page.getByText("É o último administrador ativo", { exact: false }).first()).toBeVisible();
+
+    // O servidor decide o mesmo, pela API.
+    const meId = (await (await admin.get("/api/users/me")).json()).data.id;
+    expect((await admin.post(`/api/users/${meId}/ban`, { data: { reason: "x" } })).status()).toBe(403);
+    expect((await admin.delete(`/api/users/${meId}`)).status()).toBe(403);
+    const demote = await admin.patch(`/api/users/${meId}`, { data: { role: "user" } });
+    expect([403, 409]).toContain(demote.status());
+    expect((await demote.json()).error.code).toMatch(/LAST_ADMIN|FORBIDDEN/);
+  });
+
+  test("(0) um segundo administrador, só para as sessões de navegador que escrevem em /api/users", async ({ playwright }) => {
+    // O limite de escritas de /api/users (RN25) é por usuário, e os specs anteriores, em série, gastaram o do administrador
+    // único: a requisição da interface que cai com a janela cheia responde 429 e o diálogo fica aberto (a causa da oscilação
+    // deste spec, medida no traço: `DELETE /api/users/:id 429`). Criado DEPOIS do teste (d), que supõe um só administrador.
+    adminUi = await createAdminAccount(playwright, admin, ADMIN_UI);
+    expect(adminUi.id).toBeTruthy();
+  });
+
+  test("(a) criar usuário: a senha provisória aparece UMA vez, funciona no login e não volta ao recarregar", async ({ page, playwright }) => {
+    await login(page, ADMIN_UI);
     await page.goto("/admin/usuarios");
     await usersReady(page);
     await expect(page.getByRole("heading", { name: "Usuários", level: 1 })).toBeVisible();
@@ -117,29 +152,8 @@ test.describe.serial("usuários e moderação", () => {
     await findUser(page, { ...NOVO, name: NOVO.name });
   });
 
-  test("(d) a própria conta e o último administrador: nada de suspender, excluir ou rebaixar a si mesmo", async ({ page }) => {
-    await login(page, ADMIN);
-    await page.goto("/admin/usuarios");
-    await usersReady(page);
-    const mine = await findUser(page, { email: ADMIN.email, name: ADMIN.name });
-
-    await expect(mine.getByRole("button", { name: `Suspender: ${ADMIN.name}` })).toBeDisabled();
-    await expect(mine.getByRole("button", { name: `Excluir: ${ADMIN.name}` })).toBeDisabled();
-    await mine.getByRole("button", { name: `Editar: ${ADMIN.name}` }).click();
-    await expect(page.getByLabel("Papel")).toBeDisabled(); // o único administrador ativo não é rebaixado
-    await expect(page.getByText("É o último administrador ativo", { exact: false }).first()).toBeVisible();
-
-    // O servidor decide o mesmo, pela API.
-    const meId = (await (await admin.get("/api/users/me")).json()).data.id;
-    expect((await admin.post(`/api/users/${meId}/ban`, { data: { reason: "x" } })).status()).toBe(403);
-    expect((await admin.delete(`/api/users/${meId}`)).status()).toBe(403);
-    const demote = await admin.patch(`/api/users/${meId}`, { data: { role: "user" } });
-    expect([403, 409]).toContain(demote.status());
-    expect((await demote.json()).error.code).toMatch(/LAST_ADMIN|FORBIDDEN/);
-  });
-
   test("(b) suspender com o motivo: o motivo é obrigatório e o cartão mostra a suspensão", async ({ page }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto("/admin/usuarios");
     await usersReady(page);
     const card = await findUser(page, SUSP);
@@ -169,7 +183,7 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test("(b) reativar: o usuário volta a entrar", async ({ page, playwright }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto("/admin/usuarios");
     await usersReady(page);
     const card = await findUser(page, SUSP);
@@ -182,7 +196,7 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test("(c) excluir com TRANSFERIR: o conteúdo vai para o destino e a conta some", async ({ page }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto("/admin/usuarios");
     await usersReady(page);
     const card = await findUser(page, V1);
@@ -202,7 +216,7 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test("(c) excluir com APAGAR: pede o e-mail da conta, e o conteúdo some junto", async ({ page }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto("/admin/usuarios");
     await usersReady(page);
     const card = await findUser(page, V2);
@@ -226,7 +240,7 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test("(e) moderar a árvore de outro usuário: despublicar e excluir com o motivo; o motivo é obrigatório", async ({ page }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto(`/admin/usuarios/${accounts.ana.id}/conteudo`);
 
     await expect(page.getByRole("heading", { name: `Conteúdo de ${ANA.name}`, level: 1 })).toBeVisible();
@@ -275,7 +289,7 @@ test.describe.serial("usuários e moderação", () => {
 
   test("(f) editar o conteúdo alheio no editor: motivo + version, e o conflito de versão escolhe qual texto vale", async ({ page }) => {
     test.setTimeout(120_000);
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     await page.goto(`/admin/usuarios/${accounts.beto.id}/conteudo/${ids.docBeto}`);
 
     await expect(page.getByRole("heading", { name: `Moderar documento de ${BETO.name}`, level: 1 })).toBeVisible();
@@ -343,7 +357,7 @@ test.describe.serial("usuários e moderação", () => {
   });
 
   test("(h) o administrador: o usuário [id] inexistente, o conteúdo de OUTRO dono (endereço forjado) e /usuarios/[id] respondem 404", async ({ page }) => {
-    await login(page, ADMIN);
+    await login(page, ADMIN_UI);
     const status = async (path) => (await page.goto(path))?.status();
 
     expect(await status("/admin/usuarios/nao-existe/conteudo")).toBe(404);

@@ -1,10 +1,10 @@
 // Moldura das páginas do espaço público (RF29, ADR-030): monta o `SpaceLayout` da UI com a aparência do
-// dono (a efetiva: a dele sobre a do sistema), o nome, a barra superior, os links sociais e as abas das coleções raiz publicadas. É das PÁGINAS, e
+// dono (a efetiva: a dele sobre a do sistema), o nome, o logotipo, a barra superior, o rodapé de ícones dele (não herda do sistema, RN17) e as abas das coleções raiz publicadas. É das PÁGINAS, e
 // não do `layout.js`, porque a *sidebar* e a aba corrente dependem do caminho, que um layout não
 // recebe. Pasta privada do App Router: não gera rota.
 import { SpaceLayout } from "@/components/layout/SpaceLayout";
 import { navItemsOf } from "@/components/layout/space-paths";
-import { buildThemeStyle } from "./site";
+import { buildThemeStyle, mediaUrlOf } from "./site";
 
 /**
  * @param {object} props
@@ -21,6 +21,7 @@ export function SpaceFrame({ space, collection = null, activePath = [], children
       themeStyle={buildThemeStyle(appearance)}
       name={name}
       homeHref={basePath}
+      logoUrl={mediaUrlOf(appearance.logoImageId)}
       showLogo={appearance.showLogo}
       showName={appearance.showName}
       modeIconPair={modeIconPair}
@@ -28,7 +29,7 @@ export function SpaceFrame({ space, collection = null, activePath = [], children
       collection={collection}
       basePath={basePath}
       activePath={activePath}
-      socialLinks={appearance}
+      footerLinks={appearance.footerLinks}
     >
       {children}
     </SpaceLayout>
