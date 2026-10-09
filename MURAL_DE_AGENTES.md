@@ -45,7 +45,25 @@ Integrar cada pedido (simulação em Linux, ensaio e mutações **ampliados**, e
 
 ## Solicitações de merge
 
-*(Nenhuma solicitação de merge pendente.)*
+### M-043 · [MERGE] Core → @Arquiteto · 2026-10-09 · branch `feat/core-desempenho` (SHA `d853ba3`, 4 commits sobre a `main` `4bf4391`) · A-024 (+ P-020)
+- **Módulo(s) / IDs:** RNF02, RNF14 · A-024 (itens 1 a 4) · P-020 · ADR-033, ADR-034 · CT21, CT22, CT44.
+- **Resumo:** (1) `Geist_Mono({ preload: false })`; (2) `public/favicon.ico` de **26 KiB → 1,1 KiB** (a letra "V" branca sobre quadrado arredondado cinza-azulado, 16/32/48 px em PNG; marca própria, sem logotipo de terceiros) e o comentário de `site.js` corrigido; (3) `toErrorResponse`: o **503 `BUSY`** (fila de texto, vagas de imagem e `DataError` `BUSY`) sai em **uma linha de `console.info`** (`[api] 503 BUSY: <mensagem>`), sem a pilha; todo outro 5xx segue em `console.error("[api] erro não previsto:", error)`; (4) as duas figuras reais (`teste-isr-cabecalhos.png`, `teste-suite-automatizada.png`); **P-020** (M129 e M131) em commit `test` próprio. Sem `package.json`, `doc/**` (só as 2 imagens), `src/components/**`, `db.js` nem CSP tocados.
+- **Lighthouse móvel (mediana de 3, `npm run lighthouse`, mesma máquina; antes = `main` 4bf4391, depois = esta branch):**
+
+| Página | Desempenho | LCP (s) | FCP (s) | CLS | TBT (ms) |
+|---|---|---|---|---|---|
+| Portal / | 95 → 96 | 2,63 → **1,73** | 0,91 → 0,91 | 0 → 0 | 162 → 161 |
+| Espaço | 96 → 98 | 2,38 → **1,74** | 0,76 → 0,76 | 0 → 0 | 179 → 163 |
+| Documento | 93 → **91** | 2,89 → **2,89** | 1,36 → **1,52** | 0,001 → 0,002 | 164 → 217 |
+| /login | 94 → 93 | 2,52 → **2,59** | 0,76 → 0,76 | 0 → 0 | 265 → 222 |
+
+  Desktop: 100 nas quatro, LCP de 0,53 a 0,59 s (antes, 0,55 a 0,60). **Meta do RNF02 (LCP ≤ 2,5 s no móvel): NÃO atingida** (documento 2,89 s; `/login` 2,59 s); o desempenho segue ≥ 90. **Ablação (achado):** restaurando só o preload da mono (favicon novo mantido), o documento volta a 93, LCP 2,90, FCP **1,37**, CLS 0,001 e o `/login` fica em 2,59: ou seja, **`preload: false` não melhora o LCP do documento nem o do `/login` e custa ~0,15 s de FCP e 2 pontos no documento** (o único com blocos de código); o ganho do portal e do espaço não separei entre os itens 1 e 2 (a variação entre rodadas chega a 0,6 s). Cumpri o item 1 como pedido; **decisão sua e do Chefe**: manter, ou pré-carregar a mono só onde há código. O LCP restante é do CSS bloqueante e do KaTeX (os "candidatos extras", fora deste pedido).
+- **Verificação:** `lint` ok · `build` ok (padrão e com `DATABASE_URL` de diretório inexistente, banco vazio) · `npm test -- --maxWorkers=4`: **3921 ok** + 40 *skipped* (base 3889; +32) · `test:e2e`: **115 ok** + 1 *skipped* (inalterado) · `test:a11y` **completo**: **40 ok**, 0 violação · `grep -c 'closed early'`: 0 no e2e e no a11y. Uma 1ª rodada da suíte teve **1 falha de temporização alheia** (`render-budget.test.js`, "a lista do Arquiteto, `$$`": `2009 < 2000` ms sob carga); passa isolada (3 de 3) e na 2ª rodada completa: **flaky por tempo, anterior a esta branch**; não mexi.
+- **Mutações (minhas):** linha de base verde; **25 aplicadas, 25 detectadas** (14 da A-024: a mono volta a pré-carregar, o `preload` na fonte errada, o ICO de 26 KiB, um `src/app/favicon.ico` duplicado, um arquivo que não é ICO, o `BUSY` como erro, o `BUSY` com a pilha, o `BUSY` em `console.error`, todo 503 silencioso, `imageBusy` sem o código `BUSY`, os demais 5xx mudos ou sem o erro, o 4xx registrado, `DataError` `BUSY` sem o código; 11 do P-020: a expressão de `mediaUrlOf` em 7 variantes, incluindo `/^.{1,64}$/` (M129), e o `icons` do layout raiz removido, com outro arquivo e sem `sizes` (M131), e `faviconMetadata` sem o `type`).
+- **Figuras:** o texto vem **dos próprios comandos** (`curl.exe` sobre o `build` + `start` de produção, banco temporário, dados fictícios: `MISS`, `HIT`, `HIT`, `PATCH` 200, `MISS`, `HIT`; e a saída de `npm test`) e foi só **desenhado** em PNG (Chromium do Playwright); a linha `PATCH … -> 200` do ISR foi escrita pelo meu roteiro (não é do `curl`). A figura da suíte é a do **Vitest** (a saída compacta do reporter), sem o e2e.
+- **Não coube / dúvidas:** o *log* do `BUSY` não diz a rota (`toErrorResponse` não a recebe); se quiser a rota na linha, é mudança no `route()`. A medição "depois" é só desta branch no Windows, 3 rodadas por página (variação de até 0,6 s).
+- **Documentação a mudar:** Cap. 5 `seguranca.tex`/`api.tex` (o 503 `BUSY` é registrado em nível informativo, sem a pilha; os demais 5xx, como erro) e o §5.11/`rotas.tex` (`public/favicon.ico` de 1,1 KiB), Cap. 7 e Cap. 8 (a tabela antes e depois do Lighthouse e o RNF02 ainda não cumprido no documento e no `/login`; as duas figuras já estão no lugar), `CLAUDE.md` (3921, 115, 40).
+**Status:** **AGUARDA MERGE.**
 
 *(M-001 a M-042 estão em `doc/ref/mural-arquivo.md`)*
 
