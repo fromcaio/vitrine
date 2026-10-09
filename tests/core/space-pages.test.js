@@ -313,6 +313,16 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
     expect(SpaceFrame({ space: await getSpace("beto") }).props.showName).toBe(true);
   });
 
+  it("a moldura leva o showLogo do dono: falso desliga o logo, e o do sistema não vale (D-40)", async () => {
+    const ana = await user("ana");
+    await user("beto");
+    await updateConfiguration({ showLogo: true });
+    await updateAppearance(ana, { showLogo: false });
+
+    expect(SpaceFrame({ space: await getSpace("ana") }).props).toMatchObject({ showLogo: false, showName: true });
+    expect(SpaceFrame({ space: await getSpace("beto") }).props.showLogo).toBe(true);
+  });
+
   it.each([
     ["inexistente", async () => "ninguem"],
     ["sem handle", async () => "x"],

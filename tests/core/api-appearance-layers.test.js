@@ -198,6 +198,21 @@ describe("mudar o sistema revalida os espaços que herdam o que mudou (ADR-038, 
     expect(pages()).toEqual(["/", "/ana", "/ana/sobre", "/beto", "/beto/sobre"]);
   });
 
+  it("duas unidades mudando juntas (paleta clara e noturna): herdar UMA basta (o Beto herda só a noturna)", async () => {
+    await putSite({ primaryColor: "#111111", secondaryColor: "#222222", accentColor: "#333333", darkPrimaryColor: "#aaaaaa", darkSecondaryColor: "#bbbbbb", darkAccentColor: "#cccccc" });
+
+    expect(pages()).toEqual(["/", "/ana", "/ana/sobre", "/beto", "/beto/sobre"]);
+  });
+
+  it("duas unidades mudando juntas: quem tem as DUAS próprias não é revalidado", async () => {
+    await updateAppearance(beto.id, { ...DARK });
+    vi.mocked(revalidatePath).mockClear();
+
+    await putSite({ primaryColor: "#111111", secondaryColor: "#222222", accentColor: "#333333", darkPrimaryColor: "#aaaaaa", darkSecondaryColor: "#bbbbbb", darkAccentColor: "#cccccc" });
+
+    expect(pages()).toEqual(["/", "/ana", "/ana/sobre"]);
+  });
+
   it("o NOME do sistema: só quem herda o nome (a Ana; o Beto tem o dele)", async () => {
     await putSite({ siteName: "Turma 2026" });
 
