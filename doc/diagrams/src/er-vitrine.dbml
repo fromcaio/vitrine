@@ -22,8 +22,8 @@
 //   - tabelas novas: appearances (uma por usuário) e notifications;
 //   - padrões das cores: ADR-031 (clara) e Cap. 5 §5.9 (noturna).
 // Espelha prisma/schema.prisma e a migração 20261004120000_multiusuario.
-// ÉPICO V1 (ALVO; A-025, ADR-034, ADR-035 e ADR-038; integra com a A-026): este arquivo já descreve
-// o modelo ALVO; o prisma/schema.prisma só o terá depois do merge da A-026.
+// ÉPICO V1 (INTEGRADO; A-025, A-026, ADR-034, ADR-035 e ADR-038; merge M-039, 08/10/2026): este arquivo
+// espelha o prisma/schema.prisma e a migração 20261008120000_epico_v1_midia_rodape.
 //   - tabelas novas: images (BLOB reencodado) e footer_links (rodapé por ícones);
 //   - user ganha avatarImageId; configurations e appearances trocam logoUrl/faviconUrl por
 //     logoImageId/faviconImageId, perdem os seis links sociais e ganham showLogo/showName;

@@ -184,9 +184,9 @@ As tabelas acima descrevem o esquema \emph{inicial} (migração \arq{20261001034
 \fonte{Elaborado pelos autores, a partir da \adr{ADR-028}.}
 \end{table}
 
-\section*{Acréscimos do épico v1 (alvo; A-026)}
+\section*{Acréscimos do épico v1 (integrado; A-026, M-039)}
 
-As Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} descrevem o esquema \emph{integrado} (migrações \arq{20261001034824_init} e \arq{20261004120000_multiusuario}). A Tabela~\ref{tab:dicionario-v1} lista o que o épico v1 (\adr{ADR-034}, \adr{ADR-035}, \adr{ADR-038}; Seção~\ref{sec:arq-dados-v1}) \emph{cria, muda ou remove}. Ela é \textbf{alvo}: vale para a especificação desde a A-025 e passa a descrever o banco quando a A-026 for integrada; até lá, em caso de divergência, o \arq{prisma/schema.prisma} (Apêndice~\ref{ap:schema}) descreve o que existe. As linhas das Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} que esta tabela remove ou altera (\texttt{logoUrl}, \texttt{faviconUrl}, os seis links sociais, os padrões de cores e de \texttt{siteName} de \texttt{appearances}) valem só até esse merge.
+As Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} descrevem o esquema \emph{integrado} (migrações \arq{20261001034824_init} e \arq{20261004120000_multiusuario}). A Tabela~\ref{tab:dicionario-v1} lista o que o épico v1 (\adr{ADR-034}, \adr{ADR-035}, \adr{ADR-038}; Seção~\ref{sec:arq-dados-v1}) \emph{cria, muda ou remove}. Ela está \textbf{integrada} (merge M-039, 08/10/2026; migração \arq{20261008120000_epico_v1_midia_rodape}) e descreve o banco; o \arq{prisma/schema.prisma} (Apêndice~\ref{ap:schema}) é a referência em caso de divergência. As linhas das Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} que esta tabela remove ou altera (\texttt{logoUrl}, \texttt{faviconUrl}, os seis links sociais, os padrões de cores e de \texttt{siteName} de \texttt{appearances}) valem só para os bancos anteriores a essa migração.
 
 \begin{longtable}{@{}L{3.9cm}L{1.8cm}L{3.3cm}L{5.0cm}@{}}
 \caption{Dicionário de dados: o que o épico v1 acrescenta, altera ou remove}\label{tab:dicionario-v1}\\

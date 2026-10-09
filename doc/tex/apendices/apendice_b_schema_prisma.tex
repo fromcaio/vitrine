@@ -18,3 +18,7 @@ A migração inicial, reproduzida a seguir, contém o SQL gerado pelo Prisma e, 
 A migração multiusuário (M15) é reproduzida a seguir; os blocos marcados ``(manual)'' são os que o Prisma não gera e que não podem ser omitidos nem reordenados (Seção~\ref{sec:arq-indice-parcial}).
 
 \lstinputlisting[caption={Conteúdo de prisma/migrations/20261004120000\_multiusuario/migration.sql}, label={lst:migracao-multiusuario}]{../../prisma/migrations/20261004120000_multiusuario/migration.sql}
+
+A migração do épico v1 (M21; merge M-039) é a terceira e a mais recente. Ela cria as tabelas \texttt{images} e \texttt{footer\_links}, converte em linhas do rodapé os links \texttt{https} do site e de cada aparência, descarta as URLs de logotipo e \en{favicon}, torna anuláveis as seis cores e o nome de \texttt{appearances} (convertendo em nulo o que valia o padrão) e recria o índice parcial \texttt{footer\_links\_site\_icon\_key}, que o Prisma não modela (Seção~\ref{sec:arq-dados-v1}).
+
+\lstinputlisting[caption={Conteúdo de prisma/migrations/20261008120000\_epico\_v1\_midia\_rodape/migration.sql}, label={lst:migracao-epico-v1}]{../../prisma/migrations/20261008120000_epico_v1_midia_rodape/migration.sql}
