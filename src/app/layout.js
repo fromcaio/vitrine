@@ -31,6 +31,10 @@ export function generateMetadata() {
     ...(base ? { metadataBase: new URL(base) } : {}),
     title: { default: DEFAULT_SITE_NAME, template: `%s | ${DEFAULT_SITE_NAME}` },
     description: DEFAULT_SITE_DESCRIPTION,
+    // O favicon de reserva (`public/favicon.ico`), explícito aqui, e não pela convenção de arquivo de `src/app`: a convenção
+    // o acrescentaria a TODA página, ao lado do favicon enviado (RF35), e o navegador escolheria entre os dois. Como `icons`
+    // de um segmento filho substitui o do pai, quem tem favicon enviado (`faviconMetadata`) só emite o dele.
+    icons: { icon: [{ url: "/favicon.ico", sizes: "any" }] },
   };
 }
 
