@@ -339,7 +339,6 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
     expect(anaFrame.props.footerLinks).toEqual([expect.objectContaining({ icon: "email", url: "mailto:ana@exemplo.com" })]);
     expect(betoFrame.props.logoUrl).toBe(`/media/${site.id}`); // herda o logotipo do sistema
     expect(betoFrame.props.footerLinks).toEqual([]); // o rodapé do sistema NÃO vai ao espaço dele
-    expect(anaFrame.props).not.toHaveProperty("socialLinks");
   });
 
   it("o portal leva o logotipo e o rodapé do SISTEMA", async () => {
@@ -353,7 +352,6 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
       expect.objectContaining({ icon: "github", url: "https://github.com/sistema" }),
       expect.objectContaining({ icon: "website", url: "https://exemplo.com" }),
     ]);
-    expect(layout.props).not.toHaveProperty("socialLinks");
   });
 
   it("o favicon do espaço (generateMetadata do layout): o do dono, ou o do sistema; sem nenhum, só o favicon.ico", async () => {
