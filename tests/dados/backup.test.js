@@ -8,16 +8,74 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { BACKUP_NAME_PATTERN, BackupError, backupFileName, createBackup, verifyBackup } from "@/lib/backup";
 import { databaseFileFromUrl, prisma } from "@/lib/db";
-import { projectRoot } from "../setup/prisma-cli.js";
+import { PrismaClient } from "@/generated/prisma/client";
+import { projectRoot, runPrisma, toFileUrl } from "../setup/prisma-cli.js";
 
 const templateDb = /** @type {string} */ (inject("templateDb"));
 const NOW = new Date("2026-10-05T12:34:56Z");
 const NAME = "vitrine-2026-10-05T123456Z.db";
 const WIN = process.platform === "win32";
+
+
+/** @param {string} type @param {Buffer} data */
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(zlib.crc32(body) >>> 0);
+  return Buffer.concat([length, body, crc]);
+}
+
+/**
+ * Um PNG de verdade (assinatura, IHDR, IDAT comprimido, IEND, CRC corretos), RGB, com um degradê:
+ * nada de bytes quaisquer. Não depende do `sharp` (o reencode é do Core).
+ * @param {number} size lado em pixels
+ */
+function realPng(size) {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8; // 8 bits por canal
+  header[9] = 2; // RGB
+  const rows = Buffer.alloc(size * (1 + size * 3));
+  for (let y = 0; y < size; y += 1) {
+    const at = y * (1 + size * 3);
+    for (let x = 0; x < size; x += 1) {
+      rows[at + 1 + x * 3] = (x * 255) / size;
+      rows[at + 2 + x * 3] = (y * 255) / size;
+      rows[at + 3 + x * 3] = (x * y) % 256;
+    }
+  }
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", zlib.deflateSync(rows)),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+/** Um WebP de verdade (1x1, sem perdas), de 30 bytes. */
+const TINY_WEBP = Buffer.from("UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==", "base64");
+
+/** Bytes pseudoaleatórios determinísticos, incompressíveis, de qualquer tamanho (cobrem 0x00 e 0xFF). @param {number} size */
+function noise(size) {
+  const out = Buffer.alloc(size);
+  let block = crypto.createHash("sha256").update("vitrine-imagem").digest();
+  for (let at = 0; at < size; at += 32) {
+    block.copy(out, at, 0, Math.min(32, size - at));
+    block = crypto.createHash("sha256").update(block).digest();
+  }
+  out[0] = 0x00;
+  out[size - 1] = 0xff;
+  return out;
+}
 
 const tsxCli = path.join(projectRoot, "node_modules", "tsx", "dist", "cli.mjs");
 const script = path.join(projectRoot, "scripts", "backup-db.js");
@@ -535,6 +593,151 @@ describe("db:backup: cópia de segurança consistente e verificada (RNF10)", () 
       expect(badUrl.stderr).toMatch(/DATABASE_URL inválida/);
       expect(fs.readdirSync(dest)).toEqual([]);
     }, 120_000);
+  });
+
+  describe("as imagens do épico v1 entram na cópia e voltam na restauração (ADR-034; RNF10)", () => {
+    /** As imagens do cenário: um avatar PNG de verdade, um logo WebP de verdade e uma grande (páginas de estouro). */
+    const images = [
+      { id: "img-avatar", kind: "avatar", mime: "image/png", bytes: realPng(96), ownerId: "base-0" },
+      { id: "img-logo", kind: "logo", mime: "image/webp", bytes: TINY_WEBP, ownerId: null },
+      { id: "img-grande", kind: "favicon", mime: "image/png", bytes: noise(300 * 1024), ownerId: "base-1" },
+    ];
+
+    /** Banco de origem migrado, com as imagens gravadas e apontadas pelas referências. */
+    function sourceWithImages() {
+      const file = makeSource({ users: 4, contents: 4 });
+      const db = new Database(file);
+      db.pragma("foreign_keys = ON");
+      const put = db.prepare(
+        "INSERT INTO images (id, kind, mime, bytes, width, height, sha256, ownerId) VALUES (@id, @kind, @mime, @bytes, 96, 96, @sha256, @ownerId)",
+      );
+      for (const image of images) {
+        put.run({ ...image, sha256: crypto.createHash("sha256").update(image.bytes).digest("hex") });
+      }
+      db.prepare("UPDATE user SET avatarImageId = 'img-avatar' WHERE id = 'base-0'").run();
+      db.prepare("INSERT INTO configurations (id, logoImageId, updatedAt) VALUES ('default', 'img-logo', CURRENT_TIMESTAMP)").run();
+      db.prepare("INSERT INTO appearances (ownerId, faviconImageId, updatedAt) VALUES ('base-1', 'img-grande', CURRENT_TIMESTAMP)").run();
+      db.pragma("wal_checkpoint(TRUNCATE)");
+      db.close();
+      return file;
+    }
+
+    /** @param {string} file */
+    function readImages(file) {
+      const db = new Database(file, { readonly: true });
+      try {
+        return /** @type {any[]} */ (db.prepare("SELECT id, kind, mime, bytes, width, height, sha256, ownerId FROM images ORDER BY id").all());
+      } finally {
+        db.close();
+      }
+    }
+
+    it("o PNG e o WebP do teste são arquivos de verdade (assinatura, comprimento e CRC)", () => {
+      const png = realPng(96);
+      expect(png.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      expect(png.subarray(12, 16).toString("latin1")).toBe("IHDR");
+      expect(png.subarray(-8, -4).toString("latin1")).toBe("IEND");
+      expect(zlib.inflateSync(png.subarray(41, png.length - 16)).length).toBe(96 * (1 + 96 * 3));
+      expect(TINY_WEBP.subarray(0, 4).toString("latin1")).toBe("RIFF");
+      expect(TINY_WEBP.subarray(8, 12).toString("latin1")).toBe("WEBP");
+      expect(TINY_WEBP.readUInt32LE(4) + 8).toBe(TINY_WEBP.length);
+    });
+
+    it("a cópia traz todas as imagens, byte a byte, com o hash, as dimensões e o dono, e as referências", () => {
+      const source = sourceWithImages();
+
+      const { file, tables } = createBackup({ databaseFile: source, destDir: freshDir("dest"), now: NOW });
+
+      expect(tables).toBeGreaterThanOrEqual(10); // images e footer_links são tabelas da origem e entram na cópia
+      const copied = readImages(file);
+      expect(copied.map((i) => i.id)).toEqual(["img-avatar", "img-grande", "img-logo"]);
+      for (const original of images) {
+        const got = copied.find((i) => i.id === original.id);
+        expect(Buffer.compare(got.bytes, original.bytes), `bytes de ${original.id}`).toBe(0);
+        expect(got.bytes.length).toBe(original.bytes.length);
+        expect(got).toMatchObject({ kind: original.kind, mime: original.mime, ownerId: original.ownerId, width: 96, height: 96 });
+        expect(got.sha256).toBe(crypto.createHash("sha256").update(got.bytes).digest("hex"));
+      }
+      expect(scalar(file, "SELECT avatarImageId FROM user WHERE id = 'base-0'")).toBe("img-avatar");
+      expect(scalar(file, "SELECT logoImageId FROM configurations")).toBe("img-logo");
+      expect(scalar(file, "SELECT faviconImageId FROM appearances WHERE ownerId = 'base-1'")).toBe("img-grande");
+    });
+
+    it("a imagem escrita depois da cópia NÃO está nela, e a origem segue com a imagem (a cópia é um instante)", () => {
+      const source = sourceWithImages();
+      const { file } = createBackup({ databaseFile: source, destDir: freshDir("dest"), now: NOW });
+      const db = new Database(source);
+      db.prepare("INSERT INTO images (id, kind, mime, bytes, width, height, sha256) VALUES ('img-depois', 'logo', 'image/webp', ?, 1, 1, 'x')").run(TINY_WEBP);
+      db.close();
+
+      expect(readImages(file).map((i) => i.id)).not.toContain("img-depois");
+      expect(readImages(source).map((i) => i.id)).toContain("img-depois");
+    });
+
+    it("pelo comando (db:backup), as imagens saem na cópia, byte a byte", () => {
+      const source = sourceWithImages();
+      const dest = freshDir("dest");
+
+      const run = runScript([dest], { DATABASE_URL: `file:${source.replaceAll("\\", "/")}` }, freshDir("cwd"));
+
+      expect(run.code).toBe(0);
+      const [name] = fs.readdirSync(dest);
+      const copied = readImages(path.join(dest, name));
+      expect(copied).toHaveLength(3);
+      for (const original of images) {
+        expect(Buffer.compare(copied.find((i) => i.id === original.id).bytes, original.bytes), original.id).toBe(0);
+      }
+    }, 90_000);
+
+    it("restaurar (o roteiro do Apêndice D): copiar a cópia para o lugar do banco devolve as imagens, migrate status em dia, e a aplicação lê e escreve", async () => {
+      const source = sourceWithImages();
+      const { file: backup } = createBackup({ databaseFile: source, destDir: freshDir("dest"), now: NOW });
+
+      // o roteiro: banco atual guardado, auxiliares -wal/-shm removidos, a cópia no lugar do banco
+      const target = path.join(freshDir("restaurado"), "vitrine.db");
+      fs.copyFileSync(backup, target);
+      expect(fs.existsSync(`${target}-wal`)).toBe(false);
+      expect(fs.existsSync(`${target}-shm`)).toBe(false);
+
+      expect(runPrisma(["migrate", "status"], toFileUrl(target))).toMatch(/up to date/i);
+      const restored = readImages(target);
+      for (const original of images) {
+        expect(Buffer.compare(restored.find((i) => i.id === original.id).bytes, original.bytes), original.id).toBe(0);
+      }
+
+      // lido pelo cliente do Prisma (o caminho da aplicação), o BLOB volta idêntico e o banco aceita escrita
+      const client = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: toFileUrl(target) }) });
+      try {
+        const avatar = await client.image.findUnique({ where: { id: "img-avatar" } });
+        expect(Buffer.compare(Buffer.from(/** @type {Uint8Array} */ (avatar?.bytes)), images[0].bytes)).toBe(0);
+        const owner = await client.user.findUnique({ where: { id: "base-0" }, include: { avatarImage: { select: { id: true, sha256: true } } } });
+        expect(owner?.avatarImage).toMatchObject({ id: "img-avatar" });
+        await client.image.create({ data: { kind: "logo", mime: "image/webp", bytes: TINY_WEBP, width: 1, height: 1, sha256: "novo" } });
+        expect(await client.image.count()).toBe(4);
+      } finally {
+        await client.$disconnect();
+      }
+    }, 90_000);
+
+    it("a verificação exige a tabela images quando a origem a tem: uma cópia sem ela não passa", () => {
+      const source = sourceWithImages();
+      const { file } = createBackup({ databaseFile: source, destDir: freshDir("dest"), now: NOW });
+      const broken = path.join(freshDir("quebrada"), "copia.db");
+      fs.copyFileSync(file, broken);
+      const rw = new Database(broken);
+      rw.pragma("foreign_keys = OFF");
+      rw.pragma("legacy_alter_table = ON");
+      rw.exec("ALTER TABLE images RENAME TO images_perdida");
+      rw.close();
+
+      const origin = new Database(source, { readonly: true });
+      try {
+        const { problems } = verifyBackup(broken, origin);
+        expect(problems.join(" ")).toMatch(/Faltam tabelas na cópia: .*images/);
+      } finally {
+        origin.close();
+      }
+    });
   });
 
   describe("DATABASE_URL", () => {

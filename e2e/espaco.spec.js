@@ -112,7 +112,9 @@ test.describe.serial("espaço público e portal", () => {
     expect(html).toContain("Derivadas"); // a sidebar da coleção raiz
     expect(html).toContain('href="/esp-ana/calculo/derivadas"');
     expect(html).toContain("<title>Limites | Ana E2E</title>");
-    expect(html).toContain("--vitrine-light-primary:#2563eb"); // o padrão do esquema: a Ana não personalizou
+    // A Ana não personalizou: a paleta dela é nula (herda, ADR-038) e o envoltório não impõe cor própria.
+    // A mescla com a paleta do sistema na moldura é da A-031.
+    expect(html).not.toContain("--vitrine-light-primary:");
   });
 
   test("CT31: rascunho, coleção em rascunho e descendente dela: o mesmo 404, e fora da sidebar, da barra e do início", async ({ request }) => {
@@ -230,7 +232,12 @@ test.describe.serial("espaço público e portal", () => {
   test("CT47 no espaço: o modo noturno antes da primeira pintura e a paleta do dono por modo, sem violação de CSP", async ({ page }) => {
     // A Ana escolhe uma paleta para cada modo.
     const saved = await ana.put("/api/appearance", {
-      data: { primaryColor: "#7c3aed", darkPrimaryColor: "#c4b5fd", siteName: "Espaço da Ana" },
+      // A paleta de cada modo vai inteira (as três cores; ADR-038).
+      data: {
+        primaryColor: "#7c3aed", secondaryColor: "#1e293b", accentColor: "#b45309",
+        darkPrimaryColor: "#c4b5fd", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24",
+        siteName: "Espaço da Ana",
+      },
     });
     expect(saved.status()).toBe(200);
     const request = page.request;
@@ -264,7 +271,7 @@ test.describe.serial("espaço público e portal", () => {
     // O espaço do Beto não herda a paleta da Ana nem a do site.
     const betoHtml = await (await request.get("/esp-beto/inicio")).text();
     expect(betoHtml).not.toContain("#7c3aed");
-    expect(betoHtml).toContain("--vitrine-light-primary:#2563eb");
+    expect(betoHtml).not.toContain("--vitrine-light-primary:"); // o Beto não personalizou: paleta nula (herda)
     expect(baseURL).toBeTruthy();
     expect(ADMIN.email).toBeTruthy();
   });

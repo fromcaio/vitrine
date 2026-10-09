@@ -55,12 +55,17 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
         "configurations",
         "appearances",
         "notifications",
+        "images",
+        "footer_links",
         "contents_parentId_slug_key",
         "contents_root_owner_slug_key",
+        "footer_links_site_icon_key",
       ]),
     );
     const partial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "contents_root_owner_slug_key"));
     expect(partial.sql).toMatch(/WHERE\s+"parentId"\s+IS\s+NULL/i);
+    const footerPartial = /** @type {any} */ (objects.find((o) => /** @type {any} */ (o).name === "footer_links_site_icon_key"));
+    expect(footerPartial.sql).toMatch(/WHERE\s+"ownerId"\s+IS\s+NULL/i);
   });
 
   it("deixa o banco em dia: nada pendente e sem diferença para o schema (o índice parcial não é drift)", () => {
@@ -92,7 +97,12 @@ describe("CT28: migração em banco vazio e seed idempotente", () => {
       darkAccentColor: "#fbbf24",
       directoryEnabled: 1,
       homeBody: null,
-      githubUrl: null,
+      logoImageId: null,
+      faviconImageId: null,
+      showLogo: 1,
+      showName: 1,
+      modeIconPair: "sun_moon",
+      directoryTitle: "Espaços",
     });
 
     // O administrador personaliza o site (inclusive os campos do M15); o seed não pode desfazer isso.

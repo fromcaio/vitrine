@@ -266,6 +266,9 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
     await withSession(browser, ANA, async (page) => {
       await page.goto("/admin/aparencia");
       await ready(page);
+      // Quem não personalizou já herda (ADR-038): define as paletas próprias para poder voltar a herdar.
+      await page.getByRole("button", { name: "Definir uma paleta clara própria" }).click();
+      await page.getByRole("button", { name: "Definir uma paleta noturna própria" }).click();
       await page.getByRole("button", { name: "Usar a aparência do sistema (paleta clara)" }).click();
       await page.getByRole("button", { name: "Usar a aparência do sistema (paleta noturna)" }).click();
       await expect(page.getByRole("list", { name: "Paleta do sistema, modo claro" })).toBeVisible();

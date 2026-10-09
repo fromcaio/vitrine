@@ -9,7 +9,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { projectRoot, runPrisma, toFileUrl } from "../setup/prisma-cli.js";
-import { indexProblems } from "./helpers.js";
+import { ALL_REQUIRED_INDEXES, indexProblems } from "./helpers.js";
 
 const migrationsDir = path.join(projectRoot, "prisma", "migrations");
 const migrationNames = fs.readdirSync(migrationsDir).filter((name) => fs.statSync(path.join(migrationsDir, name)).isDirectory()).sort();
@@ -277,7 +277,8 @@ describe("CT34: migração multiusuário sobre bancos legados populados", () => 
     expect(() => runPrisma(["migrate", "diff", "--from-config-datasource", "--to-schema", "prisma/schema.prisma", "--exit-code"], url)).not.toThrow();
     const migrated = new Database(file, { readonly: true });
     try {
-      expect(indexProblems(migrated)).toEqual([]);
+      // o migrate deploy aplica também a migração do épico v1: todos os índices nomeados
+      expect(indexProblems(migrated, ALL_REQUIRED_INDEXES)).toEqual([]);
       expect(migrated.prepare('SELECT role, handle FROM "user"').get()).toEqual({ role: "admin", handle: "caio-reis" });
       expect(migrated.prepare("SELECT count(*) AS n FROM contents").get()).toEqual({ n: 4 + 16 + 32 });
       expect(migrated.pragma("foreign_key_check")).toEqual([]);

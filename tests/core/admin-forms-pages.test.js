@@ -100,8 +100,9 @@ describe("appearanceInitial e configurationInitial: só os campos simples", () =
 
 describe("/admin/aparencia", () => {
   it("monta o AppearanceForm com a aparência DO USUÁRIO DA SESSÃO, e com mais nada", async () => {
-    await updateAppearance(ana.id, { siteName: "Espaço da Ana", primaryColor: "#1d4ed8" });
-    await updateAppearance(beto.id, { siteName: "Espaço do Beto", primaryColor: "#be123c" });
+    const palette = (/** @type {string[]} */ [primary, secondary, accent]) => ({ primaryColor: primary, secondaryColor: secondary, accentColor: accent });
+    await updateAppearance(ana.id, { siteName: "Espaço da Ana", ...palette(["#1d4ed8", "#1e293b", "#b45309"]) });
+    await updateAppearance(beto.id, { siteName: "Espaço do Beto", ...palette(["#be123c", "#4c0519", "#9a3412"]) });
 
     const element = await AppearancePage();
     const { initial } = propsOf(element, AppearanceForm);
@@ -118,19 +119,19 @@ describe("/admin/aparencia", () => {
     await updateAppearance(admin.id, { siteName: "Espaço do Admin" });
 
     session.user = beto;
-    expect(propsOf(await AppearancePage(), AppearanceForm).initial.siteName).toBe("Beto"); // o padrão: o nome do usuário
+    expect(propsOf(await AppearancePage(), AppearanceForm).initial.siteName).toBeNull(); // nulo: herda o nome do sistema (ADR-038)
 
     session.user = admin;
     expect(propsOf(await AppearancePage(), AppearanceForm).initial.siteName).toBe("Espaço do Admin");
     expect(getAppearance).toHaveBeenLastCalledWith(admin.id);
   });
 
-  it("sem aparência salva, o formulário recebe os padrões (o nome do usuário e as paletas do esquema)", async () => {
+  it("sem aparência salva, o formulário recebe tudo nulo: o nome e as paletas herdam o sistema (ADR-038)", async () => {
     const { initial } = propsOf(await AppearancePage(), AppearanceForm);
 
-    expect(initial.siteName).toBe("Ana");
-    expect(initial.primaryColor).toBe("#2563eb");
-    expect(initial.darkPrimaryColor).toBe("#60a5fa");
+    expect(initial.siteName).toBeNull();
+    expect(initial.primaryColor).toBeNull();
+    expect(initial.darkPrimaryColor).toBeNull();
   });
 
   it("exige a sessão da página, não lê o banco sem ela, e tem a h1 e o noindex", async () => {

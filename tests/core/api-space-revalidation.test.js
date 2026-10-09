@@ -60,9 +60,12 @@ const ban = (id) =>
 const unban = (id) =>
   banRoute.DELETE(apiRequest(`/api/users/${id}/ban`, { method: "DELETE", cookie: admin.cookie }), routeContext({ id }));
 
+// A paleta de um modo é uma unidade (as três cores; ADR-038): uma cor sozinha seria 422.
+const NEW_PALETTE = { primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" };
+
 describe("aparência do dono (RN10): o espaço inteiro", () => {
   it("só a paleta mudou: a página inicial e todos os caminhos públicos do dono, sem o portal e sem o rascunho", async () => {
-    const response = await putAppearance({ primaryColor: "#112233" }, ana.cookie);
+    const response = await putAppearance(NEW_PALETTE, ana.cookie);
 
     expect(response.status).toBe(200);
     expect(pages()).toEqual(ANA_PAGES);
@@ -89,7 +92,7 @@ describe("aparência do dono (RN10): o espaço inteiro", () => {
     await seedSpace(beto.id);
     vi.mocked(revalidatePath).mockClear();
 
-    await putAppearance({ primaryColor: "#112233" }, beto.cookie);
+    await putAppearance(NEW_PALETTE, beto.cookie);
 
     expect(pages().every((page) => page === "/beto" || page.startsWith("/beto/"))).toBe(true);
     expect(pages()).toContain("/beto/sobre");
@@ -98,7 +101,7 @@ describe("aparência do dono (RN10): o espaço inteiro", () => {
   it("sem handle, o espaço não tem URL: nada é revalidado", async () => {
     const carla = await createUserSession({ email: "carla@exemplo.test", name: "Carla" });
 
-    expect((await putAppearance({ primaryColor: "#112233" }, carla.cookie)).status).toBe(200);
+    expect((await putAppearance(NEW_PALETTE, carla.cookie)).status).toBe(200);
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

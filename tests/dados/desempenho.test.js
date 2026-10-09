@@ -5,6 +5,10 @@
 // funções nem schema: só mede. Os tetos são generosos (instabilidade entre máquinas); os números
 // reais saem no console, em tabela.
 //
+// Épico v1 (A-026): a massa inclui 50 avatares (24 KiB cada, o tamanho de uma saída de 256x256 em
+// WebP), medem-se `listPublicSpaces` (que devolve o `avatarImageId`, nunca os bytes), `getImage` (a leitura
+// de `/media/<id>`) e `getEffectiveAppearance`, e o relato traz o tamanho do banco com as imagens.
+//
 // Fica fora da suíte do dia a dia: só roda com MEDICAO=1 (a semeadura e as 3 000+ chamadas custam
 // dezenas de segundos). Exemplo: `MEDICAO=1 npx vitest run tests/dados/desempenho.test.js`.
 import fs from "node:fs";
@@ -15,6 +19,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   getContentByPath,
   getContentTree,
+  getEffectiveAppearance,
+  getImage,
   getNotification,
   getPublicPaths,
   getUserByHandle,
@@ -37,6 +43,9 @@ const WORST_ALERT_MS = 50;
 const NO_PUBLISHED_ROOT = [45, 46, 47];
 const SUSPENDED = 48;
 const NOTIFIED = 0;
+/** Tamanho de cada avatar semeado: uma saída típica de 256x256 em WebP. */
+const AVATAR_BYTES = 24 * 1024;
+const avatarId = (/** @type {number} */ u) => `img-avatar-${String(u).padStart(2, "0")}`;
 
 const userId = (/** @type {number} */ u) => `u${String(u).padStart(2, "0")}`;
 const handleOf = (/** @type {number} */ u) => `espaco-${String(u).padStart(2, "0")}`;
@@ -157,9 +166,10 @@ function explain(db, queries) {
   );
 }
 
-/** Varreduras de tabela sem índice em `contents` ou `notifications` (e em `user`, se `strictUser`). */
+/** Varreduras de tabela sem índice em `contents`, `notifications`, `images` ou `footer_links` (e em `user`, se `strictUser`). */
 function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
-  const tables = strictUser ? "contents|notifications|user" : "contents|notifications";
+  const base = "contents|notifications|images|footer_links";
+  const tables = strictUser ? `${base}|user` : base;
   return plan.filter((line) => new RegExp(`^SCAN (main\\.)?(${tables})\\b(?!.*USING)`).test(line));
 }
 
@@ -182,6 +192,8 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
   let sqlite;
   /** @type {Record<string, string[]>} */
   const plans = {};
+  /** Linhas extras do relato (o tamanho do banco com as imagens). @type {string[]} */
+  const extras = [];
 
   /** @param {number} idx */
   const slugPathOf = (idx) => {
@@ -205,6 +217,7 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
     deepSlugs = slugPathOf(deepIdx);
 
     await prisma.content.deleteMany();
+    await prisma.image.deleteMany();
     await prisma.user.deleteMany();
     await prisma.user.createMany({
       data: Array.from({ length: USERS }, (_, u) => ({
@@ -253,6 +266,22 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
             updatedAt: new Date(base + i * 60_000),
           })),
         });
+        // 50 avatares de 24 KiB, um por usuário (inclusive os sem raiz publicada e o suspenso)
+        await tx.image.createMany({
+          data: Array.from({ length: USERS }, (_, u) => ({
+            id: avatarId(u),
+            kind: "avatar",
+            mime: "image/webp",
+            bytes: Buffer.alloc(AVATAR_BYTES, (u % 250) + 1),
+            width: 256,
+            height: 256,
+            sha256: String(u).padStart(64, "0"),
+            ownerId: userId(u),
+          })),
+        });
+        for (let u = 0; u < USERS; u++) {
+          await tx.user.update({ where: { id: userId(u) }, data: { avatarImageId: avatarId(u) } });
+        }
       },
       { timeout: 600_000, maxWait: 60_000 },
     );
@@ -276,15 +305,18 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
     const report = process.env.MEDICAO_RELATORIO;
     if (report) {
       const lines = rows.map((r) => `| ${r["função"]} | ${r["1ª (fria)"]} | ${r.mediana} | ${r.p95} | ${r["pior caso"]} |`);
-      fs.writeFileSync(report, `${lines.join("\n")}\n\n${planText}\n`);
+      fs.writeFileSync(report, `${lines.join("\n")}\n\n${extras.join("\n")}\n\n${planText}\n`);
     } else {
       console.table(rows);
+      console.log(extras.join("\n"));
       console.log(planText);
     }
   });
 
-  it("a massa tem 50 usuários, 25 000 conteúdos e 1 000 notificações", async () => {
+  it("a massa tem 50 usuários, 25 000 conteúdos, 1 000 notificações e 50 avatares", async () => {
     expect(await prisma.user.count()).toBe(USERS);
+    expect(await prisma.image.count()).toBe(USERS);
+    expect(await prisma.user.count({ where: { avatarImageId: { not: null } } })).toBe(USERS);
     expect(await prisma.content.count()).toBe(USERS * PER_USER);
     expect(await prisma.notification.count({ where: { userId: userId(NOTIFIED) } })).toBe(1000);
     const drafts = await prisma.content.count({ where: { status: "DRAFT" } });
@@ -301,7 +333,9 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
     ["getContentByPath, inexistente", (i) => getContentByPath(owner(i), ["nao-existe", "x"], { onlyPublished: true })],
     ["getPublicPaths(ownerId)", (i) => getPublicPaths(owner(i))],
     ["getPublicPaths(ownerId, nodeId)", (i) => getPublicPaths(owner(i), `${owner(i)}-${collectionIdx}`)],
-    ["listPublicSpaces()", () => listPublicSpaces()],
+    ["listPublicSpaces() (50 usuários com avatar)", () => listPublicSpaces()],
+    ["getImage (avatar de 24 KiB)", (i) => getImage(avatarId(i % USERS))],
+    ["getEffectiveAppearance(ownerId)", (i) => getEffectiveAppearance(owner(i))],
     ["getUserByHandle, existente", (i) => getUserByHandle(handleOf(ELIGIBLE[i % ELIGIBLE.length])), true],
     ["getUserByHandle, inexistente", (i) => getUserByHandle(`inexistente-${i}`), true],
     ["getNotification (1 000 do usuário)", () => getNotification(userId(NOTIFIED), notificationId)],
@@ -331,6 +365,31 @@ function scanProblems(/** @type {string[]} */ plan, strictUser = false) {
     expect(text("getUserByHandle, existente")).toContain("user_handle_key");
     expect(text("getNotification (1 000 do usuário)")).toContain("sqlite_autoindex_notifications_1");
     expect(text("listNotifications (unreadOnly, take 20)")).toContain("notifications_userId_readAt_updatedAt_idx");
+    expect(text("getImage (avatar de 24 KiB)")).toContain("sqlite_autoindex_images_1");
+    expect(text("getEffectiveAppearance(ownerId)")).toContain("footer_links_ownerId_order_idx");
+  });
+
+  it("listPublicSpaces devolve o avatarImageId de todos os espaços listados e nunca consulta a tabela images nem a coluna bytes", async () => {
+    const spaces = await listPublicSpaces();
+    for (const space of spaces) {
+      expect(space.avatarImageId, space.handle).toBe(avatarId(Number(space.id.slice(1))));
+    }
+    const queries = await captureSql(() => listPublicSpaces());
+    expect(queries.length).toBeGreaterThan(0);
+    for (const { sql } of queries) {
+      expect(sql).not.toMatch(/\bbytes\b/);
+      expect(sql).not.toMatch(/\bFROM\s+["`]?(main["`]?\.["`]?)?images\b/i);
+    }
+  });
+
+  it("o tamanho do banco com 50 avatares de 24 KiB (relato)", async () => {
+    await prisma.$queryRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");
+    const [{ imagens }] = /** @type {any[]} */ (await prisma.$queryRawUnsafe("SELECT coalesce(sum(length(bytes)), 0) AS imagens FROM images"));
+    const total = fs.statSync(dbPath()).size;
+    const mib = (/** @type {number} */ n) => `${(Number(n) / 1024 / 1024).toFixed(2)} MiB`;
+    expect(Number(imagens)).toBe(USERS * AVATAR_BYTES);
+    extras.push(`Banco com ${USERS} avatares de ${AVATAR_BYTES / 1024} KiB: arquivo ${mib(total)}, dos quais ${mib(Number(imagens))} em images (${USERS} linhas).`);
+    expect(total).toBeGreaterThan(Number(imagens));
   });
 
   it("listPublicSpaces devolve só os espaços com raiz publicada e não suspensos (RN15, RN23, RN28)", async () => {

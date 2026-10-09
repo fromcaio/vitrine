@@ -10,6 +10,7 @@ import path from "node:path";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 import { buildTree, collectPublicPaths, resolvePath, wouldCreateCycle } from "@/lib/content-tree";
+import { MAX_FOOTER_LINKS, MODE_ICON_PAIRS, isFooterIcon, isModeIconPair } from "@/lib/footer-icons";
 import { bodyBytes, resolveLimits } from "@/lib/limits";
 
 // --------------------------------------------------------
@@ -175,7 +176,7 @@ async function guarded(fn) {
 
 /**
  * Cliente de consulta ou cliente de transação interativa.
- * @typedef {Pick<PrismaClient, "content" | "configuration" | "user" | "appearance" | "notification" | "verification">} Db
+ * @typedef {Pick<PrismaClient, "content" | "configuration" | "user" | "appearance" | "notification" | "verification" | "image" | "footerLink">} Db
  */
 
 /** @param {unknown} value @param {string} field */
@@ -922,8 +923,8 @@ export async function clearMustChangePassword(userId) {
 
 /**
  * Exclui um usuário, **atomicamente** (RN24, ADR-027): em uma transação, resolve o conteúdo, apaga
- * as sessões, as contas, a aparência, as notificações e a verificação pendente e, por último, o
- * usuário. Se algo falhar, nada muda: o usuário não fica sem credencial, como ocorria ao chamar o
+ * as sessões, as contas, a aparência, o rodapé, as imagens (avatar, logo e favicon dele), as
+ * notificações e a verificação pendente e, por último, o usuário. Se algo falhar, nada muda: o usuário não fica sem credencial, como ocorria ao chamar o
  * `remove-user` bruto do better-auth.
  *
  * - Sem conteúdo, `content` é dispensado.
@@ -980,7 +981,10 @@ export async function deleteUser(userId, options = {}) {
       }
 
       await tx.verification.deleteMany({ where: { identifier: user.email } });
-      // Sessões, contas, aparência e notificações saem pela cascata das chaves estrangeiras.
+      // As imagens do usuário (o avatar é dado pessoal, LGPD) saem explicitamente, na mesma
+      // transação; a transferência de conteúdo acima não as toca (ADR-034).
+      await deleteOwnedImagesIn(tx, userId);
+      // Sessões, contas, aparência, rodapé e notificações saem pela cascata das chaves estrangeiras.
       await tx.user.delete({ where: { id: userId } });
       return { id: userId, content: outcome, roots, renamed };
     }),
@@ -1002,7 +1006,8 @@ function compareDisplayNames(a, b) {
  * nome de exibição do espaço: o `siteName` da aparência do usuário ou, sem ela, o nome dele. Quem
  * decide mostrar o diretório (`Configuration.directoryEnabled`) é a página.
  * @param {{ now?: Date }} [options]
- * @returns {Promise<Array<{ id: string, handle: string, name: string, description: string | null }>>}
+ * Devolve também o `avatarImageId` (nulo sem avatar), que a interface serve em `/media/<id>`.
+ * @returns {Promise<Array<{ id: string, handle: string, name: string, description: string | null, avatarImageId: string | null }>>}
  */
 export async function listPublicSpaces({ now = new Date() } = {}) {
   const users = await prisma.user.findMany({
@@ -1011,20 +1016,29 @@ export async function listPublicSpaces({ now = new Date() } = {}) {
       ...notSuspended(now),
       contents: { some: { parentId: null, status: "PUBLISHED" } },
     },
-    select: { id: true, name: true, handle: true, appearance: { select: { siteName: true, siteDescription: true } } },
+    select: {
+      id: true,
+      name: true,
+      handle: true,
+      avatarImageId: true,
+      appearance: { select: { siteName: true, siteDescription: true } },
+    },
   });
   return users
     .map((user) => ({
       id: user.id,
       handle: /** @type {string} */ (user.handle),
+      // O diretório lista pessoas: sem nome próprio no espaço, vale o nome do usuário (e não o do
+      // site, que apareceria como "Vitrine" em todos; ADR-038, item 8).
       name: user.appearance?.siteName ?? user.name,
       description: user.appearance?.siteDescription ?? null,
+      avatarImageId: user.avatarImageId,
     }))
     .sort((a, b) => compareDisplayNames(a.name, b.name) || compareDisplayNames(a.handle, b.handle));
 }
 
 // --------------------------------------------------------
-// Configuração do site (registro único, RN08) e aparência por dono (RF31)
+// Configuração do site (registro único, RN08) e aparência por dono (RF31, ADR-038)
 // --------------------------------------------------------
 
 /** Identificador fixo do único registro de Configuration (mesmo @default do schema). */
@@ -1032,7 +1046,8 @@ export const CONFIGURATION_ID = "default";
 
 /**
  * Paletas padrão (Cap. 5 §5.9, Tabela de paletas padrão; ADR-031). São as mesmas do schema
- * (`Configuration` e `Appearance`) e do seed; um teste confere que não divergem.
+ * (`Configuration`) e do seed; um teste confere que não divergem. Só o SITE tem padrão: em
+ * `Appearance` as cores são anuláveis e nulo significa "herda o site" (ADR-038).
  */
 export const DEFAULT_COLORS = Object.freeze({
   primaryColor: "#2563eb",
@@ -1043,24 +1058,27 @@ export const DEFAULT_COLORS = Object.freeze({
   darkAccentColor: "#fbbf24",
 });
 
-/** Campos de cor (as duas paletas): obrigatórios, com padrão no schema. */
-const COLOR_FIELDS = Object.keys(DEFAULT_COLORS);
+/** Nome padrão do site (o mesmo `@default` de `Configuration.siteName`). */
+export const DEFAULT_SITE_NAME = "Vitrine";
+
+/** As três cores de cada modo: a unidade de herança (ADR-038); vale tudo ou nada. */
+const LIGHT_PALETTE = ["primaryColor", "secondaryColor", "accentColor"];
+const DARK_PALETTE = ["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"];
+
+/** Campos de cor (as duas paletas). */
+const COLOR_FIELDS = [...LIGHT_PALETTE, ...DARK_PALETTE];
 
 /** Campos opcionais comuns ao site e à aparência: cadeia vazia equivale a ausente (RN17). */
-const NULLABLE_IDENTITY_FIELDS = [
-  "siteDescription",
-  "logoUrl",
-  "faviconUrl",
-  "discordUrl",
-  "githubUrl",
-  "youtubeUrl",
-  "instagramUrl",
-  "linkedinUrl",
-  "twitchUrl",
-];
+const NULLABLE_IDENTITY_FIELDS = ["siteDescription"];
 
-/** Campos obrigatórios do site e da aparência (têm valor padrão no schema). */
-const REQUIRED_IDENTITY_FIELDS = ["siteName", ...COLOR_FIELDS];
+/** Campos obrigatórios do site (têm valor padrão no schema). */
+const REQUIRED_SITE_FIELDS = ["siteName", ...COLOR_FIELDS];
+
+/** Campos da aparência que herdam do site quando nulos: o nome e as seis cores (ADR-038). */
+const INHERITABLE_FIELDS = ["siteName", ...COLOR_FIELDS];
+
+/** Tamanho máximo do título do diretório (D-38). */
+export const DIRECTORY_TITLE_MAX_LENGTH = 40;
 
 /**
  * Monta o objeto de escrita a partir do pedido: campos ausentes não mudam, chaves desconhecidas são
@@ -1088,6 +1106,38 @@ function buildTextData(patch, required, nullable) {
 }
 
 /**
+ * Campos booleanos do pedido: ausente não muda; presente deve ser `true` ou `false`.
+ * @param {unknown} patch
+ * @param {string[]} fields
+ * @returns {Record<string, boolean>}
+ */
+function buildBooleanData(patch, fields) {
+  /** @type {Record<string, boolean>} */
+  const data = {};
+  for (const field of fields) {
+    const value = /** @type {any} */ (patch)?.[field];
+    if (value === undefined) continue;
+    if (typeof value !== "boolean") {
+      throw new DataError("INVALID_INPUT", `O campo "${field}" deve ser verdadeiro ou falso.`, { field });
+    }
+    data[field] = value;
+  }
+  return data;
+}
+
+/**
+ * D-34: a barra superior mostra o logo e/ou o nome; os dois desligados é inválido. Avalia o estado
+ * RESULTANTE do pedido (o valor gravado mais o `patch`), por isso roda dentro da transação.
+ * @param {boolean} showLogo
+ * @param {boolean} showName
+ */
+function assertTopBarVisible(showLogo, showName) {
+  if (!showLogo && !showName) {
+    throw new DataError("INVALID_INPUT", "Ao menos um entre o logo e o nome deve ficar visível.", { field: "showName" });
+  }
+}
+
+/**
  * Configuração do site vigente. Se o registro não existir, é criado com os valores padrão (RN08).
  * @returns {Promise<import("@/generated/prisma/client").Configuration>}
  */
@@ -1100,44 +1150,80 @@ export async function getConfiguration() {
 }
 
 /**
- * Atualiza a configuração do site (*upsert* no registro único). Aceita identidade, as duas paletas,
- * os seis links sociais, o texto do portal (`homeBody`) e o `directoryEnabled`; campos ausentes não
- * mudam e chaves desconhecidas são ignoradas. Nos campos opcionais, cadeia vazia vira `null` (RN17).
- * O formato de URL e de cor é validado pelo Core.
+ * Atualiza a configuração do site (*upsert* no registro único). Aceita identidade, as duas paletas
+ * (obrigatórias quando enviadas: o site é a base da herança), `showLogo` e `showName`,
+ * `modeIconPair`, `directoryTitle`, o texto do portal (`homeBody`) e o `directoryEnabled`; campos
+ * ausentes não mudam e chaves desconhecidas são ignoradas. Nos campos opcionais, cadeia vazia vira
+ * `null` (RN17). O logo e o favicon NÃO passam por aqui: são `replaceImage` e `removeImage`. O
+ * formato de cor é validado pelo Core.
+ *
+ * `showLogo` e `showName` não podem ficar ambos falsos: o estado resultante é avaliado dentro da
+ * transação (`INVALID_INPUT`, `details.field = "showName"`).
  * @param {Partial<{
  *   siteName: string, siteDescription: string | null, primaryColor: string, secondaryColor: string,
  *   accentColor: string, darkPrimaryColor: string, darkSecondaryColor: string, darkAccentColor: string,
- *   logoUrl: string | null, faviconUrl: string | null,
- *   discordUrl: string | null, githubUrl: string | null, youtubeUrl: string | null,
- *   instagramUrl: string | null, linkedinUrl: string | null, twitchUrl: string | null,
- *   homeBody: string | null, directoryEnabled: boolean
+ *   showLogo: boolean, showName: boolean, modeIconPair: import("@/lib/footer-icons").ModeIconPair,
+ *   directoryTitle: string, homeBody: string | null, directoryEnabled: boolean
  * }>} patch
  * @returns {Promise<import("@/generated/prisma/client").Configuration>}
- * @throws {DataError} `INVALID_INPUT` para campo obrigatório vazio ou de tipo errado
+ * @throws {DataError} `INVALID_INPUT` para campo obrigatório vazio, de tipo errado ou fora da lista
  */
 export async function updateConfiguration(patch) {
   /** @type {Record<string, string | boolean | null>} */
-  const data = buildTextData(patch, REQUIRED_IDENTITY_FIELDS, [...NULLABLE_IDENTITY_FIELDS, "homeBody"]);
-  const directoryEnabled = /** @type {any} */ (patch)?.directoryEnabled;
-  if (directoryEnabled !== undefined) {
-    if (typeof directoryEnabled !== "boolean") {
-      throw new DataError("INVALID_INPUT", 'O campo "directoryEnabled" deve ser verdadeiro ou falso.', {
-        field: "directoryEnabled",
+  const data = {
+    ...buildTextData(patch, REQUIRED_SITE_FIELDS, [...NULLABLE_IDENTITY_FIELDS, "homeBody"]),
+    ...buildBooleanData(patch, ["directoryEnabled", "showLogo", "showName"]),
+  };
+  const modeIconPair = /** @type {any} */ (patch)?.modeIconPair;
+  if (modeIconPair !== undefined) {
+    if (!isModeIconPair(modeIconPair)) {
+      throw new DataError("INVALID_INPUT", `O par de ícones deve ser um de: ${MODE_ICON_PAIRS.join(", ")}.`, {
+        field: "modeIconPair",
       });
     }
-    data.directoryEnabled = directoryEnabled;
+    data.modeIconPair = modeIconPair;
   }
-  return prisma.configuration.upsert({
-    where: { id: CONFIGURATION_ID },
-    update: data,
-    create: { id: CONFIGURATION_ID, ...data },
-  });
+  const directoryTitle = /** @type {any} */ (patch)?.directoryTitle;
+  if (directoryTitle !== undefined) {
+    assertNonEmptyString(directoryTitle, "directoryTitle");
+    // Pontos de código, e não unidades UTF-16 (`length`): um emoji conta 1, como na interface.
+    if ([...directoryTitle].length > DIRECTORY_TITLE_MAX_LENGTH) {
+      throw new DataError(
+        "INVALID_INPUT",
+        `O título do diretório deve ter de 1 a ${DIRECTORY_TITLE_MAX_LENGTH} caracteres.`,
+        { field: "directoryTitle", max: DIRECTORY_TITLE_MAX_LENGTH },
+      );
+    }
+    data.directoryTitle = directoryTitle;
+  }
+
+  return guarded(() =>
+    prisma.$transaction(async (tx) => {
+      if ("showLogo" in data || "showName" in data) {
+        const current = await tx.configuration.findUnique({
+          where: { id: CONFIGURATION_ID },
+          select: { showLogo: true, showName: true },
+        });
+        assertTopBarVisible(
+          /** @type {boolean} */ (data.showLogo ?? current?.showLogo ?? true),
+          /** @type {boolean} */ (data.showName ?? current?.showName ?? true),
+        );
+      }
+      return tx.configuration.upsert({
+        where: { id: CONFIGURATION_ID },
+        update: data,
+        create: { id: CONFIGURATION_ID, ...data },
+      });
+    }),
+  );
 }
 
 /**
- * Aparência do espaço de um usuário (RF31, RN08). Sem linha, devolve os **padrões**, com
- * `persisted: false`, **sem escrever** no banco (a leitura pública nunca escreve); o nome padrão é o
- * do usuário. Devolve `null` se o usuário não existe.
+ * Aparência do espaço de um usuário, **crua**, com os nulos (RF31, ADR-038): `null` em `siteName` ou
+ * numa cor significa "herda o site". Sem linha, devolve todos os campos herdáveis nulos, `showLogo` e
+ * `showName` verdadeiros e `persisted: false`, **sem escrever** no banco (a leitura pública nunca
+ * escreve) e sem preencher o nome com o do usuário. Devolve `null` se o usuário não existe. A
+ * aparência já mesclada com a do site é `getEffectiveAppearance`.
  * @param {string} ownerId
  * @returns {Promise<(import("@/generated/prisma/client").Appearance & { persisted: boolean }) | null>}
  */
@@ -1145,21 +1231,22 @@ export async function getAppearance(ownerId) {
   assertNonEmptyString(ownerId, "ownerId");
   const row = await prisma.appearance.findUnique({ where: { ownerId } });
   if (row) return { ...row, persisted: true };
-  const user = await prisma.user.findUnique({ where: { id: ownerId }, select: { name: true } });
+  const user = await prisma.user.findUnique({ where: { id: ownerId }, select: { id: true } });
   if (!user) return null;
   return /** @type {any} */ ({
     ownerId,
-    siteName: user.name,
+    siteName: null,
     siteDescription: null,
-    ...DEFAULT_COLORS,
-    logoUrl: null,
-    faviconUrl: null,
-    discordUrl: null,
-    githubUrl: null,
-    youtubeUrl: null,
-    instagramUrl: null,
-    linkedinUrl: null,
-    twitchUrl: null,
+    primaryColor: null,
+    secondaryColor: null,
+    accentColor: null,
+    darkPrimaryColor: null,
+    darkSecondaryColor: null,
+    darkAccentColor: null,
+    logoImageId: null,
+    faviconImageId: null,
+    showLogo: true,
+    showName: true,
     createdAt: null,
     updatedAt: null,
     persisted: false,
@@ -1167,33 +1254,520 @@ export async function getAppearance(ownerId) {
 }
 
 /**
- * Grava a aparência do usuário (*upsert* por dono): a linha nasce no primeiro salvamento, com o nome
- * do usuário como `siteName` se o pedido não o traz. Mesmas regras de `updateConfiguration`, sem os
- * campos do portal.
+ * Aparência EFETIVA de um usuário: a dele sobre a do site, por unidade de herança (ADR-038), sem
+ * escrever (nem a linha do site é criada) e sem o padrão embutido, que é do Core:
+ * - a **paleta de cada modo** (as três cores): a do usuário se as três estão definidas, senão a do
+ *   site (sem linha do site, os padrões do esquema); os dois modos são independentes;
+ * - `siteName`, `logoImageId` e `faviconImageId`: o do usuário, se definido; senão o do site (o logo
+ *   e o favicon podem sair `null`: nem o usuário nem o site enviaram imagem);
+ * - `showLogo`, `showName`, `siteDescription` e `footerLinks`: **só do usuário**, sem herança;
+ * - `inherits`: o que veio do site, para a interface mostrar (`lightPalette`, `darkPalette`,
+ *   `siteName`, `logo`, `favicon`).
+ * Devolve `null` se o usuário não existe. Leitura consistente (uma transação de leitura).
+ * @param {string} userId
+ * @returns {Promise<{
+ *   ownerId: string, persisted: boolean, siteName: string, siteDescription: string | null,
+ *   primaryColor: string, secondaryColor: string, accentColor: string,
+ *   darkPrimaryColor: string, darkSecondaryColor: string, darkAccentColor: string,
+ *   logoImageId: string | null, faviconImageId: string | null, showLogo: boolean, showName: boolean,
+ *   footerLinks: Array<{ id: string, ownerId: string | null, icon: string, url: string, order: number }>,
+ *   inherits: { lightPalette: boolean, darkPalette: boolean, siteName: boolean, logo: boolean, favicon: boolean }
+ * } | null>}
+ */
+export async function getEffectiveAppearance(userId) {
+  assertNonEmptyString(userId, "userId");
+  const [user, row, site, footerLinks] = await prisma.$transaction([
+    prisma.user.findUnique({ where: { id: userId }, select: { id: true } }),
+    prisma.appearance.findUnique({ where: { ownerId: userId } }),
+    prisma.configuration.findUnique({ where: { id: CONFIGURATION_ID } }),
+    prisma.footerLink.findMany({ where: { ownerId: userId }, orderBy: FOOTER_ORDER, select: FOOTER_SELECT }),
+  ]);
+  if (!user) return null;
+
+  /** @type {Record<string, any>} */
+  const base = { siteName: DEFAULT_SITE_NAME, ...DEFAULT_COLORS, ...(site ?? {}) };
+  /** @type {Record<string, any>} */
+  const own = row ?? {};
+  const ownLight = LIGHT_PALETTE.every((field) => own[field] != null);
+  const ownDark = DARK_PALETTE.every((field) => own[field] != null);
+  /** @type {Record<string, string>} */
+  const palette = {};
+  for (const field of LIGHT_PALETTE) palette[field] = ownLight ? own[field] : base[field];
+  for (const field of DARK_PALETTE) palette[field] = ownDark ? own[field] : base[field];
+
+  return /** @type {any} */ ({
+    ownerId: userId,
+    persisted: row !== null,
+    siteName: own.siteName ?? base.siteName,
+    siteDescription: own.siteDescription ?? null,
+    ...palette,
+    logoImageId: own.logoImageId ?? site?.logoImageId ?? null,
+    faviconImageId: own.faviconImageId ?? site?.faviconImageId ?? null,
+    showLogo: own.showLogo ?? true,
+    showName: own.showName ?? true,
+    footerLinks,
+    inherits: {
+      lightPalette: !ownLight,
+      darkPalette: !ownDark,
+      siteName: own.siteName == null,
+      logo: own.logoImageId == null,
+      favicon: own.faviconImageId == null,
+    },
+  });
+}
+
+/**
+ * Grava a aparência do usuário (*upsert* por dono): a linha nasce no primeiro salvamento, **sem**
+ * preencher o `siteName` (nulo herda o nome do site; ADR-038). Aceita `siteName`, as seis cores,
+ * `siteDescription`, `showLogo` e `showName`; ausente não muda, `null` (ou cadeia vazia) em
+ * `siteName` e nas cores **anula** (volta a herdar). O logo e o favicon NÃO passam por aqui:
+ * `replaceImage` e `removeImage`. Regras avaliadas sobre o estado RESULTANTE, dentro da transação:
+ * - um modo com uma ou duas cores nulas é inválido (`INVALID_INPUT`, `details.field` igual a
+ *   `lightPalette` ou `darkPalette`): ou as três juntas, ou nenhuma (herdar é anular as três);
+ * - `showLogo` e `showName` não podem ficar ambos falsos (`INVALID_INPUT`, `details.field` igual a
+ *   `showName`).
+ * O formato de cor é validado pelo Core.
  * @param {string} ownerId
  * @param {Partial<{
- *   siteName: string, siteDescription: string | null, primaryColor: string, secondaryColor: string,
- *   accentColor: string, darkPrimaryColor: string, darkSecondaryColor: string, darkAccentColor: string,
- *   logoUrl: string | null, faviconUrl: string | null,
- *   discordUrl: string | null, githubUrl: string | null, youtubeUrl: string | null,
- *   instagramUrl: string | null, linkedinUrl: string | null, twitchUrl: string | null
+ *   siteName: string | null, siteDescription: string | null, primaryColor: string | null,
+ *   secondaryColor: string | null, accentColor: string | null, darkPrimaryColor: string | null,
+ *   darkSecondaryColor: string | null, darkAccentColor: string | null,
+ *   showLogo: boolean, showName: boolean
  * }>} patch
  * @returns {Promise<import("@/generated/prisma/client").Appearance & { persisted: true }>}
  * @throws {DataError} `NOT_FOUND` (usuário), `INVALID_INPUT`
  */
 export async function updateAppearance(ownerId, patch) {
   assertNonEmptyString(ownerId, "ownerId");
-  const data = buildTextData(patch, REQUIRED_IDENTITY_FIELDS, NULLABLE_IDENTITY_FIELDS);
+  /** @type {Record<string, string | boolean | null>} */
+  const data = {
+    ...buildTextData(patch, [], [...NULLABLE_IDENTITY_FIELDS, ...INHERITABLE_FIELDS]),
+    ...buildBooleanData(patch, ["showLogo", "showName"]),
+  };
   return guarded(() =>
     prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: ownerId }, select: { name: true } });
+      const user = await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } });
       if (!user) throw userNotFound(ownerId);
-      const row = await tx.appearance.upsert({
-        where: { ownerId },
-        update: data,
-        create: { ownerId, siteName: user.name, ...data },
-      });
+      const current = await tx.appearance.findUnique({ where: { ownerId } });
+
+      /** @type {Record<string, any>} */
+      const next = { ...current, ...data };
+      for (const [mode, fields] of /** @type {const} */ ([
+        ["lightPalette", LIGHT_PALETTE],
+        ["darkPalette", DARK_PALETTE],
+      ])) {
+        const defined = fields.filter((field) => next[field] != null).length;
+        if (defined !== 0 && defined !== fields.length) {
+          throw new DataError("INVALID_INPUT", "Uma paleta é definida por inteiro (as três cores) ou herdada (nenhuma).", {
+            field: mode,
+          });
+        }
+      }
+      assertTopBarVisible(next.showLogo ?? true, next.showName ?? true);
+
+      const row = await tx.appearance.upsert({ where: { ownerId }, update: data, create: { ownerId, ...data } });
       return { ...row, persisted: /** @type {const} */ (true) };
+    }),
+  );
+}
+
+// --------------------------------------------------------
+// Imagens (ADR-034, ADR-037): avatar, logo e favicon como BLOB
+// --------------------------------------------------------
+
+/** Tipos de imagem (`Image.kind`); o SQLite não os impõe, a camada de dados sim. */
+export const IMAGE_KINDS = /** @type {const} */ (["avatar", "logo", "favicon"]);
+
+/** Colunas de uma imagem SEM o conteúdo: nenhuma listagem lê `bytes`; só `getImage` o lê. */
+const IMAGE_META_SELECT = {
+  id: true,
+  kind: true,
+  mime: true,
+  width: true,
+  height: true,
+  sha256: true,
+  ownerId: true,
+  createdAt: true,
+};
+
+/**
+ * Imagem sem o conteúdo.
+ * @typedef {{
+ *   id: string, kind: string, mime: string, width: number, height: number, sha256: string,
+ *   ownerId: string | null, createdAt: Date
+ * }} ImageMeta
+ */
+
+/**
+ * Dados de uma imagem já reencodada pelo Core (`sharp`): a camada de dados não decodifica nada.
+ * @typedef {{ mime: string, bytes: Uint8Array, width: number, height: number, sha256: string }} ImageData
+ */
+
+/**
+ * Coluna de referência de cada tipo: `User.avatarImageId` no avatar, e `logoImageId` ou
+ * `faviconImageId` em `Configuration` (dono nulo) e `Appearance` (dono usuário).
+ * @type {Record<string, string>}
+ */
+const IMAGE_REFERENCE_FIELD = { avatar: "avatarImageId", logo: "logoImageId", favicon: "faviconImageId" };
+
+/** @param {unknown} kind */
+function assertImageKind(kind) {
+  if (!IMAGE_KINDS.includes(/** @type {any} */ (kind))) {
+    throw new DataError("INVALID_INPUT", "O tipo da imagem deve ser avatar, logo ou favicon.", { field: "kind" });
+  }
+}
+
+/**
+ * Dono de uma imagem: o id do usuário ou `null` (o site). O avatar sempre tem dono.
+ * @param {string} kind
+ * @param {unknown} ownerId
+ */
+function assertImageOwner(kind, ownerId) {
+  if (ownerId === null && kind !== "avatar") return;
+  assertNonEmptyString(ownerId, "ownerId");
+}
+
+/**
+ * Valida o conteúdo de uma imagem, sem tocar o banco.
+ * @param {unknown} data
+ * @returns {ImageData}
+ */
+function parseImageData(data) {
+  const { mime, bytes, width, height, sha256 } = /** @type {any} */ (data) ?? {};
+  if (typeof mime !== "string" || !mime.startsWith("image/")) {
+    throw new DataError("INVALID_INPUT", 'O campo "mime" deve ser um tipo de imagem.', { field: "mime" });
+  }
+  if (!ArrayBuffer.isView(bytes) || bytes.byteLength === 0) {
+    throw new DataError("INVALID_INPUT", 'O campo "bytes" deve ter o conteúdo da imagem.', { field: "bytes" });
+  }
+  for (const [field, value] of /** @type {const} */ ([
+    ["width", width],
+    ["height", height],
+  ])) {
+    if (!Number.isInteger(value) || value < 1) {
+      throw new DataError("INVALID_INPUT", `O campo "${field}" deve ser um inteiro positivo.`, { field });
+    }
+  }
+  assertNonEmptyString(sha256, "sha256");
+  const content = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return { mime, bytes: content, width, height, sha256 };
+}
+
+/**
+ * Grava uma linha de `images`. **Baixo nível:** sozinha deixa a imagem órfã (nenhuma referência
+ * aponta para ela). O caminho de escrita das imagens é `replaceImage`, que grava, aponta a
+ * referência e apaga a antiga na mesma transação; o Core não deve chamar esta função diretamente.
+ * @param {{ kind: string, ownerId: string | null } & ImageData} input
+ * @param {Db} [db] cliente de transação de quem chama; sem ele, o cliente comum
+ * @returns {Promise<ImageMeta>}
+ * @throws {DataError} `INVALID_INPUT`, `AUTHOR_NOT_FOUND` (dono inexistente)
+ */
+export async function saveImage(input, db = prisma) {
+  const { kind, ownerId } = input ?? /** @type {any} */ ({});
+  assertImageKind(kind);
+  assertImageOwner(kind, ownerId);
+  const data = parseImageData(input);
+  return guarded(() => db.image.create({ data: { kind, ownerId, ...data }, select: IMAGE_META_SELECT }));
+}
+
+/**
+ * Imagem com o conteúdo (`bytes`), por id: a única leitura que o traz (`GET /media/<id>`). `null` se
+ * não existe.
+ * @param {string} id
+ * @returns {Promise<(ImageMeta & { bytes: Uint8Array }) | null>}
+ */
+export async function getImage(id) {
+  if (typeof id !== "string" || id === "") return null;
+  return prisma.image.findUnique({ where: { id }, select: { ...IMAGE_META_SELECT, bytes: true } });
+}
+
+/**
+ * Id da imagem que o dono referencia hoje para o tipo (ou `null`). Para o dono usuário, confere que o
+ * usuário existe (`NOT_FOUND`).
+ * @param {Db} db
+ * @param {string} kind
+ * @param {string | null} ownerId
+ * @returns {Promise<string | null>}
+ */
+async function readImageReference(db, kind, ownerId) {
+  const field = IMAGE_REFERENCE_FIELD[kind];
+  if (ownerId !== null) {
+    const user = await db.user.findUnique({ where: { id: ownerId }, select: { id: true, avatarImageId: true } });
+    if (!user) throw userNotFound(ownerId);
+    if (kind === "avatar") return user.avatarImageId;
+    const row = await db.appearance.findUnique({
+      where: { ownerId },
+      select: { logoImageId: true, faviconImageId: true },
+    });
+    return /** @type {any} */ (row)?.[field] ?? null;
+  }
+  const row = await db.configuration.findUnique({
+    where: { id: CONFIGURATION_ID },
+    select: { logoImageId: true, faviconImageId: true },
+  });
+  return /** @type {any} */ (row)?.[field] ?? null;
+}
+
+/**
+ * Aponta a referência do dono e do tipo para `imageId` (ou a anula). A linha de `Configuration` ou de
+ * `Appearance` é criada, se faltar, apenas para apontar uma imagem.
+ * @param {Db} db
+ * @param {string} kind
+ * @param {string | null} ownerId
+ * @param {string | null} imageId
+ */
+async function writeImageReference(db, kind, ownerId, imageId) {
+  const reference = { [IMAGE_REFERENCE_FIELD[kind]]: imageId };
+  if (kind === "avatar") {
+    await db.user.update({ where: { id: /** @type {string} */ (ownerId) }, data: reference });
+  } else if (ownerId === null) {
+    await db.configuration.upsert({
+      where: { id: CONFIGURATION_ID },
+      update: reference,
+      create: { id: CONFIGURATION_ID, ...reference },
+    });
+  } else {
+    await db.appearance.upsert({ where: { ownerId }, update: reference, create: { ownerId, ...reference } });
+  }
+}
+
+/**
+ * Troca a imagem do dono e do tipo, **em uma transação**: grava a nova (id novo: a imagem é
+ * imutável), aponta a referência e **apaga a antiga**. Se algo falha, nada muda. O dono é o usuário
+ * (`avatar`; `logo` e `favicon` da página dele, em `Appearance`) ou `null` (`logo` e `favicon` do
+ * site, em `Configuration`). Este é o único caminho de escrita das imagens, e por isso cada
+ * referência aponta sempre para uma imagem do mesmo dono e do tipo certo, e não há imagem órfã.
+ * @param {"avatar" | "logo" | "favicon"} kind
+ * @param {string | null} ownerId
+ * @param {ImageData} data conteúdo já reencodado pelo Core
+ * @returns {Promise<ImageMeta & { replacedId: string | null }>} a nova imagem (sem `bytes`) e o id da
+ *   antiga, que deixou de existir
+ * @throws {DataError} `NOT_FOUND` (usuário), `INVALID_INPUT`
+ */
+export async function replaceImage(kind, ownerId, data) {
+  assertImageKind(kind);
+  assertImageOwner(kind, ownerId);
+  parseImageData(data);
+  return guarded(() =>
+    prisma.$transaction(async (tx) => {
+      const previous = await readImageReference(tx, kind, ownerId);
+      const image = await saveImage({ kind, ownerId, ...data }, tx);
+      await writeImageReference(tx, kind, ownerId, image.id);
+      if (previous !== null) await tx.image.deleteMany({ where: { id: previous } });
+      return { ...image, replacedId: previous };
+    }),
+  );
+}
+
+/**
+ * Remove a imagem do dono e do tipo: anula a referência e apaga a imagem, na mesma transação. O logo
+ * ou o favicon removido **volta** ao nível de baixo da cadeia (site e, depois, o embutido); nunca
+ * fica vazio (ADR-038), o que é do Core e da interface resolver. Sem imagem, não faz nada.
+ * @param {"avatar" | "logo" | "favicon"} kind
+ * @param {string | null} ownerId
+ * @returns {Promise<{ removed: boolean, id: string | null }>}
+ * @throws {DataError} `NOT_FOUND` (usuário), `INVALID_INPUT`
+ */
+export async function removeImage(kind, ownerId) {
+  assertImageKind(kind);
+  assertImageOwner(kind, ownerId);
+  return guarded(() =>
+    prisma.$transaction(async (tx) => {
+      const previous = await readImageReference(tx, kind, ownerId);
+      if (previous === null) return { removed: false, id: null };
+      await writeImageReference(tx, kind, ownerId, null);
+      await tx.image.deleteMany({ where: { id: previous } });
+      return { removed: true, id: previous };
+    }),
+  );
+}
+
+/**
+ * Apaga uma imagem pelo id. As referências a ela viram `null` (`SetNull`), de modo que a operação
+ * nunca deixa referência pendente.
+ * @param {string} id
+ * @returns {Promise<{ id: string }>}
+ * @throws {DataError} `NOT_FOUND`
+ */
+export async function deleteImage(id) {
+  assertNonEmptyString(id, "id");
+  await guarded(() => prisma.image.delete({ where: { id } }));
+  return { id };
+}
+
+/**
+ * Apaga todas as imagens de um dono (LGPD: o avatar sai com a conta). O banco também o faz pela
+ * cascata de `ownerId`; aqui é explícito, na transação de quem chama.
+ * @param {Db} db
+ * @param {string} ownerId
+ * @returns {Promise<{ count: number }>}
+ */
+async function deleteOwnedImagesIn(db, ownerId) {
+  return db.image.deleteMany({ where: { ownerId } });
+}
+
+/**
+ * Apaga todas as imagens do usuário. A exclusão de usuário (`deleteUser`) já a faz na mesma
+ * transação; transferir conteúdo não toca nas imagens.
+ * @param {string} ownerId
+ * @returns {Promise<{ count: number }>}
+ */
+export async function deleteOwnedImages(ownerId) {
+  assertNonEmptyString(ownerId, "ownerId");
+  return guarded(() => deleteOwnedImagesIn(prisma, ownerId));
+}
+
+/**
+ * Valida e completa a notificação da remoção do avatar (moderação, RN19, RN26): tipo `MODERATION`,
+ * gravidade `WARNING`, `data = { event: "AVATAR_REMOVED", reason }`, para o próprio dono do avatar.
+ * Só o `reason` é obrigatório; o que vier no pedido não pode contradizer o resto.
+ * @param {string} userId
+ * @param {unknown} notification
+ */
+function parseAvatarRemovalNotification(userId, notification) {
+  if (notification === null || typeof notification !== "object") {
+    throw new DataError("INVALID_INPUT", "A notificação da remoção do avatar é obrigatória.", { field: "notification" });
+  }
+  const input = /** @type {Record<string, any>} */ (notification);
+  const data = input.data !== null && typeof input.data === "object" ? input.data : {};
+  /** @type {Array<[string, unknown, unknown]>} */
+  const fixed = [
+    ["userId", input.userId, userId],
+    ["type", input.type, "MODERATION"],
+    ["severity", input.severity, "WARNING"],
+    ["event", data.event, "AVATAR_REMOVED"],
+  ];
+  for (const [field, given, expected] of fixed) {
+    if (given !== undefined && given !== expected) {
+      throw new DataError("INVALID_INPUT", `Na remoção do avatar, "${field}" deve ser ${String(expected)}.`, { field });
+    }
+  }
+  assertNonEmptyString(data.reason, "reason");
+  return parseNotificationInput({
+    userId,
+    type: "MODERATION",
+    severity: "WARNING",
+    data: { ...data, event: "AVATAR_REMOVED" },
+  });
+}
+
+/**
+ * Remove o avatar de outro usuário (moderação; RN19, RN26): apaga a imagem, anula a referência e
+ * grava a notificação ao dono **na mesma transação** (o molde da moderação de conteúdo): se a
+ * notificação falha, o avatar permanece; se não há avatar, nenhuma notificação nasce. A autorização
+ * (só o administrador) é do Core. Quem remove o PRÓPRIO avatar usa `removeImage("avatar", userId)`.
+ * @param {string} userId dono do avatar
+ * @param {{ notification: { data: { reason: string }, userId?: string, type?: "MODERATION", severity?: "WARNING" } }} options
+ *   `notification.data.reason` é obrigatório; `userId`, `type`, `severity` e `data.event` são
+ *   preenchidos aqui e, se vierem, devem ser os fixados
+ * @returns {Promise<{ id: string }>} a imagem apagada
+ * @throws {DataError} `NOT_FOUND` (usuário ou avatar inexistente), `INVALID_INPUT`
+ */
+export async function removeAvatar(userId, { notification } = /** @type {any} */ ({})) {
+  assertNonEmptyString(userId, "userId");
+  const parsed = parseAvatarRemovalNotification(userId, notification);
+  const now = new Date();
+  const removed = await guarded(() =>
+    prisma.$transaction(async (tx) => {
+      const imageId = await readImageReference(tx, "avatar", userId);
+      if (imageId === null) throw new DataError("NOT_FOUND", "O usuário não tem avatar.", { userId });
+      await writeImageReference(tx, "avatar", userId, null);
+      await tx.image.deleteMany({ where: { id: imageId } });
+      await writeNotification(tx, parsed, now);
+      return imageId;
+    }),
+  );
+  await pruneNotificationsLazily(now);
+  return { id: removed };
+}
+
+// --------------------------------------------------------
+// Rodapé por ícones (ADR-035)
+// --------------------------------------------------------
+
+/** Ordem de leitura do rodapé de um dono; `id` desempata. */
+const FOOTER_ORDER = [{ order: /** @type {const} */ ("asc") }, { id: /** @type {const} */ ("asc") }];
+/** Colunas devolvidas de um link do rodapé. */
+const FOOTER_SELECT = { id: true, ownerId: true, icon: true, url: true, order: true };
+
+/**
+ * `ownerId` de um rodapé: o id do usuário, ou `null` para o rodapé do site. `undefined` é erro, pois o
+ * Prisma o trataria como "sem filtro" e leria o rodapé de todos.
+ * @param {unknown} ownerId
+ */
+function assertFooterOwner(ownerId) {
+  if (ownerId !== null) assertNonEmptyString(ownerId, "ownerId");
+}
+
+/**
+ * Rodapé de um dono, na ordem (no máximo 8 links). `null` é o rodapé do site.
+ * @param {string | null} ownerId
+ * @returns {Promise<Array<{ id: string, ownerId: string | null, icon: string, url: string, order: number }>>}
+ */
+export async function listFooterLinks(ownerId) {
+  assertFooterOwner(ownerId);
+  return prisma.footerLink.findMany({ where: { ownerId }, orderBy: FOOTER_ORDER, select: FOOTER_SELECT });
+}
+
+/**
+ * Valida o lote do rodapé inteiro, sem tocar o banco: no máximo 8 itens, cada um com ícone da lista
+ * fechada e URL (o formato é do Core), sem ícone repetido. Um item inválido recusa o lote.
+ * @param {unknown} links
+ * @returns {Array<{ icon: string, url: string }>}
+ */
+function parseFooterLinks(links) {
+  if (!Array.isArray(links)) {
+    throw new DataError("INVALID_INPUT", "O rodapé deve ser uma lista de links.", { field: "links" });
+  }
+  if (links.length > MAX_FOOTER_LINKS) {
+    throw new DataError("INVALID_INPUT", `O rodapé aceita no máximo ${MAX_FOOTER_LINKS} links.`, {
+      field: "links",
+      max: MAX_FOOTER_LINKS,
+    });
+  }
+  const seen = new Set();
+  return links.map((link, index) => {
+    const { icon, url } = link ?? {};
+    if (!isFooterIcon(icon)) {
+      throw new DataError("INVALID_INPUT", "O ícone não está na lista de ícones do rodapé.", { field: "icon", index });
+    }
+    if (typeof url !== "string" || url.trim() === "") {
+      throw new DataError("INVALID_INPUT", 'O campo "url" é obrigatório.', { field: "url", index });
+    }
+    if (seen.has(icon)) {
+      throw new DataError("INVALID_INPUT", "Cada ícone pode aparecer uma só vez no rodapé.", { field: "icon", index });
+    }
+    seen.add(icon);
+    return { icon, url };
+  });
+}
+
+/**
+ * Substitui o rodapé INTEIRO do dono, **em uma transação** (`PUT`): apaga os links atuais e grava os
+ * recebidos, renumerando `order` de 0 a n-1 pela ordem recebida (um `order` enviado é ignorado). Um
+ * item inválido recusa o lote, e o rodapé anterior permanece. Teto de 8 links e um por ícone; o
+ * formato da URL (`https://`, ou `mailto:` no ícone `email`) é validado pelo Core, não aqui. `null`
+ * é o rodapé do site. Lista vazia esvazia o rodapé.
+ * @param {string | null} ownerId
+ * @param {Array<{ icon: string, url: string }>} links
+ * @returns {Promise<Array<{ id: string, ownerId: string | null, icon: string, url: string, order: number }>>}
+ * @throws {DataError} `INVALID_INPUT` (teto, ícone fora da lista, ícone repetido, URL vazia),
+ *   `NOT_FOUND` (usuário)
+ */
+export async function replaceFooterLinks(ownerId, links) {
+  assertFooterOwner(ownerId);
+  const parsed = parseFooterLinks(links);
+  return guarded(() =>
+    prisma.$transaction(async (tx) => {
+      if (ownerId !== null) {
+        const user = await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } });
+        if (!user) throw userNotFound(ownerId);
+      }
+      await tx.footerLink.deleteMany({ where: { ownerId } });
+      for (const [order, { icon, url }] of parsed.entries()) {
+        await tx.footerLink.create({ data: { ownerId, icon, url, order } });
+      }
+      return tx.footerLink.findMany({ where: { ownerId }, orderBy: FOOTER_ORDER, select: FOOTER_SELECT });
     }),
   );
 }

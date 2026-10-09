@@ -34,6 +34,11 @@ model User {
   // Senha provisória (RN21, ADR-029): enquanto verdadeiro, a conta só troca a senha e lê o perfil
   mustChangePassword Boolean @default(false)
 
+  // Avatar (ADR-034, ADR-037): imagem do tipo `avatar` do próprio usuário. A regra de dono e de
+  // tipo é de db.js (replaceImage), não do banco. Único: um avatar pertence a um só usuário.
+  avatarImageId String? @unique
+  avatarImage   Image?  @relation("UserAvatar", fields: [avatarImageId], references: [id], onDelete: SetNull)
+
   sessions Session[]
   accounts Account[]
 
@@ -41,6 +46,8 @@ model User {
   contents      Content[]
   notifications Notification[]
   appearance    Appearance?
+  images        Image[]        @relation("ImageOwner")
+  footerLinks   FooterLink[]
 
   @@map("user")
 }
@@ -142,32 +149,37 @@ model Content {
 
 // O SITE (portal "/", login e painel): registro único (RN08). O id é fixo e o acesso é sempre por
 // upsert nesse id. A aparência de cada usuário fica em `Appearance` (ADR-028).
-// Padrões das paletas: Cap. 5 §5.9 (Tabela de paletas padrão; ADR-031). São os mesmos de Appearance
-// e do seed, e a migração só os troca na linha existente quando ainda valem os padrões antigos.
+// Padrões das paletas: Cap. 5 §5.9 (Tabela de paletas padrão; ADR-031). São a BASE de tudo o que
+// herda (ADR-038): por isso, aqui as paletas e o nome são obrigatórios, com padrão.
 model Configuration {
   id              String  @id @default("default")
   siteName        String  @default("Vitrine")
   siteDescription String?
 
   // Paleta clara
-  primaryColor   String @default("#2563eb")
-  secondaryColor String @default("#1e293b")
-  accentColor    String @default("#b45309")
+  primaryColor       String @default("#2563eb")
+  secondaryColor     String @default("#1e293b")
+  accentColor        String @default("#b45309")
   // Paleta noturna (RN27)
   darkPrimaryColor   String @default("#60a5fa")
   darkSecondaryColor String @default("#cbd5e1")
   darkAccentColor    String @default("#fbbf24")
 
-  logoUrl    String?
-  faviconUrl String?
+  // Logo e favicon do site (ADR-034): imagem do tipo certo com `ownerId` nulo. Nulo = padrão
+  // embutido (que é do Core e da interface). A regra de tipo e de dono é de db.js.
+  logoImageId    String?
+  logoImage      Image?  @relation("ConfigurationLogo", fields: [logoImageId], references: [id], onDelete: SetNull)
+  faviconImageId String?
+  faviconImage   Image?  @relation("ConfigurationFavicon", fields: [faviconImageId], references: [id], onDelete: SetNull)
 
-  // Links sociais exibidos no rodapé (RF24); todos opcionais
-  discordUrl   String?
-  githubUrl    String?
-  youtubeUrl   String?
-  instagramUrl String?
-  linkedinUrl  String?
-  twitchUrl    String?
+  // Barra superior (D-34, ADR-037): ao menos um dos dois fica ligado (regra de db.js)
+  showLogo Boolean @default(true)
+  showName Boolean @default(true)
+
+  // Par de ícones do botão de modo, só do site (D-35): lista fechada em src/lib/footer-icons.js
+  modeIconPair   String @default("sun_moon")
+  // Título do diretório de espaços do portal (D-38): 1 a 40 caracteres
+  directoryTitle String @default("Espaços")
 
   // Portal "/" (RF30, RN28): só do site, não existem em Appearance
   homeBody         String? // texto do portal, em Markdown
@@ -178,38 +190,91 @@ model Configuration {
   @@map("configurations")
 }
 
-// Aparência do espaço de um usuário (RF31, ADR-025, ADR-028): as mesmas colunas de identidade,
-// links e paletas de Configuration, sem os campos do portal. A linha nasce sob demanda (upsert
-// no primeiro salvamento); sem linha, valem os padrões (RN08), e a leitura não escreve.
+// Aparência do espaço de um usuário (RF31, ADR-025, ADR-028, ADR-038): sobrescreve a do site no
+// espaço e no painel dele. NULO = HERDA do site: as seis cores (a paleta de cada modo, as três
+// juntas) e o `siteName` não têm padrão aqui; o padrão fica só em Configuration. Um modo com uma ou
+// duas cores nulas é inválido (db.js recusa). A linha nasce sob demanda (upsert no primeiro
+// salvamento); sem linha, tudo herda (RN08), e a leitura não escreve.
 model Appearance {
   ownerId String @id
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  // O padrão de um espaço novo é o nome do usuário; db.js o preenche ao criar a linha
-  siteName        String  @default("Vitrine")
-  siteDescription String?
+  siteName        String?
+  siteDescription String? // não herda
 
-  primaryColor       String @default("#2563eb")
-  secondaryColor     String @default("#1e293b")
-  accentColor        String @default("#b45309")
-  darkPrimaryColor   String @default("#60a5fa")
-  darkSecondaryColor String @default("#cbd5e1")
-  darkAccentColor    String @default("#fbbf24")
+  primaryColor       String?
+  secondaryColor     String?
+  accentColor        String?
+  darkPrimaryColor   String?
+  darkSecondaryColor String?
+  darkAccentColor    String?
 
-  logoUrl    String?
-  faviconUrl String?
+  // Logo e favicon do espaço: imagem do tipo certo e do próprio dono. Nulo = herda (site e, depois,
+  // o embutido).
+  logoImageId    String?
+  logoImage      Image?  @relation("AppearanceLogo", fields: [logoImageId], references: [id], onDelete: SetNull)
+  faviconImageId String?
+  faviconImage   Image?  @relation("AppearanceFavicon", fields: [faviconImageId], references: [id], onDelete: SetNull)
 
-  discordUrl   String?
-  githubUrl    String?
-  youtubeUrl   String?
-  instagramUrl String?
-  linkedinUrl  String?
-  twitchUrl    String?
+  // Barra superior do espaço (D-34): não herdam; ao menos um dos dois fica ligado
+  showLogo Boolean @default(true)
+  showName Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("appearances")
+}
+
+// Imagem (ADR-034): BLOB no SQLite, já reencodada pelo Core com o `sharp` (sem metadados). Imutável:
+// trocar a imagem cria outra linha (id novo) e apaga a anterior. Nenhuma listagem seleciona `bytes`;
+// só `getImage(id)` o lê. O banco NÃO impõe que cada referência (avatar, logo, favicon) aponte para
+// uma imagem do mesmo dono e do tipo certo: o único caminho de escrita é `replaceImage` (db.js), e um
+// teste confere que não há imagem órfã. `ownerId` nulo = imagem do site; a exclusão do usuário apaga
+// as dele (db.js, e esta cascata como rede de segurança).
+model Image {
+  id        String   @id @default(cuid())
+  kind      String // avatar, logo ou favicon; validado na aplicação
+  mime      String // o da saída reencodada: image/webp (avatar e logo) ou image/png (favicon)
+  bytes     Bytes
+  width     Int
+  height    Int
+  sha256    String // do conteúdo reencodado; serve de ETag (não único)
+  ownerId   String?
+  owner     User?    @relation("ImageOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  // Lados inversos das referências (o Prisma exige os dois lados)
+  avatarOf            User?           @relation("UserAvatar")
+  siteLogoOf          Configuration[] @relation("ConfigurationLogo")
+  siteFaviconOf       Configuration[] @relation("ConfigurationFavicon")
+  appearanceLogoOf    Appearance[]    @relation("AppearanceLogo")
+  appearanceFaviconOf Appearance[]    @relation("AppearanceFavicon")
+
+  @@index([ownerId])
+  @@map("images")
+}
+
+// Rodapé por ícones (ADR-035): `ownerId` nulo é o rodapé do site. No máximo 8 por dono e um ícone por
+// dono, por db.js (`replaceFooterLinks`, o único caminho de escrita, em lote e transacional). O
+// `@@unique` abaixo NÃO cobre o site, pois no SQLite NULL é distinto de NULL; a unicidade do site é o
+// índice parcial da migração (SQL manual, o Prisma não o modela e o APAGA sem avisar quando redefine
+// a tabela; recriar SEMPRE e conferir em tests/dados/indexes.test.js):
+//   CREATE UNIQUE INDEX "footer_links_site_icon_key"
+//     ON "footer_links"("icon") WHERE "ownerId" IS NULL;
+model FooterLink {
+  id        String   @id @default(cuid())
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  icon      String // lista fechada (src/lib/footer-icons.js); validado em db.js
+  url       String // https:// ou, no ícone email, mailto:; o formato é validado pelo Core (RN17)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId, icon])
+  @@index([ownerId, order])
+  @@map("footer_links")
 }
 
 // Gravidade de uma notificação. O SQLite não impõe o enum no banco; o Prisma o valida no cliente.
