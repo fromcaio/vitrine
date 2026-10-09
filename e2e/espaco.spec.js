@@ -273,7 +273,9 @@ test.describe.serial("espaço público e portal", () => {
     // O espaço do Beto não herda a paleta da Ana nem a do site.
     const betoHtml = await (await request.get("/esp-beto/inicio")).text();
     expect(betoHtml).not.toContain("#7c3aed");
-    expect(betoHtml).not.toContain("--vitrine-light-primary:"); // o Beto não personalizou: paleta nula (herda)
+    // O Beto não personalizou: a paleta dele é nula e herda a do SISTEMA (ADR-038), não a da Ana.
+    const system = (await (await admin.get("/api/configuration")).json()).data;
+    expect(betoHtml).toContain(`--vitrine-light-primary:${system.primaryColor}`);
     expect(baseURL).toBeTruthy();
     expect(ADMIN.email).toBeTruthy();
   });
