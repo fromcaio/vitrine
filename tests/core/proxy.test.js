@@ -70,12 +70,12 @@ describe("proxy: o painel", () => {
 });
 
 describe("proxy: o que o matcher alcança", () => {
-  it.each(["/ana", "/ana/calculo", "/ana/calculo/limites", "/login-fan", "/apidocs", "/admin-fan", "/Ana", "/%41na", "/logout"])(
+  it.each(["/ana", "/ana/calculo", "/ana/calculo/limites", "/login-fan", "/apidocs", "/admin-fan", "/media-fan", "/Ana", "/%41na", "/logout"])(
     "%s passa pelo Proxy",
     (path) => expect(matches(path)).toBe(true),
   );
 
-  it.each(["/", "/api", "/api/users", "/login", "/login/x", "/_next/static/chunks/a.js", "/favicon.ico", "/next.svg", "/imagens/logo.png"])(
+  it.each(["/", "/api", "/api/users", "/login", "/login/x", "/media/abc123", "/_next/static/chunks/a.js", "/favicon.ico", "/next.svg", "/imagens/logo.png"])(
     "%s não passa pelo Proxy",
     (path) => expect(matches(path)).toBe(false),
   );
@@ -150,7 +150,8 @@ describe("proxy: o espaço público (CT43, CT45)", () => {
   });
 
   it("a raiz (o portal), a API, o login, o Next.js e o próprio alvo do 404 seguem sem consulta", async () => {
-    for (const path of ["/", "/api/users", "/login", "/_next/static/a.js", `/${NOT_FOUND_SEGMENT}`]) {
+    // `/media/<id>` (A-029) é uma rota, não um espaço: `media` é nome reservado, e o Proxy não o manda ao 404.
+    for (const path of ["/", "/api/users", "/login", "/media/abc123", "/_next/static/a.js", `/${NOT_FOUND_SEGMENT}`]) {
       expect(passes(await proxy(request(path))), path).toBe(true);
     }
     expect(getUserByHandle).not.toHaveBeenCalled();

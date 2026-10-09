@@ -301,6 +301,39 @@ describe("o que a API recusa no envio (422 INVALID_IMAGE, 413, 400), sem eco do 
     expect(response.status).toBe(413);
   });
 
+  it("o corpo é lido COM LIMITE: um corpo sem fim é cortado em ~2 MB e recebe 413, sem ler o resto", async () => {
+    const boundary = "limite-de-leitura";
+    const chunk = Buffer.alloc(64 * 1024, 0x61);
+    let pulled = 0;
+    const endless = new ReadableStream({
+      pull(controller) {
+        // Cabeçalho do arquivo no primeiro pedaço; depois, lixo sem fim (a requisição "mente" ou não declara o tamanho).
+        const head = pulled === 0 ? Buffer.from(`--${boundary}
+Content-Disposition: form-data; name="file"; filename="x.png"
+Content-Type: image/png
+
+`) : null;
+        const piece = head ? Buffer.concat([head, chunk]) : chunk;
+        pulled += piece.length;
+        if (pulled > 64 * 1024 * 1024) controller.close();
+        else controller.enqueue(piece);
+      },
+    });
+    const request = new Request(`${BASE_URL}/api/users/me/avatar`, {
+      method: "PUT",
+      headers: { origin: BASE_URL, cookie: ana.cookie, "content-type": `multipart/form-data; boundary=${boundary}` },
+      body: endless,
+      // @ts-expect-error exigido pelo Node para um corpo em fluxo
+      duplex: "half",
+    });
+
+    const response = await myAvatar.PUT(request);
+
+    expect(response.status).toBe(413);
+    // 2 MB do arquivo + 16 KiB das fronteiras + o que o fluxo já tinha à frente: nunca os 64 MB.
+    expect(pulled).toBeLessThan(2 * 1024 * 1024 + 16 * 1024 + 1024 * 1024);
+  });
+
   it("corpo que não é multipart/form-data: 400 VALIDATION_ERROR (também JSON)", async () => {
     const asJson = new Request(`${BASE_URL}/api/users/me/avatar`, {
       method: "PUT",
@@ -424,7 +457,10 @@ describe("DELETE /api/users/:id/avatar: a moderação do administrador", () => {
     for (const reason of [undefined, "", "   "]) {
       const response = await remove(ana.id, { reason, cookie: admin.cookie });
       expect(response.status).toBe(422);
-      expect((await json(response)).error.details[0].field).toBe("reason");
+      const [detail] = (await json(response)).error.details;
+      expect(detail.field).toBe("reason");
+      // a recusa é da VALIDAÇÃO da rota (o Zod), antes de qualquer escrita
+      expect(detail.message).toMatch(/motivo/i);
     }
     expect((await remove(ana.id, { reason: "x".repeat(501), cookie: admin.cookie })).status).toBe(422);
     expect((await prisma.user.findUnique({ where: { id: ana.id } }))?.avatarImageId).not.toBeNull();
