@@ -10,12 +10,14 @@ import {
   DATA_ERROR_MAP,
   DEFAULT_JSON_MAX_BYTES,
   contentJsonMaxBytes,
+  imageBusy,
   isSameOrigin,
   mapDataError,
   noContent,
   ok,
   parse,
   readJson,
+  renderBusy,
   toErrorResponse,
 } from "@/app/api/_lib/http";
 
@@ -156,6 +158,59 @@ describe("formato único de erro", () => {
     toErrorResponse(new DataError("NOT_FOUND", "x"));
     toErrorResponse(new ApiError(401, "UNAUTHENTICATED", "x"));
     expect(log).not.toHaveBeenCalled();
+  });
+});
+
+describe("o registro do 503 BUSY (A-024): esperado sob carga, não é erro", () => {
+  // As três origens do `BUSY`: a fila de validações de texto, as vagas de imagem e o DataError do Dados.
+  const busyErrors = /** @type {const} */ ([
+    ["fila de texto (renderBusy)", () => renderBusy(3)],
+    ["vagas de imagem (imageBusy)", () => imageBusy(2)],
+    ["DataError BUSY", () => new DataError("BUSY", "ocupado")],
+  ]);
+
+  it.each(busyErrors)("%s: 503 BUSY; uma linha em nível baixo, sem a pilha e sem console.error", async (_name, make) => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
+    const error = make();
+
+    const response = toErrorResponse(error);
+
+    expect(response.status).toBe(503);
+    expect((await response.json()).error.code).toBe("BUSY");
+    expect(errorLog).not.toHaveBeenCalled();
+    expect(infoLog).toHaveBeenCalledTimes(1);
+    const args = infoLog.mock.calls[0];
+    expect(args).toHaveLength(1); // só o texto: o erro (com a pilha) não vai junto
+    expect(String(args[0])).toContain("BUSY");
+    // nem uma pilha dentro do texto: uma só linha, sem posição de arquivo
+    expect(String(args[0])).not.toContain(String.fromCharCode(10));
+    expect(String(args[0])).not.toContain(".js:");
+  });
+
+  it("o Retry-After do BUSY continua na resposta", () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    expect(toErrorResponse(renderBusy(3)).headers.get("retry-after")).toBe("3");
+    expect(toErrorResponse(imageBusy(2)).headers.get("retry-after")).toBe("2");
+  });
+
+  it("os demais 5xx seguem em console.error com o erro (e a pilha): 500 interno, 503 de outro código, DataError desconhecido", () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
+    const internal = new Error("falha interna");
+    const unavailable = new ApiError(503, "INTERNAL_ERROR", "fora do ar");
+    const unknown = new DataError("CODIGO_NOVO", "não mapeado");
+
+    expect(toErrorResponse(internal).status).toBe(500);
+    expect(toErrorResponse(unavailable).status).toBe(503);
+    expect(toErrorResponse(unknown).status).toBe(500);
+
+    expect(errorLog.mock.calls).toEqual([
+      [expect.any(String), internal],
+      [expect.any(String), unavailable],
+      [expect.any(String), unknown],
+    ]);
+    expect(infoLog).not.toHaveBeenCalled();
   });
 });
 
