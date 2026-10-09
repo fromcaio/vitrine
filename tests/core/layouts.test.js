@@ -39,7 +39,7 @@ import NotFound, { metadata as notFoundMetadata } from "@/app/not-found";
 import PortalLayout, { generateMetadata as portalMetadata } from "@/app/(portal)/layout";
 import { DEFAULT_SITE_DESCRIPTION } from "@/app/_lib/site";
 import { COLOR_MODE_SCRIPT } from "@/components/layout/color-mode-script";
-import { getConfiguration, prisma, updateAppearance, updateConfiguration } from "@/lib/db";
+import { getConfiguration, prisma, updateAppearance, updateConfiguration, replaceImage } from "@/lib/db";
 import { textColorsOf } from "@/lib/theme";
 
 const LIGHT = { primaryColor: "#1d4ed8", secondaryColor: "#0f172a", accentColor: "#b45309" };
@@ -339,7 +339,7 @@ describe("AdminLayout", () => {
     // Nunca o registro da configuração: o nome do site, o usuário, o papel e o que o painel liga (o sino e
     // as páginas que existem).
     expect(Object.keys(shell.props).sort()).toEqual([
-      "availablePaths", "children", "modeIconPair", "mustChangePassword", "notificationBell", "role", "showLogo", "showName",
+      "availablePaths", "children", "logoUrl", "modeIconPair", "mustChangePassword", "notificationBell", "role", "showLogo", "showName",
       "signOutAction", "siteName", "user",
     ]);
     expect(shell.props.user).toEqual({ id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" });
@@ -425,6 +425,52 @@ describe("AdminLayout", () => {
       expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
       expect(getSession).not.toHaveBeenCalled();
     });
+  });
+});
+
+/** Uma imagem de teste (o Dados não confere os bytes, só o tipo e o dono). */
+const picture = (mime = "image/webp") => ({ mime, bytes: Buffer.from("imagem-de-teste"), width: 8, height: 8, sha256: "a".repeat(64) });
+
+describe("o favicon enviado nos metadados do sistema (A-029, RF35)", () => {
+  it("portal, login e painel emitem o `icons` com /media/<id>; sem favicon enviado, nada (vale o favicon.ico)", async () => {
+    expect((await portalMetadata()).icons).toBeUndefined();
+    expect((await loginMetadata()).icons).toBeUndefined();
+    expect((await adminMetadata()).icons).toBeUndefined();
+
+    const { id } = await replaceImage("favicon", null, picture("image/png"));
+
+    for (const metadata of [portalMetadata, loginMetadata, adminMetadata]) {
+      expect((await metadata()).icons).toEqual({ icon: [{ url: `/media/${id}`, type: "image/png", sizes: "64x64" }] });
+    }
+  });
+});
+
+describe("o logotipo enviado na marca do login e do painel (A-029, RF35)", () => {
+  it("o /login usa o logotipo do SISTEMA (/media/<id>)", async () => {
+    const { id } = await replaceImage("logo", null, picture());
+
+    const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain(`/media/${id}`);
+    expect(html).not.toContain('data-testid="logo-padrao"');
+  });
+
+  it("o painel do administrador usa o logotipo do sistema; o do usuário comum, o efetivo (o dele, ou o do sistema)", async () => {
+    const { createTestUser } = await import("./helpers");
+    const site = await replaceImage("logo", null, picture());
+    const person = await createTestUser({ email: "logo-painel@exemplo.test", name: "Pessoa" });
+    vi.mocked(requireSession).mockResolvedValue({ user: { id: person.id, name: "Pessoa", email: "logo-painel@exemplo.test", role: "user" } });
+
+    expect((await AdminLayout({ children: null })).props.children.props.logoUrl).toBe(`/media/${site.id}`);
+
+    const own = await replaceImage("logo", person.id, picture());
+    expect((await AdminLayout({ children: null })).props.children.props.logoUrl).toBe(`/media/${own.id}`);
+
+    vi.mocked(requireSession).mockResolvedValue({ user: { id: person.id, name: "Pessoa", email: "logo-painel@exemplo.test", role: "admin" } });
+    expect((await AdminLayout({ children: null })).props.children.props.logoUrl).toBe(`/media/${site.id}`);
+
+    vi.mocked(requireSession).mockReset();
+    vi.mocked(requireSession).mockImplementation(async () => ({ user: { id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" } }));
   });
 });
 

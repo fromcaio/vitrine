@@ -13,7 +13,6 @@ import {
   fieldOfUrl,
   isEmailAddress,
   isFooterIcon,
-  legacyFooterLinks,
   linkUrlError,
   renderableLinks,
   urlOfField,
@@ -164,29 +163,5 @@ describe("validateLinks: a lista inteira, antes de enviar", () => {
 
   it("um ícone fora da lista é recusado", () => {
     expect(validateLinks([{ icon: "tiktok", url: "https://tiktok.com/a" }]).rows[0]).toBeTruthy();
-  });
-});
-
-describe("legacyFooterLinks: a transição dos seis campos antigos (até a A-029)", () => {
-  it("converte o registro antigo na ordem antiga, só o que o rodapé novo aceita", () => {
-    expect(
-      legacyFooterLinks({
-        discordUrl: "https://discord.gg/x",
-        githubUrl: "https://github.com/maria",
-        youtubeUrl: "http://youtube.com/inseguro",
-        instagramUrl: "",
-        linkedinUrl: null,
-        twitchUrl: "  https://twitch.tv/maria  ",
-        id: "ignorado",
-      }),
-    ).toEqual([
-      { icon: "discord", url: "https://discord.gg/x" },
-      { icon: "github", url: "https://github.com/maria" },
-      { icon: "twitch", url: "https://twitch.tv/maria" },
-    ]);
-  });
-
-  it("sem registro, lista vazia", () => {
-    for (const value of [null, undefined, {}]) expect(legacyFooterLinks(value)).toEqual([]);
   });
 });

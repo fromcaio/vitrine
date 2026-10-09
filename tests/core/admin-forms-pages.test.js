@@ -36,7 +36,7 @@ import { AppearanceForm } from "@/components/admin/AppearanceForm";
 import { AppearanceTargetTabs } from "@/components/admin/AppearanceTargetTabs";
 import { PortalSettingsForm } from "@/components/admin/PortalSettingsForm";
 import { SiteIdentityForm } from "@/components/admin/SiteIdentityForm";
-import { getAppearance, getConfiguration, updateAppearance, updateConfiguration } from "@/lib/db";
+import { getAppearance, getConfiguration, replaceFooterLinks, replaceImage, updateAppearance, updateConfiguration } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
 
 /** @type {{ id: string, role: string }} */
@@ -263,5 +263,46 @@ describe("/admin/configuracoes", () => {
     vi.stubEnv("MAX_BODY_BYTES", "");
 
     expect(propsOf(await ConfigurationPage(), PortalSettingsForm).maxBodyBytes).toBe(64 * 1024);
+  });
+});
+
+describe("logotipo, favicon e rodapé nos formulários de aparência (A-029; RF24, RF35)", () => {
+  const picture = (mime, sha) => ({ mime, bytes: Buffer.from("x"), width: 8, height: 8, sha256: sha.repeat(64) });
+
+  it("o alvo `pagina` leva a `media` e o rodapé do PRÓPRIO espaço, nunca os do sistema nem os de outro", async () => {
+    const logo = await replaceImage("logo", ana.id, picture("image/webp", "a"));
+    await replaceImage("logo", null, picture("image/webp", "b"));
+    await replaceImage("logo", beto.id, picture("image/webp", "c"));
+    await replaceFooterLinks(ana.id, [{ icon: "github", url: "https://github.com/ana" }]);
+    await replaceFooterLinks(beto.id, [{ icon: "x", url: "https://x.com/beto" }]);
+    await replaceFooterLinks(null, [{ icon: "website", url: "https://sistema.test" }]);
+
+    const props = propsOf(await AppearancePage(query("pagina")), AppearanceForm);
+
+    expect(props.media).toEqual({ logoUrl: `/media/${logo.id}`, faviconUrl: null });
+    expect(props.footerLinks).toEqual([{ icon: "github", url: "https://github.com/ana" }]);
+  });
+
+  it("o alvo `sistema` (administrador) leva a `media` e o rodapé do SISTEMA", async () => {
+    session.user = admin;
+    const site = await replaceImage("favicon", null, picture("image/png", "d"));
+    await replaceImage("favicon", admin.id, picture("image/png", "e"));
+    await replaceFooterLinks(null, [{ icon: "website", url: "https://sistema.test" }, { icon: "email", url: "mailto:oi@sistema.test" }]);
+    await replaceFooterLinks(admin.id, [{ icon: "github", url: "https://github.com/admin" }]);
+
+    const props = propsOf(await AppearancePage(query("sistema")), SiteIdentityForm);
+
+    expect(props.media).toEqual({ logoUrl: null, faviconUrl: `/media/${site.id}` });
+    expect(props.footerLinks).toEqual([
+      { icon: "website", url: "https://sistema.test" },
+      { icon: "email", url: "mailto:oi@sistema.test" },
+    ]);
+  });
+
+  it("sem imagem nem rodapé: media com nulos e rodapé vazio (as seções aparecem, vazias)", async () => {
+    const props = propsOf(await AppearancePage(query()), AppearanceForm);
+
+    expect(props.media).toEqual({ logoUrl: null, faviconUrl: null });
+    expect(props.footerLinks).toEqual([]);
   });
 });

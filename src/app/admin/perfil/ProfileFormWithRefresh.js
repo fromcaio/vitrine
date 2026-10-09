@@ -10,8 +10,9 @@ import { ProfileForm } from "@/components/admin/ProfileForm";
  * @param {object} props
  * @param {{ name: string, email: string, handle: string | null, role: "admin" | "user" }} props.user
  * @param {string | null} props.spaceHref
+ * @param {{ url: string | null }} props.avatar o avatar atual (`/media/<id>` ou `null`)
  */
-export function ProfileFormWithRefresh({ user, spaceHref }) {
+export function ProfileFormWithRefresh({ user, spaceHref, avatar }) {
   const router = useRouter();
-  return <ProfileForm user={user} spaceHref={spaceHref} onSaved={() => router.refresh()} />;
+  return <ProfileForm user={user} spaceHref={spaceHref} avatar={avatar} onSaved={() => router.refresh()} />;
 }

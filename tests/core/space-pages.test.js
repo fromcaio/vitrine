@@ -32,7 +32,7 @@ import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[hand
 import { firstDocumentPath, getPublicPage, getSpace } from "@/app/_lib/space";
 import { SpaceFrame } from "@/app/_lib/space-frame";
 import { SpaceHome } from "@/components/layout/SpaceHome";
-import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
+import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, replaceFooterLinks, replaceImage, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
 
 beforeEach(async () => {
@@ -321,6 +321,52 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
 
     expect(SpaceFrame({ space: await getSpace("ana") }).props).toMatchObject({ showLogo: false, showName: true });
     expect(SpaceFrame({ space: await getSpace("beto") }).props.showLogo).toBe(true);
+  });
+
+  it("a moldura leva o logotipo EFETIVO (o do dono, ou o do sistema) e o rodapé SÓ do dono (não herda, RN17)", async () => {
+    const ana = await user("ana");
+    await user("beto");
+    const picture = { mime: "image/webp", bytes: Buffer.from("x"), width: 8, height: 8, sha256: "b".repeat(64) };
+    const site = await replaceImage("logo", null, picture);
+    await replaceFooterLinks(null, [{ icon: "github", url: "https://github.com/sistema" }]);
+    const own = await replaceImage("logo", ana, picture);
+    await replaceFooterLinks(ana, [{ icon: "email", url: "mailto:ana@exemplo.com" }]);
+
+    const anaFrame = SpaceFrame({ space: await getSpace("ana") });
+    const betoFrame = SpaceFrame({ space: await getSpace("beto") });
+
+    expect(anaFrame.props.logoUrl).toBe(`/media/${own.id}`);
+    expect(anaFrame.props.footerLinks).toEqual([expect.objectContaining({ icon: "email", url: "mailto:ana@exemplo.com" })]);
+    expect(betoFrame.props.logoUrl).toBe(`/media/${site.id}`); // herda o logotipo do sistema
+    expect(betoFrame.props.footerLinks).toEqual([]); // o rodapé do sistema NÃO vai ao espaço dele
+    expect(anaFrame.props).not.toHaveProperty("socialLinks");
+  });
+
+  it("o portal leva o logotipo e o rodapé do SISTEMA", async () => {
+    const site = await replaceImage("logo", null, { mime: "image/webp", bytes: Buffer.from("x"), width: 8, height: 8, sha256: "c".repeat(64) });
+    await replaceFooterLinks(null, [{ icon: "github", url: "https://github.com/sistema" }, { icon: "website", url: "https://exemplo.com" }]);
+
+    const layout = await PortalPage();
+
+    expect(layout.props.logoUrl).toBe(`/media/${site.id}`);
+    expect(layout.props.footerLinks).toEqual([
+      expect.objectContaining({ icon: "github", url: "https://github.com/sistema" }),
+      expect.objectContaining({ icon: "website", url: "https://exemplo.com" }),
+    ]);
+    expect(layout.props).not.toHaveProperty("socialLinks");
+  });
+
+  it("o favicon do espaço (generateMetadata do layout): o do dono, ou o do sistema; sem nenhum, só o favicon.ico", async () => {
+    const ana = await user("ana");
+    await user("beto");
+    expect((await layoutMetadata({ params: Promise.resolve({ handle: "ana" }) })).icons).toBeUndefined();
+
+    const picture = (sha) => ({ mime: "image/png", bytes: Buffer.from("x"), width: 64, height: 64, sha256: sha.repeat(64) });
+    const site = await replaceImage("favicon", null, picture("d"));
+    const own = await replaceImage("favicon", ana, picture("e"));
+
+    expect((await layoutMetadata({ params: Promise.resolve({ handle: "ana" }) })).icons).toEqual({ icon: [{ url: `/media/${own.id}`, type: "image/png", sizes: "64x64" }] });
+    expect((await layoutMetadata({ params: Promise.resolve({ handle: "beto" }) })).icons).toEqual({ icon: [{ url: `/media/${site.id}`, type: "image/png", sizes: "64x64" }] });
   });
 
   it.each([

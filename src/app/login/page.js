@@ -8,7 +8,7 @@ import { LoginBrand } from "@/components/admin/LoginBrand";
 import { LoginForm } from "@/components/admin/LoginForm";
 import { getSession } from "@/lib/auth";
 import { safeRedirectPath } from "@/lib/validators";
-import { getSiteConfiguration, siteNameOf } from "../_lib/site";
+import { getSiteConfiguration, mediaUrlOf, siteNameOf } from "../_lib/site";
 
 // O título ("Entrar | nome do site") é do layout deste segmento: ver login/layout.js.
 export const metadata = {
@@ -30,6 +30,7 @@ export default async function LoginPage({ searchParams }) {
       <div className="w-full max-w-sm rounded-lg border border-border border-t-4 border-t-secondary bg-background p-6 sm:p-8">
         <LoginBrand
           name={siteNameOf(configuration)}
+          logoUrl={mediaUrlOf(configuration?.logoImageId)}
           showLogo={configuration?.showLogo ?? true}
           showName={configuration?.showName ?? true}
         />

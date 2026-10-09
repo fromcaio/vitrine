@@ -10,7 +10,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { NotificationBell } from "@/components/admin/NotificationBell";
 import { countUnread } from "@/lib/db";
 import { SiteTheme } from "../_lib/site-theme";
-import { getSiteConfiguration, siteNameOf } from "../_lib/site";
+import { faviconMetadata, getSiteConfiguration, siteNameOf } from "../_lib/site";
 import { signOut } from "./_lib/actions";
 import { availablePathsFor } from "./_lib/menu";
 import { panelAppearance } from "./_lib/appearance";
@@ -23,10 +23,12 @@ import { requireSession } from "./_lib/session";
  * "The destination stream closed early" quando o navegador cancelava a navegação (P-019).
  */
 export async function generateMetadata() {
-  const siteName = siteNameOf(await getSiteConfiguration());
+  const configuration = await getSiteConfiguration();
+  const siteName = siteNameOf(configuration);
   return {
     title: { absolute: `Painel administrativo | ${siteName}`, template: `%s | ${siteName}` },
     robots: { index: false, follow: false },
+    ...faviconMetadata(configuration?.faviconImageId),
   };
 }
 
@@ -48,6 +50,7 @@ export default async function AdminLayout({ children }) {
         user={user}
         signOutAction={signOut}
         siteName={panel.siteName}
+        logoUrl={panel.logoUrl}
         showLogo={panel.showLogo}
         showName={panel.showName}
         modeIconPair={panel.modeIconPair}

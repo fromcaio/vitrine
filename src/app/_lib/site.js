@@ -117,17 +117,37 @@ export function siteDescriptionOf(configuration) {
 }
 
 /**
+ * O endereço público de uma imagem (`GET /media/<id>`; A-029), ou `null` sem imagem. O identificador é opaco e
+ * vem do banco: só entra na URL se tiver a forma de um id (letras, dígitos, hífen e sublinhado).
+ * @param {unknown} imageId
+ * @returns {string | null}
+ */
+export function mediaUrlOf(imageId) {
+  return typeof imageId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(imageId) ? `/media/${imageId}` : null;
+}
+
+/**
+ * O `icons` dos metadados para o favicon ENVIADO (`/media/<id>`, PNG 64x64; RF35). Sem favicon enviado, vale o
+ * `favicon.ico` pequeno de `src/app/favicon.ico`, que o Next acrescenta sozinho (a reserva).
+ * @param {unknown} imageId
+ */
+export function faviconMetadata(imageId) {
+  const url = mediaUrlOf(imageId);
+  return url ? { icons: { icon: [{ url, type: "image/png", sizes: "64x64" }] } } : {};
+}
+
+/**
  * Metadados de uma página do site (portal, login): o nome vira o título (`absolute`: ignora o modelo
  * do layout raiz, que faria "Vitrine | Vitrine") e o modelo dos segmentos filhos que definem o
  * próprio título (`Entrar` aparece como "Entrar | nome"), e a descrição vem da configuração (RF18).
- * Sem configuração, valem "Vitrine" (RN08) e a descrição padrão. Logotipo, favicon e links sociais
- * não entram aqui.
- * @param {{ siteName?: unknown, siteDescription?: unknown } | null | undefined} configuration
+ * Sem configuração, valem "Vitrine" (RN08) e a descrição padrão. O favicon enviado do sistema entra em `icons`.
+ * @param {{ siteName?: unknown, siteDescription?: unknown, faviconImageId?: unknown } | null | undefined} configuration
  */
 export function siteMetadata(configuration) {
   const siteName = siteNameOf(configuration);
   return {
     title: { absolute: siteName, template: `%s | ${siteName}` },
     description: siteDescriptionOf(configuration),
+    ...faviconMetadata(configuration?.faviconImageId),
   };
 }
