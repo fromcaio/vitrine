@@ -6,6 +6,7 @@ import * as z from "zod";
 // Só o módulo do português do Brasil, e não `z.locales` (todos os idiomas, ~37 kB a mais no pacote do
 // navegador); `zod/v4/locales/pt.js` é o português de Portugal e dá mensagens diferentes (R-007).
 import ptBRLocale from "zod/v4/locales/pt-BR.js";
+import { MODE_ICON_PAIRS } from "./footer-icons.js";
 
 // --------------------------------------------------------
 // Constantes das regras de negócio
@@ -302,16 +303,11 @@ export const contentReorderSchema = z
   )
   .min(1, { error: "O lote não pode ser vazio." });
 
-/** Campos de identidade, paletas (clara e noturna, RN09, RN27) e links sociais (RN17), comuns ao site e à aparência. */
-const appearanceFields = {
-  siteName: z.string().trim().min(1, { error: "O nome do site é obrigatório." }).optional(),
+/** Campos que o site e a aparência têm em comum: a descrição, a barra superior (D-34) e os legados (a A-029 os remove). */
+const sharedFields = {
   siteDescription: z.preprocess(emptyToNull, z.string().nullable()).optional(),
-  primaryColor: hexColorSchema.optional(),
-  secondaryColor: hexColorSchema.optional(),
-  accentColor: hexColorSchema.optional(),
-  darkPrimaryColor: hexColorSchema.optional(),
-  darkSecondaryColor: hexColorSchema.optional(),
-  darkAccentColor: hexColorSchema.optional(),
+  showLogo: z.boolean({ error: "showLogo deve ser verdadeiro ou falso." }).optional(),
+  showName: z.boolean({ error: "showName deve ser verdadeiro ou falso." }).optional(),
   logoUrl: assetUrlSchema.optional(),
   faviconUrl: assetUrlSchema.optional(),
   discordUrl: socialUrlSchema.optional(),
@@ -322,21 +318,64 @@ const appearanceFields = {
   twitchUrl: socialUrlSchema.optional(),
 };
 
+/** As seis cores (paletas clara e noturna, RN09, RN27). */
+const COLOR_KEYS = /** @type {const} */ ([
+  "primaryColor",
+  "secondaryColor",
+  "accentColor",
+  "darkPrimaryColor",
+  "darkSecondaryColor",
+  "darkAccentColor",
+]);
+
+/** Tamanho máximo do título do diretório (D-38); o mesmo de `DIRECTORY_TITLE_MAX_LENGTH`, de db.js. */
+const DIRECTORY_TITLE_MAX = 40;
+
+/** Título do diretório do portal (D-38): texto simples de 1 a 40 caracteres (pontos de código, como em db.js). */
+const directoryTitleSchema = z
+  .string({ error: "O título do diretório deve ser um texto." })
+  .trim()
+  .refine((value) => [...value].length >= 1 && [...value].length <= DIRECTORY_TITLE_MAX, {
+    error: `O título do diretório deve ter de 1 a ${DIRECTORY_TITLE_MAX} caracteres.`,
+  });
+
 /**
- * PUT /api/configuration (só o administrador): a identidade e as paletas do site, o texto do portal
- * (`homeBody`, Markdown) e o diretório de espaços; campos ausentes não mudam. O tamanho do
- * `homeBody` em bytes (RN25) é conferido pela rota.
+ * PUT /api/configuration (só o administrador): a identidade e as paletas do site (obrigatórias quando
+ * enviadas: o site é a base da herança, ADR-038), a barra superior, o par de ícones do botão de modo
+ * (RN32), o texto do portal (`homeBody`, Markdown), o diretório de espaços e o título dele; campos
+ * ausentes não mudam. O tamanho do `homeBody` em bytes (RN25) é conferido pela rota; a regra "ao menos
+ * um entre `showLogo` e `showName`", por db.js.
  */
 export const configurationUpdateSchema = z
   .object({
-    ...appearanceFields,
+    ...sharedFields,
+    siteName: z.string().trim().min(1, { error: "O nome do site é obrigatório." }).optional(),
+    ...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.optional()])),
+    modeIconPair: z
+      .enum(MODE_ICON_PAIRS, { error: `O par de ícones deve ser um de: ${MODE_ICON_PAIRS.join(", ")}.` })
+      .optional(),
+    directoryTitle: directoryTitleSchema.optional(),
     homeBody: z.preprocess(emptyToNull, z.string().nullable()).optional(),
     directoryEnabled: z.boolean({ error: "O diretório deve ser verdadeiro ou falso." }).optional(),
   })
   .refine(hasAnyField, EMPTY_PATCH);
 
-/** PUT /api/appearance (o próprio usuário): a identidade e as paletas do espaço; campos ausentes não mudam. */
-export const appearanceUpdateSchema = z.object(appearanceFields).refine(hasAnyField, EMPTY_PATCH);
+/**
+ * PUT /api/appearance (o próprio usuário): a identidade, a barra superior e as paletas do espaço; campos
+ * ausentes não mudam. O nome e as seis cores aceitam `null` (herdam o sistema, ADR-038). Que a paleta de
+ * um modo tenha as três cores ou nenhuma, e que `showLogo` e `showName` não fiquem ambos falsos, é
+ * conferido por db.js sobre o estado resultante (422 com `field` igual a `lightPalette`, `darkPalette` ou
+ * `showName`).
+ */
+export const appearanceUpdateSchema = z
+  .object({
+    ...sharedFields,
+    siteName: z
+      .preprocess(emptyToNull, z.string().trim().min(1, { error: "O nome do site é obrigatório." }).nullable())
+      .optional(),
+    ...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.nullable().optional()])),
+  })
+  .refine(hasAnyField, EMPTY_PATCH);
 
 // --------------------------------------------------------
 // Usuários e senhas (RN19 a RN24; ADR-029)

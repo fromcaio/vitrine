@@ -4,7 +4,8 @@
 // banco, e `generateStaticParams` devolve `[]`.
 import { cache } from "react";
 import { resolvePath } from "@/lib/content-tree";
-import { getAppearance, getContentByPath, getContentTree, getPublicPaths, getUserByHandle, listPublicSpaces } from "@/lib/db";
+import { getContentByPath, getContentTree, getEffectiveAppearance, getPublicPaths, getUserByHandle, listPublicSpaces } from "@/lib/db";
+import { getSiteConfiguration } from "./site";
 
 /** @typedef {import("@/lib/content-tree").ContentNode} ContentNode */
 
@@ -16,16 +17,19 @@ export const isBuildPhase = () => process.env.NEXT_PHASE === "phase-production-b
  * suspenso (RN23) ou no `next build`. O `handle` deve estar na forma canônica (minúsculas): a
  * consulta é exata, e `/Ana` não é o espaço de `ana`. Com o `cache` do React, o layout, a página e o
  * `generateMetadata` compartilham uma única leitura por requisição. A árvore vem podada pela RN15
- * (só publicados, sem subárvore de rascunho).
+ * (só publicados, sem subárvore de rascunho). A `appearance` é a EFETIVA (ADR-038): a do dono sobre a
+ * do sistema, mesclada aqui, na geração da página (o espaço segue estático com ISR); o nome é o dela
+ * (o do dono, ou o do sistema se ele não definiu um; ADR-038, item 8). `modeIconPair` é do sistema.
  * @param {string} handle
  */
 export const getSpace = cache(async (handle) => {
   if (isBuildPhase()) return null;
   const owner = await getUserByHandle(handle);
   if (!owner || !owner.handle) return null;
-  const [appearance, tree] = await Promise.all([
-    getAppearance(owner.id),
+  const [appearance, tree, site] = await Promise.all([
+    getEffectiveAppearance(owner.id),
     getContentTree({ ownerId: owner.id, onlyPublished: true }),
+    getSiteConfiguration(),
   ]);
   if (!appearance) return null;
   return {
@@ -33,8 +37,8 @@ export const getSpace = cache(async (handle) => {
     appearance,
     tree,
     basePath: `/${owner.handle}`,
-    // O nome do espaço é o da aparência (o do usuário, enquanto ela não for salva).
-    name: appearance.siteName?.trim() || owner.name,
+    name: appearance.siteName,
+    modeIconPair: site?.modeIconPair ?? undefined,
   };
 });
 

@@ -84,10 +84,23 @@ describe("getSpace: o espaço ativo de um handle (RN23, RN20)", () => {
     expect(space.tree[0].children.map((node) => node.slug)).toEqual(["limites"]);
   });
 
-  it("sem aparência salva, o nome do espaço é o do usuário", async () => {
+  it("sem nome próprio, o espaço herda o nome do SISTEMA (ADR-038, item 8), e não o do usuário", async () => {
     await user("ana");
+    expect((await getSpace("ana")).name).toBe("Vitrine");
 
-    expect((await getSpace("ana")).name).toBe("Nome de ana");
+    await updateConfiguration({ siteName: "Turma 2026" });
+    expect((await getSpace("ana")).name).toBe("Turma 2026");
+  });
+
+  it("a aparência do espaço é a EFETIVA: a paleta própria sobre a do sistema, por modo", async () => {
+    const ana = await user("ana");
+    await updateConfiguration({ darkPrimaryColor: "#aabbcc", darkSecondaryColor: "#bbccdd", darkAccentColor: "#ccddee" });
+    await updateAppearance(ana, { primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" });
+
+    const { appearance } = await getSpace("ana");
+
+    expect(appearance).toMatchObject({ primaryColor: "#112233", darkPrimaryColor: "#aabbcc" });
+    expect(appearance.inherits).toMatchObject({ lightPalette: false, darkPalette: true });
   });
 
   it.each([

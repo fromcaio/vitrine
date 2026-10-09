@@ -208,10 +208,11 @@ describe("a gravação não depende de a paleta ser boa", () => {
   });
 });
 
-// ADR-038: a paleta nula herda a do sistema; o contraste vale para a aparência EFETIVA. Antes, a rota
-// calculava sobre a linha gravada e respondia 500 (TypeError: "Cor fora do formato #RRGGBB: null") a
-// quem não personalizou as duas paletas.
-describe("a paleta herdada: o contraste vale sobre a aparência efetiva", () => {
+// ADR-038: a paleta nula herda a do sistema; o contraste (aviso e notificação) vale só para as paletas
+// que o DONO definiu, e a herdada é de quem a definiu (item 7). Antes, a rota calculava sobre a linha
+// gravada e respondia 500 (TypeError: "Cor fora do formato #RRGGBB: null"); depois, sobre a efetiva,
+// o que notificava quem herdava uma paleta ruim do sistema sem poder corrigi-la (A-031).
+describe("a paleta herdada: o contraste vale só para as paletas que o dono definiu (ADR-038, item 7)", () => {
   it("tudo nulo (só o nome): 200 e, com as paletas padrão do sistema, nenhum aviso", async () => {
     const response = await putAppearance({ siteName: "Só o nome" }, ana.cookie);
 
@@ -234,12 +235,42 @@ describe("a paleta herdada: o contraste vale sobre a aparência efetiva", () => 
     expect(fields(body.warnings)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
   });
 
-  it("o modo herdado é conferido contra a paleta do SISTEMA, e não contra um padrão fixo", async () => {
+  it("uma paleta ruim do SISTEMA não avisa nem notifica quem a herda: a herdada é de quem a definiu (ADR-038, item 7)", async () => {
     await putSite({ ...BAD_DARK });
+    const dark = await (await putAppearance({ siteName: "Herdeira" }, ana.cookie)).json();
 
-    const body = await (await putAppearance({ siteName: "Herdeira" }, ana.cookie)).json();
+    expect(dark.warnings).toEqual([]);
+    expect(await byKey(ana.id)).toEqual([]);
+  });
+
+  it("o administrador, dono da paleta do sistema, é quem recebe o aviso e a notificação", async () => {
+    const body = await (await putSite({ ...BAD_DARK })).json();
 
     expect(fields(body.warnings)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
+    expect((await byKey(admin.userId)).map((n) => n.dedupeKey)).toEqual(["contrast-site:dark"]);
+  });
+
+  it("o aviso vale só para o modo que o dono definiu: o claro dele é ruim, o noturno herda um sistema ruim", async () => {
+    await putSite({ ...BAD_DARK });
+    const body = await (await putAppearance({ ...BAD_LIGHT }, ana.cookie)).json();
+
+    expect(fields(body.warnings)).toEqual(["primaryColor", "secondaryColor", "accentColor"]);
+    expect((await byKey(ana.id)).map((n) => n.dedupeKey)).toEqual(["contrast:light"]);
+  });
+
+  it("voltar a herdar a paleta (null nas três cores) resolve a notificação daquele modo", async () => {
+    await putAppearance({ ...BAD_LIGHT, ...BAD_DARK }, ana.cookie);
+    expect(await byKey(ana.id)).toHaveLength(2);
+
+    const response = await putAppearance({ primaryColor: null, secondaryColor: null, accentColor: null }, ana.cookie);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toMatchObject({ primaryColor: null, secondaryColor: null, accentColor: null, ...BAD_DARK });
+    expect(fields(body.warnings)).toEqual(["darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"]);
+    const rows = await byKey(ana.id);
+    expect(rows.find((n) => n.dedupeKey === "contrast:light")?.resolvedAt).not.toBeNull();
+    expect(rows.find((n) => n.dedupeKey === "contrast:dark")?.resolvedAt).toBeNull();
   });
 
   it("uma ou duas cores de uma paleta: 422, e a aparência não muda", async () => {
