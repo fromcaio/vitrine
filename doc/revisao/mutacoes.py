@@ -90,9 +90,29 @@ CORE=[
  ("src/app/admin/usuarios/page.js","requireSession({ role: \"admin\", path: \"/admin/usuarios\" })","requireSession({ path: \"/admin/usuarios\" })","M72 o usuário comum abre /admin/usuarios"),
  ("src/app/admin/_lib/menu.js","  \"/admin/perfil\",\n];","  \"/admin/perfil\",\n  \"/admin/usuarios\",\n];","M73 o usuário comum vê o link de Usuários"),
  ("src/app/admin/_lib/users.js","JSON.stringify({ data: users.map(publicUser), total","JSON.stringify({ data: users, total","M74 a lista de usuários da página traz o que não é público (hash, contas)"),
- # M-039 (A-026): contraste da aparência sobre a paleta efetiva (ADR-038)
- ("src/app/api/appearance/route.js","contrastReport(effective ?? appearance)","contrastReport(appearance)","M75 contraste da aparência sobre a linha crua (paleta nula quebra)"),
- ("src/app/api/appearance/route.js","const effective = await getEffectiveAppearance(actor.id);","const effective = null;","M76 contraste da aparência ignora a herança do sistema"),
+ # M-041 (A-031): aparência em duas camadas (ADR-038): contraste só do que o dono definiu, revalidação dos herdeiros, painel e espaço
+ ("src/app/api/_lib/contrast.js","return /** @type {const} */ ([mode, defined ? contrastWarnings(/** @type {any} */ (palette), mode) : []]);","return /** @type {const} */ ([mode, contrastWarnings(/** @type {any} */ (palette), mode)]);","M75 o modo herdado (paleta nula) também avisa"),
+ ("src/app/api/_lib/contrast.js",".every((field) => typeof record[field] === \"string\");",".some((field) => typeof record[field] === \"string\");","M76 paleta parcial conta como definida pelo dono"),
+ ("src/app/api/_lib/revalidation.js","if (!effective || !units.some((unit) => effective.inherits[unit])) continue;","if (!effective) continue;","M77 revalida também quem NÃO herda a unidade"),
+ ("src/app/api/_lib/revalidation.js","!units.some((unit) => effective.inherits[unit])","!units.every((unit) => effective.inherits[unit])","M78 herda só se herdar TODAS as unidades mudadas"),
+ ("src/app/api/_lib/revalidation.js","  if (differs(LIGHT_COLORS)) units.push(\"lightPalette\");\n","","M79 paleta clara do sistema mudada não revalida"),
+ ("src/app/api/_lib/revalidation.js","if (differs(DARK_COLORS)) units.push(\"darkPalette\");","if (differs(LIGHT_COLORS)) units.push(\"darkPalette\");","M80 a paleta noturna é comparada pelas cores claras"),
+ ("src/app/api/_lib/revalidation.js","if (differs([\"siteName\"])) units.push(\"siteName\");","","M81 o nome do sistema mudado não revalida"),
+ ("src/app/api/_lib/revalidation.js","everySpace: differs([\"modeIconPair\"])","everySpace: false","M82 o par de ícones mudado não revalida os espaços"),
+ ("src/app/api/configuration/route.js","  await revalidateInheritingSpaces(changedSystemUnits(before, configuration));\n","","M83 a configuração não revalida os herdeiros"),
+ ("src/app/api/configuration/route.js","changedSystemUnits(before, configuration)","changedSystemUnits(configuration, configuration)","M84 o antes é o depois (nada mudou)"),
+ ("src/app/api/appearance/route.js","{ extra: { effective: merged, inherits } }","{ extra: { effective: merged } }","M85 GET /api/appearance sem inherits"),
+ ("src/app/_lib/space.js","name: appearance.siteName,","name: owner.name,","M86 o espaço sem nome próprio mostra o nome do dono, não o do sistema"),
+ ("src/app/admin/_lib/appearance.js","const effective = role === \"admin\" ? null : await getEffectiveAppearance(userId);","const effective = await getEffectiveAppearance(userId);","M87 o painel do administrador usa a aparência dele"),
+ ("src/app/admin/_lib/appearance.js","const effective = role === \"admin\" ? null : await getEffectiveAppearance(userId);","const effective = null;","M88 o painel do usuário comum ignora a aparência dele"),
+ ("src/app/admin/aparencia/page.js","const target = isAdmin && alvo !== \"pagina\" ? \"sistema\" : \"pagina\";","const target = alvo !== \"pagina\" ? \"sistema\" : \"pagina\";","M89 o usuário comum recebe o formulário do sistema"),
+ ("src/app/admin/aparencia/page.js","const target = isAdmin && alvo !== \"pagina\" ? \"sistema\" : \"pagina\";","const target = isAdmin && alvo === \"sistema\" ? \"sistema\" : \"pagina\";","M90 o alvo padrão do administrador deixa de ser o sistema"),
+ ("src/app/admin/layout.js","<SiteTheme configuration={panel.theme}>","<SiteTheme configuration={configuration}>","M91 o painel ignora a aparência efetiva"),
+ ("src/app/login/page.js","name={siteNameOf(configuration)}","name=\"Vitrine\"","M92 o login mostra o nome fixo"),
+ ("src/app/_lib/space-frame.js","showLogo={appearance.showLogo}","showLogo={true}","M93 a moldura do espaço ignora showLogo"),
+ ("src/lib/validators.js","...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.nullable().optional()])),","...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.optional()])),","M94 a aparência do usuário não aceita null nas cores"),
+ ("src/lib/validators.js","...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.optional()])),\n    modeIconPair","...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.nullable().optional()])),\n    modeIconPair","M95 a configuração do sistema aceita cor nula"),
+ ("src/lib/validators.js","[...value].length <= DIRECTORY_TITLE_MAX","[...value].length < DIRECTORY_TITLE_MAX","M96 título do diretório: 40 pontos de código recusados"),
 ]
 
 DADOS=[
@@ -131,6 +151,7 @@ DADOS=[
 ap = argparse.ArgumentParser()
 ap.add_argument("--dominio", choices=["core", "dados"], required=True)
 ap.add_argument("--repo", required=True)
+ap.add_argument("--alvo", default="", help="arquivos de teste (separados por vírgula) no lugar da pasta inteira")
 ap.add_argument("--somente", default="", help="ids separados por vírgula (ex.: M21,M30): roda só essas mutações")
 a = ap.parse_args()
 MUT, ALVO, TEMPO = (CORE, "tests/core", 400) if a.dominio == "core" else (DADOS, "tests/dados", 300)
@@ -145,7 +166,7 @@ for f, old, new, name in MUT:
         continue
     open(p, "w", encoding="utf-8", newline="").write(s.replace(old, new))
     try:
-        r = subprocess.run([NPX, "vitest", "run", ALVO], cwd=a.repo, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TEMPO)
+        r = subprocess.run([NPX, "vitest", "run", *(a.alvo.split(",") if a.alvo else [ALVO])], cwd=a.repo, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=TEMPO)
         killed = r.returncode != 0
     finally:
         open(p, "w", encoding="utf-8", newline="").write(s)

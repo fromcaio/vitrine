@@ -27,7 +27,7 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 \addlinespace
 \arq{/admin/conteudo}, \arq{/admin/conteudo/novo} e \arq{/admin/conteudo/[id]} & Dono & Árvore do próprio usuário, novo conteúdo e editor (\texttt{?pai=} só aceita coleção do próprio usuário)\\
 \addlinespace
-\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, logotipo e \en{favicon}, barra superior, rodapé e as duas paletas, com a herança do sistema. \emph{Alvo (épico v1, \adr{ADR-038}):} para o administrador, um seletor de dois alvos, \texttt{?alvo=sistema} (padrão dele) e \texttt{?alvo=pagina}\\
+\arq{/admin/aparencia} & Dono & Aparência do próprio usuário: identidade, logotipo e \en{favicon}, barra superior, rodapé e as duas paletas, com a herança do sistema. \emph{Integrado (épico v1, \adr{ADR-038}; M-041):} para o administrador, um seletor de dois alvos, \texttt{?alvo=sistema} (padrão dele; o formulário do sistema, contra \texttt{PUT /api/configuration}) e \texttt{?alvo=pagina} (a página dele, contra \texttt{PUT /api/appearance}); qualquer outro valor cai no padrão, e o usuário comum nunca vê o seletor nem o formulário do sistema. O logotipo, o \en{favicon} e o rodapé do formulário entram com a A-029\\
 \addlinespace
 \arq{/admin/senha} & Sessão & Troca de senha (UC14); alvo do redirecionamento com senha provisória (R-006)\\
 \addlinespace
@@ -35,7 +35,7 @@ A Figura~\ref{fig:nav-mapa-do-site} resume as rotas. Segmentos estáticos (\text
 \addlinespace
 \arq{/admin/notificacoes} & Dono & Lista de notificações\\
 \addlinespace
-\arq{/admin/configuracoes} & Admin & Configuração do site e do portal; no épico v1 (alvo), só o que não é visual: texto inicial do portal, \texttt{directoryEnabled} e \texttt{directoryTitle} (a identidade visual do sistema passa a \arq{/admin/aparencia?alvo=sistema})\\
+\arq{/admin/configuracoes} & Admin & Configuração do site e do portal; no épico v1 (integrado, M-041), só o que não é visual: texto inicial do portal, \texttt{directoryEnabled} e \texttt{directoryTitle} (a identidade visual do sistema está em \arq{/admin/aparencia?alvo=sistema})\\
 \addlinespace
 \arq{/admin/usuarios} & Admin & Lista de usuários, com criar, editar, redefinir a senha, suspender, reativar e excluir \emph{no lugar} (UC13); não há página por usuário (decisão de 06/10/2026: a \texttt{UserTable} edita na própria lista)\\
 \addlinespace

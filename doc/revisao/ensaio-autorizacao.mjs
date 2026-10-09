@@ -298,6 +298,114 @@ r = await call(bob, "GET", "/api/contents"); check("sessão do Bob revogada/susp
 r = await call(null, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("login suspenso -> 403 BANNED_USER com motivo", r.status === 403 && /BANNED/.test(JSON.stringify(r.json)) && /Viola/.test(r.text) && /diretrizes\./.test(r.text), `${r.status} ${r.text.slice(0,200)}`);
 r = await call(admin, "DELETE", `/api/users/${bobId}/ban`); check("admin reativa", r.status === 200 || r.status === 204, `${r.status}`);
 r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de novo", r.status === 200, `${r.status}`);
+// --- épico v1, A-031 (M-041): aparência em duas camadas (ADR-038): contrato da API, contraste só do dono, ISR com herança, painel e seletor
+{
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const until = async (fn, ok, tries = 25) => { let last; for (let i = 0; i < tries; i++) { last = await fn(); if (ok(last)) return last; await sleep(200); } return last; };
+  const unread = async (jar) => ((await call(jar, "GET", "/api/notifications")).json?.data ?? []).filter((n) => n.type === "CONTRAST" && n.resolvedAt === null);
+  r = await call(bob, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("A-031: o Bob entra de novo depois da reativação", r.status === 200, `${r.status} ${r.text.slice(0, 100)}`);
+  const SYS = { primaryColor: "#0e7490", secondaryColor: "#1e293b", accentColor: "#b45309" };
+  const SYS2 = { primaryColor: "#7e22ce", secondaryColor: "#1e293b", accentColor: "#b45309" };
+  const OWN = { primaryColor: "#be123c", secondaryColor: "#1e293b", accentColor: "#b45309" };
+  const GOOD_DARK = { darkPrimaryColor: "#60a5fa", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24" };
+  const BAD_DARK = { darkPrimaryColor: "#1a1a1a", darkSecondaryColor: "#202020", darkAccentColor: "#141414" };
+  const NULL_LIGHT = { primaryColor: null, secondaryColor: null, accentColor: null };
+  const NULL_DARK = { darkPrimaryColor: null, darkSecondaryColor: null, darkAccentColor: null };
+
+  // contrato
+  r = await call(bob, "PUT", "/api/appearance", { siteName: null, ...NULL_LIGHT, ...NULL_DARK }); check("A-031: PUT da aparência com null no nome e nas seis cores -> 200", r.status === 200 && r.json?.data?.siteName === null && r.json.data.primaryColor === null && r.json.data.darkAccentColor === null, `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "GET", "/api/appearance");
+  check("A-031: GET /api/appearance traz data crua (nulos), effective e inherits", r.status === 200 && r.json?.data?.primaryColor === null && typeof r.json?.effective?.primaryColor === "string" && r.json?.inherits?.lightPalette === true && r.json?.inherits?.darkPalette === true && r.json?.inherits?.siteName === true, r.text.slice(0, 400));
+  check("A-031: effective não carrega a chave inherits e data não carrega effective", !("inherits" in (r.json?.effective ?? {})) && !("effective" in (r.json?.data ?? {})), r.text.slice(0, 300));
+  r = await call(bob, "PUT", "/api/appearance", { ...OWN, ...GOOD_DARK }); check("A-031: o Bob define as duas paletas por inteiro", r.status === 200 && r.json?.data?.primaryColor === OWN.primaryColor && r.json.data.darkPrimaryColor === GOOD_DARK.darkPrimaryColor, `${r.status}`);
+  r = await call(bob, "PUT", "/api/appearance", { primaryColor: null }); check("A-031: uma cor nula de um modo -> 422 com field lightPalette", r.status === 422 && r.json?.error?.details?.[0]?.field === "lightPalette", `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { darkPrimaryColor: null, darkSecondaryColor: null }); check("A-031: duas cores nulas de um modo -> 422 com field darkPalette", r.status === 422 && r.json?.error?.details?.[0]?.field === "darkPalette", `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { showLogo: false, showName: false }); check("A-031: showLogo e showName ambos falsos -> 422 com field showName", r.status === 422 && r.json?.error?.details?.[0]?.field === "showName", `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { showLogo: false }); check("A-031: desligar só o logotipo -> 200", r.status === 200 && r.json?.data?.showLogo === false && r.json.data.showName === true, `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { showLogo: true, siteName: "   " }); check("A-031: nome só de espaços vira null (herda)", r.status === 200 && r.json?.data?.siteName === null && r.json.data.showLogo === true, `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { primaryColor: "javascript:1", secondaryColor: "#1e293b", accentColor: "#b45309" }); check("A-031: cor fora do formato -> 422", r.status === 422, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { primaryColor: null }); check("A-031: o sistema não aceita cor nula -> 422", r.status === 422, `${r.status} ${r.text.slice(0, 150)}`);
+  r = await call(admin, "PUT", "/api/configuration", { siteName: null }); check("A-031: o sistema não aceita nome nulo -> 422", r.status === 422, `${r.status} ${r.text.slice(0, 150)}`);
+  r = await call(admin, "PUT", "/api/configuration", { showLogo: false, showName: false }); check("A-031: o sistema com a barra toda desligada -> 422 field showName", r.status === 422 && r.json?.error?.details?.[0]?.field === "showName", `${r.status} ${r.text.slice(0, 150)}`);
+  r = await call(admin, "PUT", "/api/configuration", { modeIconPair: "estrela" }); check("A-031: par de ícones fora da lista -> 422", r.status === 422, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { directoryTitle: "x".repeat(41) }); check("A-031: título do diretório de 41 caracteres -> 422", r.status === 422, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { directoryTitle: "   " }); check("A-031: título do diretório vazio -> 422", r.status === 422, `${r.status}`);
+  r = await call(bob, "PUT", "/api/configuration", { ...SYS2 }); check("A-031: o usuário comum não grava o sistema -> 403", r.status === 403, `${r.status}`);
+  r = await call(null, "PUT", "/api/appearance", { siteName: "x" }); check("A-031: sem sessão -> 401 na aparência", r.status === 401, `${r.status}`);
+  r = await call(bob, "PUT", "/api/appearance", { siteName: "x" }, { origin: "https://evil.example" }); check("A-031: origem alheia -> 401 na aparência", r.status === 401, `${r.status}`);
+
+  // ISR: o espaço herdeiro mostra a paleta do sistema, continua estático e é revalidado quando o sistema muda
+  r = await call(bob, "PUT", "/api/appearance", { siteName: null, ...NULL_LIGHT, ...NULL_DARK }); check("A-031: o Bob volta a herdar tudo antes do ensaio do ISR", r.status === 200 && r.json?.data?.primaryColor === null, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { ...SYS, ...GOOD_DARK }); check("A-031: o administrador fixa a paleta do sistema", r.status === 200, `${r.status} ${r.text.slice(0, 150)}`);
+  const space = (path = "/bob/do-admin") => call(null, "GET", path);
+  // Espera a página assentar (HIT) antes de cada mudança do sistema: uma regeneração em curso quando a revalidação chega grava a versão velha como nova (limite do ISR do Next, também na main).
+  const put = async (body) => { await until(space, (x) => x.headers.get("x-nextjs-cache") === "HIT"); await sleep(300); return call(admin, "PUT", "/api/configuration", body); };
+  r = await until(space, (x) => x.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`));
+  check("A-031: o espaço do Bob (sem paleta própria) mostra a paleta clara do SISTEMA", r.status === 200 && r.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`) && r.text.includes(`--vitrine-dark-primary:${GOOD_DARK.darkPrimaryColor}`), `${r.status}`);
+  const htmlTag = (r.text.match(/<html[^>]*>/) ?? [""])[0];
+  check("A-031: o layout raiz segue estático: <html> sem style, sem Set-Cookie na página pública", !/style=/.test(htmlTag) && !r.headers.get("set-cookie"), `${htmlTag} ${r.headers.get("set-cookie")}`);
+  r = await until(space, (x) => x.headers.get("x-nextjs-cache") === "HIT");
+  check("A-031: o espaço continua em cache (x-nextjs-cache HIT), e não dinâmico", r.headers.get("x-nextjs-cache") === "HIT" && !/no-store|private/.test(r.headers.get("cache-control") ?? ""), `${r.headers.get("x-nextjs-cache")} ${r.headers.get("cache-control")}`);
+  const before = r.text;
+  r = await put({ ...SYS2 }); check("A-031: o sistema muda a paleta clara", r.status === 200, `${r.status}`);
+  r = await until(space, (x) => x.text.includes(`--vitrine-light-primary:${SYS2.primaryColor}`));
+  check("A-031: o espaço que herda é revalidado: mostra a paleta nova sem esperar o prazo", r.text.includes(`--vitrine-light-primary:${SYS2.primaryColor}`) && !r.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`), `${r.status}`);
+  r = await until(space, (x) => x.headers.get("x-nextjs-cache") === "HIT"); check("A-031: depois de regenerar, o espaço volta ao cache (HIT)", r.headers.get("x-nextjs-cache") === "HIT", `${r.headers.get("x-nextjs-cache")}`);
+  r = await call(bob, "PUT", "/api/appearance", { ...OWN }); check("A-031: o Bob define a paleta clara própria", r.status === 200 && r.json?.data?.primaryColor === OWN.primaryColor, `${r.status}`);
+  r = await until(space, (x) => x.text.includes(`--vitrine-light-primary:${OWN.primaryColor}`));
+  check("A-031: com paleta clara própria, o espaço mostra a do Bob e herda só a noturna do sistema", r.text.includes(`--vitrine-light-primary:${OWN.primaryColor}`) && r.text.includes(`--vitrine-dark-primary:${GOOD_DARK.darkPrimaryColor}`) && !r.text.includes(SYS2.primaryColor), `${r.status}`);
+  r = await put({ ...SYS }); check("A-031: o sistema muda a clara de novo (o Bob não herda a clara)", r.status === 200, `${r.status}`);
+  await sleep(600);
+  r = await space();
+  check("A-031: quem definiu a própria paleta clara não muda com o sistema", r.text.includes(`--vitrine-light-primary:${OWN.primaryColor}`) && !r.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`) && r.headers.get("x-nextjs-cache") === "HIT", `${r.headers.get("x-nextjs-cache")}`);
+  r = await put({ darkPrimaryColor: "#7dd3fc", darkSecondaryColor: "#cbd5e1", darkAccentColor: "#fbbf24" }); check("A-031: o sistema muda a paleta noturna", r.status === 200, `${r.status}`);
+  r = await until(space, (x) => x.text.includes("--vitrine-dark-primary:#7dd3fc"));
+  check("A-031: a paleta noturna herdada é revalidada (cada modo é uma unidade)", r.text.includes("--vitrine-dark-primary:#7dd3fc") && r.text.includes(`--vitrine-light-primary:${OWN.primaryColor}`), `${r.status}`);
+  r = await put({ siteName: "Sistema do ensaio" }); check("A-031: o sistema muda o nome", r.status === 200, `${r.status}`);
+  r = await until(space, (x) => /<title>[^<]*Sistema do ensaio/.test(x.text));
+  check("A-031: o espaço sem nome próprio mostra o nome do SISTEMA no título (ADR-038, item 8)", /<title>[^<]*\| Sistema do ensaio<\/title>/.test(r.text) && !/<title>[^<]*Herdeiro/.test(r.text), (r.text.match(/<title>[^<]*<\/title>/) ?? [""])[0]);
+  const withIcons = r.text;
+  r = await put({ modeIconPair: "lightbulb" }); check("A-031: o sistema muda o par de ícones do botão de modo", r.status === 200, `${r.status}`);
+  r = await until(space, (x) => x.text !== withIcons);
+  check("A-031: o par de ícones chega a todo espaço (revalidação de todos)", r.text !== withIcons, `${r.status}`);
+  r = await put({ modeIconPair: "sun_moon", directoryTitle: "Pessoas" }); check("A-031: o sistema aceita o par e o título do diretório", r.status === 200, `${r.status} ${r.text.slice(0, 150)}`);
+
+  // painel: o administrador vê SEMPRE o sistema; o usuário comum, o dele sobre o do sistema
+  r = await call(bob, "GET", "/admin/aparencia");
+  check("A-031: o painel do usuário comum usa a paleta dele (clara própria) sobre a do sistema (noturna)", r.status === 200 && new RegExp(`vitrine-tema[^>]*style="[^"]*--vitrine-light-primary:${OWN.primaryColor}`).test(r.text) && /--vitrine-dark-primary:#7dd3fc/.test(r.text), `${r.status}`);
+  check("A-031: /admin/aparencia do usuário comum é a página dele, sem o seletor nem o formulário do sistema", /Aparência do seu espaço/.test(r.text) && !/Aparência a editar/.test(r.text) && !/Nome do site/.test(r.text), "");
+  r = await call(bob, "GET", "/admin/aparencia?alvo=sistema"); check("A-031: ?alvo=sistema não dá ao usuário comum o formulário do sistema", r.status === 200 && /Aparência do seu espaço/.test(r.text) && !/Nome do site/.test(r.text), `${r.status}`);
+  r = await call(admin, "PUT", "/api/appearance", { primaryColor: "#15803d", secondaryColor: "#1e293b", accentColor: "#b45309" }); check("A-031: o administrador define a paleta clara da PÁGINA dele", r.status === 200, `${r.status}`);
+  r = await call(admin, "GET", "/admin");
+  check("A-031: o painel do administrador usa só a paleta do SISTEMA, não a da página dele", r.status === 200 && new RegExp(`vitrine-tema[^>]*style="[^"]*--vitrine-light-primary:${SYS.primaryColor}`).test(r.text) && !r.text.includes("#15803d"), `${r.status}`);
+  r = await call(admin, "GET", "/admin/aparencia");
+  check("A-031: /admin/aparencia do administrador abre no sistema, com o seletor", r.status === 200 && /Aparência do sistema/.test(r.text) && /Aparência a editar/.test(r.text) && /Nome do site/.test(r.text), `${r.status}`);
+  r = await call(admin, "GET", "/admin/aparencia?alvo=pagina"); check("A-031: ?alvo=pagina abre a página do administrador", r.status === 200 && /Aparência do seu espaço/.test(r.text) && !/Nome do site/.test(r.text), `${r.status}`);
+  r = await call(admin, "GET", "/admin/aparencia?alvo=%3Cscript%3E"); check("A-031: alvo inválido cai no sistema, sem eco", r.status === 200 && /Aparência do sistema/.test(r.text) && !/<script>/.test(r.text.replace(/<script[\s\S]*?<\/script>/g, "")), `${r.status}`);
+  r = await call(admin, "GET", "/admin/configuracoes"); check("A-031: /admin/configuracoes não tem mais o nome do site", r.status === 200 && !/Nome do site/.test(r.text) && /Texto do portal/.test(r.text), `${r.status}`);
+  r = await call(bob, "GET", "/admin/configuracoes"); check("A-031: o usuário comum recebe 404 em /admin/configuracoes", r.status === 404, `${r.status}`);
+  r = await call(null, "GET", "/login");
+  check("A-031: o /login usa o nome do sistema", r.status === 200 && r.text.includes("Sistema do ensaio") && new RegExp(`--vitrine-light-primary:${SYS.primaryColor}`).test(r.text), `${r.status}`);
+  r = await until(() => call(null, "GET", "/"), (x) => x.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`));
+  check("A-031: o portal usa a paleta do sistema (ISR; a primeira leitura depois da revalidação pode ser a velha)", r.status === 200 && r.text.includes(`--vitrine-light-primary:${SYS.primaryColor}`), `${r.status} ${r.headers.get("x-nextjs-cache")} ${(r.text.match(/--vitrine-light-primary:[^;"]*/) ?? ["sem variável"])[0]}`);
+
+  // contraste: só quem DEFINIU a paleta é avisado; o administrador é o dono da paleta do sistema
+  r = await call(bob, "PUT", "/api/appearance", { ...NULL_DARK }); check("A-031: o Bob volta a herdar a paleta noturna", r.status === 200, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { ...BAD_DARK });
+  check("A-031: paleta noturna ruim do SISTEMA: aviso ao administrador", r.status === 200 && (r.json?.warnings ?? []).length === 3 && r.json.warnings.every((w) => /^dark/.test(w.field)), `${r.status} ${r.text.slice(0, 200)}`);
+  check("A-031: e a notificação CONTRAST do site vai ao administrador", (await unread(admin)).some((n) => n.data?.scope === "site" && n.data?.mode === "dark"), "");
+  r = await call(bob, "PUT", "/api/appearance", { siteName: "Herdeiro" }); check("A-031: quem herda a paleta ruim do sistema NÃO recebe aviso", r.status === 200 && (r.json?.warnings ?? []).length === 0, `${r.status} ${r.text.slice(0, 200)}`);
+  check("A-031: nem notificação de contraste", (await unread(bob)).length === 0, JSON.stringify(await unread(bob)).slice(0, 200));
+  r = await call(bob, "PUT", "/api/appearance", { ...BAD_DARK });
+  check("A-031: se o Bob DEFINE a paleta ruim, o aviso e a notificação são dele", r.status === 200 && (r.json?.warnings ?? []).length === 3 && (await unread(bob)).some((n) => n.data?.scope === "appearance" && n.data?.mode === "dark"), `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(bob, "PUT", "/api/appearance", { ...NULL_DARK });
+  check("A-031: voltar a herdar o modo resolve a notificação daquele modo (sem aviso)", r.status === 200 && (r.json?.warnings ?? []).length === 0 && (await unread(bob)).length === 0, `${r.status} ${r.text.slice(0, 200)}`);
+  r = await call(admin, "PUT", "/api/configuration", { ...GOOD_DARK }); check("A-031: o administrador corrige a paleta e a notificação do site é resolvida", r.status === 200 && (r.json?.warnings ?? []).length === 0 && !(await unread(admin)).some((n) => n.data?.scope === "site"), `${r.status}`);
+  r = await call(bob, "PUT", "/api/appearance", { siteName: null, ...NULL_LIGHT }); check("A-031: o Bob volta a herdar tudo (estado do resto do ensaio)", r.status === 200, `${r.status}`);
+  r = await call(admin, "PUT", "/api/configuration", { siteName: "Vitrine", ...SYS, modeIconPair: "sun_moon", directoryTitle: "Espaços", primaryColor: "#2563eb" });
+  check("A-031: o sistema volta ao estado inicial", r.status === 200, `${r.status} ${r.text.slice(0, 150)}`);
+  r = await call(admin, "PUT", "/api/appearance", { primaryColor: null, secondaryColor: null, accentColor: null }); check("A-031: a página do administrador volta a herdar", r.status === 200, `${r.status}`);
+}
 // último administrador
 const adminId = (await call(admin, "GET", "/api/users/me")).json?.data?.id;
 r = await call(admin, "POST", `/api/users/${adminId}/ban`, { reason: "auto" }); check("auto-suspensão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);
