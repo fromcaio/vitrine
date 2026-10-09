@@ -186,6 +186,22 @@ export function mapDataError(error) {
 }
 
 /**
+ * Registra no servidor (RNF14) a resposta de status 5xx. O 503 `BUSY` (fila de validações de texto cheia, vagas de
+ * imagem esgotadas) é ESPERADO sob carga e a resposta já manda repetir: vai em UMA linha de nível baixo, sem a pilha;
+ * qualquer outro 5xx segue como erro não previsto, com o erro e a pilha (A-024).
+ * @param {{ status: number, code: ApiErrorCode, message: string }} body
+ * @param {unknown} error
+ */
+function logServerError(body, error) {
+  if (body.status < 500) return;
+  if (body.status === 503 && body.code === "BUSY") {
+    console.info(`[api] 503 BUSY: ${body.message}`);
+    return;
+  }
+  console.error("[api] erro não previsto:", error);
+}
+
+/**
  * Tradução única de qualquer erro para a resposta HTTP no formato padrão:
  * `{ "error": { "code", "message", "details" } }`. Erros não previstos são registrados no
  * servidor (RNF14) e respondem 500 com mensagem genérica, sem expor detalhes internos.
@@ -204,7 +220,7 @@ export function toErrorResponse(error) {
   } else {
     body = INTERNAL_ERROR;
   }
-  if (body.status >= 500) console.error("[api] erro não previsto:", error);
+  logServerError(body, error);
 
   const { status, ...payload } = body;
   return Response.json({ error: payload }, { status, headers: { ...NO_STORE, ...headers } });

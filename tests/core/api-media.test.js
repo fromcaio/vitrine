@@ -375,10 +375,17 @@ Content-Type: image/png
 describe("concorrência (um processamento por usuário, dois no servidor) e taxa (10 por minuto)", () => {
   it("com a vaga do usuário ocupada, o envio dele recebe 503 BUSY com Retry-After; outro usuário passa", async () => {
     const release = acquireImageSlot(ana.id);
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
 
     const busy = await myAvatar.PUT(upload("/api/users/me/avatar", await png(), { cookie: ana.cookie }));
     expect(busy.status).toBe(503);
     expect((await json(busy)).error.code).toBe("BUSY");
+    // O 503 de imagens é esperado sob carga (A-024): uma linha em nível baixo, sem a pilha e sem `console.error`.
+    expect(errorLog).not.toHaveBeenCalled();
+    expect(infoLog.mock.calls).toEqual([[expect.stringContaining("BUSY")]]);
+    errorLog.mockRestore();
+    infoLog.mockRestore();
     expect(Number(busy.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
     expect(await prisma.image.count()).toBe(0);
 

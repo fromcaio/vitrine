@@ -12,7 +12,9 @@ import {
   DEFAULT_SITE_DESCRIPTION,
   DEFAULT_SITE_NAME,
   buildThemeStyle,
+  faviconMetadata,
   getSiteConfiguration,
+  mediaUrlOf,
   siteDescriptionOf,
   siteMetadata,
   siteNameOf,
@@ -131,6 +133,43 @@ describe("siteMetadata", () => {
       title: { absolute: DEFAULT_SITE_NAME, template: `%s | ${DEFAULT_SITE_NAME}` },
       description: DEFAULT_SITE_DESCRIPTION,
     });
+  });
+});
+
+describe("mediaUrlOf: só um identificador com a forma de um id entra na URL de /media (A-029, P-020)", () => {
+  it.each(["abc123", "A", "a-b_C-9", "x".repeat(64), "0123456789"])("%s: /media/<id>", (id) => {
+    expect(mediaUrlOf(id)).toBe(`/media/${id}`);
+  });
+
+  it.each([
+    ["vazio", ""],
+    ["65 caracteres", "x".repeat(65)],
+    ["barra (caminho)", "a/b"],
+    ["subida de diretório", "../x"],
+    ["espaço", "a b"],
+    ["ponto", "a.b"],
+    ["consulta", "a?b=1"],
+    ["âncora", "a#b"],
+    ["porcentagem (codificação)", "a%2Fb"],
+    ["aspas", 'a"b'],
+    ["sinal de menor", "a<b"],
+    ["acento", "á"],
+    ["quebra de linha no fim", `abc${String.fromCharCode(10)}`],
+    ["nulo", null],
+    ["indefinido", undefined],
+    ["número", 4],
+    ["objeto", { id: "abc" }],
+  ])("%s: nenhum endereço", (_name, id) => {
+    expect(mediaUrlOf(id)).toBeNull();
+  });
+});
+
+describe("faviconMetadata e o favicon enviado em siteMetadata (A-029)", () => {
+  it("com a imagem: o icons PNG 64x64 em /media/<id>; sem imagem ou com id inválido: nada (vale o favicon.ico de reserva)", () => {
+    expect(faviconMetadata("abc123")).toEqual({ icons: { icon: [{ url: "/media/abc123", type: "image/png", sizes: "64x64" }] } });
+    expect(siteMetadata({ faviconImageId: "abc123" }).icons).toEqual({ icon: [{ url: "/media/abc123", type: "image/png", sizes: "64x64" }] });
+    for (const id of [null, undefined, "", "a/b"]) expect(faviconMetadata(id)).toEqual({});
+    expect(siteMetadata({}).icons).toBeUndefined();
   });
 });
 

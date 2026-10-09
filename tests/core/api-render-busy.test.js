@@ -3,7 +3,7 @@
 // gravar nada; a leitura nunca passa pelo worker. A fila em si (1 rodando, 3 esperando, a quinta recusada) é
 // provada em `render-budget.test.js`; aqui o módulo é substituído por uma fila sempre cheia.
 import "./env";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/render-budget", async (importOriginal) => {
@@ -24,7 +24,14 @@ let admin;
 /** @type {Awaited<ReturnType<typeof createUserSession>>} */
 let ana;
 
+/** @type {import("vitest").MockInstance} */
+let errorLog;
+/** @type {import("vitest").MockInstance} */
+let infoLog;
+
 beforeEach(async () => {
+  errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+  infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
   await resetDatabase();
   vi.mocked(revalidatePath).mockClear();
   vi.mocked(checkRenderable).mockReset();
@@ -33,11 +40,23 @@ beforeEach(async () => {
   ana = await createUserSession({ email: "ana@exemplo.test", name: "Ana", handle: "ana" });
 });
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** O 503 `BUSY` é esperado sob carga (A-024): uma linha em nível baixo, sem a pilha e sem `console.error`. */
+function expectBusyLoggedQuietly() {
+  expect(errorLog).not.toHaveBeenCalled();
+  expect(infoLog).toHaveBeenCalledTimes(1);
+  expect(infoLog.mock.calls[0]).toEqual([expect.stringContaining("BUSY")]);
+}
+
 const errorOf = async (/** @type {Response} */ response) => (await response.json()).error;
 
 /** Confere o 503 do mapa de erros: `BUSY`, `Retry-After`, mensagem em português e nada revalidado. */
 async function expectBusy(/** @type {Response} */ response) {
   expect(response.status).toBe(503);
+  expectBusyLoggedQuietly();
   expect(response.headers.get("retry-after")).toBe("3");
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(await errorOf(response)).toMatchObject({

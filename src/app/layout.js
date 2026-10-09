@@ -13,9 +13,12 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+// Só o código usa a mono: sem o pré-carregamento, o arquivo da fonte (~23 KiB) sai do caminho crítico de toda
+// página e só é baixado quando um bloco de código aparece (A-024, RNF02).
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 /**

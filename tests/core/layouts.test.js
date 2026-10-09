@@ -6,9 +6,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // As fontes do next/font são geradas no build; aqui bastam os nomes das variáveis CSS.
+// As opções passadas a cada fonte ficam registradas (A-024: a mono não é pré-carregada).
+const fontOptions = vi.hoisted(() => /** @type {{ sans: unknown[], mono: unknown[] }} */ ({ sans: [], mono: [] }));
 vi.mock("next/font/google", () => ({
-  Geist: () => ({ variable: "fonte-sans-de-teste" }),
-  Geist_Mono: () => ({ variable: "fonte-mono-de-teste" }),
+  Geist: (options) => (fontOptions.sans.push(options), { variable: "fonte-sans-de-teste" }),
+  Geist_Mono: (options) => (fontOptions.mono.push(options), { variable: "fonte-mono-de-teste" }),
 }));
 // A sessão do painel depende dos cabeçalhos da requisição: aqui, um usuário fictício.
 vi.mock("@/app/admin/_lib/session", () => ({
@@ -28,6 +30,8 @@ vi.mock("@/lib/db", async (importOriginal) => {
   return { ...actual, getConfiguration: vi.fn(actual.getConfiguration) };
 });
 
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getSession } from "@/lib/auth";
 import { requireSession } from "@/app/admin/_lib/session";
@@ -133,6 +137,40 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
 
     vi.stubEnv("BETTER_AUTH_URL", "");
     expect(rootMetadata()).not.toHaveProperty("metadataBase");
+  });
+
+  it("o favicon de reserva é o /favicon.ico explícito em `icons` (P-020; A-029)", () => {
+    expect(rootMetadata().icons).toEqual({ icon: [{ url: "/favicon.ico", sizes: "any" }] });
+  });
+
+  it("a Geist Mono não é pré-carregada, e a Geist (sans) sim (A-024: tira uma fonte do caminho crítico do LCP)", () => {
+    expect(fontOptions.mono).toEqual([{ variable: "--font-geist-mono", subsets: ["latin"], preload: false }]);
+    expect(fontOptions.sans).toEqual([{ variable: "--font-geist-sans", subsets: ["latin"] }]);
+  });
+});
+
+describe("o favicon.ico de reserva (A-024, item 2)", () => {
+  const publicIcon = fileURLToPath(new URL("../../public/favicon.ico", import.meta.url));
+  const conventionIcon = fileURLToPath(new URL("../../src/app/favicon.ico", import.meta.url));
+
+  it("é um ICO válido de poucos KiB (o de 26 KiB atrasava o LCP) com as imagens PNG que declara", () => {
+    const bytes = fs.readFileSync(publicIcon);
+
+    expect(bytes.length).toBeLessThanOrEqual(4 * 1024);
+    expect([bytes.readUInt16LE(0), bytes.readUInt16LE(2)]).toEqual([0, 1]); // reservado e tipo "ícone"
+    const count = bytes.readUInt16LE(4);
+    expect(count).toBeGreaterThanOrEqual(1);
+    for (let index = 0; index < count; index += 1) {
+      const entry = 6 + 16 * index;
+      const size = bytes.readUInt32LE(entry + 8);
+      const offset = bytes.readUInt32LE(entry + 12);
+      expect(offset + size).toBeLessThanOrEqual(bytes.length);
+      expect(bytes.subarray(offset, offset + 8).toString("hex")).toBe("89504e470d0a1a0a"); // assinatura PNG
+    }
+  });
+
+  it("não há um segundo favicon.ico em src/app: a convenção de arquivo o somaria ao favicon enviado", () => {
+    expect(fs.existsSync(conventionIcon)).toBe(false);
   });
 });
 
