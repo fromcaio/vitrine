@@ -128,7 +128,7 @@ export function mediaUrlOf(imageId) {
 
 /**
  * O `icons` dos metadados para o favicon ENVIADO (`/media/<id>`, PNG 64x64; RF35). Sem favicon enviado, vale o
- * `favicon.ico` pequeno de `src/app/favicon.ico`, que o Next acrescenta sozinho (a reserva).
+ * `public/favicon.ico` pequeno, que o `icons` do layout raiz declara (a reserva).
  * @param {unknown} imageId
  */
 export function faviconMetadata(imageId) {
