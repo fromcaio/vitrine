@@ -1,4 +1,4 @@
-// A aparência em duas camadas na API (A-031; D-40, ADR-038; RF41, RN30, RN31; CT63, CT64): o `GET
+// A aparência em duas camadas na API (A-031; D-40, ADR-038; RF41, RN30, RN31; CT64, CT68): o `GET
 // /api/appearance` devolve a aparência crua e, ao lado, a efetiva e o que herda; o `PUT` aceita `null`
 // (volta a herdar) e recusa a paleta incompleta e a barra sem logo nem nome; o `PUT /api/configuration`
 // aceita a barra, o par de ícones e o título do diretório; e mudar o sistema revalida, por caminhos

@@ -1,5 +1,5 @@
 // A aparência em duas camadas e o seletor do administrador, pela interface e pela API, sobre a aplicação de
-// PRODUÇÃO (A-031; D-40, D-41, ADR-038; RF41, RN30; CT63, CT64, CT67): o administrador salva a paleta do
+// PRODUÇÃO (A-031; D-40, D-41, ADR-038; RF41, RN30; CT64, CT67, CT68): o administrador salva a paleta do
 // sistema e navega SEM recarregar até outra página do painel, e a cor muda (o item 6 do épico); quem não
 // definiu a própria herda a do sistema no espaço (ISR, regenerado por caminhos literais quando o sistema
 // muda) e no painel; quem definiu vê a dela; o administrador vê o ESPAÇO dele com a paleta dele e o PAINEL
