@@ -175,7 +175,8 @@ test.describe.serial("notificações, sino e menu", () => {
       ["Aula despublicada", "Outra aula", "Aula removida"].every((title) => !html.includes(title)),
     );
 
-    expect(home).toContain("Ana das Notificações");
+    // O espaço sem nome próprio herda o nome do sistema (ADR-038, item 8).
+    expect(home).toContain((await (await admin.get("/api/configuration")).json()).data.siteName);
     expect(home).toContain('href="/notif-ana/fica"');
     expect(home).toContain("Aula que fica");
     expect(home).toContain("Documento");

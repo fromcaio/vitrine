@@ -103,7 +103,8 @@ test.describe.serial("espaço público e portal", () => {
     await expect(page.getByRole("navigation", { name: "Navegação entre documentos" }).getByRole("link", { name: /Derivadas/ })).toBeVisible();
   });
 
-  test("o documento mostra o texto em Markdown, a sidebar da coleção e a aparência do dono, não a do site", async ({ request }) => {
+  test("o documento mostra o texto em Markdown, a sidebar da coleção e a aparência efetiva do dono (a dele sobre a do sistema)", async ({ request }) => {
+    const system = (await (await admin.get("/api/configuration")).json()).data;
     const response = await request.get("/esp-ana/calculo/limites");
     const html = await response.text();
 
@@ -111,10 +112,11 @@ test.describe.serial("espaço público e portal", () => {
     expect(html).toContain("Texto <strong>forte</strong> de limites.");
     expect(html).toContain("Derivadas"); // a sidebar da coleção raiz
     expect(html).toContain('href="/esp-ana/calculo/derivadas"');
-    expect(html).toContain("<title>Limites | Ana E2E</title>");
-    // A Ana não personalizou: a paleta dela é nula (herda, ADR-038) e o envoltório não impõe cor própria.
-    // A mescla com a paleta do sistema na moldura é da A-031.
-    expect(html).not.toContain("--vitrine-light-primary:");
+    // A Ana não personalizou: o nome e a paleta dela são nulos e herdam os do sistema (ADR-038, itens 2 e 8).
+    expect(html).toContain(`<title>Limites | ${system.siteName}</title>`);
+    expect(html).not.toContain("Ana E2E");
+    expect(html).toContain(`--vitrine-light-primary:${system.primaryColor}`);
+    expect(html).toContain(`--vitrine-dark-primary:${system.darkPrimaryColor}`);
   });
 
   test("CT31: rascunho, coleção em rascunho e descendente dela: o mesmo 404, e fora da sidebar, da barra e do início", async ({ request }) => {

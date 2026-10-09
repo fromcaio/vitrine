@@ -39,6 +39,8 @@ test.describe.serial("aparência em duas camadas e seletor do administrador", ()
   let her;
   /** @type {import("@playwright/test").APIRequestContext} */
   let pro;
+  /** @type {{ id: string, contentId: string } | null} */
+  let adminSpace = null;
 
   test.beforeAll(async ({ playwright }) => {
     // O limite de escritas do administrador (RN25) pode fazer a criação das contas esperar o Retry-After.
@@ -53,7 +55,9 @@ test.describe.serial("aparência em duas camadas e seletor do administrador", ()
     const me = (await (await admin.get("/api/users/me")).json()).data;
     const handled = await admin.patch(`/api/users/${me.id}`, { data: { handle: ADMIN_HANDLE } });
     expect(handled.status(), "handle do administrador").toBe(200);
-    for (const [owner, title] of /** @type {const} */ ([[admin, "Início do administrador"], [her, "Início da herdeira"], [pro, "Início da própria"]])) {
+    const adminDocument = await createContent(admin, { title: "Início do administrador", slug: "inicio", type: "DOCUMENT", body: "Texto do administrador." });
+    adminSpace = { id: me.id, contentId: adminDocument.id };
+    for (const [owner, title] of /** @type {const} */ ([[her, "Início da herdeira"], [pro, "Início da própria"]])) {
       await createContent(owner, { title, slug: "inicio", type: "DOCUMENT", body: `Texto: ${title}.` });
     }
     // Estado conhecido: o sistema com a paleta 1 nos dois modos; a Própria com a clara dela; o administrador com a dele.
@@ -66,6 +70,11 @@ test.describe.serial("aparência em duas camadas e seletor do administrador", ()
     // Devolve o sistema aos padrões: os specs seguintes não esperam a paleta destes testes.
     await admin?.put("/api/configuration", { data: { ...DEFAULT_LIGHT, ...DEFAULT_DARK } });
     await admin?.put("/api/appearance", { data: { primaryColor: null, secondaryColor: null, accentColor: null } });
+    // E o administrador volta a não ter espaço: os specs seguintes (autorização, espaço, notificações) partem dele sem conteúdo.
+    if (adminSpace) {
+      await admin.delete(`/api/contents/${adminSpace.contentId}`);
+      await admin.patch(`/api/users/${adminSpace.id}`, { data: { handle: null } });
+    }
     await admin?.dispose();
     await her?.dispose();
     await pro?.dispose();
