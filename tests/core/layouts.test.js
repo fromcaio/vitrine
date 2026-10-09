@@ -37,6 +37,7 @@ import { requireSession } from "@/app/admin/_lib/session";
 import AdminLayout, { generateMetadata as adminMetadata } from "@/app/admin/layout";
 import RootLayout, { generateMetadata as rootMetadata } from "@/app/layout";
 import LoginLayout, { generateMetadata as loginMetadata } from "@/app/login/layout";
+import LoginPage from "@/app/login/page";
 import NotFound, { metadata as notFoundMetadata } from "@/app/not-found";
 import PortalLayout, { generateMetadata as portalMetadata } from "@/app/(portal)/layout";
 import { DEFAULT_SITE_DESCRIPTION } from "@/app/_lib/site";
@@ -428,6 +429,29 @@ describe("AdminLayout", () => {
       sessionState.user = null;
       expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
     });
+  });
+});
+
+describe("página de login", () => {
+  it("a marca é a do SISTEMA: o nome e a barra superior da configuração", async () => {
+    sessionState.user = null;
+    await updateConfiguration({ siteName: "Turma 2026", showLogo: false });
+
+    const page = await LoginPage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(page);
+
+    expect(html).toContain("Turma 2026");
+    expect(html).not.toContain('data-testid="logo-padrao"');
+    expect(html).toContain('data-testid="marca-do-login"');
+  });
+
+  it("sem configuração gravada, o nome é Vitrine e o logotipo padrão aparece", async () => {
+    sessionState.user = null;
+
+    const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("Vitrine");
+    expect(html).toContain('data-testid="logo-padrao"');
   });
 });
 
