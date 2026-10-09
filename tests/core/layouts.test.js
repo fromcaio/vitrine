@@ -139,6 +139,10 @@ describe("RootLayout: estático, sem banco e sem cores (ADR-030)", () => {
     expect(rootMetadata()).not.toHaveProperty("metadataBase");
   });
 
+  it("o favicon de reserva é o /favicon.ico explícito em `icons` (P-020; A-029)", () => {
+    expect(rootMetadata().icons).toEqual({ icon: [{ url: "/favicon.ico", sizes: "any" }] });
+  });
+
   it("a Geist Mono não é pré-carregada, e a Geist (sans) sim (A-024: tira uma fonte do caminho crítico do LCP)", () => {
     expect(fontOptions.mono).toEqual([{ variable: "--font-geist-mono", subsets: ["latin"], preload: false }]);
     expect(fontOptions.sans).toEqual([{ variable: "--font-geist-sans", subsets: ["latin"] }]);
