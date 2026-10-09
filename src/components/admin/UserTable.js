@@ -3,7 +3,8 @@
 // Gestão de usuários do painel do administrador (RF27, UC13; RN19 a RN24; RNF05, RNF06; M20): a lista
 // paginada (50 por página) com busca por e-mail ou nome, o formulário de criar e editar, e as ações de
 // cada linha: editar, redefinir a senha, suspender (motivo obrigatório e prazo opcional), reativar,
-// excluir (com a escolha de transferir ou apagar o conteúdo) e "Ver o conteúdo". Recebe a primeira
+// excluir (com a escolha de transferir ou apagar o conteúdo), "Remover avatar" (motivo obrigatório; RF36) e
+// "Ver o conteúdo". Recebe a primeira
 // página já lida pelo Core e fala com `/api/users` por fetch; não lê o banco nem a sessão.
 //
 // Regras que a tela respeita (o servidor decide, RF21; se ela errar, o 403 ou o 409 chega e a mensagem
@@ -21,11 +22,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Field, describedBy } from "@/components/ui/Field";
-import { AlertIcon, CheckCircleIcon, DocumentIcon, KeyIcon, PencilIcon, PlusIcon, TrashIcon, UserIcon, WarningIcon } from "@/components/ui/icons";
+import { Avatar } from "@/components/ui/Avatar";
+import { AlertIcon, CheckCircleIcon, DocumentIcon, ImageIcon, KeyIcon, PencilIcon, PlusIcon, TrashIcon, UserIcon, WarningIcon } from "@/components/ui/icons";
+import { mediaUrlOfId } from "@/components/ui/image-model";
 import { ModerationDialog } from "./ModerationDialog";
 import { ProvisionalPassword } from "./ProvisionalPassword";
 import { UserForm } from "./UserForm";
-import { banUser, deleteUser, listUsers, resetPassword, unbanUser } from "./user-client";
+import { banUser, deleteUser, listUsers, removeAvatar, resetPassword, unbanUser } from "./user-client";
 import { deadlineFromLocal, minDeadlineLocal } from "./moderation-model";
 import { adjustActiveAdmins, expandUserHref, normalizePage, permissionsFor, statesOf } from "./user-model";
 
@@ -116,7 +119,7 @@ export function UserTable({ initial, currentUserId, activeAdminCount = null, spa
   const [summary, setSummary] = useState(/** @type {{ text: string, renamed: { from: string, to: string }[] } | null} */ (null));
   const [panel, setPanel] = useState(/** @type {{ kind: "create" } | { kind: "edit", id: string } | null} */ (null));
   const [password, setPassword] = useState(/** @type {{ value: string, email: string, kind: "created" | "reset" } | null} */ (null));
-  const [dialog, setDialog] = useState(/** @type {{ kind: "ban" | "unban" | "reset" | "remove", id: string } | null} */ (null));
+  const [dialog, setDialog] = useState(/** @type {{ kind: "ban" | "unban" | "reset" | "remove" | "avatar", id: string } | null} */ (null));
   const focusAfter = useRef(/** @type {string[]} */ ([]));
 
   useEffect(() => {
@@ -358,6 +361,8 @@ export function UserTable({ initial, currentUserId, activeAdminCount = null, spa
           return (
             <li key={user.id} data-user-id={user.id} className="flex flex-col gap-3 rounded-md border border-border p-3">
               <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
+                {/* O nome está ao lado: o avatar é decorativo (`alt` vazio); sem imagem, as iniciais. */}
+                <Avatar name={name} src={mediaUrlOfId(user.avatarImageId)} size={40} decorative />
                 <div className="flex min-w-0 flex-1 basis-60 flex-col gap-1">
                   <p className="flex flex-wrap items-center gap-2">
                     <UserIcon className="size-4 shrink-0" />
@@ -421,6 +426,9 @@ export function UserTable({ initial, currentUserId, activeAdminCount = null, spa
                   describedBy={permissions.canDelete ? undefined : noteId}
                   onClick={() => setDialog({ kind: "remove", id: user.id })}
                 />
+                {permissions.canRemoveAvatar ? (
+                  <CardAction id={domId("avatar", user.id)} icon={ImageIcon} label="Remover avatar" name={`Remover avatar: ${name}`} onClick={() => setDialog({ kind: "avatar", id: user.id })} />
+                ) : null}
                 <Link href={expandUserHref(contentHref, user)} aria-label={`Ver o conteúdo: ${name}`} title="Ver o conteúdo" className={LINK_BUTTON}>
                   <DocumentIcon className="size-4 shrink-0" />
                   <span className="sr-only lg:not-sr-only">Ver o conteúdo</span>
@@ -469,6 +477,28 @@ export function UserTable({ initial, currentUserId, activeAdminCount = null, spa
               closeDialog();
               fail(failure);
             }
+          }}
+        />
+      ) : null}
+
+      {target && dialog?.kind === "avatar" ? (
+        <AvatarDialog
+          user={target}
+          onClose={closeDialog}
+          onDone={() => {
+            // O avatar sai da linha na hora, sem reler a lista (que seria uma segunda ida ao servidor).
+            setPage((current) => ({ ...current, users: current.users.map((user) => (user.id === target.id ? { ...user, avatarImageId: null } : user)) }));
+            closeDialog();
+            setSummary(null);
+            setError("");
+            setInfo(`O avatar de ${nameOf(target)} foi removido. A pessoa foi notificada.`);
+            focusAfter.current = [domId("edit", target.id)];
+          }}
+          onGone={(failure) => {
+            closeDialog();
+            fail(failure);
+            // "Sem avatar" (já removido em outro lugar): a lista é relida para mostrar o estado verdadeiro.
+            void load();
           }}
         />
       ) : null}
@@ -614,6 +644,41 @@ function BanDialog({ user, onClose, onDone, onFail }) {
         />
       </Field>
     </ModerationDialog>
+  );
+}
+
+/**
+ * Remoção do avatar de outro usuário (RF36, RN19, RN26): motivo obrigatório (o dono é notificado e o
+ * vê). Só apaga a imagem; as iniciais do nome passam a aparecer no lugar.
+ * @param {object} props
+ * @param {PublicUser} props.user
+ * @param {() => void} props.onClose
+ * @param {() => void} props.onDone
+ * @param {(failure: import("./user-client").Failure) => void} props.onGone o usuário já não tem avatar (ou não existe mais)
+ */
+function AvatarDialog({ user, onClose, onDone, onGone }) {
+  return (
+    <ModerationDialog
+      open
+      danger
+      title={`Remover o avatar de ${nameOf(user)}`}
+      description="A imagem é apagada e as iniciais do nome passam a aparecer no lugar. A pessoa pode enviar outro avatar quando quiser."
+      confirmLabel="Remover avatar"
+      ownerName={nameOf(user)}
+      onCancel={onClose}
+      onConfirm={async (reason) => {
+        const result = await removeAvatar(user.id, reason);
+        if (result.ok) {
+          onDone();
+          return null;
+        }
+        if (result.kind === "no-avatar" || result.kind === "not-found") {
+          onGone(result);
+          return null;
+        }
+        return result.fields?.reason ?? result.message;
+      }}
+    />
   );
 }
 

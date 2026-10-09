@@ -2,9 +2,10 @@
 
 // Formulário compartilhado de aparência: a página do PRÓPRIO usuário (`kind="appearance"`) e a
 // identidade visual do SISTEMA (`kind="site"`): identidade, a barra superior (`showLogo`, `showName`;
-// D-34), os seis links sociais (RN17), o par de ícones do botão de modo (só no sistema; D-35), as duas
-// paletas com pré-visualização nos dois modos e avisos de contraste por modo (RN09, RN27). O texto
-// do portal e o diretório são do `PortalSettingsForm`. `AppearanceForm` e `SiteIdentityForm` são
+// D-34), o logotipo e o favicon (envio de imagem, `ImageUpload`; RF35), o par de ícones do botão de modo
+// (só no sistema; D-35), as duas paletas com pré-visualização nos dois modos e avisos de contraste por
+// modo (RN09, RN27). O rodapé (`FooterLinksEditor`, RN17) é outro formulário, irmão deste: os dois têm
+// gravação própria. O texto do portal e o diretório são do `PortalSettingsForm`. `AppearanceForm` e `SiteIdentityForm` são
 // invólucros finos deste componente: o que diferencia os dois é só o endereço da API, as mensagens do
 // 403 e a HERANÇA.
 //
@@ -18,25 +19,31 @@
 // calculados no navegador enquanto o autor edita (não bloqueiam) e, depois de gravar, mostra-se também
 // o que o servidor devolveu (que ele grava como notificação do dono). Depois de salvar, o
 // `router.refresh()` atualiza o layout do painel, que persiste entre as navegações.
+//
+// O logotipo e o favicon NÃO fazem parte do rascunho nem do `PUT` de texto: cada um é enviado na hora, por
+// `PUT /api/appearance/logo|favicon` (a página do usuário) ou `/api/configuration/logo|favicon` (o
+// sistema), e a pré-visualização passa a mostrar o `/media/<id>` devolvido. Sem a prop `media`, a seção
+// não aparece.
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ColorField } from "@/components/ui/ColorField";
 import { Field, describedBy } from "@/components/ui/Field";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { IMAGE_ENDPOINTS, createImageClient } from "@/components/ui/image-client";
+import { isMediaUrl } from "@/components/ui/image-model";
+import { DefaultLogo } from "@/components/layout/DefaultLogo";
 import { DEFAULT_PALETTES } from "@/lib/theme";
 import { ContrastNotices } from "./ContrastNotices";
 import { ModeIconPairField } from "./ModeIconPairField";
 import { PalettePreview } from "./PalettePreview";
 import { SiteFormFooter } from "./SiteFormFooter";
 import {
-  ASSET_FIELDS,
   INHERIT_FLAG,
   MESSAGES,
   PALETTE_FIELDS,
-  SOCIAL_FIELDS,
   draftOf,
   groupWarnings,
   inheritPalette,
-  previewLinks,
   previewStyle,
   warningsByMode,
 } from "./appearance-model";
@@ -105,18 +112,25 @@ function SystemSwatches({ mode, colors }) {
  * @param {SiteRecord} props.initial registro como a API o devolve (`GET`)
  * @param {SiteRecord | null} [props.system] a configuração do sistema: na aparência do usuário, a
  *   referência da herança (o nome e as seis cores); sem ela valem as paletas padrão
+ * @param {{ logoUrl?: string | null, faviconUrl?: string | null } | null} [props.media] o logotipo e o favicon
+ *   atuais (`/media/<id>`, ou nulos); sem a prop, a seção de envio de imagens não aparece
+ * @param {{ logo?: import("@/components/ui/image-client").ImageClient, favicon?: import("@/components/ui/image-client").ImageClient }} [props.clients]
+ *   os clientes de envio (os testes os simulam); o padrão fala com a API do alvo do formulário
  * @param {(data: SiteRecord) => void} [props.onSaved] chamado depois de um salvamento bem-sucedido
  *   (antes do `router.refresh()`)
  */
-export function SiteAppearanceForm({ kind, initial, system = null, onSaved }) {
+export function SiteAppearanceForm({ kind, initial, system = null, media = null, clients = {}, onSaved }) {
   const labels = LABELS[kind];
   const inheritable = kind === "appearance";
-  const fieldOrder = [
-    "siteName", "siteDescription", ...ASSET_FIELDS.map(({ field }) => field), "showName", "modeIconPair",
-    ...SOCIAL_FIELDS.map(({ field }) => field), ...COLOR_FIELDS,
-  ];
+  const fieldOrder = ["siteName", "siteDescription", "showName", "modeIconPair", ...COLOR_FIELDS];
   const form = useSiteForm({ kind, initial, system, onSaved, fieldOrder });
   const { idOf, draft, baseline, errors, setErrors, clearErrors, setField, setDraft, setNothing, saved } = form;
+
+  // O logotipo mostrado na pré-visualização: o que o servidor devolveu no último envio. Só `/media/<id>`.
+  const target = kind === "site" ? "site" : "page";
+  const [logoUrl, setLogoUrl] = useState(isMediaUrl(media?.logoUrl) ? media.logoUrl : null);
+  const logoClient = clients.logo ?? createImageClient(IMAGE_ENDPOINTS[target].logo);
+  const faviconClient = clients.favicon ?? createImageClient(IMAGE_ENDPOINTS[target].favicon);
 
   // A referência da herança: o nome e as seis cores do sistema, no formato do rascunho.
   const systemDraft = useMemo(() => draftOf(system ?? {}, "site"), [system]);
@@ -165,8 +179,6 @@ export function SiteAppearanceForm({ kind, initial, system = null, onSaved }) {
   // Pré-visualização: o que está sendo editado; uma cor ainda inválida cai para a gravada.
   const style = previewStyle(draft, baseline);
   const previewName = String(draft.siteName).trim() || (inheritable ? systemName : String(baseline.siteName));
-  const previewLogo = String(draft.logoUrl).trim() && !errors.logoUrl ? String(draft.logoUrl).trim() : null;
-  const links = previewLinks(draft);
   const savedNotice = saved
     ? `${labels.saved} às ${time.format(new Date(saved.at))}.${
         saved.warnings.length > 0 ? " O servidor avisou sobre o contraste (abaixo) e registrou o aviso nas suas notificações." : ""
@@ -212,31 +224,26 @@ export function SiteAppearanceForm({ kind, initial, system = null, onSaved }) {
             className={INPUT}
           />
         </Field>
-        <div className="grid gap-4 md:grid-cols-2">
-          {ASSET_FIELDS.map(({ field, label }) => (
-            <Field
-              key={field}
-              id={idOf(field)}
-              label={label}
-              hint="URL http(s) ou caminho de um arquivo de public/, iniciado por /. Vazio: sem imagem."
-              error={errors[field]}
-            >
-              <input
-                id={idOf(field)}
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                value={String(draft[field])}
-                onChange={(event) => setField(field, event.target.value)}
-                aria-invalid={errors[field] ? "true" : undefined}
-                aria-describedby={describedBy(idOf(field), { hint: true, error: errors[field] })}
-                className={INPUT}
-              />
-            </Field>
-          ))}
-        </div>
+        {media ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <ImageUpload
+              label="Logotipo"
+              kind="logo"
+              currentUrl={logoUrl}
+              client={logoClient}
+              onChange={setLogoUrl}
+              fallback={<DefaultLogo className="size-10" />}
+              hint={inheritable ? "Sem imagem, vale a do sistema." : "Sem imagem, vale o logotipo padrão."}
+            />
+            <ImageUpload
+              label="Favicon"
+              kind="favicon"
+              currentUrl={isMediaUrl(media.faviconUrl) ? media.faviconUrl : null}
+              client={faviconClient}
+              hint={inheritable ? "Sem imagem, vale o do sistema." : "Sem imagem, vale o favicon padrão."}
+            />
+          </div>
+        ) : null}
       </fieldset>
 
       <fieldset className={FIELDSET} aria-describedby={errors.showName ? idOf("showName-error") : undefined}>
@@ -276,31 +283,6 @@ export function SiteAppearanceForm({ kind, initial, system = null, onSaved }) {
             error={errors.modeIconPair}
           />
         ) : null}
-      </fieldset>
-
-      <fieldset className={FIELDSET}>
-        <legend className={LEGEND}>Redes sociais</legend>
-        <p className="text-sm text-muted">Só as redes com link aparecem no rodapé. Use endereços http ou https; vazio remove o ícone.</p>
-        <div className="grid gap-4 md:grid-cols-2">
-          {SOCIAL_FIELDS.map(({ field, label }) => (
-            <Field key={field} id={idOf(field)} label={label} error={errors[field]}>
-              <input
-                id={idOf(field)}
-                type="text"
-                inputMode="url"
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                placeholder="https://"
-                value={String(draft[field])}
-                onChange={(event) => setField(field, event.target.value)}
-                aria-invalid={errors[field] ? "true" : undefined}
-                aria-describedby={describedBy(idOf(field), { error: errors[field] })}
-                className={INPUT}
-              />
-            </Field>
-          ))}
-        </div>
       </fieldset>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -380,10 +362,9 @@ export function SiteAppearanceForm({ kind, initial, system = null, onSaved }) {
               mode={mode}
               id={idOf(mode === "light" ? "claro" : "noturno")}
               name={previewName}
-              logoUrl={previewLogo}
+              logoUrl={logoUrl}
               showLogo={draft.showLogo !== false}
               showName={draft.showName !== false}
-              links={links}
               themeStyle={style}
             />
           ))}

@@ -7,7 +7,7 @@
 import { normalizePage, normalizeUser } from "./user-model";
 
 /**
- * @typedef {"unauthenticated" | "forbidden" | "password-change" | "not-found" | "user-conflict" | "last-admin" | "has-content" | "slug-conflict" | "validation" | "rate-limited" | "server" | "network"} FailureKind
+ * @typedef {"unauthenticated" | "forbidden" | "password-change" | "not-found" | "user-conflict" | "last-admin" | "has-content" | "slug-conflict" | "validation" | "no-avatar" | "rate-limited" | "server" | "network"} FailureKind
  * @typedef {{ ok: false, kind: FailureKind, message: string, field?: string, fields?: Record<string, string>, conflicts?: string[] }} Failure
  */
 
@@ -16,6 +16,7 @@ export const MESSAGES = {
   forbidden: "Você não tem permissão para esta operação.",
   passwordChange: "Troque a senha provisória antes de gerenciar usuários.",
   notFound: "Este usuário não existe mais; talvez tenha sido excluído em outra aba. A lista foi recarregada.",
+  noAvatar: "Este usuário não tem avatar; talvez ele já tenha sido removido. A lista foi recarregada.",
   emailTaken: "Já existe uma conta com este e-mail.",
   handleTaken: "Já existe um usuário com este handle.",
   conflict: "Já existe um usuário com estes dados.",
@@ -222,4 +223,22 @@ export function deleteUser(id, choice = {}, fetchImpl = fetch) {
       ),
     }),
   );
+}
+
+/**
+ * Remove o avatar de OUTRO usuário (`DELETE /api/users/:id/avatar?reason=`; RF36, RN19, RN26): o motivo é
+ * obrigatório e o dono é notificado na mesma transação. 204 sem corpo; 404 se o usuário não tem avatar
+ * (ou não existe mais).
+ * @param {string} id
+ * @param {string} reason o motivo, de 1 a 500 caracteres, já aparado
+ * @param {typeof fetch} [fetchImpl]
+ */
+export async function removeAvatar(id, reason, fetchImpl = fetch) {
+  const params = new URLSearchParams({ reason });
+  const result = await request(
+    () => fetchImpl(`/api/users/${encodeURIComponent(id)}/avatar?${params}`, { method: "DELETE" }),
+    () => ({}),
+  );
+  // Aqui o 404 quer dizer, quase sempre, "não há avatar": a mensagem é outra.
+  return result.ok || result.kind !== "not-found" ? result : /** @type {Failure} */ ({ ok: false, kind: "no-avatar", message: MESSAGES.noAvatar });
 }

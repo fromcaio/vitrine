@@ -25,14 +25,6 @@ vi.mock("@/components/markdown/MarkdownRenderer", async () => {
 const RECORD = {
   siteName: "Espaço da Maria",
   siteDescription: "Notas de aula",
-  logoUrl: null,
-  faviconUrl: null,
-  discordUrl: null,
-  githubUrl: "https://github.com/maria",
-  youtubeUrl: null,
-  instagramUrl: null,
-  linkedinUrl: null,
-  twitchUrl: null,
   ...DEFAULT_PALETTES.light,
   ...DEFAULT_PALETTES.dark,
 };
@@ -76,9 +68,9 @@ const submit = () => fireEvent.click(saveButton());
 const previewOf = (/** @type {"claro" | "noturno"} */ mode) => screen.getByRole("group", { name: `Pré-visualização do modo ${mode}` });
 
 describe("estrutura e acessibilidade", () => {
-  it("tem os blocos de identidade, redes, as duas paletas e as duas pré-visualizações", () => {
+  it("tem os blocos de identidade, as duas paletas e as duas pré-visualizações", () => {
     render(<AppearanceForm initial={RECORD} />);
-    for (const name of ["Identidade", "Redes sociais", "Paleta clara", "Paleta noturna"]) expect(screen.getByRole("group", { name })).toBeTruthy();
+    for (const name of ["Identidade", "Paleta clara", "Paleta noturna"]) expect(screen.getByRole("group", { name })).toBeTruthy();
     expect(previewOf("claro")).toBeTruthy();
     expect(previewOf("noturno")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Pré-visualização" })).toBeTruthy();
@@ -88,9 +80,6 @@ describe("estrutura e acessibilidade", () => {
     render(<AppearanceForm initial={RECORD} />);
     expect(field("Nome do espaço").value).toBe("Espaço da Maria");
     expect(field("Descrição").value).toBe("Notas de aula");
-    expect(field("GitHub").value).toBe("https://github.com/maria");
-    expect(field("Discord").value).toBe("");
-    expect(field("Logotipo").value).toBe("");
     expect(color("clara", "Primária").value).toBe("#2563eb");
     expect(color("noturna", "Primária").value).toBe("#60a5fa");
   });
@@ -104,11 +93,12 @@ describe("estrutura e acessibilidade", () => {
     expect(screen.getByRole("group", { name: "Portal" })).toBeTruthy();
   });
 
-  it("os seis links sociais têm rótulo, e o logotipo e o favicon explicam o que vale (D-10)", () => {
+  it("os seis campos fixos de redes e os de URL do logotipo e do favicon não existem mais (ADR-034, ADR-035)", () => {
     render(<AppearanceForm initial={RECORD} />);
-    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch"]) expect(field(name)).toBeTruthy();
-    expect(screen.getAllByText(/URL http\(s\) ou caminho de um arquivo de public\//)).toHaveLength(2);
-    expect(field("Logotipo").getAttribute("aria-describedby")).toMatch(/-hint$/);
+    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch", "Logotipo", "Ícone da aba (favicon)"]) expect(screen.queryByLabelText(name)).toBeNull();
+    expect(screen.queryByRole("group", { name: "Redes sociais" })).toBeNull();
+    // Sem a prop `media`, a seção de envio de imagens não aparece.
+    expect(screen.queryByRole("group", { name: "Logotipo" })).toBeNull();
   });
 
   it("cada paleta tem três campos de cor, cada um com texto e seletor nativo", () => {
@@ -280,16 +270,6 @@ describe("envio parcial (PUT /api/appearance)", () => {
     expect(bodyOf(fetchMock)).toEqual({ accentColor: "#b45300", siteDescription: "Outra descrição" });
   });
 
-  it("um link esvaziado vai como cadeia vazia (o servidor o remove); um link novo vai como está", async () => {
-    const fetchMock = stubFetch(saved({ ...RECORD, githubUrl: null, twitchUrl: "https://twitch.tv/maria" }));
-    render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("GitHub"), "");
-    typeIn(field("Twitch"), "https://twitch.tv/maria");
-    submit();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ githubUrl: "", twitchUrl: "https://twitch.tv/maria" });
-  });
-
   it("enquanto grava, o botão fica desabilitado e diz 'Salvando…'", async () => {
     let finish = /** @type {(response: Response) => void} */ (() => {});
     const fetchMock = stubFetch(() => new Promise((resolve) => { finish = resolve; }));
@@ -394,38 +374,14 @@ describe("validação no navegador, sem enviar", () => {
     expect(document.activeElement).toBe(color("noturna", "Secundária"));
   });
 
-  it("o link que não é http(s), com o foco no primeiro campo inválido na ordem da tela", () => {
-    const fetchMock = stubFetch();
-    render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("Instagram"), "javascript:alert(1)");
-    typeIn(field("Discord"), "discord.gg/x");
-    typeIn(field("Logotipo"), "logo.png");
-    submit();
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getAllByText("Informe uma URL absoluta com protocolo http ou https.")).toHaveLength(2);
-    expect(screen.getByText("Informe uma URL http(s) ou o caminho de um arquivo de public/ (iniciado por /).")).toBeTruthy();
-    expect(document.activeElement).toBe(field("Logotipo"));
-  });
-
   it("editar o campo apaga o erro dele", () => {
     stubFetch();
     render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("Twitch"), "ftp://x");
+    typeIn(color("clara", "Primária"), "#12");
     submit();
-    expect(screen.getByText("Informe uma URL absoluta com protocolo http ou https.")).toBeTruthy();
-    typeIn(field("Twitch"), "https://twitch.tv/x");
-    expect(screen.queryByText("Informe uma URL absoluta com protocolo http ou https.")).toBeNull();
-    expect(field("Twitch").getAttribute("aria-invalid")).toBeNull();
-  });
-
-  it("logotipo por caminho de public/ e link vazio são válidos", async () => {
-    const fetchMock = stubFetch(saved({ ...RECORD, logoUrl: "/logo.png" }));
-    render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("Logotipo"), "/logo.png");
-    typeIn(field("Discord"), "   ");
-    submit();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    expect(bodyOf(fetchMock)).toEqual({ logoUrl: "/logo.png" });
+    expect(screen.getByText("A cor deve estar no formato #RRGGBB.")).toBeTruthy();
+    typeIn(color("clara", "Primária"), "#123456");
+    expect(screen.queryByText("A cor deve estar no formato #RRGGBB.")).toBeNull();
   });
 });
 
@@ -556,27 +512,17 @@ describe("pré-visualização nos dois modos (RF31)", () => {
     expect(styleOf("claro")).toContain("--vitrine-light-primary: #2563eb");
   });
 
-  it("mostra o nome digitado, o logotipo válido e só os links preenchidos e válidos", () => {
-    render(<AppearanceForm initial={RECORD} />);
+  it("mostra o nome digitado e o logotipo enviado (/media/<id>) nos dois modos", () => {
+    render(<AppearanceForm initial={RECORD} media={{ logoUrl: "/media/abc123", faviconUrl: null }} />);
     typeIn(field("Nome do espaço"), "Nome ao vivo");
-    typeIn(field("Logotipo"), "https://exemplo.com/logo.png");
-    typeIn(field("Twitch"), "https://twitch.tv/maria");
-    typeIn(field("Discord"), "discord.gg/invalido");
     for (const mode of /** @type {const} */ (["claro", "noturno"])) {
-      const preview = within(previewOf(mode));
-      expect(preview.getAllByText("Nome ao vivo").length).toBeGreaterThan(0);
-      expect(previewOf(mode).querySelector("img")?.getAttribute("src")).toBe("https://exemplo.com/logo.png");
-      expect([...previewOf(mode).querySelectorAll("footer a")].map((a) => a.getAttribute("aria-label"))).toEqual([
-        "GitHub (abre em uma nova aba)",
-        "Twitch (abre em uma nova aba)",
-      ]);
+      expect(within(previewOf(mode)).getAllByText("Nome ao vivo").length).toBeGreaterThan(0);
+      expect(previewOf(mode).querySelector("img")?.getAttribute("src")).toBe("/media/abc123");
     }
   });
 
-  it("um logotipo inválido não vira imagem", () => {
-    render(<AppearanceForm initial={RECORD} />);
-    typeIn(field("Logotipo"), "javascript:alert(1)");
-    submit();
+  it("um logotipo que não é /media/<id> (URL externa) nunca vira imagem", () => {
+    render(<AppearanceForm initial={RECORD} media={{ logoUrl: "https://exemplo.com/logo.png", faviconUrl: null }} />);
     expect(previewOf("claro").querySelector("img")).toBeNull();
   });
 
@@ -653,7 +599,7 @@ describe("configuração do site: portal e diretório (RF30, RN28)", () => {
 
   it("tem os mesmos blocos de identidade, redes e paletas da aparência, com o aviso por modo", async () => {
     render(<SiteIdentityForm initial={CONFIG} />);
-    for (const name of ["Identidade", "Redes sociais", "Paleta clara", "Paleta noturna"]) expect(screen.getByRole("group", { name })).toBeTruthy();
+    for (const name of ["Identidade", "Paleta clara", "Paleta noturna"]) expect(screen.getByRole("group", { name })).toBeTruthy();
     typeIn(color("noturna", "Primária"), "#222222");
     await within(palette("noturna")).findByText(/primária noturna/);
   });

@@ -3,6 +3,9 @@
 // somente leitura; envio por PATCH /api/users/me; mensagens por campo e gerais; nada de HTML do usuário.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 import { ProfileForm } from "@/components/admin/ProfileForm";
 
 afterEach(() => {

@@ -1,5 +1,5 @@
-// Modelo dos formulários de aparência e de configuração do site (RF18, RF19, RF24, RF31, RN09,
-// RN17, RN25, RN27, D-34, D-38, D-40, D-41; M18, A-027): o que os formulários compartilham, em funções
+// Modelo dos formulários de aparência e de configuração do site (RF18, RF19, RF31, RN09,
+// RN25, RN27, D-34, D-38, D-40, D-41; M18, A-027, A-028): o que os formulários compartilham, em funções
 // puras, sem React nem DOM, para a validação e o envio parcial poderem ser testados sem navegador. A
 // validação é a do servidor, que continua a autoridade (RF21): estas funções só avisam antes do
 // envio, e os mesmos esquemas e predicados de validators.js garantem que a mensagem seja a mesma.
@@ -13,8 +13,9 @@
 //   - `portal`: o texto do portal, o diretório e o título dele (`PUT /api/configuration`).
 //
 // O rascunho (`Draft`) é um objeto de textos, um por campo da API, mais os interruptores
-// (`showLogo`, `showName`, `directoryEnabled`, `inheritLight`, `inheritDark`). Textos e links vazios
-// valem como ausentes (RN17): o servidor transforma "" em nulo.
+// (`showLogo`, `showName`, `directoryEnabled`, `inheritLight`, `inheritDark`). Textos vazios valem
+// como ausentes: o servidor transforma "" em nulo. O logotipo e o favicon (envio de imagem, RF35) e o
+// rodapé (lista de ícones, RN17) NÃO fazem parte do rascunho: têm envio e gravação próprios.
 
 // Primeiro de todos: configura o Zod antes de o validators.js criar os esquemas dele (ADR-022).
 import "@/components/editor/zod-config";
@@ -23,27 +24,10 @@ import { TOO_COMPLEX_MESSAGE, busyMessage } from "@/components/ui/render-errors"
 import { DEFAULT_MODE_ICON_PAIR, isModeIconPair } from "@/components/layout/mode-icon-names";
 import { bodyBytes } from "@/lib/limits";
 import { DEFAULT_PALETTES, contrastWarnings, themeStyleOf } from "@/lib/theme";
-import { isAssetUrl, isHttpUrl } from "@/lib/validators";
 
 /** @typedef {"appearance" | "site" | "portal"} FormKind aparência do usuário, identidade do sistema ou portal */
 /** @typedef {import("@/lib/theme").ContrastWarning} ContrastWarning */
 /** @typedef {import("@/lib/theme").ColorMode} ColorMode */
-
-/** Os seis links sociais (RN17, ADR-013), na ordem do rodapé. */
-export const SOCIAL_FIELDS = /** @type {const} */ ([
-  { field: "discordUrl", label: "Discord" },
-  { field: "githubUrl", label: "GitHub" },
-  { field: "youtubeUrl", label: "YouTube" },
-  { field: "instagramUrl", label: "Instagram" },
-  { field: "linkedinUrl", label: "LinkedIn" },
-  { field: "twitchUrl", label: "Twitch" },
-]);
-
-/** Logotipo e favicon (D-10, ADR-017): URL http(s) ou caminho de `public/`, sem envio de arquivo. */
-export const ASSET_FIELDS = /** @type {const} */ ([
-  { field: "logoUrl", label: "Logotipo" },
-  { field: "faviconUrl", label: "Ícone da aba (favicon)" },
-]);
 
 /** As três cores de cada paleta. */
 export const PALETTE_FIELDS = /** @type {const} */ ({
@@ -67,15 +51,12 @@ export const DIRECTORY_TITLE_MAX = 40;
 export const DEFAULT_DIRECTORY_TITLE = "Espaços";
 
 /** @typedef {typeof PALETTE_FIELDS.light[number]["field"] | typeof PALETTE_FIELDS.dark[number]["field"]} ColorFieldName */
-/** @typedef {typeof SOCIAL_FIELDS[number]["field"]} SocialFieldName */
 
 const COLOR_NAMES = /** @type {ColorFieldName[]} */ ([...PALETTE_FIELDS.light, ...PALETTE_FIELDS.dark].map(({ field }) => field));
-const SOCIAL_NAMES = /** @type {SocialFieldName[]} */ (SOCIAL_FIELDS.map(({ field }) => field));
-const ASSET_NAMES = /** @type {("logoUrl" | "faviconUrl")[]} */ (ASSET_FIELDS.map(({ field }) => field));
 const MODES = /** @type {const} */ (["light", "dark"]);
 
-/** Campos de texto da identidade (os que o servidor trata como texto livre, URL ou cor). */
-const TEXT_NAMES = /** @type {const} */ (["siteName", "siteDescription", ...ASSET_NAMES, ...SOCIAL_NAMES, ...COLOR_NAMES]);
+/** Campos de texto da identidade (os que o servidor trata como texto livre ou cor). O logotipo, o favicon e o rodapé saem do formulário: são envios próprios (ADR-034, ADR-035). */
+const TEXT_NAMES = /** @type {const} */ (["siteName", "siteDescription", ...COLOR_NAMES]);
 
 /** Campos a que o servidor pode ligar uma mensagem de erro (`details[].field`). */
 const DETAIL_FIELDS = /** @type {string[]} */ ([...TEXT_NAMES, "homeBody", "directoryTitle", "showLogo", "showName", "modeIconPair"]);
@@ -84,7 +65,7 @@ const DETAIL_FIELDS = /** @type {string[]} */ ([...TEXT_NAMES, "homeBody", "dire
  * Registro de aparência ou de configuração, como a API o devolve (`GET` ou `data` do `PUT`): os
  * campos que o formulário usa; os demais (`id`, datas, dono) são ignorados. Na aparência do usuário,
  * `siteName` e as seis cores podem ser nulos (herdam o sistema).
- * @typedef {Partial<Record<"siteName" | "siteDescription" | "logoUrl" | "faviconUrl" | SocialFieldName | ColorFieldName, string | null>> & {
+ * @typedef {Partial<Record<"siteName" | "siteDescription" | ColorFieldName, string | null>> & {
  *   homeBody?: string | null, directoryEnabled?: boolean, directoryTitle?: string | null,
  *   showLogo?: boolean, showName?: boolean, modeIconPair?: string | null }} SiteRecord
  */
@@ -101,8 +82,6 @@ const DETAIL_FIELDS = /** @type {string[]} */ ([...TEXT_NAMES, "homeBody", "dire
 
 export const MESSAGES = {
   nameRequired: "O nome do site é obrigatório.",
-  assetUrl: "Informe uma URL http(s) ou o caminho de um arquivo de public/ (iniciado por /).",
-  httpUrl: "Informe uma URL absoluta com protocolo http ou https.",
   topbar: "Deixe pelo menos um ligado: o logotipo ou o nome.",
   directoryTitle: `O título do diretório precisa ter de 1 a ${DIRECTORY_TITLE_MAX} caracteres.`,
   unauthenticated: "Sua sessão expirou. Entre de novo para salvar. As suas alterações continuam nesta tela.",
@@ -188,7 +167,7 @@ export function changedFields(draft, base) {
 }
 
 /**
- * Corpo do `PUT` (parcial): só o que mudou. Um link ou texto esvaziado vai como "", que o servidor
+ * Corpo do `PUT` (parcial): só o que mudou. Um texto esvaziado vai como "", que o servidor
  * grava como ausente; as cores vão em minúsculas. Na aparência do usuário (D-40): o nome esvaziado
  * vai como `null` (herda o do sistema); uma paleta que passa a HERDAR vai como as três cores `null`;
  * uma que passa a ser PRÓPRIA vai com as três cores (a paleta é completa quando definida); uma
@@ -223,7 +202,7 @@ export function patchOf(draft, base) {
 }
 
 /**
- * Erros do rascunho, por campo, antes de enviar (as regras do servidor; RN09, RN17, D-10, D-34, D-38,
+ * Erros do rascunho, por campo, antes de enviar (as regras do servidor; RN09, D-34, D-38,
  * RN25). A paleta herdada não é verificada (é a do sistema).
  * @param {Draft} draft
  * @param {{ kind: FormKind, maxBodyBytes: number }} options
@@ -241,14 +220,6 @@ export function validateDraft(draft, { kind, maxBodyBytes }) {
     return errors;
   }
   if (kind === "site" && String(draft.siteName ?? "").trim() === "") errors.siteName = MESSAGES.nameRequired;
-  for (const field of ASSET_NAMES) {
-    const value = String(draft[field] ?? "").trim();
-    if (value !== "" && !isAssetUrl(value)) errors[field] = MESSAGES.assetUrl;
-  }
-  for (const field of SOCIAL_NAMES) {
-    const value = String(draft[field] ?? "").trim();
-    if (value !== "" && !isHttpUrl(value)) errors[field] = MESSAGES.httpUrl;
-  }
   for (const mode of MODES) {
     if (draft[INHERIT_FLAG[mode]] === true) continue;
     for (const { field } of PALETTE_FIELDS[mode]) {
@@ -321,21 +292,6 @@ export function previewStyle(draft, base) {
     palette[field] = colorError(own) ? String(base[field]).trim().toLowerCase() : own.toLowerCase();
   }
   return themeStyleOf(palette);
-}
-
-/**
- * Os links preenchidos e válidos, para o rodapé da pré-visualização.
- * @param {Draft} draft
- * @returns {Partial<Record<SocialFieldName, string>>}
- */
-export function previewLinks(draft) {
-  /** @type {Partial<Record<SocialFieldName, string>>} */
-  const links = {};
-  for (const field of SOCIAL_NAMES) {
-    const value = String(draft[field] ?? "").trim();
-    if (value !== "" && isHttpUrl(value)) links[field] = value;
-  }
-  return links;
 }
 
 /**

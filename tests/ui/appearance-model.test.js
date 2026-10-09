@@ -15,7 +15,6 @@ import {
   isPaletteInherited,
   normalizeValue,
   patchOf,
-  previewLinks,
   previewStyle,
   validateDraft,
   warningsByMode,
@@ -25,14 +24,6 @@ import { DEFAULT_PALETTES } from "@/lib/theme";
 const RECORD = {
   siteName: "Espaço da Maria",
   siteDescription: "Notas de aula",
-  logoUrl: null,
-  faviconUrl: "/favicon-maria.png",
-  discordUrl: null,
-  githubUrl: "https://github.com/maria",
-  youtubeUrl: null,
-  instagramUrl: null,
-  linkedinUrl: null,
-  twitchUrl: null,
   ...DEFAULT_PALETTES.light,
   ...DEFAULT_PALETTES.dark,
   id: "ignorado",
@@ -49,10 +40,9 @@ const failure = (/** @type {number} */ status, /** @type {unknown[]} */ details 
 describe("draftOf", () => {
   it("monta um texto por campo: nulos viram vazio e os campos desconhecidos são ignorados", () => {
     const draft = draftOf(RECORD, "appearance");
-    expect(draft.logoUrl).toBe("");
-    expect(draft.discordUrl).toBe("");
-    expect(draft.githubUrl).toBe("https://github.com/maria");
     expect(draft.siteName).toBe("Espaço da Maria");
+    // O logotipo, o favicon e o rodapé têm envio próprio (A-028): não entram no rascunho.
+    for (const field of ["logoUrl", "faviconUrl", "githubUrl", "discordUrl"]) expect(draft).not.toHaveProperty(field);
     expect(draft).not.toHaveProperty("id");
     expect(draft).not.toHaveProperty("updatedAt");
   });
@@ -85,13 +75,13 @@ describe("normalizeValue, changedFields e patchOf (envio parcial)", () => {
 
   it("o corpo leva só o que mudou, com a cor em minúsculas e o texto aparado", () => {
     const base = draftOf(RECORD, "appearance");
-    const draft = { ...base, darkPrimaryColor: "#FF0000", siteDescription: " Outra ", githubUrl: base.githubUrl };
+    const draft = { ...base, darkPrimaryColor: "#FF0000", siteDescription: " Outra " };
     expect(patchOf(draft, base)).toEqual({ darkPrimaryColor: "#ff0000", siteDescription: "Outra" });
   });
 
-  it("um link ou texto esvaziado vai como cadeia vazia (o servidor grava como ausente)", () => {
+  it("um texto esvaziado vai como cadeia vazia (o servidor grava como ausente)", () => {
     const base = draftOf(RECORD, "appearance");
-    expect(patchOf({ ...base, githubUrl: "", faviconUrl: "   " }, base)).toEqual({ githubUrl: "", faviconUrl: "" });
+    expect(patchOf({ ...base, siteDescription: "   " }, base)).toEqual({ siteDescription: "" });
   });
 
   it("na configuração, o texto do portal e o diretório entram no corpo só se mudaram", () => {
@@ -102,7 +92,7 @@ describe("normalizeValue, changedFields e patchOf (envio parcial)", () => {
   });
 });
 
-describe("validateDraft (RN09, RN17, D-10, RN25)", () => {
+describe("validateDraft (RN09, RN25)", () => {
   const ok = () => draftOf(RECORD, "appearance");
 
   it("um rascunho válido não tem erros", () => {
@@ -127,33 +117,8 @@ describe("validateDraft (RN09, RN17, D-10, RN25)", () => {
     expect(validateDraft({ ...ok(), primaryColor: " #2563EB " }, OPTIONS)).toEqual({});
   });
 
-  it.each(["ftp://exemplo.com", "javascript:alert(1)", "exemplo.com/maria", "//exemplo.com", "http:exemplo.com", "https://"])(
-    "recusa o link social %j (RN17)",
-    (value) => {
-      expect(validateDraft({ ...ok(), twitchUrl: value }, OPTIONS)).toEqual({ twitchUrl: "Informe uma URL absoluta com protocolo http ou https." });
-    },
-  );
-
-  it.each(["http://exemplo.com/maria", "https://exemplo.com", "  https://exemplo.com  "])("aceita o link social %j", (value) => {
-    expect(validateDraft({ ...ok(), twitchUrl: value }, OPTIONS)).toEqual({});
-  });
-
-  it("link vazio equivale a ausente (RN17)", () => {
-    expect(validateDraft({ ...ok(), twitchUrl: "", githubUrl: "   " }, OPTIONS)).toEqual({});
-  });
-
-  it.each(["logo.png", "//exemplo.com/logo.png", "/\\exemplo.com", "javascript:alert(1)", "ftp://exemplo.com/logo.png"])(
-    "recusa o logotipo %j (D-10)",
-    (value) => {
-      expect(validateDraft({ ...ok(), logoUrl: value, faviconUrl: value }, OPTIONS)).toEqual({
-        logoUrl: "Informe uma URL http(s) ou o caminho de um arquivo de public/ (iniciado por /).",
-        faviconUrl: "Informe uma URL http(s) ou o caminho de um arquivo de public/ (iniciado por /).",
-      });
-    },
-  );
-
-  it.each(["/logo.png", "/img/logo.svg", "https://exemplo.com/logo.png", "http://exemplo.com/l.png"])("aceita o logotipo %j", (value) => {
-    expect(validateDraft({ ...ok(), logoUrl: value }, OPTIONS)).toEqual({});
+  it("o logotipo, o favicon e os links do rodapé não são validados aqui: têm envio próprio (A-028)", () => {
+    expect(validateDraft({ ...ok(), logoUrl: "javascript:alert(1)", githubUrl: "ftp://x" }, OPTIONS)).toEqual({});
   });
 
   it("o limite do texto do portal é de bytes UTF-8, e não de caracteres (RN25)", () => {
@@ -239,7 +204,7 @@ describe("groupWarnings: os avisos do servidor por modo (prefixo dark)", () => {
   });
 });
 
-describe("previewStyle e previewLinks", () => {
+describe("previewStyle", () => {
   const base = () => draftOf(RECORD, "appearance");
 
   it("monta as dez variáveis com as cores do rascunho, em minúsculas, e o texto sobre elas por modo", () => {
@@ -261,13 +226,6 @@ describe("previewStyle e previewLinks", () => {
     const style = previewStyle({ ...base(), darkPrimaryColor: "#ff00ff" }, base());
     expect(style["--vitrine-dark-primary"]).toBe("#ff00ff");
     expect(style["--vitrine-light-primary"]).toBe(DEFAULT_PALETTES.light.primaryColor);
-  });
-
-  it("os links da pré-visualização são só os preenchidos e válidos", () => {
-    expect(previewLinks({ ...base(), githubUrl: "https://github.com/x", twitchUrl: "javascript:1", discordUrl: "   ", youtubeUrl: " https://y.example " })).toEqual({
-      githubUrl: "https://github.com/x",
-      youtubeUrl: "https://y.example",
-    });
   });
 });
 
@@ -295,15 +253,15 @@ describe("interpretFailure: 401, 403, 413, 422 e 429 em português", () => {
     const { fields, general } = await interpretFailure(
       failure(422, [
         { field: "primaryColor", message: "A cor deve estar no formato #RRGGBB." },
-        { field: "githubUrl", message: "Informe uma URL absoluta com protocolo http ou https." },
-        { field: "githubUrl", message: "repetida" },
+        { field: "siteDescription", message: "A descrição é longa demais." },
+        { field: "siteDescription", message: "repetida" },
         { field: "siteName", message: "O nome do site é obrigatório." },
       ]),
       "appearance",
     );
     expect(fields).toEqual({
       primaryColor: "A cor deve estar no formato #RRGGBB.",
-      githubUrl: "Informe uma URL absoluta com protocolo http ou https.",
+      siteDescription: "A descrição é longa demais.",
       siteName: "O nome do site é obrigatório.",
     });
     expect(general).toBe("");

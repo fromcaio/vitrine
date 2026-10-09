@@ -9,6 +9,7 @@
 // dez variáveis conhecidas, só com valor #RRGGBB.
 import { safeThemeStyle } from "@/lib/theme";
 import { Footer } from "./Footer";
+import { legacyFooterLinks } from "./footer-model";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
 
@@ -28,7 +29,10 @@ import { Sidebar } from "./Sidebar";
  *   sem ela (início do espaço, portal), não há sidebar
  * @param {string} [props.basePath] prefixo do espaço, sem barra final (`/maria`; "" no portal)
  * @param {string[]} [props.activePath] cadeia de slugs da página corrente
- * @param {import("./SocialLinks").SocialLinksValue | null} [props.socialLinks] links do rodapé
+ * @param {{ icon: string, url: string }[] | null} [props.footerLinks] os links do rodapé do dono, na ordem
+ *   (RN17; o rodapé não herda: vazio por padrão). Sem a prop (`null`), vale o `socialLinks` antigo
+ * @param {Record<string, unknown> | null} [props.socialLinks] TRANSIÇÃO, até o Core ligar o `footerLinks`
+ *   (A-029): o registro antigo com os seis `*Url`; só vale se `footerLinks` não vem
  * @param {number} [props.year] ano dos direitos
  * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor e o link "Administração" na
  *   barra (padrão); a pré-visualização omite os dois, porque nela nada é interativo
@@ -48,6 +52,7 @@ export function SpaceLayout({
   collection = null,
   basePath = "",
   activePath = [],
+  footerLinks = null,
   socialLinks = null,
   year,
   modeToggle = true,
@@ -81,7 +86,7 @@ export function SpaceLayout({
           {children}
         </main>
       </div>
-      <Footer name={name} socialLinks={socialLinks} year={year} />
+      <Footer name={name} links={footerLinks ?? legacyFooterLinks(socialLinks)} year={year} />
     </div>
   );
 }
