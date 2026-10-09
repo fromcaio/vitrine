@@ -10,7 +10,7 @@ import { validate } from "@/lib/validators";
  * @typedef {"VALIDATION_ERROR" | "UNAUTHENTICATED" | "FORBIDDEN" | "PASSWORD_CHANGE_REQUIRED" | "NOT_FOUND"
  *   | "SLUG_CONFLICT" | "INVALID_PARENT" | "CYCLE_DETECTED" | "VERSION_CONFLICT" | "QUOTA_EXCEEDED"
  *   | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "USER_CONFLICT" | "LAST_ADMIN" | "USER_HAS_CONTENT" | "BUSY"
- *   | "CONTENT_TOO_COMPLEX" | "INTERNAL_ERROR"} ApiErrorCode
+ *   | "CONTENT_TOO_COMPLEX" | "INVALID_IMAGE" | "INTERNAL_ERROR"} ApiErrorCode
  */
 
 /** Erro com resposta HTTP definida; qualquer outro erro vira 500 em `toErrorResponse`. */
@@ -74,6 +74,27 @@ export function renderBusy(retryAfter) {
     [],
     { "Retry-After": String(retryAfter) },
   );
+}
+
+/**
+ * 422 `INVALID_IMAGE` (A-029; ADR-034): a imagem enviada não vale (formato, tamanho, dimensão, arquivo
+ * corrompido ou tipo declarado que não confere). `details[0].field` é `file`; a mensagem é em português e
+ * NÃO repete o arquivo, o nome nem o tipo enviados.
+ * @param {string} message
+ */
+export function invalidImage(message) {
+  return new ApiError(422, "INVALID_IMAGE", message, [{ field: "file" }]);
+}
+
+/**
+ * 503 `BUSY` com `Retry-After`: já há imagens demais sendo processadas (uma por usuário, duas no servidor;
+ * ADR-034, item 4); repetir é seguro.
+ * @param {number} retryAfter segundos
+ */
+export function imageBusy(retryAfter) {
+  return new ApiError(503, "BUSY", "Há imagens demais sendo processadas. Tente de novo em instantes.", [], {
+    "Retry-After": String(retryAfter),
+  });
 }
 
 /**
@@ -211,19 +232,20 @@ function payloadTooLarge(maxBytes) {
 }
 
 /**
- * Lê o corpo como texto, parando assim que passa de `maxBytes`: a requisição que declara um corpo
+ * Lê o corpo em bytes, parando assim que passa de `maxBytes`: a requisição que declara um corpo
  * maior (`Content-Length`) é recusada sem ler nada, e a que não declara (ou mente) é cortada no
  * limite, sem encher a memória.
  * @param {Request} request
  * @param {number} maxBytes
+ * @returns {Promise<Uint8Array>}
  */
-async function readLimitedText(request, maxBytes) {
+async function readLimitedBytes(request, maxBytes) {
   const declared = Number(request.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maxBytes) {
     await request.body?.cancel().catch(() => {});
     throw payloadTooLarge(maxBytes);
   }
-  if (!request.body) return "";
+  if (!request.body) return new Uint8Array(0);
 
   const reader = request.body.getReader();
   /** @type {Uint8Array[]} */
@@ -245,7 +267,16 @@ async function readLimitedText(request, maxBytes) {
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return bytes;
+}
+
+/**
+ * Lê o corpo como texto (UTF-8), com o mesmo limite de `readLimitedBytes`.
+ * @param {Request} request
+ * @param {number} maxBytes
+ */
+async function readLimitedText(request, maxBytes) {
+  return new TextDecoder().decode(await readLimitedBytes(request, maxBytes));
 }
 
 /**
@@ -269,16 +300,51 @@ export async function readJson(request, { maxBytes = DEFAULT_JSON_MAX_BYTES } = 
   }
 }
 
+/** Folga fixa das fronteiras e dos cabeçalhos de um corpo `multipart` (A-029): 16 KiB sobre o arquivo. */
+export const MULTIPART_OVERHEAD_BYTES = 16 * 1024;
+
+/**
+ * Lê o arquivo de um corpo `multipart/form-data` (rotas de envio de imagem; A-029, ADR-034, item 4): o
+ * campo `file`, com os demais campos ignorados e o NOME do arquivo enviado nunca usado. Ordem: tipo do
+ * conteúdo (400), leitura com limite (`maxFileBytes` mais a folga das fronteiras; acima, 413 ANTES de
+ * decodificar), análise do `multipart` (400 se malformado), presença do campo (422) e o tamanho do
+ * arquivo em si (413). O `readJson` não muda: as rotas JSON seguem só com `application/json`.
+ * @param {Request} request
+ * @param {{ maxFileBytes: number, field?: string }} options
+ * @returns {Promise<{ bytes: Uint8Array, type: string }>} os bytes e o tipo DECLARADO pelo cliente (a decisão é do conteúdo)
+ */
+export async function readFormFile(request, { maxFileBytes, field = "file" }) {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!/^multipart\/form-data\s*;.*\bboundary=/i.test(contentType.trim())) {
+    throw new ApiError(400, "VALIDATION_ERROR", "O corpo da requisição deve ser multipart/form-data (Content-Type: multipart/form-data).");
+  }
+  const raw = await readLimitedBytes(request, maxFileBytes + MULTIPART_OVERHEAD_BYTES);
+  /** @type {FormData} */
+  let form;
+  try {
+    form = await new Response(raw, { headers: { "content-type": contentType } }).formData();
+  } catch {
+    throw new ApiError(400, "VALIDATION_ERROR", "Corpo multipart malformado.");
+  }
+  const part = form.get(field);
+  if (part === null || typeof part === "string" || typeof part.arrayBuffer !== "function") {
+    throw new ApiError(422, "VALIDATION_ERROR", "Dados inválidos.", [{ field, message: "Envie o arquivo no campo \"file\"." }]);
+  }
+  if (part.size > maxFileBytes) throw payloadTooLarge(maxFileBytes);
+  return { bytes: new Uint8Array(await part.arrayBuffer()), type: part.type };
+}
+
 /**
  * Valida a entrada com um esquema de `validators.js`; falha responde 422 com um item de `details`
  * por campo inválido.
  * @template T
  * @param {import("zod").ZodType<T>} schema
  * @param {unknown} input
+ * @param {{ bracketIndexes?: boolean }} [options] ver `validate`
  * @returns {T}
  */
-export function parse(schema, input) {
-  const result = validate(schema, input);
+export function parse(schema, input, options) {
+  const result = validate(schema, input, options);
   if (!result.ok) {
     throw new ApiError(422, "VALIDATION_ERROR", "Dados inválidos.", result.details);
   }

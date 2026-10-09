@@ -68,7 +68,8 @@ export function detectFormat(bytes) {
 const DECLARED_TYPES = Object.freeze({ png: "image/png", jpeg: "image/jpeg", webp: "image/webp" });
 
 /**
- * O tipo que o cliente declarou confere com o conteúdo? Vazio (não declarado) passa: a decisão é do
+ * O tipo que o cliente declarou confere com o conteúdo? Vazio ou `application/octet-stream` (o genérico que o
+ * `multipart` usa quando o cliente não sabe o tipo do arquivo) conta como NÃO declarado e passa: a decisão é do
  * conteúdo. Um tipo declarado diferente do detectado (`image/jpeg` com um PNG dentro, `text/html` com uma
  * imagem) é recusado.
  * @param {string | undefined | null} declared
@@ -76,7 +77,7 @@ const DECLARED_TYPES = Object.freeze({ png: "image/png", jpeg: "image/jpeg", web
  */
 function declaredMatches(declared, detected) {
   const type = String(declared ?? "").split(";")[0].trim().toLowerCase();
-  return type === "" || type === DECLARED_TYPES[detected];
+  return type === "" || type === "application/octet-stream" || type === DECLARED_TYPES[detected];
 }
 
 /**

@@ -32,7 +32,7 @@ describe("RN20: handles reservados e rotas estáticas", () => {
   const publicDir = path.join(projectRoot, "public");
 
   it("a lista reservada tem os nomes da RN20", () => {
-    expect([...RESERVED_HANDLES].sort()).toEqual(["_next", "admin", "api", "login", "logout"]);
+    expect([...RESERVED_HANDLES].sort()).toEqual(["_next", "admin", "api", "login", "logout", "media"]);
     for (const name of RESERVED_HANDLES) expect(typeof name).toBe("string");
   });
 
@@ -65,12 +65,15 @@ describe("RN20: handles reservados e rotas estáticas", () => {
     expect(snapshot.length).toBeGreaterThanOrEqual(4);
     for (const name of snapshot) expect(RESERVED_HANDLES, `${name} está na migração`).toContain(name);
     // e o contrário, ressalvando o que o GLOB do SQL já recusa: `_next` não casa com [a-z0-9-]
+    // `media` (A-029, as imagens em /media/<id>) nasceu DEPOIS desta migração, que é imutável: não consta do
+    // retrato (nenhuma conta antiga tem handle derivado dele, pois a derivação só acontece nesta migração).
+    const addedLater = ["media"];
     for (const name of RESERVED_HANDLES) {
-      if (/^[a-z0-9-]+$/.test(name)) expect(snapshot, `${name} falta na migração`).toContain(name);
+      if (/^[a-z0-9-]+$/.test(name) && !addedLater.includes(name)) expect(snapshot, `${name} falta na migração`).toContain(name);
     }
   });
 
-  it("as pastas de rota que existem hoje são todas reservadas (admin, api, login)", () => {
+  it("as pastas de rota que existem hoje são todas reservadas (admin, api, login, media)", () => {
     // `%5F` é o sublinhado na URL (Next.js): `%5Fnao-encontrado` é o segmento `_nao-encontrado`.
     const all = staticTopSegments(appDir, { onlyDirectories: true }).map((name) => ({ folder: name, segment: decodeURIComponent(name) }));
     const routeFolders = all.filter(({ segment }) => !/^[_[@]/.test(segment)).map(({ segment }) => segment);
@@ -78,7 +81,7 @@ describe("RN20: handles reservados e rotas estáticas", () => {
     // em um handle, então ela não colide; as demais têm de ser nomes reservados.
     const dotted = routeFolders.filter((name) => name.includes("."));
     const named = routeFolders.filter((name) => !name.includes("."));
-    expect(named.sort()).toEqual(["admin", "api", "login"]);
+    expect(named.sort()).toEqual(["admin", "api", "login", "media"]);
     for (const name of named) expect(RESERVED_HANDLES).toContain(name);
     expect(dotted).toEqual(["sitemap.xml"]);
     for (const name of dotted) expect(handleError(name)).not.toBeNull();

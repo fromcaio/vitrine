@@ -6,7 +6,7 @@ import * as z from "zod";
 // Só o módulo do português do Brasil, e não `z.locales` (todos os idiomas, ~37 kB a mais no pacote do
 // navegador); `zod/v4/locales/pt.js` é o português de Portugal e dá mensagens diferentes (R-007).
 import ptBRLocale from "zod/v4/locales/pt-BR.js";
-import { MODE_ICON_PAIRS } from "./footer-icons.js";
+import { FOOTER_ICONS, MAX_FOOTER_LINKS, MODE_ICON_PAIRS } from "./footer-icons.js";
 
 // --------------------------------------------------------
 // Constantes das regras de negócio
@@ -22,15 +22,6 @@ export const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 export const CONTENT_TYPES = /** @type {const} */ (["DOCUMENT", "COLLECTION"]);
 /** RN16: estados de publicação (os mesmos valores de CONTENT_STATUSES em db.js). */
 export const CONTENT_STATUSES = /** @type {const} */ (["DRAFT", "PUBLISHED"]);
-/** Os seis links sociais do rodapé (RN17, ADR-013). */
-export const SOCIAL_URL_FIELDS = /** @type {const} */ ([
-  "discordUrl",
-  "githubUrl",
-  "youtubeUrl",
-  "instagramUrl",
-  "linkedinUrl",
-  "twitchUrl",
-]);
 /** Limites de senha (os padrões do better-auth, repetidos em src/lib/auth.js). */
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
@@ -40,11 +31,11 @@ export const HANDLE_MAX_LENGTH = 30;
 export const HANDLE_PATTERN = SLUG_PATTERN;
 /**
  * RN20: nomes que o handle não pode ter, porque colidem com rotas da aplicação: `admin`, `api`,
- * `login`, `logout` e `_next` (este, por segurança: a classe [a-z0-9-] já o recusa). É a ÚNICA fonte
+ * `login`, `logout`, `media` (as imagens, `/media/<id>`; A-029) e `_next` (este, por segurança: a classe [a-z0-9-] já o recusa). É a ÚNICA fonte
  * em código: o plugin do better-auth, as rotas e o teste de colisão (tests/core/handles.test.js, que
  * falha quando uma pasta de `public/` ou uma rota estática nova colide) leem daqui.
  */
-export const RESERVED_HANDLES = Object.freeze(["admin", "api", "login", "logout", "_next"]);
+export const RESERVED_HANDLES = Object.freeze(["admin", "api", "login", "logout", "media", "_next"]);
 
 // --------------------------------------------------------
 // Funções puras
@@ -80,29 +71,42 @@ export function handleError(value) {
   return null;
 }
 
-/**
- * RN17: URL absoluta com protocolo http ou https.
- * @param {string} value
- */
-export function isHttpUrl(value) {
-  // O prefixo é exigido porque `new URL("http:exemplo.com")` seria aceito pelo analisador.
-  if (!/^https?:\/\//i.test(value)) return false;
-  try {
-    const url = new URL(value);
-    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname !== "";
-  } catch {
-    return false;
-  }
-}
+/** O ícone do rodapé que leva um e-mail (`mailto:`) em vez de um endereço `https://` (RN17, ADR-035). */
+export const FOOTER_EMAIL_ICON = "email";
+
+/** Tamanho máximo da URL de um link do rodapé, em caracteres. */
+export const FOOTER_URL_MAX_LENGTH = 2048;
 
 /**
- * D-10: logotipo e favicon são uma URL externa http(s) ou um arquivo de `public/` (caminho que
- * começa com uma única barra); não há envio de arquivos nesta versão.
- * @param {string} value
+ * E-mail simples: sem espaços nem `?` e `#` (nada de `mailto:` com parâmetros), uma arroba e um domínio com
+ * ponto. O mesmo padrão da interface (`footer-model.js`): o servidor é quem decide, e a interface só antecipa.
  */
-export function isAssetUrl(value) {
-  if (isHttpUrl(value)) return true;
-  return /^\/(?![/\\])[^\s\\]*$/.test(value);
+const FOOTER_EMAIL_PATTERN = /^[^\s@<>()[\]\\,;:"?#]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+$/u;
+
+/**
+ * RN17, ADR-035: a URL de um link do rodapé. Todo ícone aceita só `https://` (URL absoluta com host, sem
+ * espaço); o `email` aceita só `mailto:` com um endereço válido. `javascript:`, `data:`, `http:`, URL sem
+ * esquema e protocolo relativo são recusados. Devolve a mensagem do erro, ou `null` se vale.
+ * @param {string} icon
+ * @param {string} url a URL como será gravada
+ * @returns {string | null}
+ */
+export function footerUrlError(icon, url) {
+  if (url.length > FOOTER_URL_MAX_LENGTH) return `A URL deve ter no máximo ${FOOTER_URL_MAX_LENGTH} caracteres.`;
+  if (icon === FOOTER_EMAIL_ICON) {
+    if (!/^mailto:/i.test(url)) return "O e-mail deve ser um endereço mailto: válido.";
+    const address = url.slice("mailto:".length);
+    return address.length <= 254 && FOOTER_EMAIL_PATTERN.test(address) ? null : "Informe um endereço de e-mail válido.";
+  }
+  const message = "Informe uma URL absoluta com protocolo https.";
+  // O prefixo é exigido porque `new URL("https:exemplo.com")` seria aceito pelo analisador.
+  if (!/^https:\/\//i.test(url) || /\s/.test(url)) return message;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && parsed.hostname !== "" ? null : message;
+  } catch {
+    return message;
+  }
 }
 
 /**
@@ -171,26 +175,6 @@ export const hexColorSchema = z
   .string()
   .regex(HEX_COLOR_PATTERN, { error: "A cor deve estar no formato #RRGGBB." });
 
-/** Link social: URL http(s) ou `null` (cadeia vazia vira `null`). */
-export const socialUrlSchema = z.preprocess(
-  emptyToNull,
-  z
-    .string()
-    .refine(isHttpUrl, { error: "Informe uma URL absoluta com protocolo http ou https." })
-    .nullable(),
-);
-
-/** Logotipo ou favicon: URL http(s), caminho de `public/` ou `null`. */
-export const assetUrlSchema = z.preprocess(
-  emptyToNull,
-  z
-    .string()
-    .refine(isAssetUrl, {
-      error: "Informe uma URL http(s) ou o caminho de um arquivo de public/ (iniciado por /).",
-    })
-    .nullable(),
-);
-
 const titleSchema = z.string().trim().min(1, { error: "O título é obrigatório." });
 const idSchema = z.string().min(1, { error: "Identificador inválido." });
 const orderSchema = z
@@ -217,6 +201,9 @@ export const reasonSchema = z
 // --------------------------------------------------------
 // Esquemas das rotas
 // --------------------------------------------------------
+
+/** DELETE /api/users/:id/avatar (parâmetros de consulta): o motivo da moderação é obrigatório (RF36, RN19, RN26). */
+export const avatarRemovalQuerySchema = z.object({ reason: reasonSchema });
 
 /**
  * POST /api/contents. O autor não é aceito na entrada: vem da sessão (RN13). Campos desconhecidos
@@ -303,19 +290,11 @@ export const contentReorderSchema = z
   )
   .min(1, { error: "O lote não pode ser vazio." });
 
-/** Campos que o site e a aparência têm em comum: a descrição, a barra superior (D-34) e os legados (a A-029 os remove). */
+/** Campos que o site e a aparência têm em comum: a descrição e a barra superior (D-34). */
 const sharedFields = {
   siteDescription: z.preprocess(emptyToNull, z.string().nullable()).optional(),
   showLogo: z.boolean({ error: "showLogo deve ser verdadeiro ou falso." }).optional(),
   showName: z.boolean({ error: "showName deve ser verdadeiro ou falso." }).optional(),
-  logoUrl: assetUrlSchema.optional(),
-  faviconUrl: assetUrlSchema.optional(),
-  discordUrl: socialUrlSchema.optional(),
-  githubUrl: socialUrlSchema.optional(),
-  youtubeUrl: socialUrlSchema.optional(),
-  instagramUrl: socialUrlSchema.optional(),
-  linkedinUrl: socialUrlSchema.optional(),
-  twitchUrl: socialUrlSchema.optional(),
 };
 
 /** As seis cores (paletas clara e noturna, RN09, RN27). */
@@ -376,6 +355,36 @@ export const appearanceUpdateSchema = z
     ...Object.fromEntries(COLOR_KEYS.map((key) => [key, hexColorSchema.nullable().optional()])),
   })
   .refine(hasAnyField, EMPTY_PATCH);
+
+/**
+ * PUT /api/footer-links e /api/configuration/footer-links (A-029; RF24, RN17, ADR-035): o rodapé INTEIRO, na
+ * ordem do vetor, de 0 a 8 links; o ícone vem da lista fechada e não se repete; a URL é `https://` ou, no ícone
+ * `email`, `mailto:` com um endereço válido. Um item inválido recusa o lote, com um `details` por item
+ * (`field` como `links[2].url`; use `parse` com `{ bracketIndexes: true }`). A URL é aparada.
+ */
+export const footerLinksSchema = z.object({
+  links: z
+    .array(
+      z.object({
+        // A lista fechada e a URL são conferidas abaixo, juntas, para que UMA resposta aponte todos os itens inválidos.
+        icon: z.string({ error: "Escolha um ícone da lista." }),
+        url: z.string({ error: "Informe a URL." }).trim(),
+      }),
+      { error: "links deve ser uma lista de { icon, url }." },
+    )
+    .max(MAX_FOOTER_LINKS, { error: `O rodapé aceita no máximo ${MAX_FOOTER_LINKS} links.` }),
+}).superRefine(({ links }, ctx) => {
+  /** @type {Set<string>} */
+  const seen = new Set();
+  links.forEach((link, index) => {
+    const known = /** @type {readonly string[]} */ (FOOTER_ICONS).includes(link.icon);
+    if (!known) ctx.addIssue({ code: "custom", path: ["links", index, "icon"], message: "Escolha um ícone da lista." });
+    else if (seen.has(link.icon)) ctx.addIssue({ code: "custom", path: ["links", index, "icon"], message: "Cada ícone pode aparecer uma só vez." });
+    seen.add(link.icon);
+    const message = link.url === "" ? "Informe a URL." : known ? footerUrlError(link.icon, link.url) : null;
+    if (message) ctx.addIssue({ code: "custom", path: ["links", index, "url"], message });
+  });
+});
 
 // --------------------------------------------------------
 // Usuários e senhas (RN19 a RN24; ADR-029)
@@ -554,15 +563,19 @@ function errorMessage(issue) {
  * @template T
  * @param {z.ZodType<T>} schema
  * @param {unknown} input
+ * @param {{ bracketIndexes?: boolean }} [options] `bracketIndexes`: o campo de um item de lista sai como
+ *   `links[2].url`, em vez de `links.2.url` (o rodapé; Cap. 5 §5.10)
  * @returns {{ ok: true, data: T } | { ok: false, details: ValidationDetail[] }}
  */
-export function validate(schema, input) {
+export function validate(schema, input, { bracketIndexes = false } = {}) {
   const result = schema.safeParse(input, { error: errorMessage });
   if (result.success) return { ok: true, data: result.data };
   return {
     ok: false,
     details: result.error.issues.map((issue) => ({
-      field: issue.path.join("."),
+      field: bracketIndexes
+        ? issue.path.reduce((text, part) => (typeof part === "number" ? `${text}[${part}]` : text === "" ? String(part) : `${text}.${String(part)}`), "")
+        : issue.path.join("."),
       message: issue.message,
     })),
   };

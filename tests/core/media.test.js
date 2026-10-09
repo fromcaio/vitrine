@@ -222,6 +222,8 @@ describe("processImage: o que não é imagem válida vira ImageError, sem eco", 
     expect((await processImage("avatar", bytes, { declaredType: "image/png" })).width).toBe(256);
     expect((await processImage("avatar", bytes, { declaredType: "IMAGE/PNG; charset=binary" })).width).toBe(256);
     expect((await processImage("avatar", bytes, { declaredType: "" })).width).toBe(256);
+    // o genérico do multipart (cliente que não sabe o tipo) conta como não declarado: a decisão é do conteúdo
+    expect((await processImage("avatar", bytes, { declaredType: "application/octet-stream" })).width).toBe(256);
     expect((await processImage("avatar", bytes)).width).toBe(256);
   });
 

@@ -7,14 +7,14 @@
 //   4. limite de taxa por usuário (nas mutações)        → 429 RATE_LIMITED
 //   5. carregar o recurso                               → 404 NOT_FOUND
 //   6. autorização (matriz de src/lib/authz.js)         → 403 FORBIDDEN
-//   7. corpo (400, 413, 422), lido pelo handler
+//   7. corpo (400, 413, 422), lido pelo handler (JSON com `readJson`; arquivo com `readFile`, nas rotas `multipart`)
 //   8. cotas (422 QUOTA_EXCEEDED), conferidas pela camada de dados
 //
 // Quem chega ao passo 7 sem ser autorizado nunca tem o corpo lido. A pasta `_lib` é privada: não
 // gera rota.
 import { POLICY, authorize } from "@/lib/authz";
 import { getSession } from "@/lib/auth";
-import { ApiError, isSameOrigin, readJson, toErrorResponse } from "./http";
+import { ApiError, isSameOrigin, readFormFile, readJson, toErrorResponse } from "./http";
 import { RATE_LIMITS, takeToken } from "./rate-limit";
 
 /**
@@ -37,6 +37,8 @@ import { RATE_LIMITS, takeToken } from "./rate-limit";
  * @property {LoadedResource | undefined} resource recurso carregado por `spec.load`
  * @property {boolean} foreign o recurso é de outro dono (só o administrador, com `allowForeign`): moderação
  * @property {(options?: { maxBytes?: number }) => Promise<unknown>} readJson lê o corpo JSON com limite
+ * @property {(options: { maxFileBytes: number }) => ReturnType<typeof readFormFile>} readFile lê o arquivo do corpo
+ *   `multipart/form-data` (só nas rotas com `multipart: true`; A-029)
  */
 
 /**
@@ -47,6 +49,8 @@ import { RATE_LIMITS, takeToken } from "./rate-limit";
  * @property {keyof typeof RATE_LIMITS} [rate] grupo do limite de taxa (obrigatório nas mutações)
  * @property {(context: { request: Request, params: Record<string, string>, actor: Actor }) => Promise<LoadedResource | null>} [load]
  *   carrega o recurso-alvo; `null` responde 404. Sem ela, a ação é de coleção
+ * @property {boolean} [multipart] rota de envio de arquivo (A-029): o corpo é `multipart/form-data` e o handler o lê
+ *   com `readFile` (limite de leitura, 413 antes de decodificar); é sempre uma escrita (`mutation` e `rate`)
  * @property {boolean} [allowForeign] aceita o recurso de outro dono quando a matriz o permite ao
  *   administrador (moderação). Padrão `false`: o recurso alheio responde 403 mesmo ao administrador
  */
@@ -67,6 +71,7 @@ export function route(spec, handler) {
     throw new Error(`Rota sem ação conhecida da matriz de autorização: ${String(spec?.action)}`);
   }
   if (spec.mutation && !spec.rate) throw new Error(`A rota de escrita "${spec.action}" precisa de um grupo de limite de taxa.`);
+  if (spec.multipart && !spec.mutation) throw new Error(`A rota de envio "${spec.action}" precisa ser de escrita (mutation).`);
   if (spec.rate && !Object.hasOwn(RATE_LIMITS, spec.rate)) throw new Error(`Grupo de limite de taxa desconhecido: ${spec.rate}`);
 
   return async function routeHandler(request, context) {
@@ -125,6 +130,10 @@ export function route(spec, handler) {
         resource,
         foreign: decision.foreign,
         readJson: (options) => readJson(request, options),
+        readFile: (options) => {
+          if (!spec.multipart) throw new Error(`A rota "${spec.action}" não é multipart.`);
+          return readFormFile(request, options);
+        },
       });
     } catch (error) {
       return toErrorResponse(error);

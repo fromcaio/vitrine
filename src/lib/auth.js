@@ -88,6 +88,9 @@ export const auth = betterAuth({
       // `input: false`: nenhuma rota do better-auth grava estes campos; só o Vitrine (RN20, RN21).
       handle: { type: "string", required: false, input: false },
       mustChangePassword: { type: "boolean", required: false, defaultValue: false, input: false },
+      // O avatar é uma imagem (A-029, RF36): só as rotas de imagem o gravam, pelo Dados. Declarado aqui para que a
+      // sessão e as rotas de usuários (/api/users) o devolvam, e a interface saiba se há avatar a remover.
+      avatarImageId: { type: "string", required: false, input: false },
     },
   },
   databaseHooks: {
@@ -127,7 +130,7 @@ export const auth = betterAuth({
  * @typedef {{
  *   id: string, name: string, email: string, role: string, handle: string | null,
  *   banned: boolean | null, banReason: string | null, banExpires: Date | null,
- *   mustChangePassword: boolean
+ *   mustChangePassword: boolean, avatarImageId?: string | null
  * }} SessionUser
  */
 
