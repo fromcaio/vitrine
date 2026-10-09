@@ -10,7 +10,7 @@
 import { crc32 } from "node:zlib";
 import sharp from "sharp";
 import { waitForHydration } from "./support/auth.js";
-import { adminLogin, apiLogin, cacheState, createAccount, createContent, fetchUntil, openSession } from "./support/accounts.js";
+import { adminLogin, apiLogin, cacheState, createAccount, createAdminAccount, createContent, fetchUntil, openSession, removeAccount } from "./support/accounts.js";
 import { ADMIN } from "./support/env.js";
 import { expect, test } from "./support/test.js";
 
@@ -19,6 +19,9 @@ const BETO = { email: "beto-midia-e2e@exemplo.test", name: "Beto Mídia", handle
 // O envio de imagem tem limite de taxa próprio (10 por minuto por usuário): cada grupo de testes usa a sua conta.
 const RAI = { email: "rai-midia-e2e@exemplo.test", name: "Rai Mídia", handle: "mid-rai", password: "senha-rai-mid-9" };
 const CRIS = { email: "cris-midia-e2e@exemplo.test", name: "Cris Mídia", handle: "mid-cris", password: "senha-cris-mid-9" };
+// A remoção do avatar de outro usuário (/api/users, grupo `users`, 20 por minuto por usuário) é feita pela INTERFACE, que não
+// espera o Retry-After de um 429: um administrador só dela evita depender da janela gasta pelos specs anteriores.
+const ADMIN_UI = { email: "admin-ui-midia-e2e@exemplo.test", name: "Administrador da Interface de Mídia", password: "senha-admin-ui-mid-9" };
 const SENTINEL = "SEGREDO-DO-GPS-4242";
 
 const png = (width = 300, height = 200, background = "#c81e3c") => sharp({ create: { width, height, channels: 3, background } }).png().toBuffer();
@@ -62,6 +65,8 @@ test.describe.serial("mídia, rodapé e avatar", () => {
   let cris;
   /** @type {{ id: string }} */
   let anaAccount;
+  /** @type {{ id: string, email: string, password: string }} */
+  let adminUi;
 
   test.beforeAll(async ({ playwright }) => {
     test.setTimeout(120_000);
@@ -72,6 +77,7 @@ test.describe.serial("mídia, rodapé e avatar", () => {
     beto = await apiLogin(playwright, betoAccount);
     rai = await apiLogin(playwright, await createAccount(playwright, admin, RAI));
     cris = await apiLogin(playwright, await createAccount(playwright, admin, CRIS));
+    adminUi = await createAdminAccount(playwright, admin, ADMIN_UI);
     for (const [owner, title] of /** @type {const} */ ([[ana, "Início da Ana"], [beto, "Início do Beto"]])) {
       await createContent(owner, { title, slug: "inicio", type: "DOCUMENT", body: `Texto: ${title}.` });
     }
@@ -79,6 +85,8 @@ test.describe.serial("mídia, rodapé e avatar", () => {
 
   test.afterAll(async () => {
     // Devolve o sistema ao estado de antes: sem imagem, sem rodapé, com o título padrão do diretório.
+    // O administrador da interface sai: os testes do "último administrador" (usuarios.spec) supõem um só.
+    if (adminUi) await removeAccount(admin, adminUi.id);
     await admin?.delete("/api/configuration/logo");
     await admin?.delete("/api/configuration/favicon");
     await admin?.put("/api/configuration/footer-links", { data: { links: [] } });
@@ -253,7 +261,7 @@ test.describe.serial("mídia, rodapé e avatar", () => {
   });
 
   test("moderação do avatar: o administrador remove com o motivo (obrigatório) e o dono é notificado", async ({ browser, request }) => {
-    const { context, page } = await openSession(browser, ADMIN);
+    const { context, page } = await openSession(browser, adminUi);
     await page.goto("/admin/usuarios");
     await expect(page.getByRole("region", { name: "Usuários" })).toBeVisible();
     await waitForHydration(page);
