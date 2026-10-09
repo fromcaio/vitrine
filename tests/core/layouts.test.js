@@ -15,13 +15,9 @@ vi.mock("@/app/admin/_lib/session", () => ({
   requireSession: vi.fn(async () => ({ user: { id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" } })),
 }));
 vi.mock("@/app/admin/_lib/actions", () => ({ signOut: vi.fn() }));
-// O `generateMetadata` do painel lê a sessão sem redirecionar (para o nome do painel): o usuário do teste.
-const sessionState = vi.hoisted(() => ({ user: /** @type {{ id: string, role: string } | null} */ ({ id: "ada-id", role: "user" }) }));
 vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
-vi.mock("@/lib/auth", async (importOriginal) => ({
-  ...(await importOriginal()),
-  getSession: vi.fn(async () => (sessionState.user ? { user: sessionState.user } : null)),
-}));
+// O `generateMetadata` do painel NÃO consulta a sessão (P-019): o espião de `getSession` prova isso.
+vi.mock("@/lib/auth", async (importOriginal) => ({ ...(await importOriginal()), getSession: vi.fn(async () => null) }));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal()),
   usePathname: () => "/admin",
@@ -33,6 +29,7 @@ vi.mock("@/lib/db", async (importOriginal) => {
 });
 
 import { renderToStaticMarkup } from "react-dom/server";
+import { getSession } from "@/lib/auth";
 import { requireSession } from "@/app/admin/_lib/session";
 import AdminLayout, { generateMetadata as adminMetadata } from "@/app/admin/layout";
 import RootLayout, { generateMetadata as rootMetadata } from "@/app/layout";
@@ -50,7 +47,6 @@ const DARK = { darkPrimaryColor: "#93c5fd", darkSecondaryColor: "#e2e8f0", darkA
 const PALETTES = { ...LIGHT, ...DARK };
 
 beforeEach(async () => {
-  sessionState.user = { id: "ada-id", role: "user" };
   await prisma.configuration.deleteMany();
   vi.mocked(getConfiguration).mockClear();
   vi.mocked(requireSession).mockClear();
@@ -387,7 +383,6 @@ describe("AdminLayout", () => {
       const person = await createTestUser({ email: `${role}-painel${counter}@exemplo.test`, name: `Pessoa ${role}`, role });
       await updateConfiguration({ siteName: "Sistema", showName: true, modeIconPair: "lightbulb", ...PALETTES });
       await updateAppearance(person.id, { siteName: "Meu espaço", showName: false, primaryColor: "#be123c", secondaryColor: "#0f172a", accentColor: "#b45309" });
-      sessionState.user = { id: person.id, role };
       vi.mocked(requireSession).mockResolvedValue({ user: { id: person.id, name: `Pessoa ${role}`, email: `${role}-painel${counter}@exemplo.test`, role } });
       return person;
     }
@@ -419,22 +414,22 @@ describe("AdminLayout", () => {
       expect(wrapper.props.children.props).toMatchObject({ siteName: "Sistema", showName: true, modeIconPair: "lightbulb" });
     });
 
-    it("o título do painel segue o nome do painel: o do usuário comum, o do sistema para o administrador e sem sessão", async () => {
+    it("o título do painel traz o nome do SISTEMA, para qualquer papel, e não consulta a sessão (P-019)", async () => {
       await seed("user");
-      expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Meu espaço");
+      expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
 
       await seed("admin");
       expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
 
-      sessionState.user = null;
+      vi.mocked(getSession).mockClear();
       expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
+      expect(getSession).not.toHaveBeenCalled();
     });
   });
 });
 
 describe("página de login", () => {
   it("a marca é a do SISTEMA: o nome e a barra superior da configuração", async () => {
-    sessionState.user = null;
     await updateConfiguration({ siteName: "Turma 2026", showLogo: false });
 
     const page = await LoginPage({ searchParams: Promise.resolve({}) });
@@ -446,7 +441,6 @@ describe("página de login", () => {
   });
 
   it("sem configuração gravada, o nome é Vitrine e o logotipo padrão aparece", async () => {
-    sessionState.user = null;
 
     const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }));
 

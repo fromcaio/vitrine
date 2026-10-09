@@ -8,8 +8,6 @@
 // (RF33); nunca o registro da configuração.
 import { AdminShell } from "@/components/admin/AdminShell";
 import { NotificationBell } from "@/components/admin/NotificationBell";
-import { headers } from "next/headers";
-import { getSession } from "@/lib/auth";
 import { countUnread } from "@/lib/db";
 import { SiteTheme } from "../_lib/site-theme";
 import { getSiteConfiguration, siteNameOf } from "../_lib/site";
@@ -19,16 +17,13 @@ import { panelAppearance } from "./_lib/appearance";
 import { requireSession } from "./_lib/session";
 
 /**
- * O título do painel acompanha o nome do painel (o do site, ou o efetivo do usuário comum); as páginas
- * do painel usam "Página | nome". `absolute`: o título do próprio painel ignora o modelo do layout raiz.
- * Sem sessão (o layout redireciona ao login), vale o nome do site.
+ * O título do painel traz o nome do SISTEMA (Cap. 5 §5.11: "Painel administrativo | <nome do site>"); as
+ * páginas do painel usam "Página | nome". `absolute`: o título do próprio painel ignora o modelo do layout
+ * raiz. Não consulta a sessão: uma segunda consulta aqui, ao lado da do layout, fazia o servidor registrar
+ * "The destination stream closed early" quando o navegador cancelava a navegação (P-019).
  */
 export async function generateMetadata() {
-  const configuration = await getSiteConfiguration();
-  const session = await getSession(await headers());
-  const siteName = session
-    ? (await panelAppearance({ role: session.user.role === "admin" ? "admin" : "user", userId: session.user.id, configuration })).siteName
-    : siteNameOf(configuration);
+  const siteName = siteNameOf(await getSiteConfiguration());
   return {
     title: { absolute: `Painel administrativo | ${siteName}`, template: `%s | ${siteName}` },
     robots: { index: false, follow: false },
