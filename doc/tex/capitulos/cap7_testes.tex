@@ -230,6 +230,25 @@ Documento (matemática e código) & 93 & 2,89~s & 100 & 100 & 100\\
 \end{table}
 O Arquiteto reproduziu a medição no Windows (a mesma máquina, três rodadas): portal 96 e 1,82~s; espaço 94 e \textbf{2,43~s} (de 2,37 a 2,44~s); documento 94 e 2,76~s (de 2,19 a 2,82~s); \texttt{/login} 92 e 2,58~s; no desktop, 100 e de 0,55 a 0,60~s nas quatro. Os valores confirmam os da UI, com uma diferença que importa: o espaço, que cumpre a meta por pouco, ficou a 0,07~s do limite, e a variação entre execuções chega a 0,5~s, de modo que a margem do portal e do espaço é estreita; os ajustes da tarefa A-024 as beneficiam também.
 
+\textbf{Efeito dos ajustes da A-024 (merge M-043, 09/10/2026).} O Core aplicou os dois ajustes ao \en{build} de produção (a fonte \texttt{Geist\_Mono} com \texttt{preload: false} e o \arq{public/favicon.ico} de 26~KiB trocado por um de 1,1~KiB, com a letra ``V'' branca em um quadrado cinza-azulado, em 16, 32 e 48~px) e mediu antes (\texttt{main} no commit \texttt{4bf4391}) e depois (a ramificação), na mesma máquina, com três rodadas e a mediana (Tabela~\ref{tab:lighthouse-a024}). O portal e o espaço melhoraram, e passam da meta com folga; o documento com matemática e o \texttt{/login} \emph{continuam fora da meta de 2,5~s do \req{RNF02}} (2,89~s e 2,59~s); o desempenho segue em 90 ou mais nas quatro páginas, e no \emph{desktop} todas dão 100 (LCP de 0,53 a 0,59~s). A ablação do Core (restaurar só o pré-carregamento da fonte mono, mantido o favicon novo) mostrou que o \texttt{preload: false} \emph{não} melhora o LCP do documento nem o do \texttt{/login} e custa cerca de 0,15~s de FCP e dois pontos de desempenho no documento, o único com blocos de código; o ganho do portal e do espaço não se separa do efeito do favicon, porque a variação entre rodadas chega a 0,6~s. O Engenheiro Chefe decidiu \textbf{manter} o \texttt{preload: false} (09/10/2026). O LCP restante vem do CSS que bloqueia a renderização e do KaTeX, fora do escopo da A-024. A meta do \req{RNF02} segue \emph{não atingida} nessas duas páginas no laboratório simulado (o LCP real, com rede e CPU estranguladas, ficou em cerca de 1~s); a redação final do requisito (laboratório ou campo) é decisão do Engenheiro Chefe no fechamento (A-030), com a medição do Arquiteto sobre a \texttt{main} integrada.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Lighthouse móvel antes e depois da A-024 (medição do Core, mediana de três rodadas)}\label{tab:lighthouse-a024}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Página} & \textbf{Desempenho} & \textbf{LCP (s)} & \textbf{FCP (s)} & \textbf{TBT (ms)}\\
+\midrule
+Portal & 95 $\to$ 96 & 2,63 $\to$ 1,73 & 0,91 $\to$ 0,91 & 162 $\to$ 161\\
+Início de um espaço & 96 $\to$ 98 & 2,38 $\to$ 1,74 & 0,76 $\to$ 0,76 & 179 $\to$ 163\\
+Documento (matemática e código) & 93 $\to$ 91 & 2,89 $\to$ 2,89 & 1,36 $\to$ 1,52 & 164 $\to$ 217\\
+\texttt{/login} & 94 $\to$ 93 & 2,52 $\to$ 2,59 & 0,76 $\to$ 0,76 & 265 $\to$ 222\\
+\bottomrule
+\end{tabular}
+\fonte{Core (\texttt{npm run lighthouse}, \en{build} de produção, Windows, Node.js 24); antes é a \texttt{main} no commit \texttt{4bf4391}, depois, a ramificação \texttt{feat/core-desempenho}. A variação entre rodadas chega a 0,6~s.}
+\end{table}
+
 \textbf{Desempenho das leituras de dados (A-018, merge M-018, 05/10/2026).} Antes das páginas públicas, o Dados mediu, em um banco temporário com 50 usuários de 500 conteúdos cada (25\,000 linhas, cinco níveis, cerca de 20\% de rascunhos, três espaços sem raiz publicada e um suspenso) e 1000 notificações de um usuário, 14 chamadas, 200 vezes cada depois de 20 de aquecimento, uma por vez, variando o dono, na máquina de desenvolvimento (Windows, SQLite em disco local; \emph{não} é a VPS-alvo). A mediana de cada função ficou entre 0,3~ms e 5,1~ms, o p95 máximo foi de 9,3~ms (\texttt{getPublicPaths} do espaço inteiro) e o pior caso, de 25,6~ms (\texttt{listNotifications}); a primeira chamada fria mais lenta foi a de \texttt{listPublicSpaces}, com 27,7~ms. Nenhum pior caso passou de 50~ms, e todos os planos de consulta usam índice; os únicos \texttt{SCAN} são o de \texttt{user} em \texttt{listPublicSpaces} (50 usuários, com subconsulta indexada) e o \texttt{TEMP B-TREE} da ordenação de \texttt{listNotifications} (no máximo 1000 linhas do usuário). O arquivo de teste tem tetos generosos (p95 abaixo de 250~ms, sem \texttt{SCAN} nas consultas que devem usar índice) e um controle que prova que ele detecta (um banco sem o índice \texttt{contents\_authorId\_parentId\_order\_idx} faz o teste falhar), e só roda com \texttt{MEDICAO=1} (cerca de 22~s). \texttt{getContentByPath} e \texttt{getPublicPaths} leem a árvore inteira do dono (cerca de 500 linhas, sem o corpo) a cada chamada, por cerca de 4 a 5~ms, folgado para o ISR. Esta medição é de acesso a dados e não substitui o Lighthouse e o LCP do RNF02.
 
 \vitrinefigura[tipo=teste, arquivo=teste-lighthouse-mobile, agente=UI, largura=0.85,
@@ -237,7 +256,7 @@ O Arquiteto reproduziu a medição no Windows (a mesma máquina, três rodadas):
   {Relatório do Lighthouse (perfil móvel)}{fig:teste-lh-mobile}
 
 \vitrinefigura[tipo=teste, arquivo=teste-isr-cabecalhos, agente=Core, largura=0.85,
-  descricao={Saída de terminal com requisições repetidas e o cabeçalho x-nextjs-cache (MISS, HIT, HIT, e após mutação REVALIDATED ou MISS).}]
+  descricao={Cabeçalhos reais do \texttt{curl.exe} sobre o \en{build} de produção (banco temporário, dados fictícios) para uma página do espaço: x-nextjs-cache MISS, HIT e HIT; depois de um \texttt{PATCH} do conteúdo, MISS e HIT. A linha ``\texttt{PATCH ... -> 200}'' foi escrita pelo roteiro que gerou a figura, não pelo \texttt{curl}; o texto foi desenhado em imagem a partir da saída dos comandos.}]
   {Evidência do comportamento do cache ISR}{fig:teste-isr}
 
 \subsection{Segurança}\label{sec:testes-seguranca}
@@ -283,7 +302,7 @@ A meta é pontuação SUS média igual ou superior a 68 (\req{RNF04}) e taxa de 
 A versão é considerada pronta para a entrega (\en{release}) quando: (i) todos os casos de teste dos requisitos \emph{Essenciais} aprovam; (ii) os casos dos requisitos \emph{Importantes} aprovam ou têm justificativa de exceção registrada; (iii) \texttt{npm run lint}, \texttt{npm run build} e \texttt{npm test} passam sem erros; (iv) não há vulnerabilidades críticas pendentes no relatório de auditoria de dependências, e as vulnerabilidades altas se limitam às aceitas e documentadas na \adr{ADR-019}; (v) as metas de \req{RNF02}, \req{RNF04} e \req{RNF05} foram medidas e registradas, ainda que não atingidas, com análise no Capítulo~\ref{cap:resultados}.
 
 \vitrinefigura[tipo=teste, arquivo=teste-suite-automatizada, agente=Core, largura=0.85,
-  descricao={Saída do executor de testes (unidade, integração e E2E) mostrando o total de casos aprovados, falhos e ignorados e o tempo de execução.}]
+  descricao={Saída compacta do Vitest (\texttt{npm test -- --maxWorkers=4}, Windows, Node.js 24, 09/10/2026): 134 arquivos e 3921 testes aprovados, 40 ignorados, 209,8~s. Cobre a suíte de unidade e integração; \emph{não} inclui os testes de ponta a ponta nem a varredura de acessibilidade.}]
   {Execução da suíte de testes automatizados}{fig:teste-suite}
 
 \section{Síntese do Capítulo}

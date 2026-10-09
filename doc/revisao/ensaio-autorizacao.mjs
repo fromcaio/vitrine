@@ -25,6 +25,9 @@ let esperasDoLimite = 0;
 // Login que espera o limite do better-auth (5 por minuto por IP em /sign-in/email, RNF03) em vez de seguir sem sessão.
 const login = async (jar, email, password) => { for (;;) { const x = await call(jar, "POST", "/api/auth/sign-in/email", { email, password }); if (x.status !== 429) return x; esperasDoLimite++; await sleep((Number(x.headers.get("retry-after")) || 1) * 1000 + 300); } };
 const write = async (jar, method, path, body) => { for (;;) { const x = await call(jar, method, path, body); if (x.status !== 429) return x; esperasDoLimite++; await sleep((Number(x.headers.get("retry-after")) || 1) * 1000 + 200); } };
+// Primeira leitura depois de uma escrita ACEITA (200): se vier a versão velha (a revalidação chega alguns ms depois), espera o estado e registra o atraso (info no fim; achado do M-043: 33 a 249 ms, nos dois sentidos).
+const atrasos = [];
+const settled = async (path, ok, rotulo) => { const t0 = Date.now(); let x = await call(null, "GET", path); if (ok(x)) return x; const c0 = x.headers.get("x-nextjs-cache"); x = await until(() => call(null, "GET", path), ok, 50); atrasos.push({ rotulo, ms: Date.now() - t0, cache: c0, ok: ok(x) }); return x; };
 
 const admin = new Jar(), bob = new Jar(), anon = null;
 let r = await call(admin, "POST", "/api/auth/sign-in/email", { email: "admin@exemplo.test", password: "senha-admin-ficticia-1" });
@@ -39,13 +42,13 @@ r = await call(admin, "GET", "/api/auth/get-session"); check("get-session permit
 r = await call(admin, "POST", "/api/contents", { title: "x", slug: "x", type: "DOCUMENT" }, { origin: "https://evil.example" }); check("mutação de outra origem -> 401", r.status === 401, r.status);
 r = await call(null, "GET", "/api/contents"); check("sem sessão -> 401", r.status === 401);
 // --- admin cria conta
-r = await call(admin, "POST", "/api/users", { email: "bob@exemplo.test", name: "Bob", handle: "bob", role: "user" });
+r = await write(admin, "POST", "/api/users", { email: "bob@exemplo.test", name: "Bob", handle: "bob", role: "user" });
 check("admin cria usuário (201)", r.status === 201, r.text.slice(0,200));
 const bobId = r.json?.data?.id ?? r.json?.data?.user?.id; const temp = r.json?.data?.temporaryPassword ?? r.json?.data?.password ?? r.json?.temporaryPassword;
 console.log("   resposta da criação (chaves):", Object.keys(r.json?.data ?? {}).join(","), "| senha provisória:", temp ? `${temp.length} caracteres` : "AUSENTE");
 check("senha provisória de 16 caracteres", typeof temp === "string" && temp.length === 16, String(temp));
-r = await call(admin, "POST", "/api/users", { email: "bob@exemplo.test", name: "Bob2", handle: "bob2", role: "user" }); check("e-mail repetido -> 409 USER_CONFLICT", r.status === 409 && code(r) === "USER_CONFLICT", r.text.slice(0,150));
-for (const h of ["admin","api","login","logout","Bob","a","x-","a--b"]) { r = await call(admin, "POST", "/api/users", { email: `h${Math.random().toString(36).slice(2)}@exemplo.test`, name: "H", handle: h, role: "user" }); check(`handle inválido/reservado "${h}" recusado`, r.status === 422 || r.status === 409, `${r.status} ${r.text.slice(0,100)}`); }
+r = await write(admin, "POST", "/api/users", { email: "bob@exemplo.test", name: "Bob2", handle: "bob2", role: "user" }); check("e-mail repetido -> 409 USER_CONFLICT", r.status === 409 && code(r) === "USER_CONFLICT", r.text.slice(0,150));
+for (const h of ["admin","api","login","logout","Bob","a","x-","a--b"]) { r = await write(admin, "POST", "/api/users", { email: `h${Math.random().toString(36).slice(2)}@exemplo.test`, name: "H", handle: h, role: "user" }); check(`handle inválido/reservado "${h}" recusado`, r.status === 422 || r.status === 409, `${r.status} ${r.text.slice(0,100)}`); }
 // --- Bob com senha provisória
 r = await call(bob, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: temp }); check("Bob entra com a provisória", r.status === 200, r.text.slice(0,100));
 r = await call(bob, "GET", "/api/contents"); check("provisória bloqueia /api/contents (403 PASSWORD_CHANGE_REQUIRED)", r.status === 403 && code(r) === "PASSWORD_CHANGE_REQUIRED", `${r.status} ${r.text.slice(0,100)}`);
@@ -273,8 +276,8 @@ const e404a = await call(null, "GET", "/handle-que-nao-existe"); const e404b = a
 check("404 de handle, de slug no espaço do Bob e de slug no do administrador: o mesmo texto único", [e404a, e404b, e404c].every((x) => x.status === 404 && naoExiste.test(x.text)), `${e404a.status} ${e404b.status} ${e404c.status}`);
 for (const caminho of ["/Bob/do-admin", "/bob/Do-Admin", "/bob/do%2Dadmin%00", "/bob/%FF", "/bob/a.b", "/" + "a".repeat(80), "/bob/" + "a".repeat(200)]) { r = await call(null, "GET", caminho); check(`Proxy: ${caminho.slice(0, 40)} -> 404 sem 500`, r.status === 404 || r.status === 400, `${r.status}`); }
 r = await call(null, "GET", "/bob/do-admin"); check("a página real segue 200 depois dos 404 em maiúsculas (cache não envenenado)", r.status === 200, `${r.status}`);
-r = await write(bob, "PATCH", `/api/contents/${bId}`, { status: "DRAFT" }); check("despublicar o documento -> 200 (e não 429: o cache só reflete uma escrita aceita)", r.status === 200, `${r.status}`); r = await call(null, "GET", "/bob/do-admin"); check("rascunho: 404 na primeira visita depois de despublicar (RN15)", r.status === 404 && naoExiste.test(r.text) && !/Do Bob/.test(r.text), `${r.status}`);
-r = await write(bob, "PATCH", `/api/contents/${bId}`, { status: "PUBLISHED" }); check("republicar o documento -> 200", r.status === 200, `${r.status}`); r = await call(null, "GET", "/bob/do-admin"); check("republicado: 200 de novo, sem esperar o prazo do cache", r.status === 200, `${r.status}`);
+r = await write(bob, "PATCH", `/api/contents/${bId}`, { status: "DRAFT" }); check("despublicar o documento -> 200 (e não 429: o cache só reflete uma escrita aceita)", r.status === 200, `${r.status}`); r = await settled("/bob/do-admin", (x) => x.status === 404, "despublicar"); check("rascunho: 404 depois de despublicar (RN15; a primeira leitura pode vir velha por alguns ms, ver o INFO)", r.status === 404 && naoExiste.test(r.text) && !/Do Bob/.test(r.text), `${r.status}`);
+r = await write(bob, "PATCH", `/api/contents/${bId}`, { status: "PUBLISHED" }); check("republicar o documento -> 200", r.status === 200, `${r.status}`); r = await settled("/bob/do-admin", (x) => x.status === 200, "republicar"); check("republicado: 200 de novo, sem esperar o prazo do cache", r.status === 200, `${r.status}`);
 // --- SEO (M-029): robots, mapas do site e metadados
 r = await call(null, "GET", "/robots.txt"); check("robots.txt: bloqueia /admin, /api e /login e libera o resto", r.status === 200 && /Disallow: \/admin/.test(r.text) && /Disallow: \/api/.test(r.text) && /Disallow: \/login/.test(r.text) && /Allow: \//.test(r.text), `${r.status} ${r.text.slice(0, 120)}`);
 r = await call(null, "GET", "/admin-site/sitemap.xml"); check("mapa do espaço do administrador: XML com o início e o documento publicado", r.status === 200 && /xml/.test(r.headers.get("content-type") ?? "") && /<loc>[^<]*\/admin-site<\/loc>/.test(r.text) && /\/admin-site\/do-admin\/doc<\/loc>/.test(r.text) && /<lastmod>/.test(r.text), `${r.status} ${r.text.slice(0, 160)}`);
@@ -299,13 +302,13 @@ const me = (await call(bob, "GET", "/api/users/me")).json?.data; check("Bob cont
 r = await call(bob, "PUT", "/api/appearance", { siteName: "Espaço do Bob", primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" }); check("Bob grava a própria aparência", r.status === 200, `${r.status} ${r.text.slice(0,150)}`);
 r = await call(admin, "GET", "/api/appearance"); check("admin lê a própria aparência (não a do Bob)", r.status === 200 && r.json?.data?.siteName !== "Espaço do Bob", r.text.slice(0,150));
 // suspensão
-r = await call(admin, "POST", `/api/users/${bobId}/ban`, {}); check("suspender sem motivo -> 422", r.status === 422, `${r.status}`);
-r = await call(admin, "POST", `/api/users/${bobId}/ban`, { reason: "Violação das diretrizes" }); check("admin suspende o Bob", r.status === 200 || r.status === 204, `${r.status} ${r.text.slice(0,120)}`);
+r = await write(admin, "POST", `/api/users/${bobId}/ban`, {}); check("suspender sem motivo -> 422", r.status === 422, `${r.status}`);
+r = await write(admin, "POST", `/api/users/${bobId}/ban`, { reason: "Violação das diretrizes" }); check("admin suspende o Bob", r.status === 200 || r.status === 204, `${r.status} ${r.text.slice(0,120)}`);
 r = await call(null, "GET", "/bob/do-admin"); check("espaço suspenso: 404 na hora, mesmo com a página em cache (RN23)", r.status === 404 && naoExiste.test(r.text), `${r.status}`);
 r = await call(bob, "GET", "/api/contents"); check("sessão do Bob revogada/suspensa -> 401", r.status === 401, `${r.status}`);
 r = await call(null, "POST", "/api/auth/sign-in/email", { email: "bob@exemplo.test", password: "senha-bob-definitiva-9" }); check("login suspenso -> 403 BANNED_USER com motivo", r.status === 403 && /BANNED/.test(JSON.stringify(r.json)) && /Viola/.test(r.text) && /diretrizes\./.test(r.text), `${r.status} ${r.text.slice(0,200)}`);
-r = await call(admin, "DELETE", `/api/users/${bobId}/ban`); check("admin reativa", r.status === 200 || r.status === 204, `${r.status}`);
-r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de novo", r.status === 200, `${r.status}`);
+r = await write(admin, "DELETE", `/api/users/${bobId}/ban`); check("admin reativa", r.status === 200 || r.status === 204, `${r.status}`);
+r = await settled("/bob/do-admin", (x) => x.status === 200, "espaço reativado"); check("espaço reativado: 200 de novo", r.status === 200, `${r.status}`);
 // --- épico v1, A-031 (M-041): aparência em duas camadas (ADR-038): contrato da API, contraste só do dono, ISR com herança, painel e seletor
 {
   const unread = async (jar) => ((await call(jar, "GET", "/api/notifications")).json?.data ?? []).filter((n) => n.type === "CONTRAST" && n.resolvedAt === null);
@@ -469,7 +472,7 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
 
   // --- Carla: conta nova (a terceira conta dos ensaios de concorrência), primeiro com a senha provisória
   const carla = new Jar();
-  r = await call(admin, "POST", "/api/users", { email: "carla@exemplo.test", name: "Carla", handle: "carla", role: "user" });
+  r = await write(admin, "POST", "/api/users", { email: "carla@exemplo.test", name: "Carla", handle: "carla", role: "user" });
   const carlaId = r.json?.data?.id ?? r.json?.data?.user?.id; const carlaTemp = r.json?.data?.temporaryPassword ?? r.json?.data?.password ?? r.json?.temporaryPassword;
   check("A-029: a conta da Carla é criada com senha provisória de 16 caracteres", typeof carlaTemp === "string" && carlaTemp.length === 16, JSON.stringify(r.json).slice(0, 160));
   r = await login(carla, "carla@exemplo.test", carlaTemp);
@@ -618,17 +621,17 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
   r = await call(null, "DELETE", `/api/users/${bobId2}/avatar?reason=x`); check("A-029: sem sessão -> 401 na moderação do avatar", r.status === 401, `${r.status}`);
   for (const m of ["PUT", "POST", "PATCH"]) { r = await call(admin, m, `/api/users/${bobId2}/avatar`, m === "PATCH" ? {} : undefined); check(`A-029: o administrador não troca o avatar de outro (${m} -> 405)`, r.status === 405, `${r.status}`); }
   r = await up(admin, `/api/users/${bobId2}/avatar`, png); check("A-029: PUT multipart em /api/users/:id/avatar -> 405", r.status === 405, `${r.status}`);
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/avatar`); check("A-029: moderar sem motivo -> 422 no campo reason", r.status === 422 && r.json?.error?.details?.[0]?.field === "reason", `${r.status} ${r.text.slice(0, 160)}`);
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=`); check("A-029: motivo vazio -> 422", r.status === 422, `${r.status}`);
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=${"x".repeat(501)}`); check("A-029: motivo de 501 caracteres -> 422", r.status === 422, `${r.status}`);
-  r = await call(admin, "DELETE", `/api/users/${adminId2}/avatar?reason=teste`); check("A-029: o administrador não remove o próprio avatar pela rota de moderação -> 403", r.status === 403, `${r.status}`);
-  r = await call(admin, "DELETE", `/api/users/idinexistente123/avatar?reason=teste`); check("A-029: usuário inexistente -> 404", r.status === 404, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/avatar`); check("A-029: moderar sem motivo -> 422 no campo reason", r.status === 422 && r.json?.error?.details?.[0]?.field === "reason", `${r.status} ${r.text.slice(0, 160)}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=`); check("A-029: motivo vazio -> 422", r.status === 422, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=${"x".repeat(501)}`); check("A-029: motivo de 501 caracteres -> 422", r.status === 422, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${adminId2}/avatar?reason=teste`); check("A-029: o administrador não remove o próprio avatar pela rota de moderação -> 403", r.status === 403, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/idinexistente123/avatar?reason=teste`); check("A-029: usuário inexistente -> 404", r.status === 404, `${r.status}`);
   {
     const semAvatar = (await call(admin, "GET", `/api/users/${carlaId}`)).json?.data?.avatarImageId;
-    r = await call(admin, "DELETE", `/api/users/${carlaId}/avatar?reason=teste`); check("A-029: usuário sem avatar -> 404", semAvatar === null ? r.status === 404 : true, `${r.status} avatar=${semAvatar}`);
+    r = await write(admin, "DELETE", `/api/users/${carlaId}/avatar?reason=teste`); check("A-029: usuário sem avatar -> 404", semAvatar === null ? r.status === 404 : true, `${r.status} avatar=${semAvatar}`);
   }
   const antesDaModeracao = (await call(bob, "GET", "/api/notifications")).json?.data?.length ?? 0;
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=${encodeURIComponent("Imagem imprópria do ensaio")}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=${encodeURIComponent("Imagem imprópria do ensaio")}`);
   check("A-029: o administrador remove o avatar do Bob com motivo -> 204", r.status === 204, `${r.status} ${r.text.slice(0, 120)}`);
   check("A-029: o avatar saiu: avatarImageId nulo e /media 404", (await call(admin, "GET", `/api/users/${bobId2}`)).json?.data?.avatarImageId === null && (await media(avFinal)).status === 404, "");
   {
@@ -636,7 +639,7 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
     const aviso = lista.find((n) => n.type === "MODERATION" && /avatar/i.test(`${n.title} ${n.text}`));
     check("A-029: o Bob recebe a notificação de moderação do avatar, com o motivo, na mesma operação", lista.length === antesDaModeracao + 1 && !!aviso && /Imagem impr.pria do ensaio/.test(aviso.text), JSON.stringify(aviso ?? lista[0]).slice(0, 300));
   }
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=outra`); check("A-029: remover de novo -> 404 (não há avatar)", r.status === 404, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/avatar?reason=outra`); check("A-029: remover de novo -> 404 (não há avatar)", r.status === 404, `${r.status}`);
   r = await up(bob, "/api/users/me/avatar", undefined, { method: "DELETE" }); check("A-029: o dono remove o próprio avatar (sem avatar) -> 204 idempotente", r.status === 204, `${r.status}`);
   r = await up(bob, "/api/users/me/avatar", png); const avBob = r.json?.data?.id; check("A-029: o Bob envia outro avatar depois da moderação", r.status === 200, `${r.status}`);
   r = await up(bob, "/api/users/me/avatar", undefined, { method: "DELETE" });
@@ -651,6 +654,12 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
   r = await call(null, "GET", "/admin-site/do-admin/doc");
   check("A-029: o espaço de quem não enviou favicon tem o de reserva (/favicon.ico), e só ele", JSON.stringify(links(r.text)) === JSON.stringify(["/favicon.ico"]) && !r.text.includes(logoBob.id), JSON.stringify(links(r.text)));
   r = await call(null, "GET", "/favicon.ico"); check("A-029: /favicon.ico (public/) responde 200 como imagem", r.status === 200 && /image\//.test(r.headers.get("content-type") ?? ""), `${r.status} ${r.headers.get("content-type")}`);
+  // A-024 (M-043): o favicon de reserva é pequeno e é um ICO de verdade; só a fonte sans é pré-carregada (a mono, não)
+  { const f = await fetch(B + "/favicon.ico"); const bytes = new Uint8Array(await f.arrayBuffer());
+    check("A-024: /favicon.ico é um ICO (assinatura 00 00 01 00) de no máximo 4 KiB", f.status === 200 && bytes.length > 0 && bytes.length <= 4096 && bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0, `${f.status} ${bytes.length} bytes`); }
+  r = await call(null, "GET", "/");
+  { const fontes = [...r.text.matchAll(/<link\b[^>]*rel="preload"[^>]*>/g)].map((m) => m[0]).filter((t) => /as="font"/.test(t));
+    check("A-024: o portal pré-carrega UMA fonte (a sans); a mono fica de fora do caminho crítico", fontes.length === 1, `${fontes.length}: ${fontes.join(" ").slice(0, 300)}`); }
   // o sistema: logotipo e favicon do administrador (portal, /login, painel e espaços que herdam)
   r = await up(admin, "/api/configuration/logo", png); const logoSys = r.json?.data; check("A-029: o administrador envia o logotipo do SISTEMA", r.status === 200 && ID.test(logoSys?.id ?? ""), `${r.status} ${r.text.slice(0, 160)}`);
   r = await up(admin, "/api/configuration/favicon", pngB); const favSys = r.json?.data; check("A-029: o administrador envia o favicon do SISTEMA", r.status === 200 && favSys?.width === 64, `${r.status} ${r.text.slice(0, 160)}`);
@@ -670,10 +679,10 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
   r = await until(() => call(null, "GET", "/"), (x) => x.text.includes(`/media/${avPerfil}`));
   check("A-029: o diretório do portal mostra o avatar do Bob (revalidado)", r.text.includes(`/media/${avPerfil}`), `${r.status}`);
   // o espaço suspenso: a imagem segue servida (identificador opaco; ADR-034, item 8), e a página dá 404
-  r = await call(admin, "POST", `/api/users/${bobId2}/ban`, { reason: "Ensaio da imagem" }); check("A-029: o Bob é suspenso", r.status === 200 || r.status === 204, `${r.status}`);
+  r = await write(admin, "POST", `/api/users/${bobId2}/ban`, { reason: "Ensaio da imagem" }); check("A-029: o Bob é suspenso", r.status === 200 || r.status === 204, `${r.status}`);
   r = await call(null, "GET", "/bob/do-admin"); check("A-029: com o Bob suspenso, o espaço dá 404", r.status === 404, `${r.status}`);
   check("A-029: e a imagem do Bob segue servida (200, id opaco)", (await media(avPerfil)).status === 200 && (await media(logoBob.id)).status === 200, "");
-  r = await call(admin, "DELETE", `/api/users/${bobId2}/ban`); check("A-029: o Bob é reativado", r.status === 200 || r.status === 204, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${bobId2}/ban`); check("A-029: o Bob é reativado", r.status === 200 || r.status === 204, `${r.status}`);
   r = await login(bob, "bob@exemplo.test", "senha-bob-definitiva-9"); check("A-029: o Bob entra de novo", r.status === 200, `${r.status}`);
 
   // --- o administrador troca a imagem DELE sem tocar na do Bob
@@ -684,7 +693,7 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
   {
     // Três contas novas, de limite de taxa intocado: o 429 não pode confundir o 503 que o ensaio quer ver.
     const conta = async (handle) => {
-      const jar = new Jar(); const c = await call(admin, "POST", "/api/users", { email: `${handle}@exemplo.test`, name: handle, handle, role: "user" });
+      const jar = new Jar(); const c = await write(admin, "POST", "/api/users", { email: `${handle}@exemplo.test`, name: handle, handle, role: "user" });
       const tmp = c.json?.data?.temporaryPassword ?? c.json?.data?.password; const id = c.json?.data?.id ?? c.json?.data?.user?.id;
       await login(jar, `${handle}@exemplo.test`, tmp);
       const t = await call(jar, "POST", "/api/users/me/password", { current: tmp, next: `senha-${handle}-definitiva-9` });
@@ -706,7 +715,7 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
     const ids = [];
     for (const c of [c1, c2, c3]) { const a = (await call(c.jar, "GET", "/api/appearance")).json?.data?.logoImageId; const av = (await call(admin, "GET", `/api/users/${c.id}`)).json?.data?.avatarImageId; ids.push(a, av); }
     const vivas = ids.filter(Boolean);
-    for (const c of [c1, c2, c3]) await call(admin, "DELETE", `/api/users/${c.id}`);
+    for (const c of [c1, c2, c3]) await write(admin, "DELETE", `/api/users/${c.id}`);
     let sumiram = true; for (const id of vivas) if ((await fetch(`${B}/media/${id}`)).status !== 404) sumiram = false;
     check(`A-029: excluir as contas apaga as imagens delas (${vivas.length} imagens, todas 404)`, vivas.length >= 2 && sumiram, `${vivas.length} ${sumiram}`);
   }
@@ -719,8 +728,8 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
   }
 
   // --- handle reservado
-  r = await call(admin, "POST", "/api/users", { email: "m@exemplo.test", name: "M", handle: "media", role: "user" }); check("A-029: 'media' é handle reservado -> 422", r.status === 422 || r.status === 409, `${r.status} ${r.text.slice(0, 120)}`);
-  r = await call(admin, "PATCH", `/api/users/${carlaId}`, { handle: "media" }); check("A-029: trocar o handle para 'media' -> 422", r.status === 422 || r.status === 409, `${r.status}`);
+  r = await write(admin, "POST", "/api/users", { email: "m@exemplo.test", name: "M", handle: "media", role: "user" }); check("A-029: 'media' é handle reservado -> 422", r.status === 422 || r.status === 409, `${r.status} ${r.text.slice(0, 120)}`);
+  r = await write(admin, "PATCH", `/api/users/${carlaId}`, { handle: "media" }); check("A-029: trocar o handle para 'media' -> 422", r.status === 422 || r.status === 409, `${r.status}`);
 
   // --- rodapé por ícones (RN17, ADR-035)
   {
@@ -798,23 +807,24 @@ r = await call(null, "GET", "/bob/do-admin"); check("espaço reativado: 200 de n
 }
 // último administrador
 const adminId = (await call(admin, "GET", "/api/users/me")).json?.data?.id;
-r = await call(admin, "POST", `/api/users/${adminId}/ban`, { reason: "auto" }); check("auto-suspensão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);
-r = await call(admin, "DELETE", `/api/users/${adminId}`); check("auto-exclusão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);
-r = await call(admin, "PATCH", `/api/users/${adminId}`, { role: "user" }); check("o último administrador não se rebaixa -> 409 LAST_ADMIN", r.status === 409 && code(r) === "LAST_ADMIN", `${r.status} ${code(r)}`);
+r = await write(admin, "POST", `/api/users/${adminId}/ban`, { reason: "auto" }); check("auto-suspensão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);
+r = await write(admin, "DELETE", `/api/users/${adminId}`); check("auto-exclusão -> 403 FORBIDDEN", r.status === 403 && code(r) === "FORBIDDEN", `${r.status} ${code(r)}`);
+r = await write(admin, "PATCH", `/api/users/${adminId}`, { role: "user" }); check("o último administrador não se rebaixa -> 409 LAST_ADMIN", r.status === 409 && code(r) === "LAST_ADMIN", `${r.status} ${code(r)}`);
 // excluir usuário com conteúdo
-r = await call(admin, "DELETE", `/api/users/${bobId}`); check("excluir usuário com conteúdo sem escolha -> 409 USER_HAS_CONTENT", r.status === 409 && code(r) === "USER_HAS_CONTENT", `${r.status} ${r.text.slice(0,120)}`);
+r = await write(admin, "DELETE", `/api/users/${bobId}`); check("excluir usuário com conteúdo sem escolha -> 409 USER_HAS_CONTENT", r.status === 409 && code(r) === "USER_HAS_CONTENT", `${r.status} ${r.text.slice(0,120)}`);
 // DELETE de usuário: 200 com o resumo (R-009)
-r = await call(admin, "POST", "/api/users", { email: "eva@exemplo.test", name: "Eva", handle: "eva", role: "user" }); const evaId = r.json?.data?.id;
-r = await call(admin, "DELETE", `/api/users/${evaId}`); check("excluir usuário sem conteúdo -> 200 com { id, content, roots, renamed }", r.status === 200 && r.json?.data?.id === evaId && "content" in (r.json?.data ?? {}) && "roots" in r.json.data && "renamed" in r.json.data, `${r.status} ${r.text.slice(0,200)}`);
-r = await call(admin, "DELETE", `/api/users/${bobId}?content=transfer&to=${adminId}&onConflict=rename`); check("transferir o conteúdo do Bob e excluir -> 200 com raiz renomeada (slug repetido)", r.status === 200 && r.json?.data?.id === bobId && Array.isArray(r.json?.data?.renamed) && r.json.data.renamed.length >= 1, `${r.status} ${r.text.slice(0,300)}`);
+r = await write(admin, "POST", "/api/users", { email: "eva@exemplo.test", name: "Eva", handle: "eva", role: "user" }); const evaId = r.json?.data?.id;
+r = await write(admin, "DELETE", `/api/users/${evaId}`); check("excluir usuário sem conteúdo -> 200 com { id, content, roots, renamed }", r.status === 200 && r.json?.data?.id === evaId && "content" in (r.json?.data ?? {}) && "roots" in r.json.data && "renamed" in r.json.data, `${r.status} ${r.text.slice(0,200)}`);
+r = await write(admin, "DELETE", `/api/users/${bobId}?content=transfer&to=${adminId}&onConflict=rename`); check("transferir o conteúdo do Bob e excluir -> 200 com raiz renomeada (slug repetido)", r.status === 200 && r.json?.data?.id === bobId && Array.isArray(r.json?.data?.renamed) && r.json.data.renamed.length >= 1, `${r.status} ${r.text.slice(0,300)}`);
 r = await call(admin, "GET", `/api/users/${bobId}`); check("o Bob excluído -> 404", r.status === 404, `${r.status}`);
 {
   const m = globalThis.__midiaDoEnsaio; const vivo = async (id) => (await fetch(`${B}/media/${id}`)).status;
   check("A-029: excluir o usuário apaga as imagens dele (logotipo e avatar: 404)", (await vivo(m.bobLogo)) === 404 && (await vivo(m.bobAvatar)) === 404, `${await vivo(m.bobLogo)} ${await vivo(m.bobAvatar)}`);
-  r = await call(admin, "DELETE", `/api/users/${m.carlaId}`); check("A-029: a Carla (conta do ensaio de imagens) é excluída", r.status === 200, `${r.status}`);
+  r = await write(admin, "DELETE", `/api/users/${m.carlaId}`); check("A-029: a Carla (conta do ensaio de imagens) é excluída", r.status === 200, `${r.status}`);
   if (m.carlaAvatar) check("A-029: e o avatar dela sai junto (404)", (await vivo(m.carlaAvatar)) === 404, `${await vivo(m.carlaAvatar)}`);
 }
 console.log(`   (escritas que esperaram o limite de taxa: ${esperasDoLimite})`);
+console.log(atrasos.length ? `INFO: ${atrasos.length} primeira(s) leitura(s) velha(s) depois de escrita aceita (200), todas corrigidas depois de: ${atrasos.map((x) => `${x.rotulo} ${x.ms} ms${x.ok ? "" : " (NÃO refletiu)"} [${x.cache}]`).join("; ")}` : "INFO: nenhuma primeira leitura velha depois de escrita aceita");
 // taxa
 let limited = 0, retry = null; for (let i = 0; i < 75; i++) { r = await call(admin, "POST", "/api/contents", { title: "t"+i, slug: "t"+i, type: "DOCUMENT" }); if (r.status === 429) { limited++; retry = r.headers.get("retry-after"); } }
 check("limite de taxa de escrita (429 + Retry-After)", limited > 0 && !!retry, `limitadas=${limited} retry=${retry}`);

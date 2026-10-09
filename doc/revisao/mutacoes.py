@@ -150,6 +150,13 @@ CORE=[
  ("src/app/[handle]/layout.js","    ...faviconMetadata(space.appearance.faviconImageId),\n","","M130 o favicon enviado não chega ao <head> do espaço"),
  ("src/app/layout.js","    icons: { icon: [{ url: \"/favicon.ico\", sizes: \"any\" }] },\n","","M131 o favicon de reserva some do layout raiz"),
  ("src/app/_lib/site.js","  return url ? { icons: { icon: [{ url, type: \"image/png\", sizes: \"64x64\" }] } } : {};","  return url ? { icons: { icon: [{ url, type: \"image/png\", sizes: \"64x64\" }, { url: \"/favicon.ico\", sizes: \"any\" }] } } : {};","M132 o favicon de reserva é somado ao enviado"),
+ # M-043 (A-024): desempenho, favicon e o registro do 503 BUSY
+ ("src/app/layout.js","  preload: false,\n","","M133 a fonte mono volta a ser pré-carregada em toda página"),
+ ("src/app/api/_lib/http.js","console.info(`[api] 503 BUSY: ${body.message}`);","console.error(`[api] 503 BUSY: ${body.message}`);","M134 o 503 BUSY sai como erro (console.error)"),
+ ("src/app/api/_lib/http.js","console.info(`[api] 503 BUSY: ${body.message}`);","console.info(`[api] 503 BUSY: ${body.message}`, error);","M135 o 503 BUSY traz o erro (a pilha) no registro"),
+ ("src/app/api/_lib/http.js","if (body.status === 503 && body.code === \"BUSY\") {","if (body.status === 503) {","M136 todo 503 fica silencioso, não só o BUSY"),
+ ("src/app/api/_lib/http.js","  if (body.status < 500) return;\n","  if (body.status < 400) return;\n","M137 todo 4xx passa a ser registrado como erro"),
+ ("src/app/api/_lib/http.js","  console.error(\"[api] erro não previsto:\", error);\n}\n","}\n","M138 os demais 5xx deixam de ser registrados"),
 ]
 
 DADOS=[
