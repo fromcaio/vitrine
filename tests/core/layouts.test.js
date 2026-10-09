@@ -15,6 +15,13 @@ vi.mock("@/app/admin/_lib/session", () => ({
   requireSession: vi.fn(async () => ({ user: { id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" } })),
 }));
 vi.mock("@/app/admin/_lib/actions", () => ({ signOut: vi.fn() }));
+// O `generateMetadata` do painel lê a sessão sem redirecionar (para o nome do painel): o usuário do teste.
+const sessionState = vi.hoisted(() => ({ user: /** @type {{ id: string, role: string } | null} */ ({ id: "ada-id", role: "user" }) }));
+vi.mock("next/headers", () => ({ headers: vi.fn(async () => new Headers()) }));
+vi.mock("@/lib/auth", async (importOriginal) => ({
+  ...(await importOriginal()),
+  getSession: vi.fn(async () => (sessionState.user ? { user: sessionState.user } : null)),
+}));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal()),
   usePathname: () => "/admin",
@@ -30,11 +37,12 @@ import { requireSession } from "@/app/admin/_lib/session";
 import AdminLayout, { generateMetadata as adminMetadata } from "@/app/admin/layout";
 import RootLayout, { generateMetadata as rootMetadata } from "@/app/layout";
 import LoginLayout, { generateMetadata as loginMetadata } from "@/app/login/layout";
+import LoginPage from "@/app/login/page";
 import NotFound, { metadata as notFoundMetadata } from "@/app/not-found";
 import PortalLayout, { generateMetadata as portalMetadata } from "@/app/(portal)/layout";
 import { DEFAULT_SITE_DESCRIPTION } from "@/app/_lib/site";
 import { COLOR_MODE_SCRIPT } from "@/components/layout/color-mode-script";
-import { getConfiguration, prisma, updateConfiguration } from "@/lib/db";
+import { getConfiguration, prisma, updateAppearance, updateConfiguration } from "@/lib/db";
 import { textColorsOf } from "@/lib/theme";
 
 const LIGHT = { primaryColor: "#1d4ed8", secondaryColor: "#0f172a", accentColor: "#b45309" };
@@ -42,6 +50,7 @@ const DARK = { darkPrimaryColor: "#93c5fd", darkSecondaryColor: "#e2e8f0", darkA
 const PALETTES = { ...LIGHT, ...DARK };
 
 beforeEach(async () => {
+  sessionState.user = { id: "ada-id", role: "user" };
   await prisma.configuration.deleteMany();
   vi.mocked(getConfiguration).mockClear();
   vi.mocked(requireSession).mockClear();
@@ -334,7 +343,8 @@ describe("AdminLayout", () => {
     // Nunca o registro da configuração: o nome do site, o usuário, o papel e o que o painel liga (o sino e
     // as páginas que existem).
     expect(Object.keys(shell.props).sort()).toEqual([
-      "availablePaths", "children", "mustChangePassword", "notificationBell", "role", "signOutAction", "siteName", "user",
+      "availablePaths", "children", "modeIconPair", "mustChangePassword", "notificationBell", "role", "showLogo", "showName",
+      "signOutAction", "siteName", "user",
     ]);
     expect(shell.props.user).toEqual({ id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" });
   });
@@ -366,6 +376,82 @@ describe("AdminLayout", () => {
       title: { absolute: "Painel administrativo | Notas de Aula", template: "%s | Notas de Aula" },
       robots: { index: false, follow: false },
     });
+  });
+
+  describe("a aparência do painel em duas camadas (D-40, ADR-038)", () => {
+    /** O usuário `role` com aparência própria (nome, paleta clara e barra só com o logo) sobre um sistema com outro nome e outras cores. */
+    let counter = 0;
+    async function seed(role) {
+      const { createTestUser } = await import("./helpers");
+      counter += 1;
+      const person = await createTestUser({ email: `${role}-painel${counter}@exemplo.test`, name: `Pessoa ${role}`, role });
+      await updateConfiguration({ siteName: "Sistema", showName: true, modeIconPair: "lightbulb", ...PALETTES });
+      await updateAppearance(person.id, { siteName: "Meu espaço", showName: false, primaryColor: "#be123c", secondaryColor: "#0f172a", accentColor: "#b45309" });
+      sessionState.user = { id: person.id, role };
+      vi.mocked(requireSession).mockResolvedValue({ user: { id: person.id, name: `Pessoa ${role}`, email: `${role}-painel${counter}@exemplo.test`, role } });
+      return person;
+    }
+
+    afterEach(() => {
+      vi.mocked(requireSession).mockReset();
+      vi.mocked(requireSession).mockImplementation(async () => ({ user: { id: "ada-id", name: "Ada Fictícia", email: "ada@exemplo.test", role: "user" } }));
+    });
+
+    it("o usuário comum vê a efetiva: a paleta clara dele, a noturna do sistema, o nome e a barra dele", async () => {
+      await seed("user");
+
+      const wrapper = await AdminLayout({ children: "x" });
+      const html = renderToStaticMarkup(wrapper);
+
+      expect(themeOf(html)["--vitrine-light-primary"]).toBe("#be123c");
+      expect(themeOf(html)["--vitrine-dark-primary"]).toBe("#93c5fd");
+      expect(wrapper.props.children.props).toMatchObject({ siteName: "Meu espaço", showName: false, showLogo: true, modeIconPair: "lightbulb" });
+    });
+
+    it("o administrador vê SÓ o sistema no painel, mesmo com aparência própria", async () => {
+      await seed("admin");
+
+      const wrapper = await AdminLayout({ children: "x" });
+      const html = renderToStaticMarkup(wrapper);
+
+      expect(themeOf(html)["--vitrine-light-primary"]).toBe("#1d4ed8");
+      expect(JSON.stringify(themeOf(html))).not.toContain("#be123c");
+      expect(wrapper.props.children.props).toMatchObject({ siteName: "Sistema", showName: true, modeIconPair: "lightbulb" });
+    });
+
+    it("o título do painel segue o nome do painel: o do usuário comum, o do sistema para o administrador e sem sessão", async () => {
+      await seed("user");
+      expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Meu espaço");
+
+      await seed("admin");
+      expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
+
+      sessionState.user = null;
+      expect((await adminMetadata()).title.absolute).toBe("Painel administrativo | Sistema");
+    });
+  });
+});
+
+describe("página de login", () => {
+  it("a marca é a do SISTEMA: o nome e a barra superior da configuração", async () => {
+    sessionState.user = null;
+    await updateConfiguration({ siteName: "Turma 2026", showLogo: false });
+
+    const page = await LoginPage({ searchParams: Promise.resolve({}) });
+    const html = renderToStaticMarkup(page);
+
+    expect(html).toContain("Turma 2026");
+    expect(html).not.toContain('data-testid="logo-padrao"');
+    expect(html).toContain('data-testid="marca-do-login"');
+  });
+
+  it("sem configuração gravada, o nome é Vitrine e o logotipo padrão aparece", async () => {
+    sessionState.user = null;
+
+    const html = renderToStaticMarkup(await LoginPage({ searchParams: Promise.resolve({}) }));
+
+    expect(html).toContain("Vitrine");
+    expect(html).toContain('data-testid="logo-padrao"');
   });
 });
 

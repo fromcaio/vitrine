@@ -449,6 +449,44 @@ describe("configuração do site e aparência (RF30, RF31)", () => {
   });
 });
 
+describe("aparência em duas camadas: null herda, e os campos novos (A-031; ADR-038)", () => {
+  const COLORS = ["primaryColor", "secondaryColor", "accentColor", "darkPrimaryColor", "darkSecondaryColor", "darkAccentColor"];
+
+  it("a aparência aceita null nas seis cores e no nome (herdam o sistema), e o nome em branco também vira null", () => {
+    for (const field of [...COLORS, "siteName"]) {
+      expect(validate(appearanceUpdateSchema, { [field]: null }), field).toEqual({ ok: true, data: { [field]: null } });
+    }
+    expect(validate(appearanceUpdateSchema, { siteName: "   " })).toEqual({ ok: true, data: { siteName: null } });
+  });
+
+  it("a configuração NÃO aceita null nas cores nem no nome: o sistema é a base da herança", () => {
+    for (const field of [...COLORS, "siteName"]) {
+      expect(invalidFields(configurationUpdateSchema, { [field]: null }), field).toEqual([field]);
+    }
+  });
+
+  it("showLogo e showName são booleanos nos dois esquemas", () => {
+    for (const schema of [appearanceUpdateSchema, configurationUpdateSchema]) {
+      expect(validate(schema, { showLogo: false, showName: true }).ok).toBe(true);
+      expect(invalidFields(schema, { showLogo: "sim" })).toEqual(["showLogo"]);
+      expect(invalidFields(schema, { showName: 0 })).toEqual(["showName"]);
+    }
+  });
+
+  it("o par de ícones é um dos quatro; o título do diretório tem de 1 a 40 caracteres (só na configuração)", () => {
+    for (const pair of ["sun_moon", "sun_moon_outline", "lightbulb", "contrast_half"]) {
+      expect(validate(configurationUpdateSchema, { modeIconPair: pair }).ok, pair).toBe(true);
+    }
+    expect(invalidFields(configurationUpdateSchema, { modeIconPair: "estrela" })).toEqual(["modeIconPair"]);
+    expect(validate(configurationUpdateSchema, { directoryTitle: "  Pessoas  " })).toEqual({ ok: true, data: { directoryTitle: "Pessoas" } });
+    expect(invalidFields(configurationUpdateSchema, { directoryTitle: "   " })).toEqual(["directoryTitle"]);
+    expect(invalidFields(configurationUpdateSchema, { directoryTitle: "x".repeat(41) })).toEqual(["directoryTitle"]);
+    expect(validate(configurationUpdateSchema, { directoryTitle: "😀".repeat(40) }).ok).toBe(true);
+    // Na aparência do usuário o par de ícones e o título do diretório não existem (são só do sistema).
+    expect(validate(appearanceUpdateSchema, { modeIconPair: "lightbulb", directoryTitle: "x" }).ok).toBe(false);
+  });
+});
+
 describe("contas e senhas (RN19 a RN24)", () => {
   const valid = { email: "ana@exemplo.test", name: "Ana", handle: "ana" };
 

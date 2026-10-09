@@ -92,7 +92,8 @@ test.describe.serial("aparência, configuração e portal", () => {
 
   test("RF31: a página de aparência de cada usuário é a dele (o administrador vê a dele, não a de outro)", async ({ browser }) => {
     const { context, page } = await openSession(browser, ADMIN);
-    await page.goto("/admin/aparencia");
+    // O administrador abre no alvo do sistema (D-41); a página dele é `?alvo=pagina`.
+    await page.goto("/admin/aparencia?alvo=pagina");
     await waitForHydration(page);
 
     await expect(page.getByLabel("Nome do espaço")).toHaveValue(""); // o administrador não personalizou: nome nulo (herda, ADR-038)
@@ -102,14 +103,18 @@ test.describe.serial("aparência, configuração e portal", () => {
 
   test("CT23: o administrador salva a configuração pela interface e o portal regenera", async ({ browser, request }) => {
     const { context, page } = await openSession(browser, ADMIN);
+    // O nome do sistema é da aparência (alvo padrão do administrador); o texto do portal, das configurações.
+    await page.goto("/admin/aparencia");
+    await expect(page.getByRole("heading", { name: "Aparência do sistema", level: 1 })).toBeVisible();
+    await waitForHydration(page);
+    await page.getByLabel("Nome do site").fill("Portal do painel e2e");
+    await page.getByRole("button", { name: "Salvar a aparência do sistema" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Aparência do sistema salva" })).toBeVisible();
+
     await page.goto("/admin/configuracoes");
     await expect(page.getByRole("heading", { name: "Configurações do site", level: 1 })).toBeVisible();
     await waitForHydration(page);
-
-    await page.getByLabel("Nome do site").fill("Portal do painel e2e");
     await page.getByLabel("Texto do portal (Markdown)").fill("Texto **do painel** e2e.");
-    await page.getByRole("button", { name: "Salvar a aparência do sistema" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Aparência do sistema salva" })).toBeVisible();
     await page.getByRole("button", { name: "Salvar o portal" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Portal salvo" })).toBeVisible();
 

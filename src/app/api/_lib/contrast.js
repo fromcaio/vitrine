@@ -25,6 +25,12 @@ const PALETTE_FIELDS = /** @type {const} */ ([
   "darkAccentColor",
 ]);
 
+/** Os campos de cada modo: a unidade de herança (as três cores juntas). */
+const PALETTE_BY_MODE = {
+  light: { primary: "primaryColor", secondary: "secondaryColor", accent: "accentColor" },
+  dark: { primary: "darkPrimaryColor", secondary: "darkSecondaryColor", accent: "darkAccentColor" },
+};
+
 /**
  * @param {ContrastScope} scope
  * @param {ColorMode} mode
@@ -35,12 +41,18 @@ export function contrastKey(scope, mode) {
 
 /**
  * Avisos de cada modo, calculados sobre o registro GRAVADO (e não sobre o corpo do `PUT`, que é
- * parcial). `warnings` é a lista única dos dois modos, na ordem clara e noturna.
- * @param {Partial<Record<(typeof PALETTE_FIELDS)[number], string>>} record registro gravado
+ * parcial) e só sobre as paletas que o DONO definiu (ADR-038, item 7): a paleta de um modo nula (a
+ * aparência que herda o sistema) não gera aviso, porque a herdada é responsabilidade de quem a
+ * definiu; o modo sem aviso resolve a notificação dele em `syncContrastNotifications`. `warnings` é a
+ * lista única dos dois modos, na ordem clara e noturna.
+ * @param {Partial<Record<(typeof PALETTE_FIELDS)[number], string | null>>} record registro gravado
  */
 export function contrastReport(record) {
   const palette = Object.fromEntries(PALETTE_FIELDS.map((field) => [field, record[field]]));
-  const byMode = COLOR_MODES.map((mode) => /** @type {const} */ ([mode, contrastWarnings(palette, mode)]));
+  const byMode = COLOR_MODES.map((mode) => {
+    const defined = Object.values(PALETTE_BY_MODE[mode]).every((field) => typeof record[field] === "string");
+    return /** @type {const} */ ([mode, defined ? contrastWarnings(/** @type {any} */ (palette), mode) : []]);
+  });
   return { byMode, warnings: byMode.flatMap(([, warnings]) => warnings) };
 }
 

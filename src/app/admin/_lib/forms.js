@@ -3,18 +3,15 @@
 // `persisted`...): o que vai a um Componente Cliente atravessa a rede, e o formulário ignora o resto.
 // Pasta privada do App Router: não gera rota.
 
-/** Identidade, os seis links e as duas paletas: o que a aparência do usuário e a do site têm em comum. */
+/**
+ * Identidade, barra superior e as duas paletas: o que a aparência do usuário e a do sistema têm em comum.
+ * Na aparência do usuário, o nome e as seis cores são `null` quando herdam o sistema (ADR-038).
+ */
 const SHARED_FIELDS = /** @type {const} */ ([
   "siteName",
   "siteDescription",
-  "logoUrl",
-  "faviconUrl",
-  "discordUrl",
-  "githubUrl",
-  "youtubeUrl",
-  "instagramUrl",
-  "linkedinUrl",
-  "twitchUrl",
+  "showLogo",
+  "showName",
   "primaryColor",
   "secondaryColor",
   "accentColor",
@@ -23,8 +20,19 @@ const SHARED_FIELDS = /** @type {const} */ ([
   "darkAccentColor",
 ]);
 
-/** A configuração do site acrescenta o texto do portal e o diretório (RN28). */
-const SITE_ONLY_FIELDS = /** @type {const} */ (["homeBody", "directoryEnabled"]);
+/** A configuração do sistema acrescenta o par de ícones do botão de modo, o texto do portal e o diretório (RN28). */
+const SITE_ONLY_FIELDS = /** @type {const} */ (["modeIconPair", "homeBody", "directoryEnabled", "directoryTitle"]);
+
+/** O que a aparência do usuário mostra do sistema, como referência da herança: o nome e as seis cores. */
+const SYSTEM_REFERENCE_FIELDS = /** @type {const} */ ([
+  "siteName",
+  "primaryColor",
+  "secondaryColor",
+  "accentColor",
+  "darkPrimaryColor",
+  "darkSecondaryColor",
+  "darkAccentColor",
+]);
 
 /**
  * @param {Record<string, unknown>} record
@@ -35,13 +43,21 @@ function pick(record, fields) {
 }
 
 /**
- * Valor inicial do `AppearanceForm`: a aparência do usuário, como `GET /api/appearance` a devolve.
+ * Valor inicial do `AppearanceForm`: a aparência do usuário, como `GET /api/appearance` a devolve (a
+ * CRUA, com `null` no que herda).
  * @param {Record<string, unknown>} record `getAppearance(user.id)`
  */
 export const appearanceInitial = (record) => pick(record, SHARED_FIELDS);
 
 /**
- * Valor inicial do `ConfigurationForm`: a configuração do site, como `GET /api/configuration` a devolve.
+ * Valor inicial do `SiteIdentityForm` e do `PortalSettingsForm`: a configuração do sistema, como
+ * `GET /api/configuration` a devolve (cada formulário usa os campos dele).
  * @param {Record<string, unknown>} record `getConfiguration()`
  */
 export const configurationInitial = (record) => pick(record, [...SHARED_FIELDS, ...SITE_ONLY_FIELDS]);
+
+/**
+ * A prop `system` do `AppearanceForm`: o nome e as seis cores do sistema, só para leitura.
+ * @param {Record<string, unknown>} record `getConfiguration()`
+ */
+export const systemReference = (record) => pick(record, SYSTEM_REFERENCE_FIELDS);

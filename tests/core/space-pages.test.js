@@ -30,6 +30,7 @@ import SpaceContentPage, { generateMetadata as contentMetadata, generateStaticPa
 import SpaceRootLayout, { generateMetadata as layoutMetadata } from "@/app/[handle]/layout";
 import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[handle]/page";
 import { firstDocumentPath, getPublicPage, getSpace } from "@/app/_lib/space";
+import { SpaceFrame } from "@/app/_lib/space-frame";
 import { SpaceHome } from "@/components/layout/SpaceHome";
 import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
@@ -84,10 +85,23 @@ describe("getSpace: o espaço ativo de um handle (RN23, RN20)", () => {
     expect(space.tree[0].children.map((node) => node.slug)).toEqual(["limites"]);
   });
 
-  it("sem aparência salva, o nome do espaço é o do usuário", async () => {
+  it("sem nome próprio, o espaço herda o nome do SISTEMA (ADR-038, item 8), e não o do usuário", async () => {
     await user("ana");
+    expect((await getSpace("ana")).name).toBe("Vitrine");
 
-    expect((await getSpace("ana")).name).toBe("Nome de ana");
+    await updateConfiguration({ siteName: "Turma 2026" });
+    expect((await getSpace("ana")).name).toBe("Turma 2026");
+  });
+
+  it("a aparência do espaço é a EFETIVA: a paleta própria sobre a do sistema, por modo", async () => {
+    const ana = await user("ana");
+    await updateConfiguration({ darkPrimaryColor: "#aabbcc", darkSecondaryColor: "#bbccdd", darkAccentColor: "#ccddee" });
+    await updateAppearance(ana, { primaryColor: "#112233", secondaryColor: "#223344", accentColor: "#334455" });
+
+    const { appearance } = await getSpace("ana");
+
+    expect(appearance).toMatchObject({ primaryColor: "#112233", darkPrimaryColor: "#aabbcc" });
+    expect(appearance.inherits).toMatchObject({ lightPalette: false, darkPalette: true });
   });
 
   it.each([
@@ -284,6 +298,19 @@ describe("início do espaço (RF29, D-16; CT43)", () => {
     expect(html).toContain("--vitrine-light-primary:#1d4ed8");
     expect(html).toContain("--vitrine-dark-primary:#93c5fd");
     expect(html).toContain('href="/ana/calculo"'); // a aba da coleção raiz
+  });
+
+  it("a moldura leva a barra superior do dono e o par de ícones do SISTEMA (D-40)", async () => {
+    const ana = await user("ana");
+    await updateConfiguration({ modeIconPair: "lightbulb", showName: false });
+    await updateAppearance(ana, { showName: false });
+
+    const layout = SpaceFrame({ space: await getSpace("ana") });
+
+    // showLogo e showName são só do usuário (não herdam): o do sistema (showName falso) não vale aqui.
+    expect(layout.props).toMatchObject({ name: "Vitrine", showLogo: true, showName: false, modeIconPair: "lightbulb" });
+    await user("beto");
+    expect(SpaceFrame({ space: await getSpace("beto") }).props.showName).toBe(true);
   });
 
   it.each([
@@ -534,6 +561,16 @@ describe("portal / (RF30, RN28; CT46)", () => {
     expect(html).toContain("--vitrine-light-primary:#1d4ed8");
     expect(html).toContain("--vitrine-dark-primary:#93c5fd");
     expect(html).toContain('data-testid="logo-padrao"'); // sem logo enviado (logoImageId nulo), o logotipo padrão
+  });
+
+  it("a barra, o par de ícones e o título do diretório do sistema chegam à moldura e ao PortalHome", async () => {
+    await updateConfiguration({ showLogo: false, modeIconPair: "contrast_half", directoryTitle: "Pessoas", directoryEnabled: true });
+
+    const layout = await PortalPage();
+
+    expect(layout.props).toMatchObject({ showLogo: false, showName: true, modeIconPair: "contrast_half" });
+    expect(layout.props.children.props.directoryTitle).toBe("Pessoas");
+    expect(render(layout)).toContain("Pessoas");
   });
 
   it("o diretório lista só espaços ativos com ao menos uma raiz publicada, em ordem alfabética (sem acentos nem caixa)", async () => {

@@ -27,10 +27,17 @@ export default async function PortalPage() {
       themeStyle={buildThemeStyle(configuration)}
       name={name}
       homeHref="/"
-      logoUrl={configuration?.logoUrl ?? null}
+      showLogo={configuration?.showLogo ?? true}
+      showName={configuration?.showName ?? true}
+      modeIconPair={configuration?.modeIconPair ?? undefined}
       socialLinks={configuration}
     >
-      <PortalHome title={name} body={configuration?.homeBody ?? null} spaces={spaces} />
+      <PortalHome
+        title={name}
+        body={configuration?.homeBody ?? null}
+        spaces={spaces}
+        directoryTitle={configuration?.directoryTitle ?? undefined}
+      />
     </SpaceLayout>
   );
 }

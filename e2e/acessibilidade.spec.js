@@ -173,7 +173,8 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
       await expect(page.getByLabel("Texto do documento (Markdown)")).toBeVisible();
       await expect(page.getByRole("region", { name: "Pré-visualização do documento" }).locator(".katex").first()).toBeVisible();
     }],
-    ["admin: aparência", () => "/admin/aparencia"],
+    ["admin: aparência do sistema (o seletor e o alvo padrão)", () => "/admin/aparencia"],
+    ["admin: aparência da própria página (alvo=pagina)", () => "/admin/aparencia?alvo=pagina"],
     ["admin: configurações do site", () => "/admin/configuracoes"],
     ["admin: notificações", () => "/admin/notificacoes"],
     ["admin: perfil", () => "/admin/perfil"],
@@ -276,15 +277,15 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
     });
   });
 
-  test("admin: configurações com o seletor de ícones e a barra superior desligada em parte", async ({ browser }) => {
+  test("admin: aparência do sistema com o seletor de ícones e a barra superior desligada em parte", async ({ browser }) => {
     await withSession(browser, ADMIN, async (page) => {
-      await page.goto("/admin/configuracoes");
+      await page.goto("/admin/aparencia");
       await ready(page);
       await page.getByRole("checkbox", { name: "Mostrar o logotipo" }).first().uncheck();
       await page.getByRole("radio", { name: "Lâmpada acesa e apagada" }).check();
       await page.getByRole("checkbox", { name: "Mostrar o nome" }).first().click(); // recusado: pelo menos um fica ligado
       await expect(page.getByText("Deixe pelo menos um ligado: o logotipo ou o nome.")).toBeVisible();
-      await check(page, "admin: configurações com a barra superior e o erro do último ligado");
+      await check(page, "admin: aparência do sistema com a barra superior e o erro do último ligado");
     });
   });
 
