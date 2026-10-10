@@ -138,6 +138,14 @@ describe("next.config.mjs", () => {
     expect(nextConfig.poweredByHeader).toBe(false);
     expect(nextConfig).not.toHaveProperty("output");
   });
+
+  it("desliga o otimizador /_next/image (o projeto não usa next/image; RNF03, P-023)", () => {
+    expect(nextConfig.images).toEqual({ unoptimized: true });
+  });
+
+  it("não deixa o next dev criar o AGENTS.md (o CLAUDE.md é mantido à mão; P-022)", () => {
+    expect(nextConfig.agentRules).toBe(false);
+  });
 });
 
 // --------------------------------------------------------

@@ -39,6 +39,26 @@ test.describe("fumaça", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
+  test("o otimizador /_next/image está desligado (404, não 200 nem 400) e o favicon segue servido", async ({ page, request, cspViolations }) => {
+    // O projeto não usa `next/image`; `images.unoptimized` faz o servidor responder 404 à rota (RNF03, P-023).
+    const params = "url=%2Ffavicon.ico&w=64&q=75";
+    const optimizer = await request.get(`/_next/image?${params}`);
+    expect(optimizer.status()).toBe(404);
+    // Parâmetros inválidos também dão 404 (com o otimizador ligado seriam 400).
+    expect((await request.get("/_next/image")).status()).toBe(404);
+    expect((await request.get("/_next/image?url=https%3A%2F%2Fexemplo.com%2Fa.png&w=64&q=75")).status()).toBe(404);
+
+    // No navegador, sem violação de CSP; os cabeçalhos de segurança seguem na resposta.
+    const navigated = await page.goto(`/_next/image?${params}`);
+    expect(navigated?.status()).toBe(404);
+    expect(navigated?.headers()["content-security-policy"]).toContain("default-src 'self'");
+    expect(cspViolations).toEqual([]);
+
+    const favicon = await request.get("/favicon.ico");
+    expect(favicon.status()).toBe(200);
+    expect(favicon.headers()["content-type"]).toContain("image/x-icon");
+  });
+
   test("/api/configuration sem sessão responde 401", async ({ request }) => {
     const response = await request.get("/api/configuration");
     expect(response.status()).toBe(401);
