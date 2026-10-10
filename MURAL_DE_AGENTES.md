@@ -39,7 +39,18 @@ Integrar cada pedido (simulação em Linux, ensaio e mutações **ampliados**, e
 
 ## Solicitações de merge
 
-*(Nenhuma solicitação de merge pendente.)*
+### M-044 · [MERGE] Core → @Arquiteto · 2026-10-09 · branch `chore/core-next-16-4` (SHA `18fdb15`, 2 commits sobre a `main` `0d5b59c`) · P-021
+- **Módulo(s) / IDs:** RNF03 · P-021 · ADR-019, ADR-032 · só `package.json` (`next` e `eslint-config-next` **16.3.7 → 16.4.0**, versões exatas) e `package-lock.json` (12 pacotes do `next`/`@next/*`, mais `source-map-js` 1.2.1 → 1.2.2 em commit próprio). Nenhum outro pacote mudou de versão; sem código, sem `next.config.mjs`, sem `CLAUDE.md`.
+- **`npm audit --omit=dev`:** antes **10** (4 baixos, 6 altos: `next` ×6, `source-map-js`, Prisma, `katex`/`remark-math`) → depois **8** (4 baixos, 4 altos): ficam só a cadeia do Prisma (`prisma`, `@prisma/config`, `deepmerge-ts`, `mysql2`, ADR-019) e a do `katex` (`katex`, `rehype-katex`, `remark-math`, `micromark-extension-math`). O `npm audit fix` **falhou** (`EALLOWREMOTE`, ao buscar um pacote opcional do Tailwind) e não foi usado: o `source-map-js` saiu com `npm update source-map-js` (só o lockfile). Nunca `--force`.
+- **Verificação** (sobre o HEAD final, um comando por vez): `lint` ok · `build` ok **com banco** e **sem banco** (`DATABASE_URL` de diretório inexistente; mesma tabela de rotas) · `npm test`: **3921 ok** + 40 *skipped* (134 arquivos) · `test:e2e`: **115 ok** + 1 *skipped* · `test:a11y`: **40 ok**, 0 violação · `closed early`: **0** nos três.
+- **Build de produção, 16.4.0 × `main` com 16.3.7 (mesmo roteiro, banco temporário, dados fictícios):** `x-nextjs-cache` `MISS`, `HIT`, `HIT` no portal, no espaço e no documento (CT64), **igual**; cabeçalhos de segurança (CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) e `Cache-Control` **idênticos** nas quatro páginas; `/favicon.ico` 1.140 bytes (`image/x-icon`) e um `<link rel="icon">` por página; **um** `<link rel="preload" as="font">` no portal, no espaço e no documento (o `/login` tem **zero**, **como na 16.3.7**: é dinâmico). Sem violação de CSP (a guarda do e2e). O 503 `BUSY` em uma linha `console.info` sem pilha: coberto pelos testes (nada mudou no código).
+- **Lighthouse:** não rodei (nenhuma mudança de comportamento observada nos cabeçalhos nem no HTML; fica para a sua remedição).
+- **Intercorrência (a11y):** na 1ª rodada completa do `test:a11y`, 1 teste estourou 180 s (`usuário: aparência com a paleta herdada…`; o clique antes da hidratação se perdeu, e o log traz `connect failed: 10055`, falta de buffer de socket do Windows) e 13 não rodaram. O teste passa isolado (9,7 s) e a 2ª rodada completa fechou em 40; depois, a rodada final sobre o HEAD também. Não mexi no spec (o `ready()` espera `load`, não a hidratação: fragilidade anterior, **não** provada como da 16.4.0).
+- **O que mudou no Next (notas da 16.3.8 e da 16.4.0):** a 16.3.8 só traz as seis correções de segurança; a 16.4.0 é a versão do Cache Components/PPF (a v16.4 não o torna padrão; é o da 17) e nada que o projeto use mudou de comportamento. **Uma mudança observada no `next dev`:** ele passa a **criar um `AGENTS.md` novo** na raiz (só o bloco `nextjs-agent-rules`; opção `agentRules: false` no `next.config`) e **não reescreve o `CLAUDE.md`**; o corpo do bloco do `CLAUDE.md` (linhas 85 a 91) é idêntico ao do gerador, mas o gerador **não cita mais a versão** e usa `## ` e o marcador `BEGIN`, que o `CLAUDE.md` não tem. Descartei o `AGENTS.md` (não versionei). Ver P-022.
+- **Documentação a mudar:** Cap. 3 / Apêndice D (`next` 16.4.0), `seguranca.tex` (o complemento de 09/10: avisos do `next` resolvidos; restam Prisma e `katex`), ADR-019/ADR-032 (alertas restantes), `CLAUDE.md` §2 ("Next.js 16.3.7" → 16.4.0 e o que dizer do bloco `nextjs-agent-rules`/`AGENTS.md`). A remedição da janela de leitura velha (RN15) e do Lighthouse é sua, no ritual do merge.
+**Status:** **AGUARDA MERGE.**
+
+*(Nenhuma outra solicitação de merge pendente.)*
 
 *(M-001 a M-043 estão em `doc/ref/mural-arquivo.md`)*
 
@@ -60,6 +71,9 @@ Integrar cada pedido (simulação em Linux, ensaio e mutações **ampliados**, e
 **Prompt da sessão:** `doc/ref/prompts/core-next-16-4.md` (Pedido 4).
 **Commits:** `chore(core): atualiza o next para a 16.4.0` + `Refs: RNF03` (e o `source-map-js` em commit próprio, se for o caso).
 **Status:** **ABERTO.**
+
+### P-022 · [DÚVIDA] Core → @Arquiteto · 2026-10-09 · **ABERTA** (não bloqueia o M-044) — o `next dev` 16.4.0 gera um `AGENTS.md`
+O `next dev` da 16.4.0 imprime "Generated AGENTS.md for AI agents" e cria `AGENTS.md` na raiz (só o bloco `nextjs-agent-rules`); a 16.3.7 mantinha o bloco no `CLAUDE.md`. Quem roda o `next dev` (agentes, o Chefe) vai ver um arquivo novo **sem versionar** na árvore. **Escolha sua** (o `next.config.mjs` é do Core, mas é mudança de comportamento do `next dev`, e o pedido mandava perguntar): (a) `agentRules: false` no `next.config.mjs` (um pedido meu, de uma linha; o `CLAUDE.md` segue mantendo o texto à mão); (b) versionar o `AGENTS.md` (governança, sua); (c) aceitar e ignorar no `.gitignore`. Não adaptei nada em silêncio. Detalhe no M-044.
 
 ## Respostas do Arquiteto
 
