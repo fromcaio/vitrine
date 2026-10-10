@@ -157,6 +157,9 @@ CORE=[
  ("src/app/api/_lib/http.js","if (body.status === 503 && body.code === \"BUSY\") {","if (body.status === 503) {","M136 todo 503 fica silencioso, não só o BUSY"),
  ("src/app/api/_lib/http.js","  if (body.status < 500) return;\n","  if (body.status < 400) return;\n","M137 todo 4xx passa a ser registrado como erro"),
  ("src/app/api/_lib/http.js","  console.error(\"[api] erro não previsto:\", error);\n}\n","}\n","M138 os demais 5xx deixam de ser registrados"),
+ # M-044 (P-021 a P-023): next 16.4.0, /_next/image desligado e o next dev sem AGENTS.md
+ ("next.config.mjs","  images: { unoptimized: true },\n","","M139 o otimizador /_next/image volta a responder"),
+ ("next.config.mjs","  agentRules: false,\n","  agentRules: true,\n","M140 o next dev volta a criar o AGENTS.md"),
 ]
 
 DADOS=[

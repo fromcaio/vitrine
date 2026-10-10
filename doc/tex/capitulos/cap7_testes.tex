@@ -268,6 +268,25 @@ Documento (matemática e código) & 91 & 2,89 & 1,51 & 216 & 0,002\\
 \fonte{Elaborado pelos autores (\texttt{npm run lighthouse}, \en{build} de produção do commit \texttt{e28856c}, Windows, Node.js 24). No \emph{desktop}: 100 de desempenho e LCP de 0,53 a 0,59~s nas quatro páginas.}
 \end{table}
 
+\textbf{Medição final do Arquiteto sobre o código final (F6, 10/10/2026; merge M-044).} Repetido o \texttt{npm run lighthouse} sobre o \en{build} de produção da \texttt{main} com o \texttt{next} 16.4.0, o \arq{/_next/image} desligado e o \texttt{agentRules: false} (Tabela~\ref{tab:lighthouse-final}; mediana de três rodadas, na mesma máquina, sem outro processo pesado): o desempenho fica em 94 a 97 nas quatro páginas, a acessibilidade e as boas práticas em 100 (SEO 63 no \texttt{/login}, por desenho) e, no \emph{desktop}, tudo em 100 (LCP de 0,51 a 0,60~s). O LCP simulado ficou em \textbf{2,68~s no documento com matemática (fora da meta de 2,5~s)} e, \emph{no limite}, em 2,49~s no portal e 2,37~s no \texttt{/login}: nestes dois a maior rodada passa dos 2,5~s (2,55 e 2,51~s), e a variação entre rodadas, de 0,5 a 0,8~s, é maior que a margem. Em relação à medição de 09/10 (Tabela~\ref{tab:lighthouse-f6}, \texttt{next} 16.3.7), o documento melhorou de 2,89 para 2,68~s e o \texttt{/login}, de 2,58 para 2,37~s, mas as faixas se sobrepõem e a atualização não pode ser creditada com certeza; as conclusões seguem a \adr{ADR-039}: o critério do requisito (LCP real, com rede e CPU estranguladas, de 0,93 a 1,16~s) está cumprido, e o indicador simulado é reportado com a não conformidade declarada no documento com matemática.
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Lighthouse móvel sobre o código final do M-044 (F6 final; mediana de três rodadas; Arquiteto)}\label{tab:lighthouse-final}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Página} & \textbf{Desempenho} & \textbf{LCP (s)} & \textbf{FCP (s)} & \textbf{TBT (ms)} & \textbf{CLS}\\
+\midrule
+Portal & 94 & 2,49 (1,71 a 2,55) & 0,91 & 216 & 0,000\\
+Início de um espaço & 97 & 1,72 (1,70 a 1,86) & 0,76 & 180 & 0,000\\
+Documento (matemática e código) & 94 & 2,68 (2,24 a 2,80) & 1,51 & 209 & 0,002\\
+\texttt{/login} & 97 & 2,37 (1,86 a 2,51) & 0,76 & 172 & 0,000\\
+\bottomrule
+\end{tabular}
+\fonte{Elaborado pelos autores (\texttt{npm run lighthouse}, \en{build} de produção, Windows, Node.js 24, \texttt{next} 16.4.0). Entre parênteses, a menor e a maior rodada do LCP. No \emph{desktop}: 100 de desempenho e LCP de 0,51 a 0,60~s nas quatro páginas.}
+\end{table}
+
 \textbf{Desempenho das leituras de dados (A-018, merge M-018, 05/10/2026).} Antes das páginas públicas, o Dados mediu, em um banco temporário com 50 usuários de 500 conteúdos cada (25\,000 linhas, cinco níveis, cerca de 20\% de rascunhos, três espaços sem raiz publicada e um suspenso) e 1000 notificações de um usuário, 14 chamadas, 200 vezes cada depois de 20 de aquecimento, uma por vez, variando o dono, na máquina de desenvolvimento (Windows, SQLite em disco local; \emph{não} é a VPS-alvo). A mediana de cada função ficou entre 0,3~ms e 5,1~ms, o p95 máximo foi de 9,3~ms (\texttt{getPublicPaths} do espaço inteiro) e o pior caso, de 25,6~ms (\texttt{listNotifications}); a primeira chamada fria mais lenta foi a de \texttt{listPublicSpaces}, com 27,7~ms. Nenhum pior caso passou de 50~ms, e todos os planos de consulta usam índice; os únicos \texttt{SCAN} são o de \texttt{user} em \texttt{listPublicSpaces} (50 usuários, com subconsulta indexada) e o \texttt{TEMP B-TREE} da ordenação de \texttt{listNotifications} (no máximo 1000 linhas do usuário). O arquivo de teste tem tetos generosos (p95 abaixo de 250~ms, sem \texttt{SCAN} nas consultas que devem usar índice) e um controle que prova que ele detecta (um banco sem o índice \texttt{contents\_authorId\_parentId\_order\_idx} faz o teste falhar), e só roda com \texttt{MEDICAO=1} (cerca de 22~s). \texttt{getContentByPath} e \texttt{getPublicPaths} leem a árvore inteira do dono (cerca de 500 linhas, sem o corpo) a cada chamada, por cerca de 4 a 5~ms, folgado para o ISR. Esta medição é de acesso a dados e não substitui o Lighthouse e o LCP do RNF02.
 
 \vitrinefigura[tipo=teste, arquivo=teste-lighthouse-mobile, agente=UI, largura=0.85,

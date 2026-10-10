@@ -179,7 +179,7 @@ A Tabela~\ref{tab:stack} lista as tecnologias e as versões efetivamente declara
 \textbf{Tecnologia} & \textbf{Versão} & \textbf{Papel}\\
 \midrule
 Node.js & $\geq$ 20.9 (24 no desenvolvimento e na imagem) & \en{Runtime} exigido pelo Next.js 16. O \arq{jsdom} dos testes de interação (merge M-011) exige 22.22.2, 24.15 ou superior: com o 22.22.0 o npm só avisa (\texttt{EBADENGINE}) e os testes passam\\
-Next.js & 16.3.7 & \en{Framework} web (App Router, ISR, Route Handlers, Proxy)\\
+Next.js & 16.4.0 & \en{Framework} web (App Router, ISR, Route Handlers, Proxy)\\
 React e React DOM & 19.2.8 & Biblioteca de interface\\
 React Compiler (plugin Babel) & 1.0.0 & Memoização automática (\texttt{reactCompiler: true})\\
 Tailwind CSS & 4.3.3 (instalada; \texttt{\^{}4}) & Estilização por utilitários\\
@@ -199,7 +199,7 @@ rehype-highlight, \arq{lowlight} e \arq{highlight.js} & 7.0.2, 3.3.0 e 11.11.2 &
 react-hook-form & 7.89.0 (MIT) & Formulário do editor, com validação por campo e foco no primeiro erro, sobre os esquemas do Zod por um resolvedor próprio (M09; merge M-011). Só entra no código do editor, carregado sob demanda (12,4~kB comprimidos)\\
 KaTeX & 0.16.47 & Composição de fórmulas; declarado diretamente no merge M-009, pois o \arq{MarkdownRenderer} importa a folha de estilos do pacote\\
 Zod & 4.6.5 (\texttt{dependencies}) & Validação de entrada da API e do comando do administrador (\decisao{D-11}); declarado diretamente no merge M-004 (já era dependência do better-auth)\\
-ESLint e \arq{eslint-config-next} & 9.x e 16.3.7 & Análise estática\\
+ESLint e \arq{eslint-config-next} & 9.x e 16.4.0 & Análise estática\\
 \LaTeX{} (MiKTeX) e \texttt{latexmk} & pdfTeX 4.19 & Composição desta documentação\\
 PlantUML e Graphviz & a instalar & Renderização dos diagramas (\arq{doc/diagrams/})\\
 Git & --- & Controle de versão e fluxo por ramificações\\

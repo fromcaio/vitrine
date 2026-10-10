@@ -660,6 +660,13 @@ r = await settled("/bob/do-admin", (x) => x.status === 200, "espaço reativado")
   r = await call(null, "GET", "/");
   { const fontes = [...r.text.matchAll(/<link\b[^>]*rel="preload"[^>]*>/g)].map((m) => m[0]).filter((t) => /as="font"/.test(t));
     check("A-024: o portal pré-carrega UMA fonte (a sans); a mono fica de fora do caminho crítico", fontes.length === 1, `${fontes.length}: ${fontes.join(" ").slice(0, 300)}`); }
+  // M-044 (P-023): o otimizador de imagens do Next está desligado; nada passa por /_next/image (404, e com os cabeçalhos de segurança)
+  for (const [rotulo, path] of [["imagem local de public/", "/_next/image?url=%2Ffavicon.ico&w=64&q=75"], ["URL remota", "/_next/image?url=https%3A%2F%2Fexemplo.com%2Fa.png&w=64&q=75"], ["URL sem esquema (//)", "/_next/image?url=%2F%2Fexemplo.com%2Fa.png&w=64&q=75"], ["página HTML", "/_next/image?url=%2Flogin&w=64&q=75"], ["rota da API", "/_next/image?url=%2Fapi%2Fusers&w=64&q=75"], ["sem parâmetros", "/_next/image"]]) {
+    const o = await fetch(B + path); await o.arrayBuffer();
+    check(`M-044: /_next/image responde 404 (${rotulo})`, o.status === 404, `${o.status} ${o.headers.get("content-type")}`);
+  }
+  { const o = await fetch(B + "/_next/image?url=%2Ffavicon.ico&w=64&q=75"); await o.arrayBuffer();
+    check("M-044: o 404 do /_next/image traz a CSP e o nosniff", /default-src 'self'/.test(o.headers.get("content-security-policy") ?? "") && o.headers.get("x-content-type-options") === "nosniff", `${o.headers.get("content-security-policy")?.slice(0, 60)} ${o.headers.get("x-content-type-options")}`); }
   // o sistema: logotipo e favicon do administrador (portal, /login, painel e espaços que herdam)
   r = await up(admin, "/api/configuration/logo", png); const logoSys = r.json?.data; check("A-029: o administrador envia o logotipo do SISTEMA", r.status === 200 && ID.test(logoSys?.id ?? ""), `${r.status} ${r.text.slice(0, 160)}`);
   r = await up(admin, "/api/configuration/favicon", pngB); const favSys = r.json?.data; check("A-029: o administrador envia o favicon do SISTEMA", r.status === 200 && favSys?.width === 64, `${r.status} ${r.text.slice(0, 160)}`);
