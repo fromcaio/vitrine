@@ -9,6 +9,8 @@
 // (`test-results/acessibilidade.txt`), cada uma corrigida ou justificada. Nenhuma regra é desligada e nenhum
 // elemento é excluído da varredura. Os testes-canário provam que a varredura FALHA diante de uma violação
 // conhecida (botão sem nome, imagem sem `alt`, campo sem rótulo, contraste abaixo de 4,5:1).
+import sharp from "sharp";
+import { waitForHydration } from "./support/auth.js";
 import { ADMIN, e2eEnvironment } from "./support/env.js";
 import { adminLogin, apiLogin, createAccount, createContent, openSession } from "./support/accounts.js";
 import { BLOCKING, results, scan, scanAll, writeReport, report } from "./support/a11y.js";
@@ -388,6 +390,233 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
       await expect(page.getByRole("dialog")).toBeVisible();
       await check(page, "diálogo: moderação, enviar com motivo");
     });
+  });
+
+  // ---------------------------------------------------------------------------------------------
+  // Estados do épico v1 (A-030): imagens (logotipo, favicon, avatar), rodapé por ícones, diretório com avatares
+  // e a remoção do avatar. São 18 estados novos, cada um nos dois modos e nas duas larguras (72 varreduras).
+  // O estado é montado pela API (rápido e determinístico) e pela interface, nunca por tempo fixo.
+  // ---------------------------------------------------------------------------------------------
+
+  const IVO = { email: "ivo-a11y@exemplo.test", name: "Ivo A11y", handle: "a11y-ivo", password: "senha-ivo-a11y-9" };
+  /** Os oito primeiros ícones do rodapé: o teto da RN17. */
+  const LINKS_8 = ["github", "linkedin", "instagram", "youtube", "x", "facebook", "bluesky", "mastodon"].map((icon) => ({ icon, url: `https://exemplo.test/${icon}` }));
+  const png = (width, height, background) => sharp({ create: { width, height, channels: 3, background } }).png().toBuffer();
+  const multipart = (name, buffer) => ({ multipart: { file: { name, mimeType: "image/png", buffer } } });
+  /** @type {import("@playwright/test").APIRequestContext} */
+  let ivo;
+
+  /** Abre a página até `done(page)` ser verdadeiro (as páginas públicas se revalidam sob demanda). @param {import("@playwright/test").Page} page */
+  async function gotoUntil(page, path, done) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await page.goto(path);
+      if (await done(page)) return;
+      await page.waitForTimeout(300);
+    }
+    throw new Error(`a página ${path} não chegou ao estado esperado`);
+  }
+
+  test("preparo: a conta do Ivo e as imagens e o rodapé do sistema", async ({ playwright }) => {
+    const account = await createAccount(playwright, admin, IVO);
+    ivo = await apiLogin(playwright, account);
+    await createContent(ivo, { title: "Início do Ivo", slug: "inicio", type: "DOCUMENT", body: "Texto do Ivo." });
+    expect((await admin.put("/api/configuration/logo", multipart("logo-sistema.png", await png(900, 300, "#0f766e")))).status()).toBe(200);
+    expect((await admin.put("/api/configuration/favicon", multipart("favicon-sistema.png", await png(200, 200, "#7e22ce")))).status()).toBe(200);
+    expect((await admin.put("/api/configuration/footer-links", { data: { links: LINKS_8.slice(0, 3) } })).status()).toBe(200);
+  });
+
+  test("usuário: aparência herdada, com as imagens do sistema e o rodapé do espaço", async ({ browser }) => {
+    expect((await ivo.put("/api/footer-links", { data: { links: LINKS_8.slice(0, 2) } })).status()).toBe(200);
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await expect(page.getByRole("button", { name: "Adicionar link" })).toBeVisible();
+      await check(page, "usuário: aparência herdada com imagens do sistema e rodapé");
+    });
+  });
+
+  test("usuário: aparência própria (logotipo, favicon e paletas do espaço)", async ({ browser }) => {
+    expect((await ivo.put("/api/appearance/logo", multipart("logo-ivo.png", await png(600, 300, "#c81e3c")))).status()).toBe(200);
+    expect((await ivo.put("/api/appearance/favicon", multipart("favicon-ivo.png", await png(128, 128, "#1e90ff")))).status()).toBe(200);
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByRole("button", { name: "Definir uma paleta clara própria" }).click();
+      await page.getByRole("button", { name: "Definir uma paleta noturna própria" }).click();
+      await expect(page.getByRole("img", { name: "Logotipo atual" })).toBeVisible();
+      await check(page, "usuário: aparência própria com logotipo, favicon e paletas");
+    });
+  });
+
+  test("admin: aparência do sistema com o rodapé de 8 links (o teto)", async ({ browser }) => {
+    expect((await admin.put("/api/configuration/footer-links", { data: { links: LINKS_8 } })).status()).toBe(200);
+    await withSession(browser, ADMIN, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await expect(page.getByText("O rodapé aceita no máximo 8 links.").first()).toBeVisible();
+      await check(page, "admin: aparência do sistema com o rodapé de 8 links");
+    });
+  });
+
+  test("imagem: o formato não aceito (recusado no navegador, antes do envio)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByLabel("Arquivo: logotipo").setInputFiles({ name: "nota.txt", mimeType: "text/plain", buffer: Buffer.from("isto não é uma imagem") });
+      await expect(page.getByText("Formato não aceito. Envie uma imagem PNG, JPEG ou WebP.")).toBeVisible();
+      await check(page, "imagem: formato não aceito");
+    });
+  });
+
+  test("imagem: a pré-visualização do arquivo escolhido (data:, ainda não enviado)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByLabel("Arquivo: logotipo").setInputFiles({ name: "novo-logo.png", mimeType: "image/png", buffer: await png(800, 300, "#c2410c") });
+      await expect(page.getByRole("img", { name: "Pré-visualização: logotipo" })).toHaveAttribute("src", /^data:image\/png;base64,/);
+      await check(page, "imagem: pré-visualização do arquivo escolhido");
+    });
+  });
+
+  test("imagem: o erro do servidor (arquivo que diz ser PNG e não é: 422 INVALID_IMAGE)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByLabel("Arquivo: logotipo").setInputFiles({ name: "falso.png", mimeType: "image/png", buffer: Buffer.from("isto não é um PNG de verdade") });
+      await page.getByRole("button", { name: "Enviar logotipo" }).click();
+      await expect(page.getByText("A imagem não foi aceita.", { exact: false })).toBeVisible();
+      await check(page, "imagem: erro do servidor (imagem inválida)");
+    });
+  });
+
+  test("imagem: enviada (o logotipo novo, com a confirmação)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByLabel("Arquivo: logotipo").setInputFiles({ name: "logo-enviado.png", mimeType: "image/png", buffer: await png(700, 300, "#4d7c0f") });
+      await page.getByRole("button", { name: "Enviar logotipo" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Logotipo enviado." })).toBeVisible();
+      await check(page, "imagem: logotipo enviado");
+    });
+  });
+
+  test("rodapé: o erro de endereço (http:// não é aceito)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByRole("button", { name: "Adicionar link" }).click();
+      await page.getByLabel("Endereço (https://…)").last().fill("http://sem-https.exemplo.test");
+      await page.getByRole("button", { name: "Salvar o rodapé" }).click();
+      await expect(page.getByText("Use um endereço completo que comece com https://.")).toBeVisible();
+      await check(page, "rodapé: erro de endereço");
+    });
+  });
+
+  test("rodapé: o ícone de e-mail, com o aviso de que o e-mail fica público", async ({ browser }) => {
+    expect((await ivo.put("/api/footer-links", { data: { links: [LINKS_8[0], { icon: "email", url: "mailto:ivo@exemplo.test" }] } })).status()).toBe(200);
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await expect(page.getByText("O e-mail fica público: qualquer pessoa que abrir o rodapé poderá vê-lo.")).toBeVisible();
+      await check(page, "rodapé: e-mail público");
+    });
+  });
+
+  test("rodapé: a ordem dos links (Subir e Descer, com o foco no botão)", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/aparencia");
+      await ready(page);
+      await waitForHydration(page);
+      await page.getByRole("button", { name: /^Descer o link 1 / }).click();
+      await expect(page.getByRole("group", { name: /^Link 1: / })).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Subir o link 2 / })).toBeVisible();
+      await check(page, "rodapé: ordem dos links");
+    });
+  });
+
+  test("perfil: sem avatar (as iniciais) e com avatar enviado", async ({ browser }) => {
+    await withSession(browser, IVO, async (page) => {
+      await page.goto("/admin/perfil");
+      await ready(page);
+      await waitForHydration(page);
+      await expect(page.getByLabel("Arquivo: avatar")).toBeVisible();
+      await check(page, "perfil: sem avatar");
+    });
+    expect((await ana.put("/api/users/me/avatar", multipart("avatar-ana.png", await png(400, 400, "#7e22ce")))).status()).toBe(200);
+    await withSession(browser, ANA, async (page) => {
+      await page.goto("/admin/perfil");
+      await ready(page);
+      await waitForHydration(page);
+      await expect(page.getByRole("img", { name: "Avatar atual" })).toBeVisible();
+      await check(page, "perfil: com avatar");
+    });
+  });
+
+  test("público: o diretório do portal com avatares", async ({ page }) => {
+    await gotoUntil(page, "/", async (current) => (await current.locator("article", { hasText: `@${ANA.handle}` }).locator("img").count()) > 0);
+    await ready(page);
+    await check(page, "público: diretório do portal com avatares");
+  });
+
+  test("admin: a lista de usuários com avatares", async ({ browser }) => {
+    await withSession(browser, ADMIN, async (page) => {
+      await page.goto("/admin/usuarios");
+      await expect(page.getByRole("region", { name: "Usuários" })).toBeVisible();
+      await waitForHydration(page);
+      await page.getByLabel("Buscar por e-mail ou nome").fill(ANA.email);
+      await page.getByRole("button", { name: "Buscar", exact: true }).click();
+      await expect(page.getByRole("group", { name: `Ações de ${ANA.name}` })).toBeVisible();
+      await check(page, "admin: usuários com avatares");
+    });
+  });
+
+  test("diálogo: Remover avatar (aberto, com erro por falta do motivo e depois removido)", async ({ browser }) => {
+    await withSession(browser, ADMIN, async (page) => {
+      await page.goto("/admin/usuarios");
+      await expect(page.getByRole("region", { name: "Usuários" })).toBeVisible();
+      await waitForHydration(page);
+      await page.getByLabel("Buscar por e-mail ou nome").fill(ANA.email);
+      await page.getByRole("button", { name: "Buscar", exact: true }).click();
+      await page.getByRole("group", { name: `Ações de ${ANA.name}` }).getByRole("button", { name: `Remover avatar: ${ANA.name}` }).click();
+      const dialog = page.getByRole("alertdialog", { name: `Remover o avatar de ${ANA.name}` });
+      await expect(dialog).toBeVisible();
+      await check(page, "diálogo: Remover avatar aberto");
+
+      await dialog.getByRole("button", { name: "Remover avatar" }).click(); // sem o motivo: recusado, o diálogo segue aberto
+      await expect(dialog.getByText(/motivo/i).first()).toBeVisible();
+      await expect(dialog).toBeVisible();
+      await check(page, "diálogo: Remover avatar com erro (sem o motivo)");
+
+      await dialog.getByLabel("Motivo").fill("Imagem imprópria para o ambiente");
+      await dialog.getByRole("button", { name: "Remover avatar" }).click();
+      await expect(page.getByRole("alertdialog")).toHaveCount(0);
+      await expect(page.getByText(`O avatar de ${ANA.name} foi removido.`)).toBeVisible();
+      await check(page, "diálogo: avatar removido (confirmação)");
+    });
+  });
+
+  test("público: o espaço com o rodapé de 8 ícones", async ({ page }) => {
+    expect((await ana.put("/api/footer-links", { data: { links: LINKS_8 } })).status()).toBe(200);
+    await gotoUntil(page, `/${ANA.handle}`, async (current) => (await current.locator('footer a[href^="https://exemplo.test/"]').count()) === 8);
+    await ready(page);
+    await check(page, "público: espaço com o rodapé de 8 ícones");
+  });
+
+  test("preparo: devolve o sistema ao estado de antes (sem imagens nem rodapé)", async () => {
+    await admin.delete("/api/configuration/logo");
+    await admin.delete("/api/configuration/favicon");
+    await admin.put("/api/configuration/footer-links", { data: { links: [] } });
+    await ana.put("/api/footer-links", { data: { links: [] } });
+    await ivo?.dispose();
   });
 
   // ---------------------------------------------------------------------------------------------
