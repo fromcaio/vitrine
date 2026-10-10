@@ -9,7 +9,7 @@ Este capítulo registra a situação da verificação do sistema: a cobertura do
 
 \section{Cobertura dos Requisitos}\label{sec:res-requisitos}
 
-A Tabela~\ref{tab:res-rf} registra a situação final de cada requisito funcional e a evidência que a sustenta (caso de teste aprovado, captura de tela ou trecho de código). A situação assume um dos valores: \emph{atendido}, \emph{parcial}, \emph{não atendido} ou \emph{adiado}. Até a conclusão da implementação, todas as células permanecem sem preenchimento.
+A Tabela~\ref{tab:res-rf} registra a situação final de cada requisito funcional e a evidência que a sustenta (caso de teste aprovado, captura de tela ou trecho de código). A situação assume um dos valores: \emph{atendido}, \emph{parcial}, \emph{não atendido} ou \emph{adiado}. A situação foi preenchida no fechamento da fase F6 (A-030, 10/10/2026), apenas com evidências existentes.
 
 \begin{longtable}{@{}L{1.4cm}L{4.4cm}L{2.4cm}L{5.4cm}@{}}
 \caption{Situação dos requisitos funcionais}\label{tab:res-rf}\\
@@ -23,36 +23,51 @@ A Tabela~\ref{tab:res-rf} registra a situação final de cada requisito funciona
 \endhead
 \bottomrule
 \endfoot
-RF01 & Autenticação & --- & ---\\
-RF02 & Estrutura hierárquica & --- & ---\\
-RF03 & Ordenação & --- & ---\\
-RF04 & Personalização & --- & ---\\
-RF05 & Criar documento & --- & ---\\
-RF06 & Criar coleção & --- & ---\\
-RF07 & Editar e excluir & --- & ---\\
-RF08 & Editor Markdown & --- & ---\\
-RF09 & Fórmulas matemáticas & --- & ---\\
-RF10 & Realce de sintaxe & --- & ---\\
-RF11 & Markdown estendido & --- & ---\\
-RF12 & \en{Sidebar} hierárquica & --- & ---\\
-RF13 & Barra superior & --- & ---\\
-RF14 & Página de documento & --- & ---\\
-RF15 & Rascunho local & --- & ---\\
-RF16 & Publicar versão & --- & ---\\
-RF17 & Invalidação de cache & --- & ---\\
-RF18 & Identidade do site & --- & ---\\
-RF19 & Paleta de cores & --- & ---\\
-RF20 & Encerrar sessão & --- & ---\\
-RF21 & Autorização de escrita & --- & ---\\
-RF22 & \en{Bootstrap} do administrador & --- & ---\\
-RF23 & Configuração inicial & --- & ---\\
-RF24 & Rodapé configurável & --- & ---\\
-RF25 & Metadados de SEO & --- & ---\\
-RF26 & Estado de publicação & --- & ---\\
+RF01 & Autenticação & atendido & CT01 (Vitest); CT02 (Vitest); CT03 (Vitest)\\
+RF02 & Estrutura hierárquica & atendido & CT07 (Vitest)\\
+RF03 & Ordenação & atendido & CT11 (Vitest)\\
+RF04 & Personalização & atendido & Requisito agregador: ver RF18, RF19, RF31\\
+RF05 & Criar documento & atendido & CT07 (Vitest)\\
+RF06 & Criar coleção & atendido & Testes que citam o RF: \arq{tests/core/admin-conteudo-pages.test.js}, \arq{tests/ui/content-tree-client.test.js}, \arq{tests/ui/content-tree-model.test.js}\\
+RF07 & Editar e excluir & atendido & CT12 (e2e, Vitest)\\
+RF08 & Editor Markdown & atendido & CT19 (e2e, Vitest)\\
+RF09 & Fórmulas matemáticas & atendido & CT15 (Vitest)\\
+RF10 & Realce de sintaxe & atendido & CT18 (Vitest)\\
+RF11 & Markdown estendido & atendido & CT17 (Vitest)\\
+RF12 & \en{Sidebar} hierárquica & atendido & CT26 (Vitest, e2e)\\
+RF13 & Barra superior & atendido & Testes que citam o RF: \arq{tests/ui/space-layout.test.js}, \arq{tests/ui/space-paths.test.js}\\
+RF14 & Página de documento & atendido & CT13 (Vitest)\\
+RF15 & Rascunho local & atendido & CT20 (e2e, Vitest)\\
+RF16 & Publicar versão & atendido & CT21 (e2e, Vitest); CT53 (e2e, Vitest)\\
+RF17 & Invalidação de cache & atendido & CT21 (e2e, Vitest); CT22 (Vitest); CT32 (Vitest); CT44 (e2e, Vitest)\\
+RF18 & Identidade do site & atendido & Testes que citam o RF: \arq{tests/core/admin-forms-pages.test.js}, \arq{tests/ui/appearance-form.test.js}, \arq{e2e/painel.spec.js}\\
+RF19 & Paleta de cores & atendido & CT23 (e2e, Vitest)\\
+RF20 & Encerrar sessão & atendido & CT05 (Vitest)\\
+RF21 & Autorização & atendido & CT03 (Vitest); CT04 (e2e, Vitest); CT37 (e2e, Vitest)\\
+RF22 & Bootstrap do administrador & atendido & CT06 (e2e, Vitest)\\
+RF23 & Configuração inicial & atendido & CT28 (Vitest); CT34 (Vitest)\\
+RF24 & Rodapé configurável & atendido & CT33 (Vitest); CT62 (e2e, Vitest); CT70 (Vitest)\\
+RF25 & Metadados de SEO & atendido & CT25 (e2e, Vitest); CT31 (e2e, Vitest)\\
+RF26 & Estado de publicação & atendido & CT31 (e2e, Vitest); CT32 (Vitest)\\
+RF27 & Gestão de usuários & atendido & CT06 (e2e, Vitest); CT41 (e2e, Vitest); CT42 (e2e, Vitest); CT52 (e2e, Vitest)\\
+RF28 & Perfil e troca de senha & atendido & CT40 (e2e, Vitest); CT52 (e2e, Vitest)\\
+RF29 & Espaço público por usuário & atendido & CT14 (e2e, Vitest); CT43 (e2e, Vitest)\\
+RF30 & Portal do administrador & atendido & CT46 (e2e, Vitest)\\
+RF31 & Aparência por proprietário e paleta noturna & atendido & CT49 (Vitest); CT64 (e2e, Vitest); CT67 (e2e); CT68 (e2e, Vitest); CT70 (Vitest)\\
+RF32 & Modo de cor do leitor & atendido & CT47 (e2e, Vitest); CT63 (e2e); CT64 (e2e, Vitest)\\
+RF33 & Notificações internas & atendido & CT50 (e2e, Vitest); CT54 (Vitest)\\
+RF34 & Moderação & atendido & CT51 (e2e, Vitest); CT53 (e2e, Vitest)\\
+RF35 & Envio de imagens & atendido & CT56 (Vitest, e2e); CT57 (e2e, Vitest); CT58 (Vitest); CT59 (Vitest); CT60 (e2e, Vitest); CT70 (Vitest); CT71 (Vitest)\\
+RF36 & Avatar & atendido & CT61 (e2e, Vitest)\\
+RF37 & Barra superior com logotipo e nome & atendido & CT69 (e2e)\\
+RF38 & Título do diretório e ícones do modo & atendido & CT63 (e2e); CT69 (e2e)\\
+RF39 & Navegação entre o site e o painel & atendido & CT66 (Vitest)\\
+RF40 & Notificações em painel suspenso & atendido & CT65 (Vitest, e2e)\\
+RF41 & Aparência efetiva e seletor do administrador & atendido & CT67 (e2e); CT68 (e2e, Vitest)\\
 \end{longtable}
 \fonte{Elaborado pelos autores.}
 
-\vitrinependencia{Arquiteto}{Preencher a Tabela de cobertura de requisitos ao final da fase F6, usando somente evidências existentes (casos de teste aprovados, capturas, trechos de código). Nenhum valor deve ser estimado.}
+\textbf{Método e limites da Tabela~\ref{tab:res-rf}.} A situação \emph{atendido} significa que todos os casos de teste que citam o requisito (coluna ``Requisitos'' da Tabela~\ref{tab:casos-teste}) têm ao menos um teste automatizado que os exercita e que a suíte final passa: Vitest (3923 testes aprovados e 40 ignorados, em Linux), \en{end-to-end} (116 e 1 ignorado) e acessibilidade (57), mais o ensaio HTTP do Arquiteto (496 verificações, também contra a imagem Docker) e as mutações. O vínculo entre o caso e o arquivo de teste é o rótulo \texttt{CTnn} no próprio teste; os doze casos sem rótulo (CT26, CT27, CT30, CT49, CT58, CT60, CT61, CT62, CT65, CT66, CT70 e CT71) foram associados à mão, pelo tema, a arquivos existentes, e quatro requisitos sem caso (RF04, agregador de RF18, RF19 e RF31; RF06; RF13; RF18) têm como evidência os testes que citam o requisito. A tabela \emph{não} mede a qualidade de cada asserção: ela mostra que há prova automática, e não que a prova é completa; as mutações do Arquiteto são a medida disso para os pontos de segurança. Ficam fora, e declarados: a instalação em uma VPS Linux limpa com HTTPS (CT29), a medição em aparelho real, a leitura por leitor de tela e a validação de usabilidade com participantes (RNF04).
 
 \section{Métricas de Qualidade}\label{sec:res-metricas}
 
@@ -68,13 +83,13 @@ A Tabela~\ref{tab:res-metricas} confronta as metas dos requisitos não funcionai
 RNF02 & LCP real, com rede e CPU estranguladas (critério do requisito, \adr{ADR-039}) & $\leq$ 2,5 s & 0,93 a 1,16 s nas quatro páginas & Sim\\
 RNF02 & LCP no Lighthouse móvel simulado (indicador) & $\leq$ 2,5 s & Espaço 1,72 s; \texttt{/login} 2,37 s; portal 2,49 s; documento 2,68 s & Mediana de 3: não, no documento; sim nas demais (portal e \texttt{/login} com a pior rodada acima de 2,5 s)\\
 RNF02 & Pontuação de desempenho no Lighthouse móvel (indicador) & $\geq$ 90 & 94 a 97 nas quatro páginas & Sim\\
-RNF05 & Pontuação de acessibilidade & $\geq$ 90 e WCAG AA & --- & ---\\
-RNF04 & Pontuação SUS média & $\geq$ 68 & --- & ---\\
-RNF04 & Taxa de conclusão das tarefas T1 a T6 & $\geq$ 80\% & --- & ---\\
-RNF03 & Vulnerabilidades críticas em dependências & 0 & --- & ---\\
-RNF01 & Comandos da instalação limpa (Apêndice~\ref{ap:implantacao}) & Informativo & --- & ---\\
-RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & --- & ---\\
---- & Casos de teste aprovados / total & Essenciais: 100\% & --- & ---\\
+RNF05 & Pontuação de acessibilidade & $\geq$ 90 e WCAG AA & Lighthouse: 100 nas quatro páginas (móvel e desktop); axe-core: 56 estados, 224 varreduras (WCAG 2.0 e 2.1, A e AA, mais boas práticas), nenhuma violação & Sim (leitura por leitor de tela pendente)\\
+RNF04 & Pontuação SUS média & $\geq$ 68 & Não medida (a validação de usabilidade com participantes não foi realizada) & ---\\
+RNF04 & Taxa de conclusão das tarefas T1 a T6 & $\geq$ 80\% & Não medida (idem) & ---\\
+RNF03 & Vulnerabilidades críticas em dependências & 0 & \texttt{npm audit -{}-omit=dev} (10/10/2026): 0 críticas; 8 alertas, 4 altos (cadeia do Prisma, \adr{ADR-019}) e 4 baixos (\arq{katex}), aceitos & Sim\\
+RNF01 & Comandos da instalação limpa (Apêndice~\ref{ap:implantacao}) & Informativo & 7 passos (\texttt{docker compose build}, \texttt{migrate deploy}, \texttt{db seed}, \texttt{admin:create}, \texttt{up -d}); CT29 em contêiner, com o \texttt{sharp}, em 10/10/2026 & Parcial (VPS limpa pendente)\\
+RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & 0 / 0 (\texttt{build} com e sem banco, Windows e Linux) & Sim\\
+--- & Casos de teste aprovados / total & Essenciais: 100\% & 70 de 71 com teste automatizado aprovado (Vitest 3923, e2e 116, a11y 57, ensaio HTTP 496); o CT29 foi executado em contêiner & Sim nos essenciais; CT29 parcial\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores. As linhas do RNF02 são as medições do Arquiteto sobre a \texttt{main} integrada (F6 final, sobre a \texttt{main} com o M-044, 10/10/2026, Capítulo~\ref{cap:testes}); a divergência entre o critério real e o indicador simulado é declarada na \adr{ADR-039} (causas: CSS bloqueante e KaTeX; melhoria no \emph{backlog} da v1.1), e a medição em aparelho real segue pendente. As demais medições serão preenchidas ao término da verificação.}
@@ -89,11 +104,11 @@ RNF08 & Erros de \en{lint} / Falhas de \en{build} & 0 / 0 & --- & ---\\
 \toprule
 \textbf{Objetivo} & \textbf{Resumo} & \textbf{Evidência} & \textbf{Situação}\\
 \midrule
-OE1 & Publicação independente por clonagem e implantação simples (imagem Docker em VPS) & Apêndice~\ref{ap:implantacao}; CT29 & ---\\
-OE2 & Editor Markdown com fórmulas e realce de sintaxe & RF08 a RF11; CT15 a CT19 & ---\\
-OE3 & Personalização visual sem novo \en{build} & RF19; CT23, CT24 & ---\\
-OE4 & Arquitetura de dados portátil (Prisma e SQLite) & Seção~\ref{sec:arq-dados}; CT28, CT30 & ---\\
-OE5 & Autenticação segura (better-auth) & RF01, RF20 a RF22; CT01 a CT06 & ---\\
+OE1 & Publicação independente por clonagem e implantação simples (imagem Docker em VPS) & Apêndice~\ref{ap:implantacao}; CT29 & Parcial: o roteiro foi executado em contêiner (duas vezes, a última com o \texttt{sharp}); a VPS limpa com HTTPS está pendente\\
+OE2 & Editor Markdown com fórmulas e realce de sintaxe & RF08 a RF11; CT15 a CT19 & Atendido (testes automatizados aprovados)\\
+OE3 & Personalização visual sem novo \en{build} & RF19; CT23, CT24 & Atendido (e2e e ensaio HTTP: a mudança de aparência aparece sem novo \en{build})\\
+OE4 & Arquitetura de dados portátil (Prisma e SQLite) & Seção~\ref{sec:arq-dados}; CT28, CT30 & Atendido (migração, \en{seed} e cópia de segurança verificados)\\
+OE5 & Autenticação segura (better-auth) & RF01, RF20 a RF22; CT01 a CT06 & Atendido (testes automatizados aprovados)\\
 \bottomrule
 \end{tabularx}
 \fonte{Elaborado pelos autores.}
@@ -101,7 +116,7 @@ OE5 & Autenticação segura (better-auth) & RF01, RF20 a RF22; CT01 a CT06 & ---
 
 \section{Limitações Conhecidas}\label{sec:res-limitacoes}
 
-São limitações conhecidas desta versão: administrador único, sem papéis (\decisao{D-13}); ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de mídia (\decisao{D-10}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação de usabilidade, que envolve poucos participantes e um contexto específico de uso (docentes e pesquisadores). A modelagem da interface partiu de protótipos de baixa fidelidade \cite{reis2026ic}.
+São limitações conhecidas desta versão: ausência de histórico de versões do conteúdo, que se limita ao estado de rascunho ou publicado (\decisao{D-15}); ausência de busca textual e de envio de imagens \emph{dentro dos documentos} (o envio vale só para o logotipo, o \emph{favicon} e o avatar, \adr{ADR-034}; as imagens externas do Markdown seguem permitidas pela CSP, risco aceito); papéis limitados a \texttt{admin} e \texttt{user} (\adr{ADR-023}); implantação restrita a ambientes com disco persistente, como uma VPS com Docker, sem suporte a plataformas \emph{serverless} (\decisao{D-04}); e o alcance da validação de usabilidade, que envolve poucos participantes e um contexto específico de uso (docentes e pesquisadores). A modelagem da interface partiu de protótipos de baixa fidelidade \cite{reis2026ic}.
 
 Há ainda limitações de segurança e de operação aceitas conscientemente:
 
@@ -110,7 +125,8 @@ Há ainda limitações de segurança e de operação aceitas conscientemente:
   \item \textbf{Ferramentas de desenvolvimento (risco R18, impacto baixo).} Três avisos da instalação, sem efeito sobre o produto: o \arq{prebuild-install} 7.1.3, que o \arq{better-sqlite3} usa para baixar o binário, está descontinuado; o \arq{eslint} 9.39.5 não tem mais suporte; e o \arq{jsdom} 30, dos testes de interação, exige o Node.js 22.22.2, 24.15 ou superior, enquanto a VM de nuvem do Arquiteto tem o 22.22.0 (o \texttt{npm ci} só avisa \texttt{EBADENGINE}, e os 947 testes passam). O Node 24 da imagem e do desenvolvimento os atende; a atualização do \arq{eslint} e a do \arq{better-sqlite3} são acompanhadas a cada entrega;
   \item \textbf{Limitação de tentativas em memória.} Os contadores do better-auth ficam na memória de um único processo; isso é coerente com a instância única (\adr{ADR-011}), mas zera a cada reinício e depende de o \en{proxy} definir o cabeçalho \texttt{x-forwarded-for};
   \item \textbf{Sem envio de e-mail.} Desde o M16 há os papéis \texttt{admin} e \texttt{user}, e o comando \texttt{admin:reset-password} redefine a senha de qualquer conta (o \texttt{admin:create} nunca altera a senha de um administrador existente, mas recupera o acesso quando não resta administrador ativo); como não há e-mail, a senha provisória é repassada pelo administrador por um canal próprio e exibida uma única vez, e a exclusão de usuário com conteúdo exige escolher entre transferir e apagar;
-  \item \textbf{Painel provisório.} O login é definitivo desde o merge M-005, mas o painel tem apenas a casca e uma visão geral provisória: a árvore de conteúdos e os formulários de conteúdo e de configuração (M10 e M11) ainda não existem;
+  \item \textbf{Painel sem rodapé no \texttt{/login} e no painel.} O rodapé por ícones aparece no portal e nos espaços; no \texttt{/login} e no painel ele é \emph{backlog} da v1.1;
+  \item \textbf{Registro do 503 \texttt{BUSY} e custo no navegador.} O registro do 503 não traz a rota (v1.1), e um documento denso em fórmulas custa tempo na \emph{thread} principal do navegador, sem limite pelo peso do DOM (v1.1, Seção~\ref{sec:arq-seguranca});
   \item \textbf{Paleta padrão e contraste (resolvido no esquema pelo M-012).} A \adr{ADR-031} fixou a nova paleta padrão clara, sem avisos, e o merge M-012 a aplicou ao esquema, ao \en{seed} e, onde ainda valiam os padrões antigos, às instalações existentes. Restam os valores de reserva do \arq{globals.css}, que a UI atualiza no M18. Com a paleta padrão \emph{anterior} da RN08, a cor primária (3,68:1) e a de destaque (2,15:1) ficam abaixo dos mínimos do par de contraste (4,5:1 e 3:1; Seção~\ref{sec:arq-contraste}), de modo que o primeiro salvamento da configuração devolve dois avisos. O texto sobre a primária atende ao nível AA por \texttt{readableTextOn} (\adr{ADR-020}), mas texto na cor primária sobre a página (links) não atenderia com essa paleta; trocar a paleta padrão é uma decisão do Engenheiro Chefe e exigiria rever a RN08 e criar uma migração;
   \item \textbf{Tema nas páginas estáticas.} O \en{build} não consulta o banco (\adr{ADR-021}): a página inicial do \en{scaffold} e a de erro 404 saem dele com os padrões do CSS e assumem a paleta do banco só na primeira revalidação, o que, como se mediu em contêiner, se repete a cada \emph{recriação} do contêiner (\texttt{down} e \texttt{up -d}, ou uma nova imagem), e não em um \texttt{restart}. É comportamento por projeto (\en{by design}); o passo manual de salvar a configuração do site consta do Apêndice~\ref{ap:implantacao} (Seção~\ref{sec:arq-tema-estatico}). Para essas páginas o efeito é visual; as páginas públicas (M07) nascerão sob demanda;
   \item \textbf{CSP com \texttt{'unsafe-inline'}.} A política de segurança de conteúdo não usa \en{nonce}, para manter a ISR, e admite \en{scripts} inline (os de hidratação do Next.js) e atributos de estilo (o tema e o KaTeX): barra \en{scripts} de outras origens e \texttt{eval}, mas não um \en{script} inline injetado, de modo que a defesa contra XSS continua dependendo de não haver HTML bruto (\adr{ADR-022}; Seção~\ref{sec:arq-csp});
@@ -133,8 +149,8 @@ Do relatório de IC \cite{reis2026ic} permanecem como propostas de continuidade:
   \item implementar a renderização nativa de gráficos de funções de uma variável (gráficos 2D).
 \end{itemize}
 
-Da consolidação do monólito surgem novas linhas de evolução: um comando de redefinição da senha do administrador, sem depender de e-mail; papéis e permissões com o \en{plugin} \texttt{admin} do better-auth (\decisao{D-13}); histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio e gerenciamento de mídia (\decisao{D-10}); busca textual no conteúdo; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; endurecimento da CSP, retirando o \texttt{'unsafe-inline'} de \texttt{script-src} quando o Subresource Integrity do Next.js deixar de ser experimental (\adr{ADR-022}); e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
+Da consolidação do monólito surgem novas linhas de evolução: histórico de versões do conteúdo, além do estado de rascunho ou publicado já adotado (\decisao{D-15}); envio de imagens de conteúdo, com a CSP sem \texttt{https:} no \texttt{img-src} (\emph{backlog} da v1.1, \adr{ADR-034}); busca textual no conteúdo; redução do CSS bloqueante e do peso do KaTeX, para o indicador simulado do RNF02 (\adr{ADR-039}); atualização do KaTeX junto do \texttt{rehype-katex}; limite pelo peso do DOM gerado; a rota no registro do 503 \texttt{BUSY}; rodapé no \texttt{/login} e no painel; internacionalização (\req{RNF12}); exportação e importação do conteúdo em Markdown, para reforçar a soberania dos dados; temas pré-definidos; endurecimento da CSP, retirando o \texttt{'unsafe-inline'} de \texttt{script-src} quando o Subresource Integrity do Next.js deixar de ser experimental (\adr{ADR-022}); e suporte a plataformas \emph{serverless} por meio de um banco remoto compatível, como libSQL/Turso (\adr{ADR-014}).
 
 \section{Síntese do Capítulo}
 
-O capítulo estrutura o registro da situação da verificação --- cobertura de requisitos, metas de qualidade e atendimento aos objetivos do produto ---, lista as limitações conhecidas e o roteiro de evolução. Os valores serão preenchidos após a verificação, sem estimativas.
+O capítulo estrutura o registro da situação da verificação --- cobertura de requisitos, metas de qualidade e atendimento aos objetivos do produto ---, lista as limitações conhecidas e o roteiro de evolução. Os valores foram preenchidos no fechamento da fase F6 (A-030, 10/10/2026), só com evidências existentes: os requisitos funcionais estão atendidos pelos casos de teste automatizados; entre as metas de qualidade, o RNF02 está cumprido no critério com rede e CPU estranguladas e não conforme, pelo indicador simulado, no documento com matemática (\adr{ADR-039}); e a instalação em uma VPS com HTTPS, a medição em aparelho real, a leitura por leitor de tela e a validação de usabilidade seguem pendentes.
