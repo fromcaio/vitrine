@@ -2,6 +2,13 @@
 // fila de ícones dos links que o dono escolheu (até 8, um por ícone, vazia por padrão: o rodapé não
 // herda). Server Component de apresentação, só com tokens de tema.
 //
+// Leiaute (P-024, itens 1 e 2): até o ponto de quebra `md` (768 px) o texto e a fila de ícones ficam um
+// sobre o outro, CENTRALIZADOS, com os ícones ACIMA do texto (`flex-col-reverse`: só a ordem visual muda;
+// no DOM o texto vem antes da `nav`, e é essa a ordem de leitura). Do `md` em diante é uma linha só
+// (`flex-nowrap`): o texto à esquerda, que encolhe e quebra dentro da própria caixa (`min-w-0`), e os
+// ícones à direita (`shrink-0`). Não há estado intermediário: 8 ícones (cerca de 376 px) e o nome mais
+// longo permitido cabem na linha a partir do `md`, e abaixo dele o empilhado centralizado sempre cabe.
+//
 // O que vira `href` passa por `renderableLinks` mesmo vindo do servidor (defesa em profundidade): só
 // `https://` e, no ícone `email`, `mailto:` com e-mail válido. Os `https` abrem em nova aba com
 // `rel="noopener noreferrer"`; o nome acessível é o do ícone (o "abre em uma nova aba" fica na
@@ -21,13 +28,13 @@ export function Footer({ name, links = null, year = new Date().getFullYear() }) 
   const items = renderableLinks(links);
   return (
     <footer className="mt-auto border-t border-border bg-surface px-4 py-6 text-sm text-foreground">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-        <p className="min-w-0 break-words">
+      <div className="flex flex-col-reverse items-center gap-3 md:flex-row md:flex-nowrap md:justify-between md:gap-6">
+        <p className="min-w-0 text-center break-words md:text-left">
           © {year} {name}. Todos os direitos reservados.
         </p>
         {items.length > 0 ? (
-          <nav aria-label="Links do rodapé">
-            <ul className="flex flex-wrap gap-2">
+          <nav aria-label="Links do rodapé" className="shrink-0">
+            <ul className="flex flex-wrap justify-center gap-2">
               {items.map(({ icon, url }) => {
                 const label = FOOTER_ICON_LABELS[/** @type {keyof typeof FOOTER_ICON_LABELS} */ (icon)];
                 const external = icon !== EMAIL_ICON;
