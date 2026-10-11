@@ -65,6 +65,8 @@ describe("o cabeçalho do espaço, um bloco só com sombra (item 4)", () => {
     render(<Navbar name="Espaço" homeHref="/maria" items={ITEMS} adminLink={false} />);
     const header = screen.getByRole("banner");
     expect(header.innerHTML).not.toMatch(/border-b-4|border-accent|border-t|border-on-secondary/);
+    // O innerHTML não inclui as classes do próprio <header>: confere-as à parte.
+    expect(classesOf(header).filter((name) => name.startsWith("border"))).toEqual([]);
     const nav = within(header).getByRole("navigation", { name: "Coleções" });
     expect(classesOf(nav).some((name) => name.startsWith("border"))).toBe(false);
   });
