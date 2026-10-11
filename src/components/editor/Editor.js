@@ -37,6 +37,13 @@ const INPUT =
   "w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base text-foreground " +
   "aria-invalid:border-danger";
 
+/**
+ * A altura do PAR: o bloco de edição (a barra, o espaço entre eles e o texto) e a pré-visualização têm exatamente esta
+ * altura, em todas as larguras e nas duas abas do celular (a mesma classe nos dois lados; nada de `calc()` com a altura
+ * da barra, que muda quando ela quebra de linha).
+ */
+const PANE_HEIGHT = "h-[26rem] md:h-[34rem]";
+
 /** O link "Ver página pública": a mesma aparência de um botão de contorno. */
 const VIEW_LINK =
   "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border-strong bg-background px-4 py-2 text-sm font-medium text-foreground " +
@@ -711,24 +718,31 @@ export function Editor({ userId, contentId, initialValue, version = null, viewHr
           </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
           <section aria-label="Edição" className={`${tab === "edit" ? "flex" : "hidden"} min-w-0 flex-col gap-2 md:flex`}>
-            <Toolbar onCommand={runCommand} controls={ids.body} />
-            <label htmlFor={ids.body} className="sr-only">
-              Texto do documento (Markdown)
-            </label>
-            <textarea
-              id={ids.body}
-              aria-invalid={bodyError ? "true" : undefined}
-              aria-describedby={describedBy(ids.body, { hint: true, error: bodyError })}
-              onKeyDown={handleBodyKeyDown}
-              className={`${INPUT} h-[26rem] resize-y font-mono leading-relaxed md:h-[34rem]`}
-              {...bodyField}
-              ref={(element) => {
-                bodyField.ref(element);
-                textareaRef.current = element;
-              }}
-            />
+            {/* O BLOCO de edição (a barra, o espaço entre eles e o texto) tem a altura do par, a mesma da pré-visualização:
+                a barra pode quebrar em 1, 2 ou 3 linhas e o texto (`flex-1 min-h-0`) fica com o que sobra. As dicas, o erro
+                e o aviso de http:// vêm DEPOIS do bloco e não entram na conta (P-024, item 8). */}
+            <div className={`${PANE_HEIGHT} flex min-h-0 flex-col gap-2`}>
+              <div className="shrink-0">
+                <Toolbar onCommand={runCommand} controls={ids.body} />
+              </div>
+              <label htmlFor={ids.body} className="sr-only">
+                Texto do documento (Markdown)
+              </label>
+              <textarea
+                id={ids.body}
+                aria-invalid={bodyError ? "true" : undefined}
+                aria-describedby={describedBy(ids.body, { hint: true, error: bodyError })}
+                onKeyDown={handleBodyKeyDown}
+                className={`${INPUT} min-h-0 flex-1 resize-none font-mono leading-relaxed`}
+                {...bodyField}
+                ref={(element) => {
+                  bodyField.ref(element);
+                  textareaRef.current = element;
+                }}
+              />
+            </div>
             <p id={ids.bodyHint} className="text-sm text-muted">
               Markdown com tabelas e listas de tarefas. Fórmulas: <code>$x^2$</code> em linha e <code>$$…$$</code> em bloco.
             </p>
@@ -752,7 +766,7 @@ export function Editor({ userId, contentId, initialValue, version = null, viewHr
           </section>
 
           <section aria-label="Pré-visualização" className={`${tab === "preview" ? "block" : "hidden"} min-w-0 md:block`}>
-            <Preview markdown={current.body} visible={wide || tab === "preview"} className="h-[26rem] md:h-[34rem]" />
+            <Preview markdown={current.body} visible={wide || tab === "preview"} className={PANE_HEIGHT} />
           </section>
         </div>
       </div>
