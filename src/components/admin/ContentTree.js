@@ -314,7 +314,7 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
                   title="Documento"
                   className={`${LINK_BUTTON} px-2.5 lg:px-3`}
                 >
-                  <DocumentIcon className="size-4 shrink-0" />
+                  <PlusIcon className="size-4 shrink-0" />
                   <span className="sr-only lg:not-sr-only">Documento</span>
                 </Link>
               )}
@@ -794,12 +794,12 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
             </Button>
             {atLimit ? (
               <Button variant="outline" disabled>
-                <DocumentIcon className="size-4 shrink-0" />
+                <PlusIcon className="size-4 shrink-0" />
                 Novo documento
               </Button>
             ) : (
               <Link href={newUrl(newHref, null)} className={LINK_BUTTON}>
-                <DocumentIcon className="size-4 shrink-0" />
+                <PlusIcon className="size-4 shrink-0" />
                 Novo documento
               </Link>
             )}

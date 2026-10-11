@@ -20,6 +20,9 @@ beforeAll(() => {
   }
 });
 
+/** Os traçados dos SVG de um controle (para distinguir o + do ícone de documento). */
+const iconPaths = (/** @type {HTMLElement} */ control) => [...control.querySelectorAll("svg path")].map((path) => path.getAttribute("d"));
+
 /** Linhas planas do "banco" da API simulada. @typedef {{ id: string, title: string, slug: string, type: "DOCUMENT" | "COLLECTION", status: "PUBLISHED" | "DRAFT", parentId: string | null, order: number }} Row */
 
 /** @type {Row[]} */
@@ -210,6 +213,30 @@ describe("o que a tela mostra", () => {
     expect(screen.getByRole("link", { name: "Novo documento" }).getAttribute("href")).toBe("/admin/conteudo/novo");
     expect(screen.getByRole("link", { name: "Novo documento em: Cálculo" }).getAttribute("href")).toBe("/admin/conteudo/novo?pai=calc");
     expect(screen.queryByRole("link", { name: "Novo documento em: Limites" })).toBeNull();
+  });
+
+  // P-024, item 5: as quatro ações de criar levam o mesmo símbolo (+), e não o ícone de documento.
+  const PLUS_PATH = "M12 5v14";
+  const DOCUMENT_PATH = "M6 3h8l4 4v14H6z";
+
+  it("as quatro ações de criar levam o PlusIcon: Nova coleção, Subcoleção, Novo documento e Documento", () => {
+    setup();
+    expect(iconPaths(button("Nova coleção"))).toContain(PLUS_PATH);
+    expect(iconPaths(button("Nova subcoleção em: Cálculo"))).toContain(PLUS_PATH);
+    expect(iconPaths(screen.getByRole("link", { name: "Novo documento" }))).toContain(PLUS_PATH);
+    expect(iconPaths(screen.getByRole("link", { name: "Novo documento em: Cálculo" }))).toContain(PLUS_PATH);
+  });
+
+  it("os botões de documento NÃO levam mais o DocumentIcon, e os nomes acessíveis e os textos não mudaram", () => {
+    setup();
+    const bar = screen.getByRole("link", { name: "Novo documento" });
+    const row = screen.getByRole("link", { name: "Novo documento em: Cálculo" });
+    expect(iconPaths(bar)).not.toContain(DOCUMENT_PATH);
+    expect(iconPaths(row)).not.toContain(DOCUMENT_PATH);
+    expect(bar.textContent).toBe("Novo documento");
+    expect(row.textContent).toBe("Documento");
+    // O DocumentIcon segue marcando as linhas que SÃO documentos (não é criar).
+    expect(iconPaths(li("lim"))).toContain(DOCUMENT_PATH);
   });
 
   it("mostra 'Oculto pelo pai' num publicado sob um rascunho, e só nele (RN16)", () => {
@@ -747,6 +774,7 @@ describe("a cota (RN25)", () => {
     expect(screen.getByText(/Você atingiu o limite de 8 conteúdos/)).toBeTruthy();
     expect(button("Nova coleção").disabled).toBe(true);
     expect(button("Novo documento").disabled).toBe(true);
+    expect(iconPaths(button("Novo documento"))).toContain("M12 5v14"); // desabilitado, mas com o mesmo símbolo de criar
     expect(screen.queryByRole("link", { name: "Novo documento" })).toBeNull();
     expect(screen.queryByRole("link", { name: /^Novo documento em:/ })).toBeNull();
     expect(button("Nova subcoleção em: Cálculo").disabled).toBe(true);

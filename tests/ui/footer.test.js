@@ -149,3 +149,54 @@ describe("os ícones do Simple Icons (inline, CC0)", () => {
     expect(hasBrandMark("toString")).toBe(false);
   });
 });
+
+describe("Footer: leiaute empilhado e em linha (P-024, itens 1 e 2)", () => {
+  const EIGHT = ["github", "orcid", "email", "x", "youtube", "instagram", "linkedin", "mastodon"].map((icon) => ({
+    icon,
+    url: icon === "email" ? "mailto:maria@exemplo.com" : `https://exemplo.com/${icon}`,
+  }));
+
+  /** @param {Element} node @returns {string[]} */
+  const classesOf = (node) => [...node.classList];
+
+  it("a ordem no DOM não muda: o texto vem antes da navegação (leitura por leitor de tela)", () => {
+    render(<Footer name="X" links={LINKS} year={2026} />);
+    const text = screen.getByText(/Todos os direitos reservados/);
+    const nav = screen.getByRole("navigation", { name: "Links do rodapé" });
+    expect(text.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("empilhado, os ícones ficam ACIMA do texto (só a ordem visual: flex-col-reverse) e tudo é centralizado", () => {
+    render(<Footer name="X" links={EIGHT} year={2026} />);
+    const text = screen.getByText(/Todos os direitos reservados/);
+    const row = /** @type {HTMLElement} */ (text.parentElement);
+    expect(classesOf(row)).toEqual(expect.arrayContaining(["flex", "flex-col-reverse", "items-center"]));
+    expect(classesOf(text)).toContain("text-center");
+    const list = /** @type {HTMLElement} */ (screen.getByRole("list"));
+    expect(classesOf(list)).toContain("justify-center");
+  });
+
+  it("em linha (md): sem quebra entre os dois, o texto encolhe (min-w-0) e a navegação não (shrink-0)", () => {
+    render(<Footer name="X" links={EIGHT} year={2026} />);
+    const text = screen.getByText(/Todos os direitos reservados/);
+    const row = /** @type {HTMLElement} */ (text.parentElement);
+    expect(classesOf(row)).toEqual(expect.arrayContaining(["md:flex-row", "md:flex-nowrap", "md:justify-between"]));
+    expect(classesOf(row)).not.toContain("flex-wrap");
+    expect(classesOf(text)).toEqual(expect.arrayContaining(["min-w-0", "md:text-left"]));
+    expect(classesOf(screen.getByRole("navigation", { name: "Links do rodapé" }))).toContain("shrink-0");
+  });
+
+  it("sem ícones, só o texto, centralizado no celular e sem navegação", () => {
+    render(<Footer name="X" links={[]} year={2026} />);
+    expect(classesOf(screen.getByText(/Todos os direitos reservados/))).toContain("text-center");
+    expect(screen.queryByRole("navigation")).toBeNull();
+  });
+
+  it("com 1 e com 8 ícones, a mesma estrutura (um item por ícone)", () => {
+    for (const [links, count] of [[LINKS.slice(0, 1), 1], [EIGHT, 8]]) {
+      const { unmount } = render(<Footer name="X" links={links} year={2026} />);
+      expect(screen.getAllByRole("link")).toHaveLength(count);
+      unmount();
+    }
+  });
+});

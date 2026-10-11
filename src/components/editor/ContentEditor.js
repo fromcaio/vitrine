@@ -33,11 +33,14 @@ const Editor = dynamic(() => import("./Editor").then((module) => module.Editor),
  * @param {{ title?: string, slug?: string, body?: string | null, status?: "DRAFT" | "PUBLISHED" }} props.initialValue
  *   valores iniciais: os do servidor, ou os padrões de um conteúdo novo (estado `PUBLISHED`, RN16)
  * @param {string | null} [props.version] versão do conteúdo no servidor (o `updatedAt`)
+ * @param {string | null} [props.viewHref] caminho da página pública do documento ("/maria/aeds-i/p1/testes"), que a rota
+ *   monta no servidor (o componente não conhece o dono nem os slugs) e só entrega com o documento e seus ancestrais
+ *   publicados; `null` (padrão): sem o link "Ver página pública". Vale também na moderação (a página é a do dono)
  * @param {{ ownerName: string }} [props.moderation] liga o modo de MODERAÇÃO (RF34): o administrador edita o
  *   conteúdo de OUTRO usuário. O editor mostra um aviso permanente, pede o motivo a cada envio, e o PATCH
  *   leva `reason` junto com `version`. `userId` segue sendo o do administrador (a chave do rascunho local)
  */
-export function ContentEditor({ userId, contentId, parentId = null, editPath = null, initialValue, version = null, moderation = undefined }) {
+export function ContentEditor({ userId, contentId, parentId = null, editPath = null, initialValue, version = null, viewHref = null, moderation = undefined }) {
   // Depois de criar o conteúdo, os envios seguintes o atualizam.
   const [id, setId] = useState(contentId);
 
@@ -57,5 +60,5 @@ export function ContentEditor({ userId, contentId, parentId = null, editPath = n
     return result;
   }
 
-  return <Editor userId={userId} contentId={id} initialValue={initialValue} version={version} onSubmit={submit} moderation={moderation} />;
+  return <Editor userId={userId} contentId={id} initialValue={initialValue} version={version} viewHref={viewHref} onSubmit={submit} moderation={moderation} />;
 }

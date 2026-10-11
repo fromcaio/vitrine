@@ -112,6 +112,9 @@ function SystemSwatches({ mode, colors }) {
  * @param {SiteRecord} props.initial registro como a API o devolve (`GET`)
  * @param {SiteRecord | null} [props.system] a configuração do sistema: na aparência do usuário, a
  *   referência da herança (o nome e as seis cores); sem ela valem as paletas padrão
+ * @param {string} [props.modeIconPair] só na aparência do USUÁRIO: o par de ícones do botão de modo do SITE
+ *   (`modeIconPair` da configuração), que a amostra mostra; sem ele, `sun_moon`. Na tela do sistema o par é o
+ *   que está selecionado no seletor de ícones (a amostra acompanha a escolha)
  * @param {{ logoUrl?: string | null, faviconUrl?: string | null } | null} [props.media] o logotipo e o favicon
  *   atuais (`/media/<id>`, ou nulos); sem a prop, a seção de envio de imagens não aparece
  * @param {{ logo?: import("@/components/ui/image-client").ImageClient, favicon?: import("@/components/ui/image-client").ImageClient }} [props.clients]
@@ -119,7 +122,7 @@ function SystemSwatches({ mode, colors }) {
  * @param {(data: SiteRecord) => void} [props.onSaved] chamado depois de um salvamento bem-sucedido
  *   (antes do `router.refresh()`)
  */
-export function SiteAppearanceForm({ kind, initial, system = null, media = null, clients = {}, onSaved }) {
+export function SiteAppearanceForm({ kind, initial, system = null, modeIconPair = undefined, media = null, clients = {}, onSaved }) {
   const labels = LABELS[kind];
   const inheritable = kind === "appearance";
   const fieldOrder = ["siteName", "siteDescription", "showName", "modeIconPair", ...COLOR_FIELDS];
@@ -366,6 +369,7 @@ export function SiteAppearanceForm({ kind, initial, system = null, media = null,
               showLogo={draft.showLogo !== false}
               showName={draft.showName !== false}
               themeStyle={style}
+              modeIconPair={kind === "site" ? String(draft.modeIconPair) : modeIconPair}
             />
           ))}
         </div>

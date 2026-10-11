@@ -17,6 +17,7 @@ import {
   readModeCookie,
   wantsDark,
 } from "./color-mode-script";
+import { COLOR_MODE_TOGGLE_LOOK } from "./color-mode-toggle-style";
 import { modeIconsOf } from "./mode-icon-pairs";
 
 /** @typedef {import("./color-mode-script").ColorModeChoice} ColorModeChoice */
@@ -96,7 +97,7 @@ export function ColorModeToggle({ iconPair, className = "" }) {
       aria-label={label}
       title={label}
       onClick={() => writeChoice(dark ? "light" : "dark")}
-      className={`inline-flex size-10 cursor-pointer items-center justify-center rounded-md border border-border-strong bg-background text-foreground hover:border-foreground hover:bg-surface ${className}`.trim()}
+      className={`${COLOR_MODE_TOGGLE_LOOK} cursor-pointer hover:border-foreground hover:bg-surface ${className}`.trim()}
     >
       <Icon />
     </button>

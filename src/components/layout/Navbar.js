@@ -5,9 +5,14 @@
 // com o texto `on-secondary` do modo; o item corrente se distingue por `aria-current`, negrito e
 // sublinhado grosso (e não só pela cor, WCAG 1.4.1). Em tela estreita tudo quebra de linha: não há
 // rolagem horizontal (RNF06).
+//
+// Um só cabeçalho (P-024, item 4): o bloco do nome e o das coleções têm o mesmo fundo, SEM linha entre
+// eles e SEM faixa embaixo; quem separa o cabeçalho do conteúdo é uma sombra (`.vitrine-cabecalho`,
+// globals.css: suave no modo claro, mais forte no noturno). Sem `sticky`.
 import Link from "next/link";
 import { AdminLink } from "./AdminLink";
 import { ColorModeToggle } from "./ColorModeToggle";
+import { ColorModeToggleStatic } from "./ColorModeToggleStatic";
 import { SiteBrand } from "./SiteBrand";
 
 /**
@@ -32,6 +37,9 @@ import { SiteBrand } from "./SiteBrand";
  * @param {boolean} [props.adminLink] inclui o link "Administração" (`AdminLink`, só para quem está
  *   logado; padrão); a pré-visualização o omite
  * @param {string} [props.modeIconPair] o par de ícones do seletor de modo (`modeIconPair` do site)
+ * @param {"light" | "dark" | null} [props.modeTogglePreview] só da pré-visualização da aparência (com `modeToggle`
+ *   desligado): mostra a IMAGEM do botão (`ColorModeToggleStatic`), sem cookie, sem efeito e sem foco, no modo
+ *   da amostra dado aqui; `null` (padrão) não mostra nada
  */
 export function Navbar({
   name,
@@ -43,9 +51,10 @@ export function Navbar({
   modeToggle = true,
   adminLink = true,
   modeIconPair,
+  modeTogglePreview = null,
 }) {
   return (
-    <header className="border-b-4 border-accent bg-secondary text-on-secondary">
+    <header className="vitrine-cabecalho relative z-10 bg-secondary text-on-secondary">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <Link href={homeHref} className="mr-auto flex min-w-0 items-center gap-3 rounded-sm">
           <SiteBrand name={name} logoUrl={logoUrl} showLogo={showLogo} showName={showName} />
@@ -53,16 +62,16 @@ export function Navbar({
         {/* O link entra no espaço livre à esquerda do botão de modo (depois da hidratação, e só para
             quem tem o marcador de sessão): o botão e o resto da barra não se mexem. */}
         {adminLink ? <AdminLink /> : null}
-        {/* Sobre o fundo neutro: o botão marcado (primária) e os demais mantêm o contraste com
-            qualquer paleta, em vez de depender da cor da barra. */}
+        {/* O botão traz o próprio fundo neutro (bg-background, texto e borda neutros): o contraste dele
+            com qualquer paleta não depende da cor da barra, e o fundo fica só dentro dele (P-024, item 3). */}
         {modeToggle ? (
-          <div className="rounded-md bg-background p-1 text-foreground">
-            <ColorModeToggle iconPair={modeIconPair} />
-          </div>
+          <ColorModeToggle iconPair={modeIconPair} />
+        ) : modeTogglePreview ? (
+          <ColorModeToggleStatic mode={modeTogglePreview} iconPair={modeIconPair} />
         ) : null}
       </div>
       {items.length > 0 ? (
-        <nav aria-label="Coleções" className="border-t border-on-secondary/30 px-4 py-2">
+        <nav aria-label="Coleções" className="px-4 pb-3">
           <ul className="flex flex-wrap gap-x-1 gap-y-1">
             {items.map((item) => (
               <li key={item.id} className="min-w-0">

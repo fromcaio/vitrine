@@ -33,6 +33,8 @@ import { Sidebar } from "./Sidebar";
  * @param {number} [props.year] ano dos direitos
  * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor e o link "Administração" na
  *   barra (padrão); a pré-visualização omite os dois, porque nela nada é interativo
+ * @param {"light" | "dark" | null} [props.modeTogglePreview] só da pré-visualização (com `modeToggle` desligado): a
+ *   imagem do botão de modo, no modo da amostra (`Navbar`)
  * @param {string} [props.mainId] id do `<main>`, alvo do atalho; só a pré-visualização o troca, para
  *   não repetir o id da página
  * @param {import("react").ReactNode} props.children a página
@@ -52,6 +54,7 @@ export function SpaceLayout({
   footerLinks = null,
   year,
   modeToggle = true,
+  modeTogglePreview = null,
   mainId = "conteudo-principal",
   children,
 }) {
@@ -74,6 +77,7 @@ export function SpaceLayout({
         modeToggle={modeToggle}
         adminLink={modeToggle}
         modeIconPair={modeIconPair}
+        modeTogglePreview={modeTogglePreview}
       />
       <div className="flex flex-1 flex-col md:flex-row">
         {collection ? <Sidebar collection={collection} basePath={basePath} activePath={activePath} /> : null}

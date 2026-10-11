@@ -37,6 +37,30 @@ const INPUT =
   "w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base text-foreground " +
   "aria-invalid:border-danger";
 
+/**
+ * A altura do PAR: o bloco de edição (a barra, o espaço entre eles e o texto) e a pré-visualização têm exatamente esta
+ * altura, em todas as larguras e nas duas abas do celular (a mesma classe nos dois lados; nada de `calc()` com a altura
+ * da barra, que muda quando ela quebra de linha).
+ */
+const PANE_HEIGHT = "h-[26rem] md:h-[34rem]";
+
+/** O link "Ver página pública": a mesma aparência de um botão de contorno. */
+const VIEW_LINK =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border-strong bg-background px-4 py-2 text-sm font-medium text-foreground " +
+  "transition-[background-color,border-color] hover:border-foreground hover:bg-surface";
+
+/**
+ * O `viewHref` só vale se for um caminho DO SITE ("/maria/aula"): nada de "//outro-site", de barra invertida
+ * (o navegador a lê como barra) nem de esquema. O Core o monta no servidor; esta é a defesa em profundidade.
+ * @param {unknown} href
+ * @returns {string | null}
+ */
+function siteRelative(href) {
+  if (typeof href !== "string" || !href.startsWith("/") || href.startsWith("//")) return null;
+  // Sem espaço nem caractere de controle (códigos até 32) e sem a barra invertida (código 92).
+  return [...href].some((char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 92) ? null : href;
+}
+
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -171,12 +195,16 @@ function ConflictVersion({ heading, values }) {
  * @param {(values: EditorValues, context: { version: string | null, reason?: string }) => Promise<SaveResult>} props.onSubmit
  *   envia a nova versão; `context.version` é a versão em que o texto se baseia (RN18); na moderação,
  *   `context.reason` é o motivo
+ * @param {string | null} [props.viewHref] caminho da página PÚBLICA do documento ("/maria/aeds-i/p1/testes"), que o Core monta
+ *   no servidor (handle ativo do dono e os slugs da raiz ao documento) e só entrega com o documento e seus ancestrais
+ *   publicados; `null` (padrão) não mostra o link. O link "Ver página pública" abre em nova aba (o texto não salvo
+ *   fica) e leva à versão SALVA. Se o estado salvo é rascunho, o lugar do link tem uma dica para publicar
  * @param {{ ownerName: string }} [props.moderation] modo de MODERAÇÃO (RF34): o conteúdo é de OUTRO usuário.
  *   Mostra um aviso permanente e, a cada envio, o `ModerationDialog` pede o motivo (o envio leva `reason`
  *   e `version`). O rascunho local usa uma chave PRÓPRIA da moderação (`<usuário>:moderacao`), que não
  *   colide com o do administrador editando o que é dele
  */
-export function Editor({ userId, contentId, initialValue, version = null, onSubmit, moderation = undefined }) {
+export function Editor({ userId, contentId, initialValue, version = null, viewHref = null, onSubmit, moderation = undefined }) {
   const draftKey = draftStorageKey(moderation ? `${userId}:moderacao` : userId, contentId);
   const base = useId();
   // `${id}-hint` e `${id}-error` são os identificadores que `Field` e `describedBy` esperam.
@@ -542,6 +570,12 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
   const changedAt =
     versionConflict && !Number.isNaN(Date.parse(versionConflict.server.version)) ? formatDateTime(versionConflict.server.version) : null;
 
+  // "Ver página pública": o link só existe com o `viewHref` do Core e com o estado SALVO publicado (um documento que
+  // passou a rascunho nesta sessão deixou de ter página); com o estado salvo em rascunho, uma dica toma o lugar dele.
+  const publicHref = siteRelative(viewHref);
+  const savedAsDraft = baseline.status === "DRAFT";
+  const showViewLink = publicHref !== null && !savedAsDraft;
+
   let stateLine = "Nenhuma alteração pendente.";
   if (unsent) {
     stateLine = savedLocally
@@ -684,24 +718,31 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
           </Button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 md:items-stretch">
           <section aria-label="Edição" className={`${tab === "edit" ? "flex" : "hidden"} min-w-0 flex-col gap-2 md:flex`}>
-            <Toolbar onCommand={runCommand} controls={ids.body} />
-            <label htmlFor={ids.body} className="sr-only">
-              Texto do documento (Markdown)
-            </label>
-            <textarea
-              id={ids.body}
-              aria-invalid={bodyError ? "true" : undefined}
-              aria-describedby={describedBy(ids.body, { hint: true, error: bodyError })}
-              onKeyDown={handleBodyKeyDown}
-              className={`${INPUT} h-[26rem] resize-y font-mono leading-relaxed md:h-[34rem]`}
-              {...bodyField}
-              ref={(element) => {
-                bodyField.ref(element);
-                textareaRef.current = element;
-              }}
-            />
+            {/* O BLOCO de edição (a barra, o espaço entre eles e o texto) tem a altura do par, a mesma da pré-visualização:
+                a barra pode quebrar em 1, 2 ou 3 linhas e o texto (`flex-1 min-h-0`) fica com o que sobra. As dicas, o erro
+                e o aviso de http:// vêm DEPOIS do bloco e não entram na conta (P-024, item 8). */}
+            <div className={`${PANE_HEIGHT} flex min-h-0 flex-col gap-2`}>
+              <div className="shrink-0">
+                <Toolbar onCommand={runCommand} controls={ids.body} />
+              </div>
+              <label htmlFor={ids.body} className="sr-only">
+                Texto do documento (Markdown)
+              </label>
+              <textarea
+                id={ids.body}
+                aria-invalid={bodyError ? "true" : undefined}
+                aria-describedby={describedBy(ids.body, { hint: true, error: bodyError })}
+                onKeyDown={handleBodyKeyDown}
+                className={`${INPUT} min-h-0 flex-1 resize-none font-mono leading-relaxed`}
+                {...bodyField}
+                ref={(element) => {
+                  bodyField.ref(element);
+                  textareaRef.current = element;
+                }}
+              />
+            </div>
             <p id={ids.bodyHint} className="text-sm text-muted">
               Markdown com tabelas e listas de tarefas. Fórmulas: <code>$x^2$</code> em linha e <code>$$…$$</code> em bloco.
             </p>
@@ -725,7 +766,7 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
           </section>
 
           <section aria-label="Pré-visualização" className={`${tab === "preview" ? "block" : "hidden"} min-w-0 md:block`}>
-            <Preview markdown={current.body} visible={wide || tab === "preview"} className="h-[26rem] md:h-[34rem]" />
+            <Preview markdown={current.body} visible={wide || tab === "preview"} className={PANE_HEIGHT} />
           </section>
         </div>
       </div>
@@ -736,6 +777,10 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
             {noticeMessage}
           </p>
           <p className="text-muted">{stateLine}</p>
+          {savedAsDraft ? <p className="text-muted">Publique o documento para ver a página pública.</p> : null}
+          {showViewLink && unsent ? (
+            <p className="text-muted">O link da página pública abre a versão salva, sem as alterações ainda não enviadas.</p>
+          ) : null}
           {savedDraft ? (
             <p>
               <button type="button" onClick={removeLocalCopy} className="cursor-pointer text-muted underline underline-offset-2">
@@ -745,6 +790,11 @@ export function Editor({ userId, contentId, initialValue, version = null, onSubm
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {showViewLink ? (
+            <a href={publicHref} target="_blank" rel="noopener" className={VIEW_LINK}>
+              Ver página pública<span className="sr-only"> (abre em uma nova aba)</span>
+            </a>
+          ) : null}
           <Button variant="outline" disabled={blocked} onClick={saveLocally}>
             Salvar localmente
           </Button>

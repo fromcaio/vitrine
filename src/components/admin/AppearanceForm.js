@@ -16,6 +16,8 @@ import { SiteAppearanceForm } from "./SiteAppearanceForm";
  *   sistema); os demais campos são ignorados
  * @param {import("./appearance-model").SiteRecord | null} [props.system] a configuração do SISTEMA, só
  *   para leitura: `siteName` e as seis cores, que o formulário mostra como referência da herança
+ * @param {string} [props.modeIconPair] o par de ícones do botão de modo do SITE (`modeIconPair` da configuração
+ *   do sistema, `GET /api/configuration`): a pré-visualização mostra o botão com ele; opcional (sem ele, `sun_moon`)
  * @param {{ logoUrl?: string | null, faviconUrl?: string | null } | null} [props.media] o logotipo e o
  *   favicon do espaço (`/media/<id>` ou nulos); sem a prop, a seção de envio de imagens não aparece
  * @param {{ icon: string, url: string }[] | null} [props.footerLinks] o rodapé do espaço, na ordem
@@ -25,10 +27,10 @@ import { SiteAppearanceForm } from "./SiteAppearanceForm";
  * @param {(data: import("./appearance-model").SiteRecord) => void} [props.onSaved] chamado depois de
  *   um salvamento bem-sucedido (o formulário já chama `router.refresh()` por conta própria)
  */
-export function AppearanceForm({ initial, system = null, media = null, footerLinks = null, clients = {}, onSaved }) {
+export function AppearanceForm({ initial, system = null, modeIconPair = undefined, media = null, footerLinks = null, clients = {}, onSaved }) {
   return (
     <div className="flex flex-col gap-8">
-      <SiteAppearanceForm kind="appearance" initial={initial} system={system} media={media} clients={clients} onSaved={onSaved} />
+      <SiteAppearanceForm kind="appearance" initial={initial} system={system} modeIconPair={modeIconPair} media={media} clients={clients} onSaved={onSaved} />
       {footerLinks ? <FooterLinksSection links={footerLinks} scope="page" client={clients.footer} /> : null}
     </div>
   );
