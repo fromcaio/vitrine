@@ -42,12 +42,8 @@ export function AdminHeader({
         <span className="shrink-0 text-sm">Painel</span>
       </Link>
       {notificationBell}
-      {/* Sobre o fundo neutro, como na barra do espaço: o botão marcado mantém o contraste. */}
-      {modeToggle ? (
-        <div className="rounded-md bg-background p-1 text-foreground">
-          <ColorModeToggle iconPair={modeIconPair} />
-        </div>
-      ) : null}
+      {/* O botão traz o próprio fundo neutro, como na barra do espaço (P-024, item 3). */}
+      {modeToggle ? <ColorModeToggle iconPair={modeIconPair} /> : null}
       <div className="order-last w-full min-w-0 text-sm sm:order-none sm:w-auto sm:max-w-xs sm:text-right">
         <p className="truncate font-medium">{user.name}</p>
         <p className="truncate text-xs">{user.email}</p>

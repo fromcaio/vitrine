@@ -151,6 +151,24 @@
   --vitrine-on-secondary: var(--vitrine-dark-on-secondary, #000000);
 }
 
+/*
+ * Sombra do cabeçalho do espaço (P-024, item 4): no lugar das bordas, separa a barra do conteúdo. Claro: suave
+ * (a do `shadow-sm` do Tailwind); noturno: mais forte. Sombra não é cor de tema (preto translúcido). Os modos
+ * forçados da pré-visualização vêm DEPOIS da regra .dark: a mesma especificidade, a última vale.
+ */
+.vitrine-cabecalho {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
+.dark .vitrine-cabecalho,
+.vitrine-modo-escuro .vitrine-cabecalho {
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.4);
+}
+
+.vitrine-modo-claro .vitrine-cabecalho {
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+}
+
 @theme inline {
   --color-primary: var(--vitrine-primary);
   --color-secondary: var(--vitrine-secondary);
