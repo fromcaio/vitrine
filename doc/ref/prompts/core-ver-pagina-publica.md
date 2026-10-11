@@ -1,0 +1,27 @@
+# Prompt — Desenvolvedor Core (P-025: liga o `viewHref` e o `modeIconPair`; branch `feat/core-ver-pagina-publica`)
+
+Você é o **Desenvolvedor Core** do projeto Vitrine (Next.js 16.4, Prisma 7/SQLite), em modo local, Windows. Domínio: `src/app/**`, `src/lib/**` do Core, `e2e/**`, `tests/core/**`. Abordagem: Documentation-Driven Development. **Um pedido por sessão.** Esforço sugerido: high.
+
+**Origem:** o M-045 (UI; ajustes visuais pós-v1) está integrado na `main`. Dois componentes da UI ganharam *props* opcionais que **só o Core pode ligar**, porque as páginas são suas. Sem API, esquema, dependência nem variável nova.
+
+**Leia primeiro:** `CLAUDE.md`; `DESENVOLVEDORES.md` §1, §3 a §5, §8, §9 e a sua parte do §6; no mural, **só o P-025 e o M-045 (no arquivo: `grep -n M-045 doc/ref/mural-arquivo.md`)**; no Cap. 5, só `rotas.tex` (as linhas do `Editor`/`ContentEditor` e do `ColorModeToggleStatic`) e a regra RN15 em `isr.tex` (quando um conteúdo é público).
+
+## O que fazer
+1. **`viewHref` no editor.** Em `src/app/admin/conteudo/[id]/page.js` (o dono edita o próprio documento) **e** em `src/app/admin/usuarios/[id]/conteudo/[contentId]/page.js` (o administrador modera o de outro), passe ao `<ContentEditor>` a *prop* `viewHref`: o **caminho público** do documento, `"/" + handle do dono + "/" + os slugs da raiz até o documento`, por exemplo `/matheusviana/aeds-i/p1/testes`. **Só entregue o caminho se o documento tiver página pública agora**, isto é, pela **mesma regra da RN15 que as páginas públicas já usam** (o espaço do dono ativo e com `handle`, o documento e **todos** os ancestrais `PUBLISHED`); caso contrário `null` (a UI então não mostra o link, ou mostra a dica de rascunho). **Não reescreva a regra**: reaproveite o que `src/lib/content-tree.js` (`resolvePath`, `collectPublicPaths`, `buildTree` com `onlyPublished`) e o `db.js` já oferecem; se faltar uma função pequena, ela é do Core se for só de montagem de caminho (diga no `[MERGE]`); se exigir mudança no `db.js`, é `[PEDIDO]` aos Dados. Os slugs já são `[a-z0-9-]` (RN07); mesmo assim use `encodeURIComponent` por segmento. O valor vai ao cliente: **nada além do caminho** (nenhum id, e-mail ou dado do dono).
+2. **`modeIconPair` na aparência.** Em `src/app/admin/aparencia/page.js`, passe ao `<AppearanceForm>` (alvo "página") `modeIconPair={configuration.modeIconPair}` (o par do **site**); a amostra do usuário passa a usar o mesmo ícone que o leitor vê. No alvo "sistema" nada muda (a amostra segue o seletor).
+
+## Critérios
+- **Testes** (`tests/core/**`): o `viewHref` com documento publicado em raiz e aninhado; `null` com o documento em rascunho; `null` com um **ancestral** em rascunho; `null` com o espaço do dono **suspenso** ou sem `handle`; na moderação, o caminho é o do **dono**, não o do administrador; segmentos codificados; nenhum dado a mais no valor. **Mutações** (relate aplicadas/detectadas; linha de base verde; **confira que o Vitest rodou**): ignorar o estado do ancestral, ignorar a suspensão, usar o handle do administrador na moderação, devolver o caminho em rascunho, tirar o `encodeURIComponent`.
+- **e2e** (`e2e/**`, do Core): um documento publicado mostra o link "Ver página pública" no editor e ele **abre a página pública** (200, nova aba); um rascunho mostra a dica e não o link; na moderação, o link leva ao espaço do dono. Sem violação de CSP.
+- `npm run lint`, `npm run build` (com e sem banco), `npm test -- --maxWorkers=4` (referência na `main`: 3973 + 40 *skipped*), `npm run test:e2e` (referência: 116 + 1 *skipped*). **Não** rode o `test:a11y` (nenhum estado novo; o Arquiteto o repete no merge). Um `build`/`e2e` por vez.
+- **Fronteira:** só `src/app/**` (as duas páginas e a de aparência), `tests/core/**`, `e2e/**`. **Não** edite `src/components/**` (se o componente precisar de algo, é `[PEDIDO]` à UI), `src/lib/db.js`, `prisma/**`, `doc/**`, governança nem o mural na sua branch.
+
+## Regras da sessão (modo local)
+- **Não** trabalhe na cópia principal (`vitrine-monolito`, sempre na `main`), **não** troque a branch dela e **não** faça `git push`.
+- **Primeiro passo:** `git worktree add ../vitrine-core-ver-pagina -b feat/core-ver-pagina-publica main`; no *worktree*, `npm ci`, `printf 'DATABASE_URL=file:./dev.db\nBETTER_AUTH_SECRET=segredo-ficticio-local-0123456789abcdef\nBETTER_AUTH_URL=http://localhost:3000\n' > .env` (**fictício**; nunca leia, imprima nem versione `.env*`) e `npx prisma generate`. Confira `git worktree list` e `git branch --show-current` antes de cada commit. Nunca `file:/tmp/...` em `DATABASE_URL`.
+- **Memória:** um `build`, `next start`, `test:e2e` ou navegador por vez; encerre-os ao terminar (Windows: parar a tarefa não mata o `node.exe` do `next start`; encerre pelo PID da porta). Se um comando for encerrado por falta de memória, **pare, não relance sozinho** e avise.
+- **Commits:** pequenos, Conventional Commits em português, com os IDs no rodapé (`Refs: RF08, RN15, P-025`) e os *trailers* de atribuição do seu ambiente.
+
+## Entrega
+1. Árvore limpa e commits feitos. Na **cópia principal** (na `main`), o `[MERGE]` no mural, curto (≤ ~40 linhas), em commit **exclusivo do mural** (`chore(mural): solicita merge de feat/core-ver-pagina-publica (Core, P-025)`), relendo o mural antes de editar. Sem `git push`.
+2. Resposta final: **(a) O que mudou** (≤ 10 linhas) · **(b) Evidência** (comando → resultado, mutações, contagem de testes) · **(c) Branch e SHA** · **(d) Desvios, dúvidas e o que depende do Engenheiro Chefe**.
