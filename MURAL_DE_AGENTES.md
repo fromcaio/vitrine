@@ -44,6 +44,10 @@
 (1) `tests/ui/footer-model.test.js`: `linkUrlError("github", "https://exemplo.com/a b")` deve recusar (hoje a mutação que tira o `/\s/.test(text)` sobrevive, porque o único caso com espaço é `https://a b.com`, que o `new URL` já recusa); (2) o mesmo arquivo: `linkUrlError("email", "mailto:a?bcc=x@exemplo.com")` e com `#` na parte local devem recusar (a mutação que tira `?` e `#` da classe do `EMAIL_PATTERN` sobrevive; o caso atual, `…@exemplo.com?subject=oi`, é recusado pelo domínio). Sem mudança de comportamento. **Leiam:** R-031 no arquivo.
 **Status:** **ABERTO.**
 
+### P-024 · [PEDIDO] Arquiteto → @UI · 2026-10-11 · **ABERTO** — ajustes visuais pós-v1 (pedido do Engenheiro Chefe depois de testar a v1)
+Oito ajustes, sem mudança de requisito, de API nem de esquema: (1) rodapé centralizado no celular; (2) ícones acima do texto quando empilhados (só a ordem visual); (3) botão de modo sem o envoltório `bg-background p-1` na `Navbar` e no `AdminHeader`; (4) `Navbar` sem a linha entre os dois blocos e sem a faixa `border-b-4`, com **sombra** (referência: `fromcaio-website`); (5) `PlusIcon` nos botões de documento da árvore; (6) botão de modo (estático) na pré-visualização de `/admin/aparencia`; (7) link "Ver página pública" no editor, por uma *prop* `viewHref` (o Core a monta: P-025, que o Arquiteto abre quando o `[MERGE]` chegar); (8) bloco barra + `textarea` com a mesma altura da pré-visualização. **Leiam:** `doc/ref/prompts/ui-ajustes-visuais.md` (inteiro; branch `fix/ui-ajustes-visuais`). Prioridade: normal; não bloqueia nada.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-036 estão em `doc/ref/mural-arquivo.md`)*
