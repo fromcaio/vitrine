@@ -6,7 +6,8 @@
 // qual for o da página. Nada nela é interativo: o `inert` tira os links e botões da ordem de
 // tabulação e da árvore de acessibilidade, de modo que a pré-visualização não rouba o foco nem
 // repete os marcos (banner, main, rodapé) da página; o grupo rotulado a identifica. Não conhece o
-// dono: recebe o nome, o logotipo e as variáveis por props.
+// dono: recebe o nome, o logotipo e as variáveis por props. O botão de modo claro/escuro aparece só como
+// IMAGEM (`ColorModeToggleStatic`, P-024 item 6): sem cookie, sem efeito e sem tocar na classe `dark` do <html>.
 import { SpaceLayout } from "@/components/layout/SpaceLayout";
 import { Button } from "@/components/ui/Button";
 
@@ -24,8 +25,10 @@ const NAV_ITEMS = [
  * @param {boolean} [props.showLogo] mostra o logo na barra (padrão)
  * @param {boolean} [props.showName] mostra o nome na barra (padrão)
  * @param {Record<string, string>} props.themeStyle as dez variáveis do envoltório (`previewStyle`)
+ * @param {string} [props.modeIconPair] o par de ícones do botão de modo na amostra (`modeIconPair` do site); sem
+ *   ele, `sun_moon`
  */
-export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true, showName = true, themeStyle }) {
+export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true, showName = true, themeStyle, modeIconPair }) {
   const light = mode === "light";
   return (
     <div
@@ -44,6 +47,8 @@ export function PalettePreview({ mode, id, name, logoUrl = null, showLogo = true
           navItems={NAV_ITEMS}
           year={2026}
           modeToggle={false}
+          modeTogglePreview={mode}
+          modeIconPair={modeIconPair}
           mainId={`${id}-amostra`}
         >
           <div className="flex flex-col gap-3">

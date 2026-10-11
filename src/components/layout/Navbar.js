@@ -12,6 +12,7 @@
 import Link from "next/link";
 import { AdminLink } from "./AdminLink";
 import { ColorModeToggle } from "./ColorModeToggle";
+import { ColorModeToggleStatic } from "./ColorModeToggleStatic";
 import { SiteBrand } from "./SiteBrand";
 
 /**
@@ -36,6 +37,9 @@ import { SiteBrand } from "./SiteBrand";
  * @param {boolean} [props.adminLink] inclui o link "Administração" (`AdminLink`, só para quem está
  *   logado; padrão); a pré-visualização o omite
  * @param {string} [props.modeIconPair] o par de ícones do seletor de modo (`modeIconPair` do site)
+ * @param {"light" | "dark" | null} [props.modeTogglePreview] só da pré-visualização da aparência (com `modeToggle`
+ *   desligado): mostra a IMAGEM do botão (`ColorModeToggleStatic`), sem cookie, sem efeito e sem foco, no modo
+ *   da amostra dado aqui; `null` (padrão) não mostra nada
  */
 export function Navbar({
   name,
@@ -47,6 +51,7 @@ export function Navbar({
   modeToggle = true,
   adminLink = true,
   modeIconPair,
+  modeTogglePreview = null,
 }) {
   return (
     <header className="vitrine-cabecalho relative z-10 bg-secondary text-on-secondary">
@@ -59,7 +64,11 @@ export function Navbar({
         {adminLink ? <AdminLink /> : null}
         {/* O botão traz o próprio fundo neutro (bg-background, texto e borda neutros): o contraste dele
             com qualquer paleta não depende da cor da barra, e o fundo fica só dentro dele (P-024, item 3). */}
-        {modeToggle ? <ColorModeToggle iconPair={modeIconPair} /> : null}
+        {modeToggle ? (
+          <ColorModeToggle iconPair={modeIconPair} />
+        ) : modeTogglePreview ? (
+          <ColorModeToggleStatic mode={modeTogglePreview} iconPair={modeIconPair} />
+        ) : null}
       </div>
       {items.length > 0 ? (
         <nav aria-label="Coleções" className="px-4 pb-3">
