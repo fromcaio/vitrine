@@ -17,15 +17,22 @@ import Link from "next/link";
  * @param {AppearanceTarget} props.active o alvo que a página está editando
  * @param {string} [props.systemHref] endereço do alvo "sistema"
  * @param {string} [props.pageHref] endereço do alvo "página"
+ * @param {object} [props.labels] rótulos próprios (a página inicial, P-032, reaproveita o seletor); os padrões são os da
+ *   aparência e não mudam. Cada campo é opcional
+ * @param {string} [props.labels.nav] nome acessível da navegação (padrão "Aparência a editar")
+ * @param {string} [props.labels.system] rótulo do alvo "sistema" (padrão "Aparência do sistema")
+ * @param {string} [props.labels.systemHint] dica do alvo "sistema" (padrão "o portal, o login e o painel")
+ * @param {string} [props.labels.page] rótulo do alvo "página" (padrão "Minha página")
+ * @param {string} [props.labels.pageHint] dica do alvo "página" (padrão "o seu espaço público")
  */
-export function AppearanceTargetTabs({ role, active, systemHref = "?alvo=sistema", pageHref = "?alvo=pagina" }) {
+export function AppearanceTargetTabs({ role, active, systemHref = "?alvo=sistema", pageHref = "?alvo=pagina", labels = {} }) {
   if (role !== "admin") return null;
   const targets = /** @type {const} */ ([
-    { id: "sistema", label: "Aparência do sistema", href: systemHref, hint: "o portal, o login e o painel" },
-    { id: "pagina", label: "Minha página", href: pageHref, hint: "o seu espaço público" },
+    { id: "sistema", label: labels.system ?? "Aparência do sistema", href: systemHref, hint: labels.systemHint ?? "o portal, o login e o painel" },
+    { id: "pagina", label: labels.page ?? "Minha página", href: pageHref, hint: labels.pageHint ?? "o seu espaço público" },
   ]);
   return (
-    <nav aria-label="Aparência a editar">
+    <nav aria-label={labels.nav ?? "Aparência a editar"}>
       <ul className="flex flex-wrap gap-2">
         {targets.map((target) => {
           const current = target.id === active;

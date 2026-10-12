@@ -17,8 +17,10 @@ import { ModerationDialog } from "@/components/admin/ModerationDialog";
 import { Button } from "@/components/ui/Button";
 import { Field, describedBy } from "@/components/ui/Field";
 import { AlertIcon } from "@/components/ui/icons";
+import { siteRelative } from "@/components/ui/site-path";
 import { autosaveDraft, draftStorageKey, readDraft, removeDraft, resumeAutosave, writeDraft } from "./draft";
 import { applyFormat, diffRange, findInsecureImages, slugFromTitle } from "./format";
+import { PANE_HEIGHT, VIEW_LINK } from "./pane";
 import { Preview } from "./Preview";
 import { EDITOR_FIELDS, editorResolver, valuesEqual } from "./schema";
 import { Toolbar } from "./Toolbar";
@@ -36,30 +38,6 @@ import { useMediaQuery } from "./useMediaQuery";
 const INPUT =
   "w-full rounded-md border border-border-strong bg-background px-3 py-2 text-base text-foreground " +
   "aria-invalid:border-danger";
-
-/**
- * A altura do PAR: o bloco de edição (a barra, o espaço entre eles e o texto) e a pré-visualização têm exatamente esta
- * altura, em todas as larguras e nas duas abas do celular (a mesma classe nos dois lados; nada de `calc()` com a altura
- * da barra, que muda quando ela quebra de linha).
- */
-const PANE_HEIGHT = "h-[26rem] md:h-[34rem]";
-
-/** O link "Ver página pública": a mesma aparência de um botão de contorno. */
-const VIEW_LINK =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border-strong bg-background px-4 py-2 text-sm font-medium text-foreground " +
-  "transition-[background-color,border-color] hover:border-foreground hover:bg-surface";
-
-/**
- * O `viewHref` só vale se for um caminho DO SITE ("/maria/aula"): nada de "//outro-site", de barra invertida
- * (o navegador a lê como barra) nem de esquema. O Core o monta no servidor; esta é a defesa em profundidade.
- * @param {unknown} href
- * @returns {string | null}
- */
-function siteRelative(href) {
-  if (typeof href !== "string" || !href.startsWith("/") || href.startsWith("//")) return null;
-  // Sem espaço nem caractere de controle (códigos até 32) e sem a barra invertida (código 92).
-  return [...href].some((char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 92) ? null : href;
-}
 
 const dateTime = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
