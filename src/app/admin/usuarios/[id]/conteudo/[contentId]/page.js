@@ -4,6 +4,7 @@
 // do rascunho local é a dele), e o conteúdo, os valores e a `version` (o `updatedAt`) são os do DONO; o envio
 // leva `reason` e `version`, e o servidor exige os dois (422 sem o motivo; 409 se o dono editou depois).
 import { ContentEditor } from "@/components/editor/ContentEditor";
+import { publicViewHref } from "../../../../_lib/editor";
 import { requireSession } from "../../../../_lib/session";
 import { loadOwnedDocument, loadOwner } from "../../../../_lib/users";
 
@@ -20,6 +21,8 @@ export default async function ModerateDocumentPage({ params }) {
   });
   const owner = await loadOwner(id);
   const content = await loadOwnedDocument(owner.id, contentId);
+  // O caminho público é o do DONO (nunca o do administrador); `null` se o documento não tem página agora.
+  const viewHref = await publicViewHref(owner.id, content.id);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -29,6 +32,7 @@ export default async function ModerateDocumentPage({ params }) {
         contentId={content.id}
         initialValue={{ title: content.title, slug: content.slug, body: content.body, status: content.status }}
         version={content.updatedAt.toISOString()}
+        viewHref={viewHref}
         moderation={{ ownerName: owner.name }}
       />
     </div>

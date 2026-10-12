@@ -136,6 +136,15 @@ describe("/admin/aparencia: o usuário comum", () => {
     expect(system).toMatchObject({ siteName: "Sistema", primaryColor: "#2563eb" });
   });
 
+  it("o AppearanceForm da página recebe o par de ícones do SITE (P-025); o do sistema, não", async () => {
+    await updateConfiguration({ modeIconPair: "lightbulb" });
+    expect(propsOf(await AppearancePage(query()), AppearanceForm).modeIconPair).toBe("lightbulb");
+
+    session.user = admin;
+    expect(propsOf(await AppearancePage(query("pagina")), AppearanceForm).modeIconPair).toBe("lightbulb");
+    expect(propsOf(await AppearancePage(query("sistema")), AppearanceForm)).toBeUndefined();
+  });
+
   it("não vê o seletor como administrador: a aba recebe o papel e some para ele", async () => {
     const tabs = propsOf(await AppearancePage(query()), AppearanceTargetTabs);
 

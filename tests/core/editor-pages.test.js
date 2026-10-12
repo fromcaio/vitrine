@@ -144,6 +144,7 @@ describe("/admin/conteudo/[id]", () => {
       contentId: mine.id,
       initialValue: { title: "Título da-ana", slug: "da-ana", body: "corpo", status: "DRAFT" },
       version: mine.updatedAt.toISOString(),
+      viewHref: null,
     });
     expect(requireSession).toHaveBeenCalledWith({ path: `/admin/conteudo/${mine.id}` });
     expect(editMetadata).toEqual({ title: "Editar conteúdo", robots: { index: false, follow: false } });
