@@ -9,7 +9,6 @@ import { AppearanceTargetTabs } from "@/components/admin/AppearanceTargetTabs";
 import { HomeEditor } from "@/components/admin/HomeEditor";
 import { saveHome } from "@/components/admin/home-client";
 import { clearAllDrafts } from "@/components/editor/draft";
-import { RendererStub } from "./editor-helpers";
 
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -17,7 +16,13 @@ vi.mock("next/link", async () => {
   const React = await import("react");
   return { default: ({ href, children, ...rest }) => React.createElement("a", { href, ...rest }, children) };
 });
-vi.mock("@/components/markdown/MarkdownRenderer", () => ({ MarkdownRenderer: RendererStub }));
+vi.mock("@/components/markdown/MarkdownRenderer", () => ({
+  MarkdownRenderer: ({ markdown, headingOffset = 0 }) => (
+    <div data-testid="renderizado" data-heading-offset={headingOffset}>
+      {markdown}
+    </div>
+  ),
+}));
 
 const SYSTEM_KEY = "vitrine:rascunho:u1:inicio:sistema";
 const PAGE_KEY = "vitrine:rascunho:u1:inicio:pagina";
@@ -106,6 +111,11 @@ describe("a interface (a mesma do editor de conteúdo)", () => {
     setup();
     type(body(), "Novo **texto**");
     await waitFor(() => expect(screen.getByTestId("renderizado").textContent).toBe("Novo **texto**"));
+  });
+
+  it("a pré-visualização desloca os títulos como a página (headingOffset 1: o texto começa em h2)", async () => {
+    setup();
+    await waitFor(() => expect(screen.getByTestId("renderizado").getAttribute("data-heading-offset")).toBe("1"));
   });
 
   it("a dica fixa: sem texto publicado a descrição continua aparecendo; os títulos começam em h2", () => {

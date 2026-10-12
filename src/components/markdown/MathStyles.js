@@ -1,9 +1,14 @@
-// Folha e fontes do KaTeX (RF10; RNF02): um componente de Servidor que só importa o CSS e não renderiza nada. O
-// `MarkdownRenderer` o carrega SOB DEMANDA (`next/dynamic`) quando o texto tem fórmula; assim o Next só envia a
-// folha às páginas que a usam. Importada pelo bundle, nunca por CDN (a CSP só aceita folhas e fontes do próprio
-// site; ADR-022).
-import "katex/dist/katex.min.css";
+"use client";
+
+// Folha e fontes do KaTeX para um texto com fórmula que NÃO é um documento (a página inicial do sistema e do espaço;
+// P-032, RNF02). Componente Cliente que não renderiza nada: depois da hidratação pede a folha (`import()`, um
+// pedaço à parte, com as fontes só quando uma fórmula as usa). O `MarkdownRenderer` o monta só quando o texto tem
+// fórmula (`hasMath`); sem ele, a página não recebe a folha. Do pacote instalado, nunca de uma CDN (ADR-022).
+import { useEffect } from "react";
 
 export default function MathStyles() {
+  useEffect(() => {
+    void import("katex/dist/katex.min.css");
+  }, []);
   return null;
 }

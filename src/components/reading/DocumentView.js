@@ -3,6 +3,9 @@
 // Server Component de apresentação: sem dado do banco nem conhecimento do dono; o Core entrega o
 // documento já resolvido e os vizinhos (`neighboursOf`). O `<main>` é do SpaceLayout.
 import Link from "next/link";
+// A folha do KaTeX desde o primeiro desenho: um documento com fórmula não pode aparecer sem estilo (o `MarkdownRenderer`
+// não a importa, para a página inicial sem fórmula não pagar por ela; P-032).
+import "katex/dist/katex.min.css";
 import { MarkdownRenderer } from "@/components/markdown/MarkdownRenderer";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/ui/icons";
 

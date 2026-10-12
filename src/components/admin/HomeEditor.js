@@ -431,7 +431,8 @@ export function HomeEditor({ target, userId, initial, publicHref, client = undef
           </section>
 
           <section aria-label="Pré-visualização" className={`${tab === "preview" ? "block" : "hidden"} min-w-0 md:block`}>
-            <Preview markdown={values.body} visible={wide || tab === "preview"} className={PANE_HEIGHT} />
+            {/* Os títulos do texto começam em h2 na página (RN35): a pré-visualização mostra o mesmo. */}
+            <Preview markdown={values.body} visible={wide || tab === "preview"} className={PANE_HEIGHT} headingOffset={1} />
           </section>
         </div>
       </div>

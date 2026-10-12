@@ -8,14 +8,14 @@
 //    configuração do pipeline mora em markdown-pipeline.js).
 //
 // O componente não tem estado nem efeitos e não é marcado com "use client": importado por um
-// Server Component, não envia JavaScript ao navegador; importado pelo editor, roda no cliente.
+// Server Component, não envia JavaScript ao navegador (só um texto com fórmula leva o `MathStyles`, abaixo);
+// importado pelo editor, roda no cliente.
 // Recebe só o Markdown: não conhece o dono do conteúdo nem o tema. As cores vêm dos tokens de
 // globals.css, e a variante noturna, da classe .dark no <html> (ADR-025).
 //
 // Os plugins, as opções do KaTeX e as linguagens do realce vêm de markdown-pipeline.js, SEM React e
 // SEM CSS: é a fonte única, que o Core também carrega em um `worker_threads` para validar, na
 // gravação, que o texto renderiza dentro do orçamento de tempo (ADR-033).
-import dynamic from "next/dynamic";
 import { createElement } from "react";
 import Markdown from "react-markdown";
 import {
@@ -25,16 +25,20 @@ import {
   REMARK_PLUGINS,
   REMARK_REHYPE_OPTIONS,
 } from "./markdown-pipeline";
+import MathStyles from "./MathStyles";
 import "./markdown.css";
 
 // Os testes e outros módulos importam estes dois do renderizador; a fonte é markdown-pipeline.js.
 export { HIGHLIGHT_LANGUAGES, KATEX_OPTIONS };
 
-// Folha e fontes do KaTeX (nunca por CDN: a CSP só aceita folhas e fontes do próprio site; ADR-022). Vêm de
-// `MathStyles`, um Server Component que só importa a folha, carregado SOB DEMANDA: o Next só a envia à página
-// quando o texto tem fórmula (`hasMath`). Uma página sem fórmula (a página inicial de um espaço, por exemplo)
-// não paga o CSS e as fontes do KaTeX (RNF02).
-const MathStyles = dynamic(() => import("./MathStyles"));
+// Folha e fontes do KaTeX (nunca por CDN: a CSP só aceita folhas e fontes do próprio site; ADR-022). Este módulo NÃO
+// importa a folha: um `import "katex/dist/katex.min.css"` aqui (ou em qualquer módulo que o Next alcance, mesmo por
+// `next/dynamic`) entra no CSS de TODA rota que usa o renderizador, tenha o texto fórmula ou não (medido no
+// P-032: a página inicial do espaço, que não a carregava, passou a pagar 24 kB de CSS bloqueante, RNF02). Quem precisa
+// da folha desde o primeiro desenho a importa por conta própria: a leitura de documentos (`DocumentView`) e a
+// pré-visualização do editor (`Preview`). Para o resto (a página inicial do sistema e do espaço), `MathStyles`,
+// um Componente Cliente, pede a folha DEPOIS da hidratação e só quando o texto tem fórmula (`hasMath`): uma página
+// sem fórmula não a recebe, e uma com fórmula mostra a matemática sem estilo até a folha chegar.
 
 /**
  * O texto pode ter fórmula? `$` abre uma fórmula em linha ou em bloco; um bloco de código `math` também é
