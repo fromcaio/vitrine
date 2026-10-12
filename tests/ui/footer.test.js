@@ -200,3 +200,33 @@ describe("Footer: leiaute empilhado e em linha (P-024, itens 1 e 2)", () => {
     }
   });
 });
+
+describe("Footer: a cor do cabeçalho (P-029)", () => {
+  const LINKS_COLOR = [
+    { icon: "github", url: "https://github.com/maria" },
+    { icon: "email", url: "mailto:maria@exemplo.com" },
+  ];
+
+  it("o fundo é o da barra (bg-secondary text-on-secondary), sem bg-surface, text-foreground, borda nem sombra", () => {
+    render(<Footer name="X" links={LINKS_COLOR} year={2026} />);
+    const footer = screen.getByRole("contentinfo");
+    expect([...footer.classList]).toEqual(expect.arrayContaining(["bg-secondary", "text-on-secondary"]));
+    expect(footer.className).not.toMatch(/bg-surface|text-foreground|border-t|border-border|shadow/);
+  });
+
+  it("os botões de ícone usam a linguagem das setas da barra: on-secondary/30, hover /20 e /50, foco em on-secondary", () => {
+    render(<Footer name="X" links={LINKS_COLOR} year={2026} />);
+    for (const link of screen.getAllByRole("link")) {
+      const classes = [...link.classList];
+      expect(classes).toEqual(
+        expect.arrayContaining(["size-10", "border-on-secondary/30", "bg-on-secondary/10", "text-on-secondary", "hover:border-on-secondary/50", "hover:bg-on-secondary/20", "focus-visible:outline-2", "focus-visible:outline-on-secondary"]),
+      );
+      expect(link.className).not.toMatch(/border-border-strong|hover:bg-border|text-foreground/);
+    }
+  });
+
+  it("sem ícones o rodapé segue com a cor e só o texto", () => {
+    render(<Footer name="X" links={[]} year={2026} />);
+    expect([...screen.getByRole("contentinfo").classList]).toContain("bg-secondary");
+  });
+});

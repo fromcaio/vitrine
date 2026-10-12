@@ -48,6 +48,9 @@ const chooseIn = (/** @type {string} */ legend, /** @type {File} */ chosen) => {
   return group;
 };
 
+/** Campos do formulário com este rótulo: fora da pré-visualização (`inert`), cujo rodapé de exemplo traz links com o nome das redes (P-030). */
+const formControls = (/** @type {string} */ name) => screen.queryAllByLabelText(name).filter((element) => !element.closest("[inert]"));
+
 describe("sem as props de mídia, as seções não aparecem", () => {
   it("AppearanceForm e SiteIdentityForm", () => {
     for (const element of [<AppearanceForm key="a" initial={RECORD} />, <SiteIdentityForm key="s" initial={CONFIG} />]) {
@@ -72,7 +75,7 @@ describe("AppearanceForm (a página do usuário)", () => {
 
   it("os campos de URL de logotipo e favicon e as redes fixas deixaram de existir", () => {
     render(<AppearanceForm initial={RECORD} media={{ logoUrl: null, faviconUrl: null }} footerLinks={[]} />);
-    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch", "Ícone da aba (favicon)"]) expect(screen.queryByLabelText(name)).toBeNull();
+    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch", "Ícone da aba (favicon)"]) expect(formControls(name)).toHaveLength(0);
     expect(screen.queryByRole("textbox", { name: "Logotipo" })).toBeNull();
   });
 

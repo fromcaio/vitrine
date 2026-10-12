@@ -9,6 +9,10 @@
 // Estado derivado, sem efeitos: o nível está aberto se o leitor o abriu ou fechou à mão
 // (`overrides`) ou, sem escolha dele, se está na cadeia do item ativo. O menu estreito fecha ao
 // navegar porque a abertura vale só para o `activePath` em que foi pedida.
+//
+// Amostra (`preview`, P-030): a MESMA árvore, expandida e estática, para a pré-visualização da aparência: sem o
+// botão do celular, sem `sticky`, sem `md:w-72` fixo (a largura vem do leiaute da amostra). Os estilos de cada
+// linha (repouso, ancestral, ativo) são os da sidebar real, porque é o mesmo componente: não há cópia que divirja.
 import Link from "next/link";
 import { Fragment, useId, useState } from "react";
 import { ChevronRightIcon, MenuIcon } from "@/components/ui/icons";
@@ -19,6 +23,9 @@ import { activeIds, contentHref, trailOf } from "./space-paths";
 const ROW = "flex min-w-0 items-start gap-1";
 /** Mais níveis que isto e a trilha do botão vira "primeiro › … › corrente". */
 const MAX_TRAIL = 3;
+/** Moldura da sidebar real e da amostra: o mesmo fundo e a mesma borda; só a largura e o ponto de quebra mudam. */
+const FRAME = "border-b border-border bg-surface md:w-72 md:shrink-0 md:border-r md:border-b-0";
+const PREVIEW_FRAME = "w-4/5 min-w-0 border-r border-border bg-surface";
 const LINK = "min-w-0 flex-1 rounded-md border-l-4 px-2 py-1.5 text-sm break-words";
 
 /**
@@ -101,8 +108,10 @@ function TreeLevel({ nodes, parents, depth, basePath, activePath, chain, overrid
  * @param {string} props.basePath prefixo do espaço, sem barra final (`/maria`)
  * @param {string[]} [props.activePath] cadeia de slugs da página corrente, a partir da raiz; vazia
  *   se nenhuma página da coleção está aberta
+ * @param {boolean} [props.preview] amostra da pré-visualização da aparência: sempre expandida, sem o botão do celular,
+ *   sem `sticky` e sem largura fixa (ocupa a coluna que o leiaute da amostra lhe dá)
  */
-export function Sidebar({ collection, basePath, activePath = [] }) {
+export function Sidebar({ collection, basePath, activePath = [], preview = false }) {
   const idBase = useId();
   const panelId = `${idBase}-painel`;
   const [overrides, setOverrides] = useState(/** @type {Record<string, boolean>} */ ({}));
@@ -119,36 +128,38 @@ export function Sidebar({ collection, basePath, activePath = [] }) {
   const setOpen = (/** @type {string} */ id, /** @type {boolean} */ open) => setOverrides((current) => ({ ...current, [id]: open }));
 
   return (
-    <div className="border-b border-border bg-surface md:w-72 md:shrink-0 md:border-r md:border-b-0">
-      <div className="p-2 md:hidden">
-        <button
-          type="button"
-          aria-expanded={menuOpen}
-          aria-controls={panelId}
-          onClick={() => setOpenFor(menuOpen ? null : pathKey)}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-border-strong bg-background px-3 py-2 text-left text-sm font-medium"
-        >
-          <MenuIcon />
-          {/* O nome acessível contém o texto visível (WCAG 2.5.3): o "Menu: " é só para leitor de tela, e os
-              separadores e as reticências são decorativos. */}
-          <span className="min-w-0 flex-1 break-words" title={elided ? trail.join(" › ") : undefined}>
-            <span className="sr-only">Menu:</span>{" "}
-            {shown.map((part, index) => (
-              <Fragment key={index}>
-                {index > 0 ? (
-                  <>
-                    {" "}
-                    <span aria-hidden="true">›</span>{" "}
-                  </>
-                ) : null}
-                {part === null ? <span aria-hidden="true">…</span> : part}
-              </Fragment>
-            ))}
-          </span>
-          <ChevronRightIcon className={`size-5 shrink-0 transition-transform ${menuOpen ? "rotate-90" : ""}`} />
-        </button>
-      </div>
-      <nav id={panelId} aria-label={`Coleção ${collection.title}`} className={`${menuOpen ? "block" : "hidden"} p-3 md:sticky md:top-0 md:block md:max-h-screen md:overflow-y-auto`}>
+    <div className={preview ? PREVIEW_FRAME : FRAME}>
+      {preview ? null : (
+        <div className="p-2 md:hidden">
+          <button
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls={panelId}
+            onClick={() => setOpenFor(menuOpen ? null : pathKey)}
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-border-strong bg-background px-3 py-2 text-left text-sm font-medium"
+          >
+            <MenuIcon />
+            {/* O nome acessível contém o texto visível (WCAG 2.5.3): o "Menu: " é só para leitor de tela, e os
+                separadores e as reticências são decorativos. */}
+            <span className="min-w-0 flex-1 break-words" title={elided ? trail.join(" › ") : undefined}>
+              <span className="sr-only">Menu:</span>{" "}
+              {shown.map((part, index) => (
+                <Fragment key={index}>
+                  {index > 0 ? (
+                    <>
+                      {" "}
+                      <span aria-hidden="true">›</span>{" "}
+                    </>
+                  ) : null}
+                  {part === null ? <span aria-hidden="true">…</span> : part}
+                </Fragment>
+              ))}
+            </span>
+            <ChevronRightIcon className={`size-5 shrink-0 transition-transform ${menuOpen ? "rotate-90" : ""}`} />
+          </button>
+        </div>
+      )}
+      <nav id={panelId} aria-label={`Coleção ${collection.title}`} className={preview ? "block p-3" : `${menuOpen ? "block" : "hidden"} p-3 md:sticky md:top-0 md:block md:max-h-screen md:overflow-y-auto`}>
         <p className="mb-2 px-2 text-sm font-semibold break-words">{collection.title}</p>
         <TreeLevel
           nodes={collection.children}

@@ -3,7 +3,7 @@
 // Árvore do conteúdo do painel (RF03, RF06, RF07, RF26; RN02, RN05, RN06, RN07, RN16, RN25; M10): as
 // coleções e os documentos do dono, com o estado de publicação de cada nó (ícone e nome, nunca só a
 // cor), recolher e expandir, publicar e despublicar, subir e descer entre os irmãos, mover para outra
-// coleção, criar coleção e excluir com a contagem do que sai junto. Recebe a árvore já lida pelo Core
+// coleção, criar coleção, renomear coleção (título e endereço, P-028) e excluir com a contagem do que sai junto. Recebe a árvore já lida pelo Core
 // e fala com `/api/contents` por fetch; não lê o banco nem a sessão. O servidor é a autoridade (RF21).
 //
 // Subir e descer são OTIMISTAS: a árvore troca na hora, o lote com todos os irmãos renumerados vai ao
@@ -42,7 +42,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/ui/icons";
-import { createCollection, deleteContent, deleteWithReason, fetchTree, moveTo, reorder, setStatus, unpublishWithReason } from "./content-tree-client";
+import { MESSAGES, createCollection, deleteContent, deleteWithReason, fetchTree, moveTo, renameContent, reorder, setStatus, unpublishWithReason } from "./content-tree-client";
 import { ModerationDialog } from "./ModerationDialog";
 import {
   SLUG_MAX_LENGTH,
@@ -58,10 +58,13 @@ import {
   newUrl,
   normalizeTree,
   reconcile,
+  siblingSlugs,
+  slugChain,
   slugsUnder,
   suggestSlug,
   swapWithSibling,
   validateNewCollection,
+  withRenamed,
   withStatus,
   withoutNode,
 } from "./content-tree-model";
@@ -114,6 +117,7 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
  * @property {(node: TreeNode) => void} askDelete
  * @property {(node: TreeNode) => void} askUnpublish
  * @property {(parentId: string) => void} askNew
+ * @property {(node: TreeNode) => void} askRename
  */
 
 /**
@@ -300,6 +304,13 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
           {collection ? (
             <>
               <RowAction
+                id={`${base}-rename-${node.id}`}
+                icon={PencilIcon}
+                label="Renomear"
+                name={`Renomear: ${name}`}
+                onClick={() => handlers.askRename(node)}
+              />
+              <RowAction
                 id={`${base}-sub-${node.id}`}
                 icon={PlusIcon}
                 label="Subcoleção"
@@ -359,6 +370,13 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   const [unpublishing, setUnpublishing] = useState(/** @type {string | null} */ (null));
   const [moving, setMoving] = useState(/** @type {string | null} */ (null));
   const [creating, setCreating] = useState(/** @type {{ parentId: string | null } | null} */ (null));
+  const [renaming, setRenaming] = useState(/** @type {string | null} */ (null));
+  const [renTitle, setRenTitle] = useState("");
+  const [renSlug, setRenSlug] = useState("");
+  const [renSlugTouched, setRenSlugTouched] = useState(false);
+  const [renErrors, setRenErrors] = useState(/** @type {{ title?: string, slug?: string }} */ ({}));
+  const renTitleRef = useRef(/** @type {HTMLInputElement | null} */ (null));
+  const renSlugRef = useRef(/** @type {HTMLInputElement | null} */ (null));
   const [dialogPending, setDialogPending] = useState(false);
   const [dialogError, setDialogError] = useState("");
   const [moveValue, setMoveValue] = useState("");
@@ -661,6 +679,90 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
     }
   }
 
+  /** @param {TreeNode} node */
+  function askRename(node) {
+    // O endereço acompanha o título enquanto nunca foi editado à mão: o slug atual é o que a sugestão geraria
+    // do título atual. Se foi editado, fica como está até o usuário mudá-lo.
+    const siblings = siblingSlugs(tree, node.id);
+    setDialogError("");
+    setRenTitle(node.title);
+    setRenSlug(node.slug);
+    setRenSlugTouched(node.slug !== suggestSlug(node.title, siblings));
+    setRenErrors({});
+    setRenaming(node.id);
+  }
+
+  function closeRename() {
+    setRenaming(null);
+    setDialogPending(false);
+    setDialogError("");
+  }
+
+  /** @param {string} value */
+  function changeRenameTitle(value) {
+    setRenTitle(value);
+    if (!renSlugTouched && renaming) setRenSlug(suggestSlug(value, siblingSlugs(tree, renaming)));
+  }
+
+  async function confirmRename() {
+    const id = renaming;
+    const where = id ? locate(tree, id) : null;
+    if (!id || !where || busyRef.current) return;
+    const found = validateNewCollection({ title: renTitle, slug: renSlug });
+    setDialogError("");
+    if (found.title || found.slug) {
+      setRenErrors(found);
+      return void (found.title ? renTitleRef.current : renSlugRef.current)?.focus();
+    }
+    const siblings = siblingSlugs(tree, id);
+    const titleChanged = renTitle.trim() !== where.node.title;
+    const slugChanged = renSlug !== where.node.slug;
+    if (!titleChanged && !slugChanged) return void closeRename(); // nada mudou: nenhuma requisição
+    if (slugChanged && siblings.includes(renSlug)) {
+      const suggestion = suggestSlug(renTitle, [...siblings, renSlug]);
+      setRenErrors({ slug: `${MESSAGES.slugConflict}${suggestion ? ` Sugerimos "${suggestion}"; confira e confirme de novo.` : ""}` });
+      return void renSlugRef.current?.focus();
+    }
+    setRenErrors({});
+    busyRef.current = true;
+    setBusy(true);
+    setDialogPending(true);
+    setInfo("");
+    setError("");
+    const title = renTitle.trim();
+    let keepOpen = false;
+    try {
+      const result = await renameContent(id, { ...(titleChanged ? { title } : {}), ...(slugChanged ? { slug: renSlug } : {}) });
+      if (result.ok) {
+        focusAfter.current = [domId("rename", id), domId("title", id)];
+        setTree((current) => withRenamed(current, id, { title, slug: renSlug }));
+        const kind = where.parent ? "Subcoleção" : "Coleção";
+        setInfo(
+          `${kind} renomeada para ${title}.${slugChanged ? ` O endereço agora termina em /${renSlug}; os links antigos deixaram de funcionar.` : ""}`,
+        );
+      } else if (result.kind === "slug-conflict") {
+        keepOpen = true;
+        const suggestion = result.suggestion ?? suggestSlug(renTitle, [...siblings, renSlug]);
+        setRenSlugTouched(true);
+        setRenSlug(suggestion);
+        setRenErrors({ slug: `${result.message} Sugerimos "${suggestion}"; confira e confirme de novo.` });
+        renSlugRef.current?.focus();
+      } else if (result.kind === "not-found") {
+        // O nó foi excluído em outra aba: fecha o diálogo, avisa e recarrega a árvore.
+        fail(result);
+        await refresh();
+      } else {
+        keepOpen = true;
+        setDialogError(result.message);
+      }
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+      setDialogPending(false);
+      if (!keepOpen) closeRename();
+    }
+  }
+
   /** @param {string | null} parentId */
   function askNew(parentId) {
     setDialogError("");
@@ -730,7 +832,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   // cada renderização, e `RowView` só pode ser memoizado se os manipuladores não mudarem).
   const latest = useRef(/** @type {Handlers | null} */ (null));
   useEffect(() => {
-    latest.current = { toggle, reorderNode, toggleStatus, askMove, askDelete, askUnpublish, askNew };
+    latest.current = { toggle, reorderNode, toggleStatus, askMove, askDelete, askUnpublish, askNew, askRename };
   });
   const [handlers] = useState(
     /** @returns {Handlers} */ () => ({
@@ -741,6 +843,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
       askDelete: (node) => latest.current?.askDelete(node),
       askUnpublish: (node) => latest.current?.askUnpublish(node),
       askNew: (parentId) => latest.current?.askNew(parentId),
+      askRename: (node) => latest.current?.askRename(node),
     }),
   );
   const hrefs = useMemo(() => ({ edit: editHref, new: newHref }), [editHref, newHref]);
@@ -750,6 +853,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   const deletingNode = deleting ? locate(tree, deleting)?.node ?? null : null;
   const movingNode = moving ? locate(tree, moving)?.node ?? null : null;
   const movingTargets = movingNode ? moveTargets(tree, movingNode.id) : [];
+  const renamingNode = renaming ? (locate(tree, renaming)?.node ?? null) : null;
   const creatingParent = creating?.parentId ? locate(tree, creating.parentId)?.node ?? null : null;
   const draftCount = total - published;
   const nearLimit = moderation === undefined && !atLimit && total >= Math.ceil(maxContents * 0.9);
@@ -758,6 +862,12 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   const titleId = `${base}-novo-titulo`;
   const slugId = `${base}-novo-slug`;
   const moveId = `${base}-destino`;
+  const renTitleId = `${base}-renomear-titulo`;
+  const renSlugId = `${base}-renomear-slug`;
+  const renNoticeId = `${base}-renomear-aviso`;
+  // O aviso do que muda no endereço (a UI não conhece o handle: mostra só a cadeia de slugs até a coleção).
+  const renChain = renamingNode ? slugChain(tree, renamingNode.id) : [];
+  const renAddress = (/** @type {string} */ last) => `…/${[...renChain.slice(0, -1), last].join("/")}`;
 
   return (
     <section aria-label={moderation ? `Conteúdo de ${moderation.ownerName}` : "Conteúdo"} aria-busy={busy} className="flex flex-col gap-4">
@@ -948,6 +1058,67 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
               ))}
             </select>
           </Field>
+          <div role="alert" className="empty:hidden">
+            {dialogError ? <p className="text-sm font-medium text-danger">{dialogError}</p> : null}
+          </div>
+        </ConfirmDialog>
+      ) : null}
+
+      {renamingNode ? (
+        <ConfirmDialog
+          open
+          initialFocus="field"
+          title={`Renomear "${nameOf(renamingNode)}"`}
+          confirmLabel="Salvar"
+          pending={dialogPending}
+          onConfirm={confirmRename}
+          onCancel={closeRename}
+          description={renamingNode.parentId ? "O título e o endereço desta subcoleção." : "O título e o endereço desta coleção."}
+        >
+          <Field id={renTitleId} label="Título" error={renErrors.title}>
+            <input
+              ref={renTitleRef}
+              id={renTitleId}
+              value={renTitle}
+              maxLength={200}
+              readOnly={dialogPending}
+              aria-invalid={renErrors.title ? "true" : undefined}
+              aria-describedby={describedBy(renTitleId, { error: renErrors.title })}
+              onChange={(event) => changeRenameTitle(event.target.value)}
+              className={INPUT}
+            />
+          </Field>
+          <Field id={renSlugId} label="Slug (o final do endereço)" error={renErrors.slug}>
+            <input
+              ref={renSlugRef}
+              id={renSlugId}
+              value={renSlug}
+              maxLength={SLUG_MAX_LENGTH + 20}
+              readOnly={dialogPending}
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-invalid={renErrors.slug ? "true" : undefined}
+              aria-describedby={[renNoticeId, renErrors.slug ? `${renSlugId}-error` : null].filter(Boolean).join(" ")}
+              onChange={(event) => {
+                setRenSlugTouched(true);
+                setRenSlug(event.target.value);
+              }}
+              className={INPUT}
+            />
+          </Field>
+          {renSlug === renamingNode.slug ? (
+            <p id={renNoticeId} data-testid="aviso-endereco" className="text-sm text-muted">
+              O endereço não muda ({renAddress(renamingNode.slug)}): os links continuam valendo.
+            </p>
+          ) : (
+            <p id={renNoticeId} data-testid="aviso-endereco" className="flex items-start gap-2 rounded-md border border-foreground px-3 py-2 text-sm">
+              <AlertIcon className="mt-0.5 size-4 shrink-0" />
+              <span className="wrap-anywhere">
+                O endereço muda de <code className="break-all">{renAddress(renamingNode.slug)}</code> para <code className="break-all">{renAddress(renSlug)}</code>. Os links antigos desta{" "}
+                {renamingNode.parentId ? "subcoleção" : "coleção"} e de todos os seus documentos deixam de funcionar.
+              </span>
+            </p>
+          )}
           <div role="alert" className="empty:hidden">
             {dialogError ? <p className="text-sm font-medium text-danger">{dialogError}</p> : null}
           </div>

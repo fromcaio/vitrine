@@ -112,6 +112,11 @@ function fakeApi(initial, { limit = 500 } = {}) {
         return new Response(null, { status: 204 });
       }
       if (method === "PATCH") {
+        if (body.slug !== undefined && rows.some((r) => r.id !== id && r.parentId === row.parentId && r.slug === body.slug)) {
+          return problem("SLUG_CONFLICT", 409, [{ field: "slug", value: body.slug, suggestion: `${body.slug}-2` }]);
+        }
+        if (body.title !== undefined) row.title = body.title;
+        if (body.slug !== undefined) row.slug = body.slug;
         if (body.status) row.status = body.status;
         if (body.parentId !== undefined) {
           row.parentId = body.parentId;
@@ -129,9 +134,9 @@ function fakeApi(initial, { limit = 500 } = {}) {
     get tree() {
       return buildTree(rows);
     },
-    /** A próxima chamada com este método e caminho responde com a falha. @param {string} key @param {number} status @param {string} [code] */
-    failNext(key, status, code = "INTERNAL") {
-      failures.set(key, () => problem(code, status));
+    /** A próxima chamada com este método e caminho responde com a falha. @param {string} key @param {number} status @param {string} [code] @param {unknown[]} [details] */
+    failNext(key, status, code = "INTERNAL", details = []) {
+      failures.set(key, () => problem(code, status, details));
     },
     /** A próxima chamada fica esperando até `release()`. @param {string} key */
     pause(key) {
@@ -822,5 +827,331 @@ describe("sessão e regiões vivas", () => {
     fireEvent.click(inDialog().getByRole("button", { name: "Excluir" }));
     await screen.findByText(/Sobre foi excluído/);
     expect(window.confirm).not.toHaveBeenCalled();
+  });
+});
+
+describe("renomear coleção e subcoleção, com o endereço (RF07, RN03, RN04; P-028)", () => {
+  /** @param {string} name */
+  const field = (name) => /** @type {HTMLInputElement} */ (screen.getByRole("textbox", { name }));
+  const titleField = () => field("Título");
+  const slugField = () => field("Slug (o final do endereço)");
+  const notice = () => screen.getByTestId("aviso-endereco");
+  const save = () => fireEvent.click(inDialog().getByRole("button", { name: "Salvar" }));
+  const patches = () => api.callsTo("PATCH", "/api/contents/").filter((call) => !call.path.endsWith("/reorder"));
+
+  /** Linhas com o slug editado à mão (não é o que o título geraria). @type {Row[]} */
+  const EDITED = [
+    { id: "mat", title: "Matemática", slug: "mat-1", type: "COLLECTION", status: "PUBLISHED", parentId: null, order: 0 },
+    { id: "fis", title: "Física", slug: "fisica", type: "COLLECTION", status: "PUBLISHED", parentId: null, order: 1 },
+  ];
+
+  it("a ação existe em cada coleção e subcoleção, com o nome acessível que cita o nó, e não em documento", () => {
+    setup();
+    for (const name of ["Renomear: Cálculo", "Renomear: Séries", "Renomear: Rascunhos"]) {
+      expect(button(name).textContent).toBe("Renomear");
+    }
+    expect(screen.queryByRole("button", { name: "Renomear: Limites" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Renomear: Sobre" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Renomear:/ })).toHaveLength(3);
+    expect(iconPaths(button("Renomear: Cálculo"))).toEqual(iconPaths(button("Passar para rascunho: Limites"))); // o PencilIcon
+  });
+
+  it("abre o diálogo com o título e o slug atuais e o foco no título", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    expect(screen.getByRole("dialog", { name: 'Renomear "Cálculo"' })).toBeTruthy();
+    expect(titleField().value).toBe("Cálculo");
+    expect(slugField().value).toBe("calculo");
+    expect(document.activeElement).toBe(titleField());
+    expect(inDialog().getByRole("button", { name: "Cancelar" })).toBeTruthy();
+  });
+
+  it("título vazio ou só de espaços bloqueia o envio, com a mensagem no campo e o foco nele", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "   " } });
+    save();
+    expect(inDialog().getByText("O título é obrigatório.")).toBeTruthy();
+    expect(titleField().getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(titleField());
+    expect(patches()).toHaveLength(0);
+  });
+
+  it("slug inválido ou vazio bloqueia o envio, com o foco no slug", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(slugField(), { target: { value: "-ruim-" } });
+    save();
+    expect(inDialog().getByText(/apenas letras minúsculas/)).toBeTruthy();
+    expect(document.activeElement).toBe(slugField());
+    fireEvent.change(slugField(), { target: { value: "" } });
+    save();
+    expect(inDialog().getByText("O slug é obrigatório.")).toBeTruthy();
+    expect(patches()).toHaveLength(0);
+  });
+
+  it("nada mudou (título e endereço iguais): fecha sem requisição", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    save();
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(patches()).toHaveLength(0);
+    // espaços nas pontas do mesmo título também não são mudança
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "  Cálculo  " } });
+    save();
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(patches()).toHaveLength(0);
+  });
+
+  it("o endereço acompanha o título enquanto não foi editado, e o PATCH leva só title e slug (sem version)", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    expect(slugField().value).toBe("calculo-ii");
+    save();
+    await screen.findByText(/Coleção renomeada para Cálculo II\./);
+    expect(patches()).toHaveLength(1);
+    expect(patches()[0].path).toBe("/api/contents/calc");
+    expect(patches()[0].body).toEqual({ title: "Cálculo II", slug: "calculo-ii" });
+    expect("version" in patches()[0].body).toBe(false);
+  });
+
+  it("sucesso: a linha, o slug, o nome acessível e o diálogo se atualizam sem recarregar a árvore, e o foco volta à ação", async () => {
+    setup();
+    const treeReads = () => api.callsTo("GET", "/api/contents").length;
+    const before = treeReads();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    save();
+    await screen.findByText(/Coleção renomeada para Cálculo II\./);
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(within(row("calc")).getByText("Cálculo II")).toBeTruthy();
+    expect(within(row("calc")).getByText("/calculo-ii")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Renomear: Cálculo" })).toBeNull();
+    expect(button("Renomear: Cálculo II")).toBeTruthy();
+    expect(button("Nova subcoleção em: Cálculo II")).toBeTruthy();
+    expect(button("Mover para outra coleção: Cálculo II")).toBeTruthy();
+    expect(childIds("calc")).toEqual(["lim", "der", "ser"]); // a ordem e os filhos não mudam
+    expect(titles()).toEqual(["calc", "lim", "der", "ser", "conv", "rasc", "anot", "sobre"]);
+    expect(treeReads()).toBe(before);
+    await waitFor(() => expect(document.activeElement).toBe(button("Renomear: Cálculo II")));
+    // o anúncio fica na região viva de status e diz que os links antigos deixaram de funcionar
+    expect(document.querySelector('[role="status"]')?.textContent).toMatch(/os links antigos deixaram de funcionar/);
+  });
+
+  it("o texto de 'Mover para…' das outras linhas acompanha o título novo", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Análise" } });
+    save();
+    await screen.findByText(/Coleção renomeada para Análise\./);
+    fireEvent.click(button("Mover para outra coleção: Sobre"));
+    expect(inDialog().getAllByRole("option").map((option) => option.textContent)).toContain("Análise");
+    expect(inDialog().getAllByRole("option").map((option) => option.textContent)).not.toContain("Cálculo");
+  });
+
+  it("subcoleção: renomeia o filho, diz 'Subcoleção renomeada' e o aviso traz a cadeia de slugs até ela", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Séries"));
+    expect(screen.getByRole("dialog", { name: 'Renomear "Séries"' })).toBeTruthy();
+    fireEvent.change(titleField(), { target: { value: "Séries e Sequências" } });
+    expect(notice().textContent).toContain("…/calculo/series");
+    expect(notice().textContent).toContain("…/calculo/series-e-sequencias");
+    save();
+    await screen.findByText(/Subcoleção renomeada para Séries e Sequências\./);
+    expect(patches()[0].path).toBe("/api/contents/ser");
+    expect(patches()[0].body).toEqual({ title: "Séries e Sequências", slug: "series-e-sequencias" });
+    expect(within(row("ser")).getByText("/series-e-sequencias")).toBeTruthy();
+    expect(childIds("ser")).toEqual(["conv"]);
+  });
+
+  it("o endereço PARA de acompanhar o título depois de editado à mão", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    expect(slugField().value).toBe("calculo-ii");
+    fireEvent.change(slugField(), { target: { value: "calc-2" } });
+    fireEvent.change(titleField(), { target: { value: "Cálculo III" } });
+    expect(slugField().value).toBe("calc-2");
+  });
+
+  it("slug que já tinha sido editado à mão: fica como está, mesmo mudando o título", async () => {
+    setup({ rows: EDITED });
+    fireEvent.click(button("Renomear: Matemática"));
+    expect(slugField().value).toBe("mat-1");
+    fireEvent.change(titleField(), { target: { value: "Matemática Discreta" } });
+    expect(slugField().value).toBe("mat-1");
+    expect(notice().textContent).toMatch(/O endereço não muda/);
+    save();
+    await screen.findByText(/Coleção renomeada para Matemática Discreta\./);
+    expect(patches()[0].body).toEqual({ title: "Matemática Discreta" }); // só o que mudou
+    expect(document.querySelector('[role="status"]')?.textContent).not.toMatch(/links antigos/);
+    expect(within(row("mat")).getByText("/mat-1")).toBeTruthy();
+  });
+
+  it("só o endereço mudou: o PATCH leva só o slug", async () => {
+    setup({ rows: EDITED });
+    fireEvent.click(button("Renomear: Matemática"));
+    fireEvent.change(slugField(), { target: { value: "matematica" } });
+    save();
+    await screen.findByText(/Coleção renomeada para Matemática\./);
+    expect(patches()[0].body).toEqual({ slug: "matematica" });
+    expect(within(row("mat")).getByText("/matematica")).toBeTruthy();
+  });
+
+  it("o aviso: o endereço novo é dito, e os links antigos da coleção e dos documentos deixam de funcionar", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    expect(notice().textContent).toMatch(/O endereço não muda/);
+    expect(notice().textContent).toMatch(/os links continuam valendo/);
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    expect(notice().textContent).toBe(
+      "O endereço muda de …/calculo para …/calculo-ii. Os links antigos desta coleção e de todos os seus documentos deixam de funcionar.",
+    );
+    expect(notice().textContent).not.toMatch(/continuam valendo/);
+    fireEvent.change(slugField(), { target: { value: "calculo" } });
+    expect(notice().textContent).toMatch(/continuam valendo/); // voltou ao atual
+  });
+
+  it("o aviso é ligado ao campo do endereço (aria-describedby)", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    expect(slugField().getAttribute("aria-describedby")).toContain(notice().id);
+  });
+
+  it("slug repetido entre irmãos: avisa antes de enviar, com a sugestão, sem requisição", () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(slugField(), { target: { value: "sobre" } });
+    save();
+    expect(inDialog().getByText(/Já existe um conteúdo com este slug neste nível\. Sugerimos "calculo"/)).toBeTruthy();
+    expect(slugField().getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(slugField());
+    expect(patches()).toHaveLength(0);
+    expect(dialog().hasAttribute("open")).toBe(true);
+  });
+
+  it("um slug igual ao de um parente de OUTRO nível não conflita", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Séries"));
+    fireEvent.change(slugField(), { target: { value: "sobre" } }); // 'sobre' existe na raiz, não entre os irmãos de Séries
+    save();
+    await screen.findByText(/Subcoleção renomeada para Séries\./);
+    expect(patches()[0].body).toEqual({ slug: "sobre" });
+  });
+
+  it("409 do servidor: o diálogo segue aberto, a sugestão dele vai ao campo e a mensagem a explica", async () => {
+    setup();
+    api.failNext("PATCH /api/contents/calc", 409, "SLUG_CONFLICT", [{ field: "slug", value: "calculo-ii", suggestion: "calculo-ii-2" }]);
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    save();
+    await screen.findByText(/Já existe um conteúdo com este slug neste nível\. Sugerimos "calculo-ii-2"/);
+    expect(dialog().hasAttribute("open")).toBe(true);
+    expect(slugField().value).toBe("calculo-ii-2");
+    expect(titleField().value).toBe("Cálculo II");
+    await waitFor(() => expect(document.activeElement).toBe(slugField()));
+    expect(within(row("calc")).getByText("Cálculo")).toBeTruthy(); // nada mudou na árvore
+    save();
+    await screen.findByText(/Coleção renomeada para Cálculo II\./);
+    expect(patches()[1].body).toEqual({ title: "Cálculo II", slug: "calculo-ii-2" });
+  });
+
+  for (const [name, status, code, message] of /** @type {[string, number, string, RegExp][]} */ ([
+    ["422", 422, "VALIDATION_ERROR", /O servidor não aceitou o pedido/],
+    ["403", 403, "FORBIDDEN", /Você não tem permissão para esta operação/],
+    ["429", 429, "RATE_LIMITED", /Muitas alterações em pouco tempo/],
+    ["500", 500, "INTERNAL", /O servidor não conseguiu atender agora/],
+  ])) {
+    it(`${name}: mostra a mensagem em português e mantém o diálogo aberto com o texto digitado`, async () => {
+      setup();
+      api.failNext("PATCH /api/contents/calc", status, code);
+      fireEvent.click(button("Renomear: Cálculo"));
+      fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+      save();
+      await inDialog().findByText(message);
+      expect(dialog().hasAttribute("open")).toBe(true);
+      expect(titleField().value).toBe("Cálculo II");
+      expect(slugField().value).toBe("calculo-ii");
+      expect(within(row("calc")).getByText("Cálculo")).toBeTruthy(); // a linha não mudou
+      expect(screen.queryByText(/Coleção renomeada/)).toBeNull();
+    });
+  }
+
+  it("erro de rede: mensagem em português, diálogo aberto e texto preservado", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    api.fetch.mockImplementationOnce(() => Promise.reject(new TypeError("Failed to fetch")));
+    save();
+    await inDialog().findByText(/Não foi possível conectar ao servidor/);
+    expect(dialog().hasAttribute("open")).toBe(true);
+    expect(titleField().value).toBe("Cálculo II");
+  });
+
+  it("depois de uma falha, dá para tentar de novo e a mensagem some", async () => {
+    setup();
+    api.failNext("PATCH /api/contents/calc", 500);
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    save();
+    await inDialog().findByText(/O servidor não conseguiu atender agora/);
+    save();
+    await screen.findByText(/Coleção renomeada para Cálculo II\./);
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  it("404 (excluída em outra aba): fecha o diálogo, avisa e recarrega a árvore", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Rascunhos"));
+    fireEvent.change(titleField(), { target: { value: "Ideias" } });
+    api.removeBehindTheScenes("rasc");
+    save();
+    await screen.findByText(/Este conteúdo não existe mais/);
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(titles()).not.toContain("rasc");
+    expect(api.callsTo("GET", "/api/contents").length).toBeGreaterThan(0);
+  });
+
+  it("Esc cancela sem enviar e devolve o foco à ação 'Renomear' da linha", () => {
+    setup();
+    const action = button("Renomear: Cálculo");
+    action.focus();
+    fireEvent.click(action);
+    fireEvent.change(titleField(), { target: { value: "Outro" } });
+    fireEvent(dialog(), new Event("cancel", { cancelable: true }));
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(document.activeElement).toBe(action);
+    expect(patches()).toHaveLength(0);
+    // reabrir começa com os valores atuais, não com o que foi digitado
+    fireEvent.click(action);
+    expect(titleField().value).toBe("Cálculo");
+  });
+
+  it("durante o envio o diálogo não fecha (nem com Esc), os campos ficam só para leitura e o segundo envio é ignorado", async () => {
+    setup();
+    const release = api.pause("PATCH /api/contents/calc");
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "Cálculo II" } });
+    save();
+    await waitFor(() => expect(inDialog().getByRole("button", { name: "Enviando…" })).toBeTruthy());
+    expect(titleField().readOnly).toBe(true);
+    expect(slugField().readOnly).toBe(true);
+    fireEvent(dialog(), new Event("cancel", { cancelable: true }));
+    expect(dialog().hasAttribute("open")).toBe(true);
+    fireEvent.submit(/** @type {HTMLFormElement} */ (dialog().querySelector("form")));
+    release();
+    await screen.findByText(/Coleção renomeada para Cálculo II\./);
+    expect(patches()).toHaveLength(1);
+  });
+
+  it("o título e o slug com HTML são texto puro, na linha e no aviso", async () => {
+    setup();
+    fireEvent.click(button("Renomear: Cálculo"));
+    fireEvent.change(titleField(), { target: { value: "<img src=x onerror=alert(1)>" } });
+    save();
+    await screen.findByText(/Coleção renomeada para <img src=x onerror=alert\(1\)>\./);
+    expect(document.querySelector("img")).toBeNull();
   });
 });

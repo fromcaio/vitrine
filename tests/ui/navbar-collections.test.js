@@ -185,7 +185,7 @@ describe("uma só linha, de altura fixa (item 1)", () => {
   it("a linha da marca da Navbar: py-3 (de volta ao original); o flex-wrap, o mr-auto e o min-w-0 dela ficam", () => {
     render(<Navbar name="Espaço" homeHref="/maria" items={ITEMS} adminLink={false} />);
     const row = /** @type {HTMLElement} */ (screen.getByRole("banner").firstElementChild);
-    expect(row.className).toBe("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3");
+    expect(row.className).toBe("flex flex-wrap items-center gap-x-2 gap-y-2 px-4 py-3 sm:gap-x-4");
     expect(screen.getByRole("link", { name: "Espaço" }).className).toBe("mr-auto flex min-w-0 items-center gap-3 rounded-sm");
     // E a barra de coleções é o componente novo, depois dela.
     expect(row.nextElementSibling?.getAttribute("aria-label")).toBe("Coleções");

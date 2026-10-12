@@ -149,6 +149,53 @@ export function withStatus(roots, id, status) {
 }
 
 /**
+ * Árvore com o título e/ou o slug do nó trocados (renomear a coleção; RF07, RN04). A ordem e os
+ * filhos não mudam; só os campos dados mudam.
+ * @param {TreeNode[]} roots
+ * @param {string} id
+ * @param {{ title?: string, slug?: string }} fields
+ */
+export function withRenamed(roots, id, { title, slug }) {
+  return update(roots, id, (node) => ({ ...node, title: title ?? node.title, slug: slug ?? node.slug }));
+}
+
+/**
+ * A cadeia de slugs da raiz até o nó (a URL pública é a cadeia de slugs, RN04), ou `[]` se o nó não
+ * existe.
+ * @param {TreeNode[]} roots
+ * @param {string} id
+ * @returns {string[]}
+ */
+export function slugChain(roots, id) {
+  /** @type {string[]} */
+  const chain = [];
+  /** @param {TreeNode[]} nodes @param {string[]} path */
+  const walk = (nodes, path) => {
+    for (const node of nodes) {
+      if (node.id === id) {
+        chain.push(...path, node.slug);
+        return true;
+      }
+      if (walk(node.children, [...path, node.slug])) return true;
+    }
+    return false;
+  };
+  walk(roots, []);
+  return chain;
+}
+
+/**
+ * Os slugs dos IRMÃOS de um nó (os filhos do mesmo pai, sem ele): contra eles o slug novo não pode colidir (RN03).
+ * @param {TreeNode[]} roots
+ * @param {string} id
+ * @returns {string[]}
+ */
+export function siblingSlugs(roots, id) {
+  const where = locate(roots, id);
+  return where ? where.siblings.filter((node) => node.id !== id).map((node) => node.slug) : [];
+}
+
+/**
  * Árvore sem o nó e sem os seus descendentes (RN07).
  * @param {TreeNode[]} roots
  * @param {string} id

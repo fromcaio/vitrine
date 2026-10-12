@@ -17,10 +17,13 @@ import {
   newUrl,
   normalizeTree,
   reconcile,
+  siblingSlugs,
+  slugChain,
   slugsUnder,
   suggestSlug,
   swapWithSibling,
   validateNewCollection,
+  withRenamed,
   withStatus,
   withoutNode,
 } from "@/components/admin/content-tree-model";
@@ -531,5 +534,35 @@ describe("reconcile", () => {
   it("uma lista vazia contra uma vazia é a mesma", () => {
     const empty = [];
     expect(reconcile(empty, [])).toBe(empty);
+  });
+});
+
+describe("withRenamed, slugChain e siblingSlugs (renomear coleção; RN03, RN04)", () => {
+  it("troca o título e/ou o slug só do nó, sem mexer na ordem, nos filhos nem nos outros ramos", () => {
+    const { roots, a, a1, e, c } = sample();
+    const both = withRenamed(roots, a.id, { title: "Novo", slug: "novo" });
+    expect(locate(both, a.id)?.node).toMatchObject({ title: "Novo", slug: "novo", order: a.order });
+    expect(locate(both, a.id)?.node.children.map((n) => n.id)).toEqual(a.children.map((n) => n.id));
+    expect(locate(both, a1.id)?.node).toBe(a1); // o filho é o mesmo objeto
+    expect(both[1]).toBe(e); // ramo sem relação
+    expect(both[0]).not.toBe(c);
+    expect(locate(roots, a.id)?.node.title).toBe("A"); // a original não mudou
+    expect(locate(withRenamed(roots, a.id, { title: "Só título" }), a.id)?.node).toMatchObject({ title: "Só título", slug: "a" });
+    expect(locate(withRenamed(roots, a.id, { slug: "só-slug" }), a.id)?.node).toMatchObject({ title: "A", slug: "só-slug" });
+  });
+
+  it("slugChain é a cadeia de slugs da raiz até o nó (a URL é a cadeia, RN04); id inexistente, vazia", () => {
+    const { roots, b, c, solto } = sample();
+    expect(slugChain(roots, b.id)).toEqual(["c", "a", "b"]);
+    expect(slugChain(roots, c.id)).toEqual(["c"]);
+    expect(slugChain(roots, solto.id)).toEqual(["solto"]);
+    expect(slugChain(roots, "nada")).toEqual([]);
+  });
+
+  it("siblingSlugs são os slugs dos irmãos, sem o próprio nó (na raiz e dentro de uma coleção)", () => {
+    const { roots, a, c, e, solto } = sample();
+    expect(siblingSlugs(roots, c.id)).toEqual([e.slug, solto.slug]);
+    expect(siblingSlugs(roots, a.id)).toEqual(["d1"]);
+    expect(siblingSlugs(roots, "nada")).toEqual([]);
   });
 });
