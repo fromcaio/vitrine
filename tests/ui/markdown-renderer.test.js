@@ -111,14 +111,21 @@ describe("MarkdownRenderer: Markdown básico e contrato do componente", () => {
     expect(source).not.toMatch(/^\s*["']use client["']/m);
     const imports = [...source.matchAll(/^import\s+(?:[^"']*\sfrom\s+)?["']([^"']+)["']/gm)].map(([, name]) => name);
     // O pipeline (plugins, KaTeX e realce) vem de markdown-pipeline.js, a fonte única (ADR-033): o
-    // renderizador só importa o React, o módulo do pipeline e as folhas de estilo.
-    expect(imports.sort()).toEqual(["./markdown-pipeline", "./markdown.css", "katex/dist/katex.min.css", "react-markdown"].sort());
+    // renderizador só importa o React, o módulo do pipeline, a folha de estilo da tipografia e o MathStyles (um
+    // Componente Cliente que pede a folha do KaTeX depois da hidratação, só para o texto com fórmula; P-032).
+    expect(imports.sort()).toEqual(["./MathStyles", "./markdown-pipeline", "./markdown.css", "react", "react-markdown"].sort());
   });
 
-  it("importa a folha do KaTeX uma vez, do pacote instalado, e nunca de uma CDN", () => {
+  it("a folha do KaTeX é do pacote instalado, nunca de uma CDN, e o renderizador NÃO a importa (P-032)", () => {
     const source = fs.readFileSync(path.join(COMPONENT_DIR, "MarkdownRenderer.js"), "utf8");
-    expect(source.match(/katex[^"'\n]*\.css/g)).toEqual(["katex/dist/katex.min.css"]);
-    expect(source).not.toMatch(/https?:\/\//);
+    const styles = fs.readFileSync(path.join(COMPONENT_DIR, "MathStyles.js"), "utf8");
+    // Importar a folha no renderizador a poria no CSS de toda rota que o usa, tenha o texto fórmula ou não.
+    expect(source).not.toMatch(/^import\s+["'][^"']*katex[^"']*\.css["']/m);
+    expect(source).not.toMatch(/import\(\s*["'][^"']*katex/);
+    // Quem a pede: o MathStyles, depois da hidratação (um pedaço à parte).
+    expect(styles).toMatch(/^"use client";/);
+    expect(styles.match(/import\(\s*["'][^"']*katex[^"']*\.css["']\s*\)/g)).toEqual(['import("katex/dist/katex.min.css")']);
+    expect(source + styles).not.toMatch(/https?:\/\//);
     expect(fs.readFileSync(path.join(COMPONENT_DIR, "markdown.css"), "utf8")).not.toMatch(/@import|url\(/);
   });
 });

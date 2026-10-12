@@ -16,6 +16,12 @@
 // `ModerationDialog`, que pede o motivo e avisa que o dono o verá. É o mesmo componente, o mesmo modelo
 // puro e o mesmo cliente: só muda o que é oferecido.
 //
+// Página inicial e "Ver página pública" (M26, RF42 a RF44, RN36 a RN38): a primeira linha, FIXA, é a "Página inicial"
+// (`homeRow`): não se ordena nem se move e não conta nos limites. Na árvore do próprio usuário leva a "Editar"; na de
+// moderação, "Despublicar" e "Excluir", pelo `ModerationDialog` (motivo obrigatório). O botão "Ver página pública" abre
+// em nova aba a URL pública (`publicBasePath` e a cadeia de slugs) de cada item publicado cujos ancestrais estão todos
+// publicados e da página inicial; sem `publicBasePath` (`null`: o espaço não está no ar), nenhum botão.
+//
 // Desempenho (500 conteúdos, RN25): cada linha é um componente memoizado (`RowView`) que só recebe
 // valores simples e manipuladores estáveis, então uma ação renderiza as linhas que mudaram, e não as
 // 500; e uma árvore com mais de 120 nós abre só os dois primeiros níveis (o resto, sob demanda).
@@ -35,14 +41,31 @@ import {
   CheckCircleIcon,
   ChevronRightIcon,
   DocumentIcon,
+  ExternalLinkIcon,
   EyeOffIcon,
   FolderIcon,
+  HomeIcon,
   MoveIcon,
   PencilIcon,
   PlusIcon,
   TrashIcon,
 } from "@/components/ui/icons";
-import { MESSAGES, createCollection, deleteContent, deleteWithReason, fetchTree, moveTo, renameContent, reorder, setStatus, unpublishWithReason } from "./content-tree-client";
+import { contentHref } from "@/components/layout/space-paths";
+import { siteRelative } from "@/components/ui/site-path";
+import {
+  MESSAGES,
+  createCollection,
+  deleteContent,
+  deleteWithReason,
+  fetchTree,
+  moveTo,
+  removeHome,
+  renameContent,
+  reorder,
+  setStatus,
+  unpublishHome,
+  unpublishWithReason,
+} from "./content-tree-client";
 import { ModerationDialog } from "./ModerationDialog";
 import {
   SLUG_MAX_LENGTH,
@@ -107,6 +130,30 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
 }
 
 /**
+ * O botão "Ver página pública" (RF44, RN38): um link para o SITE, em nova aba. O nome acessível cita o item.
+ * @param {object} props
+ * @param {string} props.href caminho público do item
+ * @param {string} props.name título do item
+ * @param {string} [props.id]
+ */
+function ViewLink({ href, name, id }) {
+  return (
+    <a
+      id={id}
+      href={href}
+      target="_blank"
+      rel="noopener"
+      aria-label={`Ver página pública: ${name}`}
+      title="Ver página pública (abre em uma nova aba)"
+      className={`${LINK_BUTTON} px-2.5 lg:px-3`}
+    >
+      <ExternalLinkIcon className="size-4 shrink-0" />
+      <span className="sr-only lg:not-sr-only">Ver</span>
+    </a>
+  );
+}
+
+/**
  * Manipuladores estáveis (a identidade não muda entre renderizações), para que `RowView` possa ser
  * memoizado: cada um chama a versão mais recente, guardada em uma ref.
  * @typedef {object} Handlers
@@ -128,6 +175,7 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
  * @property {Set<string>} movable ids que têm ao menos um destino de "mover"
  * @property {boolean} atLimit a cota de conteúdos acabou
  * @property {boolean} moderated a árvore é de outro usuário: só abrir, despublicar e excluir
+ * @property {string | null} publicBase prefixo público do espaço (`/maria`), ou `null`: sem botão "Ver página pública"
  * @property {{ edit: Parameters<typeof editUrl>[0], new: Parameters<typeof newUrl>[0] }} hrefs
  * @property {Handlers} handlers
  */
@@ -140,15 +188,18 @@ function RowAction({ icon: IconComponent, label, name, onClick, id, disabled = f
  * @param {TreeNode[]} props.nodes irmãos de um nível
  * @param {number} props.depth
  * @param {TreeNode | null} props.hider o ancestral em rascunho que esconde este nível
+ * @param {string[]} props.slugs a cadeia de slugs dos ancestrais (da raiz até o pai deste nível)
  * @param {Shared} props.shared
  */
-function Level({ nodes, depth, hider, shared }) {
+function Level({ nodes, depth, hider, slugs, shared }) {
   return (
     <ul className={depth === 0 ? "flex flex-col gap-2" : "ml-2 mt-2 flex flex-col gap-2 border-l border-border-strong pl-2 sm:ml-5 sm:pl-4"}>
       {nodes.map((node, index) => {
         const collection = node.type === "COLLECTION";
         const draft = node.status === "DRAFT";
         const open = collection && node.children.length > 0 && !shared.collapsed.has(node.id);
+        // RN38: o botão só existe para o item publicado cujos ancestrais estão todos publicados (RN15).
+        const viewHref = shared.publicBase !== null && !draft && !hider ? contentHref(shared.publicBase, [...slugs, node.slug]) : "";
         return (
           <li key={node.id} data-node-id={node.id} data-type={node.type} data-status={node.status}>
             <RowView
@@ -160,12 +211,13 @@ function Level({ nodes, depth, hider, shared }) {
               canMove={shared.movable.has(node.id)}
               atLimit={shared.atLimit}
               moderated={shared.moderated}
+              viewHref={viewHref}
               editHref={collection ? "" : editUrl(shared.hrefs.edit, node.id)}
               newHref={collection && !shared.atLimit ? newUrl(shared.hrefs.new, node.id) : ""}
               base={shared.base}
               handlers={shared.handlers}
             />
-            {open ? <Level nodes={node.children} depth={depth + 1} hider={hider ?? (draft ? node : null)} shared={shared} /> : null}
+            {open ? <Level nodes={node.children} depth={depth + 1} hider={hider ?? (draft ? node : null)} slugs={[...slugs, node.slug]} shared={shared} /> : null}
           </li>
         );
       })}
@@ -185,12 +237,13 @@ function Level({ nodes, depth, hider, shared }) {
  * @param {boolean} props.canMove há um destino para "mover"
  * @param {boolean} props.atLimit a cota acabou (sem criar)
  * @param {boolean} props.moderated moderação: só abrir, despublicar e excluir
+ * @param {string} props.viewHref caminho público do item para o botão "Ver página pública" (vazio: sem botão)
  * @param {string} props.editHref endereço do editor (só para documentos)
  * @param {string} props.newHref endereço de novo documento aqui (só para coleções; vazio sem cota)
  * @param {string} props.base
  * @param {Handlers} props.handlers
  */
-const RowView = memo(function RowView({ node, index, total, hiderName, open, canMove, atLimit, moderated, editHref, newHref, base, handlers }) {
+const RowView = memo(function RowView({ node, index, total, hiderName, open, canMove, atLimit, moderated, viewHref, editHref, newHref, base, handlers }) {
   const collection = node.type === "COLLECTION";
   const draft = node.status === "DRAFT";
   const expandable = collection && node.children.length > 0;
@@ -248,6 +301,7 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={`Ações de ${name}`}>
+        {viewHref === "" ? null : <ViewLink id={`${base}-view-${node.id}`} href={viewHref} name={name} />}
         {moderated ? (
           <>
             {editHref === "" ? null : (
@@ -346,14 +400,116 @@ const RowView = memo(function RowView({ node, index, total, hiderName, open, can
 });
 
 /**
+ * O estado da página inicial na árvore: o estado de publicação e se há texto (RN36, RN37).
+ * @typedef {{ status: "PUBLISHED" | "DRAFT", hasBody: boolean }} HomeState
+ */
+
+/**
+ * Saneia a `homeRow` recebida (o dado pode vir malformado de um Servidor).
+ * @param {unknown} raw
+ * @returns {HomeState | null}
+ */
+function normalizeHome(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const { status, hasBody } = /** @type {Record<string, unknown>} */ (raw);
+  return { status: status === "DRAFT" ? "DRAFT" : "PUBLISHED", hasBody: hasBody === true };
+}
+
+/**
+ * A primeira linha da árvore, FIXA: a "Página inicial" do espaço (RF42, RF43). Não se ordena nem se move. No modo
+ * comum, o link "Editar"; na moderação, "Despublicar" (só com texto publicado) e "Excluir" (só com texto). Tem o
+ * botão "Ver página pública" se o espaço está no ar.
+ * @param {object} props
+ * @param {HomeState} props.home
+ * @param {string} props.base
+ * @param {boolean} props.moderated
+ * @param {string} props.editHref endereço do editor da página inicial (modo comum)
+ * @param {string} props.viewHref caminho público do espaço (vazio: sem botão)
+ * @param {() => void} props.onUnpublish
+ * @param {() => void} props.onRemove
+ */
+function HomeRowView({ home, base, moderated, editHref, viewHref, onUnpublish, onRemove }) {
+  const draft = home.hasBody && home.status === "DRAFT";
+  const name = "Página inicial";
+  let stateLabel = "Sem texto";
+  if (home.hasBody) stateLabel = draft ? "Rascunho" : "Publicado";
+  let hint = "A página pública mostra a descrição do espaço.";
+  if (home.hasBody && !draft) hint = "O texto aparece na página do espaço.";
+  return (
+    <div
+      data-testid="home-row"
+      className={`flex flex-wrap items-center gap-x-2 gap-y-2 rounded-md border p-2 ${draft ? "border-foreground bg-surface" : "border-border"}`}
+    >
+      <div className="flex min-w-0 flex-1 basis-72 items-start gap-2">
+        <span aria-hidden="true" className="size-10 shrink-0" />
+        <div className="flex min-w-0 flex-col justify-center gap-1 self-center">
+          <span className="flex min-w-0 items-start gap-2">
+            <HomeIcon className="mt-0.5 size-5 shrink-0" />
+            {moderated || editHref === "" ? (
+              <span id={`${base}-home-title`} tabIndex={-1} className="font-semibold wrap-anywhere">
+                {name}
+              </span>
+            ) : (
+              <Link id={`${base}-home-title`} href={editHref} className="font-semibold wrap-anywhere underline underline-offset-2">
+                {name}
+              </Link>
+            )}
+          </span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <span
+              data-testid="home-status"
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-semibold ${draft ? "border-foreground bg-foreground text-background" : "border-border-strong bg-background text-foreground"}`}
+            >
+              {home.hasBody ? draft ? <PencilIcon className="size-3.5 shrink-0" /> : <CheckCircleIcon className="size-3.5 shrink-0" /> : null}
+              {stateLabel}
+            </span>
+            <span className="text-muted">{hint}</span>
+          </span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={`Ações de ${name}`}>
+        {viewHref === "" ? null : <ViewLink id={`${base}-view-home`} href={viewHref} name={name} />}
+        {moderated ? (
+          <>
+            {home.hasBody && home.status === "PUBLISHED" ? (
+              <RowAction id={`${base}-home-unpublish`} icon={PencilIcon} label="Despublicar" name={`Despublicar: ${name}`} onClick={onUnpublish} />
+            ) : home.hasBody ? (
+              <span className="text-xs text-muted">Já é rascunho</span>
+            ) : null}
+            {home.hasBody ? <RowAction id={`${base}-home-remove`} icon={TrashIcon} label="Excluir" name={`Excluir: ${name}`} onClick={onRemove} /> : null}
+          </>
+        ) : editHref === "" ? null : (
+          <Link href={editHref} aria-label={`Editar: ${name}`} title="Editar" className={`${LINK_BUTTON} px-2.5 lg:px-3`}>
+            <PencilIcon className="size-4 shrink-0" />
+            <span className="sr-only lg:not-sr-only">Editar</span>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
  * @param {object} props
  * @param {unknown} props.initialTree `data` de `GET /api/contents` (a árvore do dono, com rascunhos); cada nó é saneado aqui
  * @param {string | ((id: string) => string)} props.editHref endereço do editor de um documento: uma função, ou um modelo com `{id}` (ex.: `/admin/conteudo/{id}`). Uma página de Servidor só consegue passar o modelo: funções não atravessam para um Componente Cliente
  * @param {string | { root: string, child: string } | ((parentId: string | null) => string)} props.newHref endereço do formulário de novo documento: uma função (`parentId` ou `null` na raiz), ou `{ root, child }` com `{parentId}` em `child` (ex.: `{ root: "/admin/conteudo/novo", child: "/admin/conteudo/novo?pai={parentId}" }`)
  * @param {number} [props.maxContents] cota de conteúdos do dono (RN25); o padrão é 500 (não vale na moderação)
  * @param {{ ownerId: string, ownerName: string }} [props.moderation] liga o modo de moderação: a árvore é de OUTRO usuário (`ownerId`, o de `?ownerId=`); `ownerName` é o nome que o aviso e o diálogo citam
+ * @param {{ status: "PUBLISHED" | "DRAFT", hasBody: boolean } | null} [props.homeRow] a linha FIXA "Página inicial" no topo (M26): `null` (padrão) = sem a linha; senão, o estado de publicação e se há texto. Não conta nos limites
+ * @param {string} [props.homeEditHref] endereço do editor da página inicial, para o "Editar" da linha na árvore do próprio usuário (padrão `/admin/pagina-inicial`); na moderação não há edição
+ * @param {string | null} [props.publicBasePath] prefixo público do espaço ("/maria"), que o Core monta (handle ativo do dono); `null` (padrão) = sem botão "Ver página pública" em lugar nenhum. O botão leva a `contentHref(publicBasePath, slugs)` de cada item publicado com todos os ancestrais publicados, e a `publicBasePath` na linha da página inicial
  */
-export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFAULT_MAX_CONTENTS, moderation = undefined }) {
+export function ContentTree({
+  initialTree,
+  editHref,
+  newHref,
+  maxContents = DEFAULT_MAX_CONTENTS,
+  moderation = undefined,
+  homeRow = null,
+  homeEditHref = "/admin/pagina-inicial",
+  publicBasePath = null,
+}) {
   const base = useId();
   const [tree, setTree] = useState(() => normalizeTree(initialTree));
   // Uma árvore grande começa recolhida abaixo do primeiro nível (primeira pintura leve).
@@ -362,6 +518,17 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  // A página inicial: o estado que a tela mostra (muda com a moderação) e a ação à espera do motivo. Se o servidor manda
+  // outro estado (a página foi recarregada), vale o dele.
+  const [home, setHome] = useState(() => normalizeHome(homeRow));
+  const [homeAsking, setHomeAsking] = useState(/** @type {"unpublish" | "remove" | null} */ (null));
+  const homeKey = homeRow ? `${homeRow.status}:${homeRow.hasBody}` : "";
+  const [seenHomeKey, setSeenHomeKey] = useState(homeKey);
+  if (seenHomeKey !== homeKey) {
+    setSeenHomeKey(homeKey);
+    setHome(normalizeHome(homeRow));
+  }
+  const publicBase = siteRelative(publicBasePath);
   /** Ids de elementos que podem receber o foco depois da próxima mudança (o primeiro que existir e estiver habilitado). */
   const focusAfter = useRef(/** @type {string[]} */ ([]));
 
@@ -418,7 +585,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
         return;
       }
     }
-  }, [tree]);
+  }, [tree, home]);
 
   /** @param {string} kind @param {string} id */
   const domId = (kind, id) => `${base}-${kind}-${id}`;
@@ -626,6 +793,44 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
         setUnpublishing(null);
         fail(result);
         await refresh();
+        return null;
+      }
+      return result.message;
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Moderação da página inicial: despublica (`unpublish`) ou apaga o texto (`remove`) com o motivo. Devolve a mensagem
+   * de erro (o diálogo segue aberto) ou `null` se deu certo. Depois do sucesso a linha reflete o novo estado.
+   * @param {string} reason
+   * @returns {Promise<string | null>}
+   */
+  async function confirmHome(reason) {
+    const action = homeAsking;
+    if (!action || !moderation || !home || busyRef.current) return null;
+    busyRef.current = true;
+    setBusy(true);
+    setInfo("");
+    setError("");
+    try {
+      const result = action === "unpublish" ? await unpublishHome(moderation.ownerId, reason) : await removeHome(moderation.ownerId, reason);
+      if (result.ok) {
+        setHome(action === "unpublish" ? { status: "DRAFT", hasBody: home.hasBody } : { status: home.status, hasBody: false });
+        focusAfter.current = [`${base}-home-title`];
+        setHomeAsking(null);
+        setInfo(
+          action === "unpublish"
+            ? `A página inicial passou para rascunho. ${moderation.ownerName} foi notificado(a) e vê o motivo.`
+            : `O texto da página inicial foi excluído. ${moderation.ownerName} foi notificado(a) e vê o motivo.`,
+        );
+        return null;
+      }
+      if (result.kind === "not-found") {
+        setHomeAsking(null);
+        fail(result);
         return null;
       }
       return result.message;
@@ -848,7 +1053,7 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
   );
   const hrefs = useMemo(() => ({ edit: editHref, new: newHref }), [editHref, newHref]);
   /** @type {Shared} */
-  const shared = { base, collapsed, movable, atLimit, moderated: moderation !== undefined, hrefs, handlers };
+  const shared = { base, collapsed, movable, atLimit, moderated: moderation !== undefined, publicBase, hrefs, handlers };
 
   const deletingNode = deleting ? locate(tree, deleting)?.node ?? null : null;
   const movingNode = moving ? locate(tree, moving)?.node ?? null : null;
@@ -958,15 +1163,48 @@ export function ContentTree({ initialTree, editHref, newHref, maxContents = DEFA
         ) : null}
       </div>
 
+      {home ? (
+        <ul aria-label="Página inicial" className="flex flex-col gap-2">
+          <li>
+            <HomeRowView
+              home={home}
+              base={base}
+              moderated={moderation !== undefined}
+              editHref={homeEditHref}
+              viewHref={publicBase === null ? "" : publicBase.replace(/\/+$/, "") || "/"}
+              onUnpublish={() => setHomeAsking("unpublish")}
+              onRemove={() => setHomeAsking("remove")}
+            />
+          </li>
+        </ul>
+      ) : null}
+
       {tree.length === 0 ? (
         <p className="rounded-md border border-border bg-surface px-4 py-6 text-muted">
           Você ainda não tem conteúdo. Crie a primeira coleção ou o primeiro documento.
         </p>
       ) : (
         <nav aria-label="Árvore de conteúdo">
-          <Level nodes={tree} depth={0} hider={null} shared={shared} />
+          <Level nodes={tree} depth={0} hider={null} slugs={[]} shared={shared} />
         </nav>
       )}
+
+      {homeAsking && moderation && home ? (
+        <ModerationDialog
+          open
+          danger={homeAsking === "remove"}
+          title={homeAsking === "remove" ? "Excluir o texto da página inicial?" : "Despublicar a página inicial?"}
+          confirmLabel={homeAsking === "remove" ? "Excluir" : "Despublicar"}
+          ownerName={moderation.ownerName}
+          onConfirm={confirmHome}
+          onCancel={() => setHomeAsking(null)}
+          description={
+            homeAsking === "remove"
+              ? "O texto da página inicial é apagado e não pode ser recuperado. A página do espaço volta a mostrar a descrição."
+              : "O texto passa para rascunho e sai do ar: a página do espaço volta a mostrar a descrição. Ninguém o apaga: a pessoa pode publicá-lo de novo."
+          }
+        />
+      ) : null}
 
       {deletingNode ? (
         moderation ? (

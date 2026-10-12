@@ -12,11 +12,11 @@ import { AlertIcon } from "@/components/ui/icons";
 /** Atalhos, na ordem do menu. `adminOnly`: só para o administrador. */
 const SHORTCUTS = [
   { title: "Conteúdo", href: "/admin/conteudo", description: "Árvore de coleções e documentos: criar, editar, mover, publicar e excluir." },
+  { title: "Página inicial", href: "/admin/pagina-inicial", description: "O texto da página inicial do seu espaço (o administrador, também a do sistema): escreva, publique e veja a página pública." },
   { title: "Aparência", href: "/admin/aparencia", description: "Nome, logotipo, cores (clara e noturna) e links sociais do seu espaço." },
   { title: "Notificações", href: "/admin/notificacoes", description: "Avisos do sistema e da moderação sobre o seu conteúdo." },
   { title: "Perfil", href: "/admin/perfil", description: "Seu nome de exibição, e-mail, endereço e papel." },
   { title: "Trocar a senha", href: "/admin/senha", description: "Defina uma nova senha; as outras sessões são encerradas." },
-  { title: "Configurações", href: "/admin/configuracoes", description: "Identidade do site, paleta de cores e links sociais do portal.", adminOnly: true },
   { title: "Usuários", href: "/admin/usuarios", description: "Criar contas, redefinir senhas, suspender e excluir usuários.", adminOnly: true },
 ];
 

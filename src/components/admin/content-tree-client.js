@@ -22,6 +22,8 @@ export const MESSAGES = {
   passwordChange: "Troque a senha provisória antes de editar o conteúdo.",
   rateLimited: "Muitas alterações em pouco tempo. Aguarde um instante e tente de novo.",
   notFound: "Este conteúdo não existe mais; talvez tenha sido excluído em outra aba. A árvore foi recarregada.",
+  homeNotFound: "A página inicial já estava fora do ar ou vazia, ou a conta não existe mais. Recarregue a página para ver o estado atual.",
+  homeOwn: "O administrador edita a própria página inicial em Página inicial; a moderação é só da página dos outros usuários.",
   slugConflict: "Já existe um conteúdo com este slug neste nível.",
   quota: "Você atingiu o limite de conteúdos do seu espaço. Exclua algum para criar outro.",
   invalidParent: "O destino não aceita este conteúdo (precisa ser uma coleção sua, sem formar um ciclo). A árvore foi recarregada.",
@@ -180,6 +182,40 @@ export function deleteWithReason(id, reason, fetchImpl = fetch) {
     () => ({}),
   );
 }
+
+/**
+ * Moderação da PÁGINA INICIAL de outro usuário (RF43, RN37; `PATCH /api/users/:id/home` e `DELETE
+ * /api/users/:id/home?reason=`). Um 404 é "não há o que fazer" (já fora do ar ou vazia) e um 403, a página do
+ * próprio administrador: as mensagens são as da página inicial, não as do nó da árvore.
+ * @param {() => Promise<Response>} send
+ */
+async function homeRequest(send) {
+  const result = await request(send, () => ({}));
+  if (result.ok) return result;
+  if (result.kind === "not-found") return { ...result, message: MESSAGES.homeNotFound };
+  if (result.kind === "forbidden" && result.message === MESSAGES.forbidden) return { ...result, message: MESSAGES.homeOwn };
+  return result;
+}
+
+/**
+ * Moderação: despublica a página inicial de outro usuário, com o motivo (o estado dela passa a rascunho).
+ * @param {string} ownerId
+ * @param {string} reason
+ * @param {typeof fetch} [fetchImpl]
+ */
+export const unpublishHome = (ownerId, reason, fetchImpl = fetch) =>
+  homeRequest(() =>
+    fetchImpl(`/api/users/${encodeURIComponent(ownerId)}/home`, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify({ status: "DRAFT", reason }) }),
+  );
+
+/**
+ * Moderação: apaga o texto da página inicial de outro usuário, com o motivo (`DELETE ?reason=`; 204).
+ * @param {string} ownerId
+ * @param {string} reason
+ * @param {typeof fetch} [fetchImpl]
+ */
+export const removeHome = (ownerId, reason, fetchImpl = fetch) =>
+  homeRequest(() => fetchImpl(`/api/users/${encodeURIComponent(ownerId)}/home?reason=${encodeURIComponent(reason)}`, { method: "DELETE" }));
 
 /** Exclui o nó e os descendentes (RN07). @param {string} id @param {typeof fetch} [fetchImpl] */
 export function deleteContent(id, fetchImpl = fetch) {

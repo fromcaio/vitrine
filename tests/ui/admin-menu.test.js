@@ -25,18 +25,19 @@ const navs = () => screen.getAllByRole("navigation", { name: "Navegação do pai
 const itemTexts = (/** @type {HTMLElement} */ nav) => [...nav.querySelectorAll("li")].map((li) => li.textContent?.replace(/\s+/g, " ").trim());
 
 describe("menuFor: o menu por papel e por senha provisória", () => {
-  it("o usuário comum tem Visão geral, Conteúdo, Aparência, Notificações, Perfil e a troca de senha", () => {
-    expect(labels(menuFor({ role: "user" }))).toEqual(["Visão geral", "Conteúdo", "Aparência", "Notificações", "Perfil", "Trocar a senha"]);
+  it("o usuário comum tem Visão geral, Conteúdo, Página inicial, Aparência, Notificações, Perfil e a troca de senha", () => {
+    expect(labels(menuFor({ role: "user" }))).toEqual(["Visão geral", "Conteúdo", "Página inicial", "Aparência", "Notificações", "Perfil", "Trocar a senha"]);
   });
 
-  it("o administrador acrescenta Configurações e Usuários, ao fim", () => {
+  it("o administrador acrescenta só Usuários, ao fim (P-032: Configurações virou a Página inicial, de todos os papéis)", () => {
     expect(labels(menuFor({ role: "admin" }))).toEqual([
-      "Visão geral", "Conteúdo", "Aparência", "Notificações", "Perfil", "Trocar a senha", "Configurações", "Usuários",
+      "Visão geral", "Conteúdo", "Página inicial", "Aparência", "Notificações", "Perfil", "Trocar a senha", "Usuários",
     ]);
+    expect(labels(menuFor({ role: "admin" }))).not.toContain("Configurações");
   });
 
   it("sem informar o papel, vale o de usuário comum (nunca o de administrador)", () => {
-    expect(labels(menuFor({}))).not.toContain("Configurações");
+    expect(labels(menuFor({}))).not.toContain("Usuários");
     expect(labels(menuFor())).not.toContain("Usuários");
     expect(labels(menuFor({ role: /** @type {any} */ ("root") }))).not.toContain("Usuários");
   });
@@ -47,8 +48,10 @@ describe("menuFor: o menu por papel e por senha provisória", () => {
     expect(menuFor({ mustChangePassword: true })[0].href).toBe("/admin/senha");
   });
 
-  it("Configurações e Usuários são só do administrador", () => {
-    expect(NAV_ITEMS.filter((item) => item.adminOnly).map((item) => item.href)).toEqual(["/admin/configuracoes", "/admin/usuarios"]);
+  it("Usuários é só do administrador; a Página inicial é de todos os papéis (P-032)", () => {
+    expect(NAV_ITEMS.filter((item) => item.adminOnly).map((item) => item.href)).toEqual(["/admin/usuarios"]);
+    expect(NAV_ITEMS.find((item) => item.href === "/admin/pagina-inicial")).toMatchObject({ label: "Página inicial" });
+    expect(NAV_ITEMS.find((item) => item.href === "/admin/pagina-inicial")?.adminOnly).toBeUndefined();
   });
 });
 
@@ -61,13 +64,13 @@ describe("AdminSidebar", () => {
     expect(collapsible.closest("details")).toBeTruthy();
   });
 
-  it("o usuário comum não vê Configurações nem Usuários, e o administrador vê", () => {
+  it("o usuário comum vê a Página inicial e não vê Usuários; o administrador vê as duas", () => {
     const { unmount } = render(<AdminSidebar role="user" availablePaths={ALL} />);
-    expect(screen.queryByText("Configurações", { exact: false })).toBeNull();
+    expect(screen.getAllByText("Página inicial")).toHaveLength(2);
     expect(screen.queryByText("Usuários", { exact: false })).toBeNull();
     unmount();
     render(<AdminSidebar role="admin" availablePaths={ALL} />);
-    expect(screen.getAllByText("Configurações")).toHaveLength(2);
+    expect(screen.getAllByText("Página inicial")).toHaveLength(2);
     expect(screen.getAllByText("Usuários")).toHaveLength(2);
   });
 
@@ -86,7 +89,7 @@ describe("AdminSidebar", () => {
     const side = navs()[1];
     expect(within(side).getByRole("link", { name: "Visão geral" }).getAttribute("href")).toBe("/admin");
     expect(within(side).getByRole("link", { name: "Trocar a senha" }).getAttribute("href")).toBe("/admin/senha");
-    for (const label of ["Conteúdo", "Aparência", "Notificações", "Perfil"]) {
+    for (const label of ["Conteúdo", "Página inicial", "Aparência", "Notificações", "Perfil"]) {
       const row = /** @type {HTMLElement} */ (within(side).getByText(label, { exact: false }).closest("li"));
       expect(row.textContent).toContain("em breve");
       expect(row.querySelector("a")).toBeNull();
@@ -95,9 +98,9 @@ describe("AdminSidebar", () => {
   });
 
   it("availablePaths liga os itens que o Core já entregou", () => {
-    render(<AdminSidebar role="admin" availablePaths={["/admin", "/admin/aparencia", "/admin/notificacoes", "/admin/configuracoes"]} />);
+    render(<AdminSidebar role="admin" availablePaths={["/admin", "/admin/aparencia", "/admin/notificacoes", "/admin/pagina-inicial"]} />);
     const side = navs()[1];
-    for (const [name, href] of [["Aparência", "/admin/aparencia"], ["Notificações", "/admin/notificacoes"], ["Configurações", "/admin/configuracoes"]]) {
+    for (const [name, href] of [["Aparência", "/admin/aparencia"], ["Notificações", "/admin/notificacoes"], ["Página inicial", "/admin/pagina-inicial"]]) {
       expect(within(side).getByRole("link", { name }).getAttribute("href")).toBe(href);
     }
     expect(within(side).queryByRole("link", { name: "Usuários" })).toBeNull();
@@ -174,27 +177,27 @@ describe("AdminShell", () => {
 
   it("sem as props, o papel e a senha provisória saem do próprio usuário da sessão", () => {
     shell({ user: { ...USER, role: "admin" } });
-    expect(screen.getAllByText("Configurações")).toHaveLength(2);
+    expect(screen.getAllByText("Usuários")).toHaveLength(2);
     cleanup();
     shell({ user: { ...USER, role: "user" } });
-    expect(screen.queryByText("Configurações")).toBeNull();
+    expect(screen.queryByText("Usuários")).toBeNull();
     cleanup();
     shell({ user: { ...USER, role: "admin", mustChangePassword: true } });
-    expect(screen.queryByText("Configurações")).toBeNull();
+    expect(screen.queryByText("Usuários")).toBeNull();
     expect(screen.getAllByText("Trocar a senha")).toHaveLength(2);
   });
 
   it("sem papel nenhum, nunca vira administrador", () => {
     shell();
-    expect(screen.queryByText("Configurações")).toBeNull();
+    expect(screen.queryByText("Usuários")).toBeNull();
     cleanup();
     shell({ user: { ...USER, role: "outro" } });
-    expect(screen.queryByText("Configurações")).toBeNull();
+    expect(screen.queryByText("Usuários")).toBeNull();
   });
 
   it("as props valem mais que o usuário", () => {
     shell({ user: { ...USER, role: "admin", mustChangePassword: true }, role: "user", mustChangePassword: false });
-    expect(screen.queryByText("Configurações")).toBeNull();
+    expect(screen.queryByText("Usuários")).toBeNull();
     expect(screen.getAllByText("Visão geral")).toHaveLength(2);
   });
 

@@ -96,6 +96,28 @@ export function SettingsIcon(props) {
   );
 }
 
+/** Página inicial (casa). @param {{ className?: string }} props */
+export function HomeIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="m3 11 9-8 9 8" />
+      <path d="M5 10v10h14V10" />
+      <path d="M10 20v-6h4v6" />
+    </Icon>
+  );
+}
+
+/** Abrir em outra aba (seta para fora de um quadro). @param {{ className?: string }} props */
+export function ExternalLinkIcon(props) {
+  return (
+    <Icon {...props}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4 11 13" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </Icon>
+  );
+}
+
 /** @param {{ className?: string }} props */
 export function SignOutIcon(props) {
   return (

@@ -5,8 +5,9 @@
 // recolhível (RNF06), sem estado em JavaScript; a partir de 768 px vira a barra lateral fixa. As duas
 // cópias nunca aparecem juntas: a que está oculta sai também da árvore de acessibilidade.
 //
-// O menu: Visão geral, Conteúdo, Aparência, Notificações, Perfil, Trocar a senha e, só para o
-// administrador, Configurações e Usuários. Com a senha PROVISÓRIA (RN21), só "Trocar a senha": é a
+// O menu: Visão geral, Conteúdo, Página inicial, Aparência, Notificações, Perfil, Trocar a senha e, só para o
+// administrador, Usuários. "Página inicial" (P-032, M26) substitui as Configurações: todos os papéis editam a
+// página inicial do próprio espaço, e o administrador também a do sistema. Com a senha PROVISÓRIA (RN21), só "Trocar a senha": é a
 // única página que a conta pode abrir (o "Sair" está na barra superior). Um item cuja página ainda
 // não existe aparece desabilitado, com "em breve": quem monta o painel diz quais existem em
 // `availablePaths`.
@@ -18,9 +19,9 @@ import {
   DocumentIcon,
   KeyIcon,
   MenuIcon,
+  HomeIcon,
   OverviewIcon,
   PaletteIcon,
-  SettingsIcon,
   UserIcon,
   UsersIcon,
 } from "@/components/ui/icons";
@@ -34,11 +35,11 @@ import {
 export const NAV_ITEMS = [
   { label: "Visão geral", href: "/admin", icon: <OverviewIcon /> },
   { label: "Conteúdo", href: "/admin/conteudo", icon: <DocumentIcon /> },
+  { label: "Página inicial", href: "/admin/pagina-inicial", icon: <HomeIcon /> },
   { label: "Aparência", href: "/admin/aparencia", icon: <PaletteIcon /> },
   { label: "Notificações", href: "/admin/notificacoes", icon: <BellIcon /> },
   { label: "Perfil", href: "/admin/perfil", icon: <UserIcon /> },
   { label: "Trocar a senha", href: "/admin/senha", icon: <KeyIcon /> },
-  { label: "Configurações", href: "/admin/configuracoes", icon: <SettingsIcon />, adminOnly: true },
   { label: "Usuários", href: "/admin/usuarios", icon: <UsersIcon />, adminOnly: true },
 ];
 

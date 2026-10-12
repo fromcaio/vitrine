@@ -11,6 +11,7 @@
 // (`usePreviewBudget`). O que estoura o orçamento mostra "A pré-visualização não está disponível: o texto é
 // complexo demais."; o texto do autor segue intacto no campo, e o servidor continua recusando o envio.
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { TOO_COMPLEX_PREVIEW_MESSAGE, UNAVAILABLE_PREVIEW_MESSAGE } from "./preview-budget";
 import { usePreviewBudget } from "./usePreviewBudget";
 
@@ -31,9 +32,18 @@ const MarkdownRenderer = dynamic(
  * @param {() => import("./preview-budget").WorkerLike} [props.createWorker] o worker, injetável (testes)
  * @param {number} [props.delayMs] a pausa antes de checar (testes)
  * @param {number} [props.budgetMs] o orçamento (testes)
+ * @param {number} [props.headingOffset] desloca o nível dos títulos, como o `MarkdownRenderer` (a página inicial usa 1: o
+ *   texto começa em `h2`, e a pré-visualização mostra o que o leitor verá)
  */
-export function Preview({ markdown, visible = true, pending = false, className = "", createWorker, delayMs, budgetMs }) {
+export function Preview({ markdown, visible = true, pending = false, className = "", createWorker, delayMs, budgetMs, headingOffset = 0 }) {
   const budget = usePreviewBudget({ markdown, visible, createWorker, delayMs, budgetMs });
+  // A folha do KaTeX (o `MarkdownRenderer` não a importa, P-032): pedida assim que o texto parece ter fórmula, durante a
+  // pausa e a checagem do orçamento, antes de o renderizador montar, para a matemática quase nunca aparecer sem estilo.
+  // O `MarkdownRenderer` também a pede (`MathStyles`); o navegador carrega a folha uma só vez.
+  const mathLikely = markdown.includes("$") || markdown.includes("math");
+  useEffect(() => {
+    if (visible && mathLikely) void import("katex/dist/katex.min.css");
+  }, [visible, mathLikely]);
   const busy = pending || budget.pending;
   const tooComplex = budget.status === "too-complex";
   const unavailable = budget.status === "unavailable";
@@ -58,7 +68,7 @@ export function Preview({ markdown, visible = true, pending = false, className =
         <p className="text-sm text-muted">Carregando a pré-visualização…</p>
       ) : (
         // Montado mesmo sem texto: o carregamento do componente já começa.
-        <MarkdownRenderer markdown={budget.approved} />
+        <MarkdownRenderer markdown={budget.approved} headingOffset={headingOffset} />
       )}
     </div>
   );
