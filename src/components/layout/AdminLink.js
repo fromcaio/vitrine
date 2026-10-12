@@ -69,7 +69,7 @@ export function AdminAnchor({ temporary, className = "" }) {
     <Link
       href={temporary ? "/admin/senha" : "/admin"}
       prefetch={false}
-      className={`inline-flex min-h-10 items-center rounded-md border border-on-secondary px-3 text-sm font-medium hover:bg-on-secondary hover:text-secondary ${className}`.trim()}
+      className={`inline-flex min-h-10 items-center rounded-md border border-on-secondary px-2 text-sm font-medium sm:px-3 hover:bg-on-secondary hover:text-secondary ${className}`.trim()}
     >
       Administração
     </Link>
