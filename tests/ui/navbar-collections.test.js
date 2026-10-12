@@ -4,6 +4,7 @@
 // movimento reduzido e o realce pela cor primária do tema. O jsdom não tem layout: as medidas de rolagem
 // (`scrollWidth`, `clientWidth`, `scrollLeft`) e os retângulos são simulados; as medidas de verdade ficam para o
 // ensaio no navegador sobre o build de produção.
+import { readFileSync } from "node:fs";
 import { act, cleanup, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -124,6 +125,8 @@ describe("uma só linha, de altura fixa (item 1)", () => {
     const ul = classesOf(list());
     expect(ul).toEqual(expect.arrayContaining(["flex", "flex-nowrap", "overflow-x-auto", "vitrine-sem-barra"]));
     expect(ul).not.toContain("flex-wrap");
+    // A rolagem do JavaScript escolhe o comportamento (o movimento reduzido); o CSS não força a suave.
+    expect(ul).not.toContain("scroll-smooth");
     for (const li of screen.getAllByRole("listitem")) expect(classesOf(li)).toContain("shrink-0");
   });
 
@@ -281,8 +284,9 @@ describe("as setas (estado simulado)", () => {
     pointer("pointerDown", right);
     const calls = vi.mocked(Element.prototype.scrollBy).mock.calls.length;
     vi.advanceTimersByTime(HOLD_INTERVAL * 5);
-    // O primeiro passo levou ao fim (700); as repetições não rolam mais.
+    // O primeiro passo levou ao fim (700); as repetições não rolam mais e o intervalo é LIMPO (nada fica rodando).
     expect(vi.mocked(Element.prototype.scrollBy).mock.calls.length).toBe(calls);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("o toque e o teclado passam pelo clique (o pressionar só vale para mouse e caneta)", () => {
@@ -339,6 +343,24 @@ describe("arrastar com o ponteiro", () => {
     render(<NavbarCollections items={ITEMS} />);
     expect(classesOf(list())).toEqual(expect.arrayContaining(["touch-pan-x", "touch-pan-y", "select-none", "cursor-grab"]));
     expect(screen.getByRole("link", { name: "Cálculo" }).getAttribute("draggable")).toBe("false");
+  });
+});
+
+describe("sem barra de rolagem visível (globals.css)", () => {
+  const css = readFileSync("src/app/globals.css", "utf8");
+
+  it("a classe esconde a barra nos dois motores: scrollbar-width none e ::-webkit-scrollbar sem display", () => {
+    const body = (/** @type {string} */ selector) => {
+      const start = css.indexOf(`${selector} {`);
+      return start < 0 ? "" : css.slice(start, css.indexOf("}", start));
+    };
+    expect(body(".vitrine-sem-barra")).toContain("scrollbar-width: none");
+    expect(body(".vitrine-sem-barra::-webkit-scrollbar")).toContain("display: none");
+  });
+
+  it("a faixa leva a classe", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    expect(classesOf(list())).toContain("vitrine-sem-barra");
   });
 });
 
