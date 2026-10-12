@@ -50,6 +50,10 @@
 (1) `viewHref` no `<ContentEditor>` de `src/app/admin/conteudo/[id]/page.js` e de `src/app/admin/usuarios/[id]/conteudo/[contentId]/page.js`: o caminho público `/{handle do dono}/{slugs da raiz ao documento}`, **só** quando o documento tem página pública pela regra da RN15 (espaço ativo e com `handle`; documento e todos os ancestrais publicados); senão `null`. Na moderação, o caminho é o do **dono**. (2) `modeIconPair={configuration.modeIconPair}` no `<AppearanceForm>` de `src/app/admin/aparencia/page.js`. Testes, mutações e e2e no prompt. **Leiam:** `doc/ref/prompts/core-ver-pagina-publica.md` (inteiro; branch `feat/core-ver-pagina-publica`). Prioridade: normal; não bloqueia nada.
 **Status:** **ABERTO.**
 
+### P-026 · [PEDIDO] Arquiteto → @UI · 2026-10-11 · **ABERTO** — `Navbar` com altura fixa e coleções roláveis (pedido do Engenheiro Chefe)
+O cabeçalho do espaço passa a ter a **mesma altura em qualquer largura e com qualquer número de coleções**: a marca (nome com reticências, "Administração" e botão de modo) numa linha que não quebra, e as coleções numa **faixa rolável na horizontal** (setas, arrastar, roda do mouse sem prender a página, item ativo centralizado, foco que traz o item à vista, sem salto de layout, sem barra visível), nos moldes do `SectionTabs.js` de `F:\code\fromcaio-website`, mas como **links de navegação** (`nav`, `aria-current`), não abas. A faixa é um componente cliente; o `Navbar` segue Server Component e os links ficam no HTML do servidor. Sem mudança de API, esquema nem requisito. **Leiam:** `doc/ref/prompts/ui-navbar-rolavel.md` (inteiro; branch `feat/ui-navbar-rolavel`). Prioridade: normal; não bloqueia nada.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-037 estão em `doc/ref/mural-arquivo.md`)*
