@@ -138,3 +138,24 @@ describe("describeNotification: o que não se conhece", () => {
     expect(() => describeEvent({ event: 7 })).not.toThrow();
   });
 });
+
+describe("describeNotification: moderação da página inicial (ADR-040)", () => {
+  it("HOME_UNPUBLISHED: o texto voltou a ser rascunho; o motivo vem no fim", () => {
+    expect(describeEvent({ event: "HOME_UNPUBLISHED", reason: "Fora das regras" })).toEqual({
+      title: "Página inicial despublicada",
+      text: "Um administrador despublicou o texto da sua página inicial: ele voltou a ser rascunho e saiu do ar. Você pode revisá-lo e publicá-lo de novo em Página inicial. Motivo: Fora das regras",
+    });
+  });
+
+  it("HOME_REMOVED: o texto foi excluído; o motivo vem no fim", () => {
+    expect(describeEvent({ event: "HOME_REMOVED", reason: "Spam" })).toEqual({
+      title: "Página inicial excluída",
+      text: "Um administrador excluiu o texto da sua página inicial. Você pode escrever outro em Página inicial. Motivo: Spam",
+    });
+  });
+
+  it("sem o motivo, a frase termina sem 'Motivo:'; o motivo é texto puro, sem interpretação", () => {
+    expect(describeEvent({ event: "HOME_REMOVED" }).text).not.toContain("Motivo");
+    expect(describeEvent({ event: "HOME_UNPUBLISHED", reason: "<b>x</b>" }).text).toContain("Motivo: <b>x</b>");
+  });
+});

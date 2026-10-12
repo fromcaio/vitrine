@@ -23,6 +23,9 @@ import {
   footerUrlError,
   handleError,
   handleSchema,
+  homeModerationSchema,
+  homeRemovalQuerySchema,
+  homeUpdateSchema,
   hexColorSchema,
   normalizeHandle,
   passwordChangeSchema,
@@ -656,5 +659,49 @@ describe("mensagens em português do Brasil (R-007)", () => {
     expect(source).not.toMatch(/z\.locales\s*[.[]/);
     // O português de Portugal (`pt.js`) não pode voltar por engano.
     expect(source).not.toMatch(/from\s+"zod\/v4\/locales\/pt\.js"/);
+  });
+});
+
+describe("página inicial (ADR-040; RF42, RF43, RN35, RN37)", () => {
+  it("PUT /api/configuration aceita homeStatus (PUBLISHED ou DRAFT) e recusa outro valor", () => {
+    expect(validate(configurationUpdateSchema, { homeStatus: "DRAFT" })).toEqual({ ok: true, data: { homeStatus: "DRAFT" } });
+    expect(validate(configurationUpdateSchema, { homeStatus: "PUBLISHED" }).ok).toBe(true);
+    expect(invalidFields(configurationUpdateSchema, { homeStatus: "ARCHIVED" })).toEqual(["homeStatus"]);
+  });
+
+  it("PUT /api/home é parcial: cada campo sozinho vale, e o texto vazio ou só de espaços vira null", () => {
+    expect(validate(homeUpdateSchema, { homeBody: "# Oi" })).toEqual({ ok: true, data: { homeBody: "# Oi" } });
+    expect(validate(homeUpdateSchema, { homeStatus: "DRAFT" })).toEqual({ ok: true, data: { homeStatus: "DRAFT" } });
+    expect(validate(homeUpdateSchema, { homeShowItems: false })).toEqual({ ok: true, data: { homeShowItems: false } });
+    expect(validate(homeUpdateSchema, { homeBody: "   " })).toEqual({ ok: true, data: { homeBody: null } });
+    expect(validate(homeUpdateSchema, { homeBody: null })).toEqual({ ok: true, data: { homeBody: null } });
+  });
+
+  it("PUT /api/home exige ao menos um campo, recusa campo desconhecido (inclusive version) e tipo errado", () => {
+    expect(validate(homeUpdateSchema, {}).ok).toBe(false);
+    expect(validate(homeUpdateSchema, { homeBody: "x", version: "2026-01-01T00:00:00.000Z" }).ok).toBe(false);
+    expect(validate(homeUpdateSchema, { homeBody: "x", directoryEnabled: false }).ok).toBe(false);
+    expect(invalidFields(homeUpdateSchema, { homeStatus: "ARCHIVED" })).toEqual(["homeStatus"]);
+    expect(invalidFields(homeUpdateSchema, { homeShowItems: "sim" })).toEqual(["homeShowItems"]);
+    expect(invalidFields(homeUpdateSchema, { homeBody: 42 })).toEqual(["homeBody"]);
+  });
+
+  it("a moderação (PATCH) só despublica e exige o motivo de 1 a 500 caracteres (aparado)", () => {
+    expect(validate(homeModerationSchema, { status: "DRAFT", reason: "  fora das regras  " })).toEqual({
+      ok: true,
+      data: { status: "DRAFT", reason: "fora das regras" },
+    });
+    expect(invalidFields(homeModerationSchema, { status: "DRAFT" })).toEqual(["reason"]);
+    expect(invalidFields(homeModerationSchema, { status: "DRAFT", reason: "   " })).toEqual(["reason"]);
+    expect(invalidFields(homeModerationSchema, { status: "DRAFT", reason: "x".repeat(501) })).toEqual(["reason"]);
+    expect(validate(homeModerationSchema, { status: "DRAFT", reason: "x".repeat(500) }).ok).toBe(true);
+    expect(invalidFields(homeModerationSchema, { status: "PUBLISHED", reason: "motivo" })).toEqual(["status"]);
+    expect(validate(homeModerationSchema, { status: "DRAFT", reason: "motivo", homeBody: "x" }).ok).toBe(false);
+  });
+
+  it("a exclusão (DELETE ?reason=) exige o motivo", () => {
+    expect(validate(homeRemovalQuerySchema, { reason: " motivo " })).toEqual({ ok: true, data: { reason: "motivo" } });
+    expect(invalidFields(homeRemovalQuerySchema, {})).toEqual(["reason"]);
+    expect(invalidFields(homeRemovalQuerySchema, { reason: "" })).toEqual(["reason"]);
   });
 });
