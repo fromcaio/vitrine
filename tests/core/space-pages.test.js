@@ -32,7 +32,7 @@ import SpaceHomePage, { generateStaticParams as handleParams } from "@/app/[hand
 import { firstDocumentPath, getPublicPage, getSpace } from "@/app/_lib/space";
 import { SpaceFrame } from "@/app/_lib/space-frame";
 import { SpaceHome } from "@/components/layout/SpaceHome";
-import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, replaceFooterLinks, replaceImage, updateAppearance, updateConfiguration, updateContent } from "@/lib/db";
+import { createContent, getContentByPath, getUserByHandle, listPublicSpaces, prisma, replaceFooterLinks, replaceImage, updateAppearance, updateConfiguration, updateContent, updateHome } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
 
 beforeEach(async () => {
@@ -218,6 +218,86 @@ describe("firstDocumentPath: o primeiro documento na ORDEM DA ÁRVORE (RN14)", (
   it("sem documento algum: null", () => {
     expect(firstDocumentPath(node("c", "COLLECTION", [node("vazia", "COLLECTION")]), ["c"])).toBeNull();
     expect(firstDocumentPath(node("c", "COLLECTION"), ["c"])).toBeNull();
+  });
+});
+
+describe("a página inicial editável do espaço (RF42, RN35, RN36, ADR-040; CT73)", () => {
+  const spaceHome = async (handle = "ana") => (await SpaceHomePage({ params: Promise.resolve({ handle }) })).props.children;
+
+  it("texto publicado: vai ao SpaceHome, com os títulos em h2, e a descrição some da página (o nome continua o h1)", async () => {
+    const ana = await user("ana");
+    await doc(ana, "sobre");
+    await updateAppearance(ana, { siteName: "Notas da Ana", siteDescription: "Material de Cálculo" });
+    const text = "# Bem-vindo\n\nTexto **da Ana**.";
+    await updateHome(ana, { homeBody: text });
+
+    const home = await spaceHome();
+    const html = render(home);
+
+    expect(home.props).toMatchObject({ body: text, showItems: true, description: "Material de Cálculo" });
+    expect(html).toContain("Texto <strong>da Ana</strong>.");
+    expect(html).toContain("<h2");
+    expect(html.match(/<h1/g)).toHaveLength(1);
+    expect(html).not.toContain("Material de Cálculo");
+    expect(html).toContain('href="/ana/sobre"'); // a lista continua sob o texto
+  });
+
+  it("texto em rascunho: body vai nulo, o texto não vaza e a página mostra a descrição", async () => {
+    const ana = await user("ana");
+    await updateAppearance(ana, { siteDescription: "Material de Cálculo" });
+    await updateHome(ana, { homeBody: "Segredo do rascunho", homeStatus: "DRAFT" });
+
+    const home = await spaceHome();
+    const html = await homeOf("ana");
+
+    expect(home.props.body).toBeNull();
+    expect(html).not.toContain("Segredo do rascunho");
+    expect(html).toContain("Material de Cálculo");
+  });
+
+  it("sem texto: body nulo e a descrição aparece; publicado e vazio é o mesmo que sem texto", async () => {
+    const ana = await user("ana");
+    await updateAppearance(ana, { siteDescription: "Material de Cálculo" });
+    await updateHome(ana, { homeStatus: "PUBLISHED" });
+
+    expect((await spaceHome()).props.body).toBeNull();
+    expect(await homeOf("ana")).toContain("Material de Cálculo");
+  });
+
+  it("o interruptor desligado esconde a lista (o texto fica); ligado, ela volta", async () => {
+    const ana = await user("ana");
+    await doc(ana, "sobre");
+    await updateHome(ana, { homeBody: "Texto da Ana", homeShowItems: false });
+
+    const off = await spaceHome();
+    expect(off.props.showItems).toBe(false);
+    expect(render(off)).toContain("Texto da Ana");
+    expect(render(off)).not.toContain('href="/ana/sobre"');
+
+    await updateHome(ana, { homeShowItems: true });
+    expect(render(await spaceHome())).toContain('href="/ana/sobre"');
+  });
+
+  it("sem texto, sem descrição e sem lista: o nome e a mensagem de página vazia", async () => {
+    const ana = await user("ana");
+    await doc(ana, "sobre");
+    await updateHome(ana, { homeShowItems: false });
+
+    const html = render(await spaceHome());
+
+    expect(html).toContain("Este espaço ainda não tem conteúdo publicado.");
+    expect(html).toContain("<h1");
+  });
+
+  it("a leitura da página inicial é por espaço: o texto de um dono nunca aparece no espaço de outro", async () => {
+    const ana = await user("ana");
+    const beto = await user("beto");
+    await updateHome(ana, { homeBody: "Texto exclusivo da Ana" });
+
+    expect(await homeOf("ana")).toContain("Texto exclusivo da Ana");
+    expect(await homeOf("beto")).not.toContain("Texto exclusivo da Ana");
+    expect((await spaceHome("beto")).props.body).toBeNull();
+    expect(beto).toBeTruthy();
   });
 });
 
@@ -605,6 +685,26 @@ describe("portal / (RF30, RN28; CT46)", () => {
 
     expect(html).toContain("Vitrine da Turma");
     expect(html).toContain("Texto <strong>do portal</strong>.");
+  });
+
+  it("o estado do texto do portal (RN36): rascunho esconde o texto e deixa o nome e o diretório; publicado o mostra", async () => {
+    const ana = await user("ana");
+    await doc(ana, "inicio");
+    await updateConfiguration({ siteName: "Vitrine da Turma", homeBody: "Texto do **portal**", homeStatus: "DRAFT", directoryEnabled: true });
+
+    const draft = await PortalPage();
+    expect(draft.props.children.props.body).toBeNull();
+    expect(render(draft)).not.toContain("Texto do <strong>portal</strong>");
+    expect(render(draft)).toContain("Vitrine da Turma");
+    expect(render(draft)).toContain('href="/ana"'); // o diretório segue o interruptor dele (RN28)
+
+    await updateConfiguration({ homeStatus: "PUBLISHED" });
+    const published = await PortalPage();
+    expect(published.props.children.props.body).toBe("Texto do **portal**");
+    expect(render(published)).toContain("Texto do <strong>portal</strong>");
+
+    await updateConfiguration({ homeBody: null });
+    expect((await PortalPage()).props.children.props.body).toBeNull();
   });
 
   it("a aparência do site: as duas paletas no envoltório e o logotipo padrão", async () => {

@@ -335,9 +335,36 @@ export const configurationUpdateSchema = z
       .optional(),
     directoryTitle: directoryTitleSchema.optional(),
     homeBody: z.preprocess(emptyToNull, z.string().nullable()).optional(),
+    homeStatus: statusSchema.optional(),
     directoryEnabled: z.boolean({ error: "O diretório deve ser verdadeiro ou falso." }).optional(),
   })
   .refine(hasAnyField, EMPTY_PATCH);
+
+/**
+ * PUT /api/home (o dono; RF42, RN35, ADR-040): a página inicial do PRÓPRIO espaço. Parcial (ao menos um
+ * campo), sem `version` (o último envio vale: só o dono escreve) e sem campos desconhecidos (422). O tamanho
+ * do `homeBody` em bytes (RN25) e o orçamento de renderização (ADR-033) são conferidos pela rota; texto
+ * vazio ou só de espaços vira `null`.
+ */
+export const homeUpdateSchema = z
+  .strictObject({
+    homeBody: z.preprocess(emptyToNull, z.string({ error: "O texto deve ser um texto." }).nullable()).optional(),
+    homeStatus: statusSchema.optional(),
+    homeShowItems: z.boolean({ error: "A lista de itens deve ser verdadeiro ou falso." }).optional(),
+  })
+  .refine(hasAnyField, EMPTY_PATCH);
+
+/**
+ * PATCH /api/users/:id/home (o administrador despublica a página inicial de outro usuário; RF43, RN37): só
+ * `status: "DRAFT"` e o `reason` obrigatório. Publicar é do dono; qualquer outro campo é recusado.
+ */
+export const homeModerationSchema = z.strictObject({
+  status: z.literal("DRAFT", { error: "A moderação só despublica: o estado deve ser DRAFT." }),
+  reason: reasonSchema,
+});
+
+/** DELETE /api/users/:id/home (parâmetros de consulta): o motivo da exclusão é obrigatório (RF43, RN37). */
+export const homeRemovalQuerySchema = z.object({ reason: reasonSchema });
 
 /**
  * PUT /api/appearance (o próprio usuário): a identidade, a barra superior e as paletas do espaço; campos

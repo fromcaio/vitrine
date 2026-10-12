@@ -257,16 +257,18 @@ describe("/admin: a visão geral com os números do próprio usuário", () => {
     const props = overviewProps(await AdminPage());
 
     expect(props.availablePaths).toEqual(availablePathsFor("admin"));
-    expect(props.availablePaths).toContain("/admin/configuracoes");
+    expect(props.availablePaths).toContain("/admin/usuarios");
+    expect(props.availablePaths).toContain("/admin/pagina-inicial");
+    expect(props.availablePaths).not.toContain("/admin/configuracoes");
     expect(props.spaceHref).toBeNull();
     expect(props.counts).toEqual({ contents: 0, published: 0, drafts: 0 });
     expect(props.unreadCount).toBe(0);
   });
 
-  it("um papel desconhecido vale como usuário comum (nunca vê as Configurações)", async () => {
+  it("um papel desconhecido vale como usuário comum (nunca vê os Usuários)", async () => {
     session.user = { ...ana, role: "ADMIN" };
 
-    expect(overviewProps(await AdminPage()).availablePaths).not.toContain("/admin/configuracoes");
+    expect(overviewProps(await AdminPage()).availablePaths).not.toContain("/admin/usuarios");
   });
 
   it("a cota vem do ambiente (MAX_CONTENTS_PER_USER)", async () => {

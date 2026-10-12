@@ -67,7 +67,8 @@ test.describe.serial("notificações, sino e menu", () => {
     await expect(menu.getByRole("link", { name: "Conteúdo" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Perfil" })).toBeVisible();
     await expect(menu.getByText("em breve")).toHaveCount(0);
-    // Só o administrador tem as Configurações e os Usuários.
+    // A Página inicial é de todos os papéis; as Configurações saíram do menu (ADR-040); só o administrador tem os Usuários.
+    await expect(menu.getByRole("link", { name: "Página inicial" })).toBeVisible();
     await expect(menu.getByText("Configurações")).toHaveCount(0);
     await expect(menu.getByText("Usuários")).toHaveCount(0);
   });

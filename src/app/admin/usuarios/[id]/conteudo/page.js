@@ -2,11 +2,14 @@
 // (o usuário comum responde `notFound()`), e o usuário `[id]` tem de existir (senão, `notFound()`). A árvore é a
 // do `[id]`, COM os rascunhos, em JSON puro; o `ContentTree` em modo de moderação só abre, despublica e exclui
 // (com o motivo, que o servidor exige e leva ao dono em uma notificação). `editHref` é um modelo literal com o
-// dono: uma página de Servidor não passa funções a um Componente Cliente; `newHref` não é usado.
+// dono: uma página de Servidor não passa funções a um Componente Cliente; `newHref` não é usado. A primeira linha,
+// fixa, é a "Página inicial" do dono (RF43, ADR-040): despublicar e excluir o texto, com motivo; `publicBasePath`
+// é `/{handle}` do dono ou `null` se ele está suspenso ou sem handle (RN38).
 import { ContentTree } from "@/components/admin/ContentTree";
-import { getContentTree } from "@/lib/db";
+import { getContentTree, getHome } from "@/lib/db";
 import { currentLimits } from "../../../../api/_lib/limits";
 import { serializableTree } from "../../../_lib/content-tree";
+import { publicSpaceBase } from "../../../_lib/editor";
 import { requireSession } from "../../../_lib/session";
 import { loadOwner, moderationEditHref } from "../../../_lib/users";
 
@@ -19,7 +22,11 @@ export default async function ModerateContentPage({ params }) {
   const { id } = await params;
   await requireSession({ role: "admin", path: `/admin/usuarios/${encodeURIComponent(id)}/conteudo` });
   const owner = await loadOwner(id);
-  const tree = await getContentTree({ ownerId: owner.id });
+  const [tree, home, publicBasePath] = await Promise.all([
+    getContentTree({ ownerId: owner.id }),
+    getHome(owner.id),
+    publicSpaceBase(owner.id),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -30,6 +37,8 @@ export default async function ModerateContentPage({ params }) {
         newHref="/admin/conteudo/novo"
         maxContents={currentLimits().maxContentsPerUser}
         moderation={{ ownerId: owner.id, ownerName: owner.name }}
+        homeRow={{ status: home.homeStatus, hasBody: Boolean(home.homeBody) }}
+        publicBasePath={publicBasePath}
       />
     </div>
   );

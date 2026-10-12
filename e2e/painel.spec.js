@@ -1,7 +1,8 @@
 // Aparência, configuração e portal pela interface, sobre a aplicação de PRODUÇÃO (A-014 Parte 3c, itens 1 e
 // 2; RF18, RF31, RN19, RN25; CT23, CT24, CT44): o dono salva a aparência dele (aviso por modo, a
 // notificação CONTRAST, o espaço dele regenerado sem tocar o de outro dono); o administrador salva a
-// configuração e o portal regenera; o usuário comum recebe 404 em /admin/configuracoes; o portal tem a
+// configuração e o portal regenera (o texto do portal agora é de /admin/pagina-inicial, ADR-040); o usuário comum
+// recebe 404 no alvo do sistema de /admin/pagina-inicial; o portal tem a
 // rede de segurança de 60 s. Contas FICTÍCIAS; a guarda de CSP de ./support/test.js vale em todo teste.
 import { waitForHydration } from "./support/auth.js";
 import { adminLogin, apiLogin, cacheState, createAccount, createContent, fetchUntil, openSession } from "./support/accounts.js";
@@ -103,7 +104,7 @@ test.describe.serial("aparência, configuração e portal", () => {
 
   test("CT23: o administrador salva a configuração pela interface e o portal regenera", async ({ browser, request }) => {
     const { context, page } = await openSession(browser, ADMIN);
-    // O nome do sistema é da aparência (alvo padrão do administrador); o texto do portal, das configurações.
+    // O nome do sistema é da aparência (alvo padrão do administrador); o texto do portal, da página inicial.
     await page.goto("/admin/aparencia");
     await expect(page.getByRole("heading", { name: "Aparência do sistema", level: 1 })).toBeVisible();
     await waitForHydration(page);
@@ -111,21 +112,21 @@ test.describe.serial("aparência, configuração e portal", () => {
     await page.getByRole("button", { name: "Salvar a aparência do sistema" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Aparência do sistema salva" })).toBeVisible();
 
-    await page.goto("/admin/configuracoes");
-    await expect(page.getByRole("heading", { name: "Configurações do site", level: 1 })).toBeVisible();
+    await page.goto("/admin/pagina-inicial");
+    await expect(page.getByRole("heading", { name: "Página inicial do sistema", level: 1 })).toBeVisible();
     await waitForHydration(page);
-    await page.getByLabel("Texto do portal (Markdown)").fill("Texto **do painel** e2e.");
-    await page.getByRole("button", { name: "Salvar o portal" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Portal salvo" })).toBeVisible();
+    await page.getByLabel("Texto da página inicial (Markdown)").fill("Texto **do painel** e2e.");
+    await page.getByRole("button", { name: "Salvar", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Página inicial salva" })).toBeVisible();
 
     const { body } = await fetchUntil(request, "/", (html) => html.includes("Texto <strong>do painel</strong> e2e."));
     expect(body).toContain("Portal do painel e2e");
     await context.close();
   });
 
-  test("RN19: o usuário comum recebe 404 em /admin/configuracoes; sem sessão, vai ao login; as duas páginas têm noindex", async ({ browser, request }) => {
+  test("RN19: o usuário comum recebe 404 no alvo do sistema da página inicial; sem sessão, vai ao login; as duas páginas têm noindex", async ({ browser, request }) => {
     const { context, page } = await openSession(browser, ANA);
-    const response = await page.goto("/admin/configuracoes");
+    const response = await page.goto("/admin/pagina-inicial?alvo=sistema");
     expect(response?.status()).toBe(404);
     await expect(page.getByRole("heading", { name: "Página não encontrada" })).toBeVisible();
 
@@ -134,7 +135,7 @@ test.describe.serial("aparência, configuração e portal", () => {
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
     await context.close();
 
-    for (const path of ["/admin/configuracoes", "/admin/aparencia"]) {
+    for (const path of ["/admin/pagina-inicial", "/admin/aparencia"]) {
       const anon = await request.get(path, { maxRedirects: 0 });
       expect(anon.status(), path).toBe(307);
       expect(anon.headers().location, path).toContain("/login?redirectTo=");

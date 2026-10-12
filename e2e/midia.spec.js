@@ -385,11 +385,11 @@ test.describe.serial("mídia, rodapé e avatar", () => {
 
   test("o título do diretório da / é editável pelo administrador (e o logotipo do sistema aparece no portal)", async ({ browser, request }) => {
     const { context, page } = await openSession(browser, ADMIN);
-    await page.goto("/admin/configuracoes");
-    await expect(page.getByRole("heading", { name: "Configurações do site", level: 1 })).toBeVisible();
+    await page.goto("/admin/pagina-inicial");
+    await expect(page.getByRole("heading", { name: "Página inicial do sistema", level: 1 })).toBeVisible();
     await waitForHydration(page);
     await page.getByLabel("Título do diretório").fill("Pessoas da turma");
-    await page.getByRole("button", { name: /^Salvar/ }).click();
+    await page.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: /salv/i }).first()).toBeVisible();
     await context.close();
 
