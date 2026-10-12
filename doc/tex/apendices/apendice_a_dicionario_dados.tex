@@ -135,7 +135,7 @@ As tabelas acima descrevem o esquema \emph{inicial} (migração \arq{20261001034
 \arq{darkSecondaryColor} & String & \texttt{"\#cbd5e1"} & Secundária do modo noturno\\
 \arq{darkAccentColor} & String & \texttt{"\#fbbf24"} & Destaque do modo noturno\\
 \texttt{homeBody} & String? & Opcional & Texto do portal em Markdown (RF30)\\
-\texttt{homeStatus} & Enum & Padrão \texttt{PUBLISHED} & Estado do texto do portal: \texttt{PUBLISHED} ou \texttt{DRAFT} (alvo, v1.1; RN36, ADR-040)\\
+\texttt{homeStatus} & Enum & Padrão \texttt{PUBLISHED} & Estado do texto do portal: \texttt{PUBLISHED} ou \texttt{DRAFT} (v1.1; RN36, ADR-040)\\
 \arq{directoryEnabled} & Boolean & \texttt{true} & Liga o diretório de espaços no portal (RN28)\\
 \texttt{primaryColor}, \arq{secondaryColor}, \texttt{accentColor} & String & \texttt{"\#2563eb"}, \texttt{"\#1e293b"}, \texttt{"\#b45309"} & Novos padrões da paleta clara (\adr{ADR-031})\\
 \midrule
@@ -238,7 +238,7 @@ As Tabelas~\ref{tab:dicionario} e~\ref{tab:dicionario-alvo} descrevem o esquema 
 \arq{primaryColor}, \arq{secondaryColor}, \arq{accentColor} & String? & \emph{Anuláveis}; as três nulas ou as três definidas & Paleta clara; nula herda a do site\\
 \arq{darkPrimaryColor}, \arq{darkSecondaryColor}, \arq{darkAccentColor} & String? & \emph{Anuláveis}; as três nulas ou as três definidas & Paleta noturna; nula herda a do site\\
 \arq{siteDescription} & String? & Opcional & Não herda\\
-\arq{homeBody} & String? & Opcional; até \texttt{MAX\_BODY\_BYTES} & Texto da página inicial do espaço, em Markdown; não herda (alvo, v1.1; RN35, ADR-040)\\
+\arq{homeBody} & String? & Opcional; até \texttt{MAX\_BODY\_BYTES} & Texto da página inicial do espaço, em Markdown; não herda (v1.1; RN35, ADR-040)\\
 \arq{homeStatus} & Enum & Padrão \texttt{PUBLISHED} & Estado do texto: \texttt{PUBLISHED} ou \texttt{DRAFT} (RN36, RN37)\\
 \arq{homeShowItems} & Boolean & Padrão \texttt{true} & Mostra a lista de coleções e documentos da raiz sob o texto (RN36)\\
 \end{longtable}
