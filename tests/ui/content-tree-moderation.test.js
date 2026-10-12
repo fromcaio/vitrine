@@ -131,7 +131,7 @@ describe("a estrutura é só leitura", () => {
 
   it("não há reordenar, mover, publicar, criar coleção nem novo documento, em nenhuma linha", () => {
     setup();
-    for (const pattern of [/^Subir:/, /^Descer:/, /^Mover/, /^Publicar:/, /^Passar para rascunho:/, /^Nova subcoleção/, /^Nova coleção$/]) {
+    for (const pattern of [/^Subir:/, /^Descer:/, /^Mover/, /^Publicar:/, /^Passar para rascunho:/, /^Nova subcoleção/, /^Nova coleção$/, /^Renomear/]) {
       expect(screen.queryByRole("button", { name: pattern })).toBeNull();
     }
     expect(screen.queryByRole("link", { name: /^Novo documento/ })).toBeNull();

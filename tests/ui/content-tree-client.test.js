@@ -1,7 +1,7 @@
 // Cliente da API de conteúdo da árvore (RF03, RF06, RF07, RF26; Cap. 5 §5.10): o que cada função
 // envia e como cada resposta de erro vira uma mensagem em português. Ambiente node, `fetch` simulado.
 import { describe, expect, it, vi } from "vitest";
-import { MESSAGES, createCollection, deleteContent, fetchTree, moveTo, reorder, setStatus } from "@/components/admin/content-tree-client";
+import { MESSAGES, createCollection, deleteContent, fetchTree, moveTo, renameContent, reorder, setStatus } from "@/components/admin/content-tree-client";
 
 /** @param {unknown} body @param {number} [status] @param {Record<string, string>} [headers] */
 const respond = (body, status = 200, headers = {}) =>
@@ -149,5 +149,35 @@ describe("falhas comuns", () => {
     const impl = respond({ error: { code: "NOT_FOUND", message: "<script>alert(1)</script>", details: [] } }, 404);
     const result = await call(impl);
     expect(result.ok === false && result.message).not.toMatch(/script/);
+  });
+});
+
+describe("renameContent (P-028)", () => {
+  it("envia PATCH só com os campos que mudaram, o título aparado e NUNCA version", async () => {
+    const fetchImpl = respond({ data: NODE });
+    expect(await renameContent("a b", { title: "  AEDS II  ", slug: "aeds-ii" }, fetchImpl)).toEqual({ ok: true });
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("/api/contents/a%20b");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body)).toEqual({ title: "AEDS II", slug: "aeds-ii" });
+    await renameContent("a", { title: "Só título" }, fetchImpl);
+    await renameContent("a", { slug: "so-slug" }, fetchImpl);
+    expect(JSON.parse(fetchImpl.mock.calls[1][1].body)).toEqual({ title: "Só título" });
+    expect(JSON.parse(fetchImpl.mock.calls[2][1].body)).toEqual({ slug: "so-slug" });
+    for (const [, call] of fetchImpl.mock.calls) expect(call.body).not.toMatch(/version/);
+  });
+
+  it("409 SLUG_CONFLICT traz a sugestão do servidor; os demais erros viram mensagens em português", async () => {
+    expect(await renameContent("a", { slug: "x" }, respond(apiError("SLUG_CONFLICT", [{ field: "slug", suggestion: "x-2" }]), 409))).toMatchObject({
+      ok: false,
+      kind: "slug-conflict",
+      suggestion: "x-2",
+      message: MESSAGES.slugConflict,
+    });
+    expect(await renameContent("a", { title: "x" }, respond(apiError("NOT_FOUND"), 404))).toMatchObject({ kind: "not-found" });
+    expect(await renameContent("a", { title: "x" }, respond(apiError("FORBIDDEN"), 403))).toMatchObject({ kind: "forbidden" });
+    expect(await renameContent("a", { title: "x" }, respond(apiError("VALIDATION_ERROR"), 422))).toMatchObject({ kind: "rejected", message: MESSAGES.rejected });
+    expect(await renameContent("a", { title: "x" }, respond(apiError("RATE_LIMITED"), 429))).toMatchObject({ kind: "rate-limited" });
+    expect(await renameContent("a", { title: "x" }, vi.fn(() => Promise.reject(new TypeError("x"))))).toMatchObject({ kind: "network", message: MESSAGES.network });
   });
 });

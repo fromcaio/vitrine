@@ -1,5 +1,5 @@
 // Cliente da API de conteúdo para a árvore do painel (RF03, RF06, RF07, RF26; Cap. 5 §5.10): lê a
-// árvore, cria coleção, publica ou despublica, move, reordena em lote e exclui, e traduz cada
+// árvore, cria coleção, renomeia, publica ou despublica, move, reordena em lote e exclui, e traduz cada
 // resposta em um resultado que a árvore sabe mostrar, com mensagens em português. Módulo sem React.
 // O servidor é a autoridade (RF21): aqui só se interpreta a resposta.
 //
@@ -129,6 +129,23 @@ export const setStatus = (id, status, fetchImpl) => patch(id, { status }, fetchI
 
 /** Move para o fim de outra coleção, ou da raiz com `null` (RF07). @param {string} id @param {string | null} parentId @param {typeof fetch} [fetchImpl] */
 export const moveTo = (id, parentId, fetchImpl) => patch(id, { parentId }, fetchImpl);
+
+/**
+ * Renomeia uma coleção (RF07): o título e/ou o slug (o endereço acompanha o slug, RN04). Envia SÓ os
+ * campos que mudaram (`title`, `slug` ou os dois) e nunca `version` (título e endereço não são corpo).
+ * O servidor trata a mudança como estrutural e revalida o espaço; um slug repetido entre irmãos
+ * responde 409 (`slug-conflict`, com a sugestão).
+ * @param {string} id
+ * @param {{ title?: string, slug?: string }} fields só os campos que mudaram
+ * @param {typeof fetch} [fetchImpl]
+ */
+export function renameContent(id, { title, slug }, fetchImpl) {
+  /** @type {Record<string, string>} */
+  const changes = {};
+  if (title !== undefined) changes.title = title.trim();
+  if (slug !== undefined) changes.slug = slug;
+  return patch(id, changes, fetchImpl);
+}
 
 /**
  * Grava a ordem de um nível (`PATCH /api/contents/reorder`): o lote transacional com todos os irmãos
