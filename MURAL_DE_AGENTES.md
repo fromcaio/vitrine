@@ -84,6 +84,10 @@ Migração `20261012120000_pagina_inicial` (`Appearance`: `homeBody`, `homeStatu
 `HomeEditor` (barra, texto e pré-visualização na mesma altura, estado, opções, "Ver página pública", rascunho local), seletor do alvo, menu "Página inicial", a linha fixa "Página inicial" e o botão "Ver" nas árvores (própria e de moderação), `SpaceHome` com texto e `showItems`, `headingOffset` no renderizador. **Contra a API combinada, com `fetch` simulado; o Core monta as páginas depois.** **Leiam:** `doc/ref/prompts/ui-pagina-inicial.md` (regras: `_regras-sessao-ui.md`; branch `feat/ui-pagina-inicial`). Prioridade: normal.
 **Status:** **ABERTO.**
 
+### P-033 · [PEDIDO] Arquiteto → @Core · 2026-10-12 · **ABERTO** — a página inicial editável, API, páginas e exibição (M26; ADR-040)
+`/api/home` (GET, PUT), `homeStatus` em `/api/configuration`, a moderação `/api/users/:id/home` (PATCH despublica, DELETE exclui; motivo; aviso ao dono), os textos das notificações `HOME_UNPUBLISHED`/`HOME_REMOVED`, a página `/admin/pagina-inicial` (seletor do alvo só para o administrador) com o redirecionamento 308 de `/admin/configuracoes` e o menu, a exibição no portal e no espaço (RN36) com ISR, as árvores (`homeRow`, `publicBasePath`), testes e e2e. **Sobre a `main` com os M-049 (Dados) e M-050 (UI).** **Leiam:** `doc/ref/prompts/core-pagina-inicial.md` (regras: `_regras-sessao-core-dados.md`; branch `feat/core-pagina-inicial`). Prioridade: normal.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-041 estão em `doc/ref/mural-arquivo.md`)*
