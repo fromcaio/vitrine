@@ -9,7 +9,7 @@ afterEach(cleanup);
 
 const USER = { name: "Ana Souza", email: "ana@exemplo.com", handle: "ana", role: /** @type {const} */ ("user") };
 const COUNTS = { contents: 12, published: 9, drafts: 3 };
-const ALL_PATHS = ["/admin", "/admin/conteudo", "/admin/aparencia", "/admin/notificacoes", "/admin/perfil", "/admin/senha", "/admin/configuracoes", "/admin/usuarios"];
+const ALL_PATHS = ["/admin", "/admin/conteudo", "/admin/aparencia", "/admin/notificacoes", "/admin/perfil", "/admin/senha", "/admin/pagina-inicial", "/admin/usuarios"];
 
 /** O valor mostrado em um cartão de número. @param {string} label */
 const stat = (label) => {
@@ -101,17 +101,18 @@ describe("aviso de quem não tem handle (RN20)", () => {
 describe("atalhos", () => {
   const links = () => screen.getAllByRole("link").map((a) => a.getAttribute("href"));
 
-  it("usuário comum: as cinco seções dele, e nenhuma de administrador", () => {
+  it("usuário comum: as seis seções dele (a Página inicial entre elas), e nenhuma de administrador", () => {
     render(<AdminOverview user={USER} availablePaths={ALL_PATHS} />);
-    expect(links()).toEqual(["/admin/conteudo", "/admin/aparencia", "/admin/notificacoes", "/admin/perfil", "/admin/senha"]);
+    expect(links()).toEqual(["/admin/conteudo", "/admin/pagina-inicial", "/admin/aparencia", "/admin/notificacoes", "/admin/perfil", "/admin/senha"]);
     expect(screen.queryByText("Usuários")).toBeNull();
     expect(screen.queryByText("Configurações")).toBeNull();
   });
 
-  it("administrador: também Configurações e Usuários", () => {
+  it("administrador: também Usuários (a Configurações virou a Página inicial, de todos)", () => {
     render(<AdminOverview user={{ ...USER, role: "admin" }} availablePaths={ALL_PATHS} />);
-    expect(links()).toContain("/admin/configuracoes");
+    expect(links()).toContain("/admin/pagina-inicial");
     expect(links()).toContain("/admin/usuarios");
+    expect(links()).not.toContain("/admin/configuracoes");
   });
 
   it("uma página que ainda não existe aparece sem link e com 'em breve'", () => {
@@ -124,7 +125,7 @@ describe("atalhos", () => {
   it("sem availablePaths, todos os atalhos ficam 'em breve' (nada leva a uma página inexistente)", () => {
     render(<AdminOverview user={USER} />);
     expect(screen.queryAllByRole("link")).toHaveLength(0);
-    expect(screen.getAllByText("em breve")).toHaveLength(5);
+    expect(screen.getAllByText("em breve")).toHaveLength(6);
   });
 });
 
