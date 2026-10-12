@@ -67,6 +67,9 @@ const saveButton = () => /** @type {HTMLButtonElement} */ (screen.getByRole("but
 const submit = () => fireEvent.click(saveButton());
 const previewOf = (/** @type {"claro" | "noturno"} */ mode) => screen.getByRole("group", { name: `Pré-visualização do modo ${mode}` });
 
+/** Campos do formulário com este rótulo: fora da pré-visualização (`inert`), cujo rodapé de exemplo traz links com o nome das redes (P-030). */
+const formControls = (/** @type {string} */ name) => screen.queryAllByLabelText(name).filter((element) => !element.closest("[inert]"));
+
 describe("estrutura e acessibilidade", () => {
   it("tem os blocos de identidade, as duas paletas e as duas pré-visualizações", () => {
     render(<AppearanceForm initial={RECORD} />);
@@ -95,7 +98,7 @@ describe("estrutura e acessibilidade", () => {
 
   it("os seis campos fixos de redes e os de URL do logotipo e do favicon não existem mais (ADR-034, ADR-035)", () => {
     render(<AppearanceForm initial={RECORD} />);
-    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch", "Logotipo", "Ícone da aba (favicon)"]) expect(screen.queryByLabelText(name)).toBeNull();
+    for (const name of ["Discord", "GitHub", "YouTube", "Instagram", "LinkedIn", "Twitch", "Logotipo", "Ícone da aba (favicon)"]) expect(formControls(name)).toHaveLength(0);
     expect(screen.queryByRole("group", { name: "Redes sociais" })).toBeNull();
     // Sem a prop `media`, a seção de envio de imagens não aparece.
     expect(screen.queryByRole("group", { name: "Logotipo" })).toBeNull();

@@ -12,6 +12,10 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
 
+/** Corpo da amostra: duas colunas lado a lado, em qualquer largura; a sidebar tem 4/5 e a faixa do fundo, 1/5. */
+const PREVIEW_BODY = "flex flex-1 flex-row";
+const PREVIEW_MAIN = "w-1/5 shrink-0 outline-none";
+
 /**
  * @param {object} props
  * @param {Record<string, string> | null} [props.themeStyle] variáveis `--vitrine-light-*` e
@@ -37,7 +41,10 @@ import { Sidebar } from "./Sidebar";
  *   imagem do botão de modo, no modo da amostra (`Navbar`)
  * @param {string} [props.mainId] id do `<main>`, alvo do atalho; só a pré-visualização o troca, para
  *   não repetir o id da página
- * @param {import("react").ReactNode} props.children a página
+ * @param {boolean} [props.preview] amostra da pré-visualização da aparência (P-030): o corpo vira DUAS colunas lado a
+ *   lado em qualquer largura (a sidebar expandida, com cerca de 80%, e à direita uma faixa VAZIA, de cerca de 20%,
+ *   que mostra só o fundo do conteúdo), em vez de empilhar abaixo de `md`; sem a prop é o leiaute real
+ * @param {import("react").ReactNode} [props.children] a página (a amostra não tem conteúdo)
  */
 export function SpaceLayout({
   themeStyle = null,
@@ -56,6 +63,7 @@ export function SpaceLayout({
   modeToggle = true,
   modeTogglePreview = null,
   mainId = "conteudo-principal",
+  preview = false,
   children,
 }) {
   return (
@@ -79,10 +87,10 @@ export function SpaceLayout({
         modeIconPair={modeIconPair}
         modeTogglePreview={modeTogglePreview}
       />
-      <div className="flex flex-1 flex-col md:flex-row">
-        {collection ? <Sidebar collection={collection} basePath={basePath} activePath={activePath} /> : null}
+      <div className={preview ? PREVIEW_BODY : "flex flex-1 flex-col md:flex-row"}>
+        {collection ? <Sidebar collection={collection} basePath={basePath} activePath={activePath} preview={preview} /> : null}
         {/* tabIndex -1: recebe o foco do atalho sem entrar na ordem de tabulação. */}
-        <main id={mainId} tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 md:p-8">
+        <main id={mainId} tabIndex={-1} className={preview ? PREVIEW_MAIN : "min-w-0 flex-1 p-4 outline-none sm:p-6 md:p-8"}>
           {children}
         </main>
       </div>
