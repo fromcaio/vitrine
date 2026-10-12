@@ -46,6 +46,14 @@
 **Status:** **ABERTO.**
 
 
+### P-031 · [PEDIDO] Arquiteto → @Dados · 2026-10-12 · **ABERTO** — a página inicial editável, camada de dados (M26; ADR-040)
+Migração `20261012120000_pagina_inicial` (`Appearance`: `homeBody`, `homeStatus`, `homeShowItems`; `Configuration`: `homeStatus`), `getHome`/`updateHome`, `homeStatus` na configuração e a moderação `unpublishHome`/`removeHome` com a notificação (`HOME_UNPUBLISHED`/`HOME_REMOVED`) **na mesma transação**, no molde do avatar. **Leiam:** `doc/ref/prompts/dados-pagina-inicial.md` (regras: `_regras-sessao-core-dados.md`; branch `feat/dados-pagina-inicial`). Prioridade: normal.
+**Status:** **ABERTO.**
+
+### P-032 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — a página inicial editável, componentes (M26; ADR-040)
+`HomeEditor` (barra, texto e pré-visualização na mesma altura, estado, opções, "Ver página pública", rascunho local), seletor do alvo, menu "Página inicial", a linha fixa "Página inicial" e o botão "Ver" nas árvores (própria e de moderação), `SpaceHome` com texto e `showItems`, `headingOffset` no renderizador. **Contra a API combinada, com `fetch` simulado; o Core monta as páginas depois.** **Leiam:** `doc/ref/prompts/ui-pagina-inicial.md` (regras: `_regras-sessao-ui.md`; branch `feat/ui-pagina-inicial`). Prioridade: normal.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-041 estão em `doc/ref/mural-arquivo.md`)*
