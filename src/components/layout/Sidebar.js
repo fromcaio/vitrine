@@ -10,13 +10,15 @@
 // (`overrides`) ou, sem escolha dele, se está na cadeia do item ativo. O menu estreito fecha ao
 // navegar porque a abertura vale só para o `activePath` em que foi pedida.
 import Link from "next/link";
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { ChevronRightIcon, MenuIcon } from "@/components/ui/icons";
-import { activeIds, contentHref } from "./space-paths";
+import { activeIds, contentHref, trailOf } from "./space-paths";
 
 /** @typedef {import("@/lib/content-tree").ContentNode} ContentNode */
 
 const ROW = "flex min-w-0 items-start gap-1";
+/** Mais níveis que isto e a trilha do botão vira "primeiro › … › corrente". */
+const MAX_TRAIL = 3;
 const LINK = "min-w-0 flex-1 rounded-md border-l-4 px-2 py-1.5 text-sm break-words";
 
 /**
@@ -109,6 +111,11 @@ export function Sidebar({ collection, basePath, activePath = [] }) {
   const pathKey = activePath.join("/");
   const menuOpen = openFor === pathKey;
   const chain = activeIds(collection, activePath);
+  // O botão do celular diz ONDE o leitor está: a trilha da coleção até a página (com mais de 3 níveis, o primeiro,
+  // reticências e o corrente inteiro; a trilha completa vai no title).
+  const trail = trailOf(collection, activePath);
+  const elided = trail.length > MAX_TRAIL;
+  const shown = elided ? [trail[0], null, trail[trail.length - 1]] : trail;
   const setOpen = (/** @type {string} */ id, /** @type {boolean} */ open) => setOverrides((current) => ({ ...current, [id]: open }));
 
   return (
@@ -122,7 +129,22 @@ export function Sidebar({ collection, basePath, activePath = [] }) {
           className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-border-strong bg-background px-3 py-2 text-left text-sm font-medium"
         >
           <MenuIcon />
-          <span className="min-w-0 flex-1 break-words">Menu: {collection.title}</span>
+          {/* O nome acessível contém o texto visível (WCAG 2.5.3): o "Menu: " é só para leitor de tela, e os
+              separadores e as reticências são decorativos. */}
+          <span className="min-w-0 flex-1 break-words" title={elided ? trail.join(" › ") : undefined}>
+            <span className="sr-only">Menu:</span>{" "}
+            {shown.map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 ? (
+                  <>
+                    {" "}
+                    <span aria-hidden="true">›</span>{" "}
+                  </>
+                ) : null}
+                {part === null ? <span aria-hidden="true">…</span> : part}
+              </Fragment>
+            ))}
+          </span>
           <ChevronRightIcon className={`size-5 shrink-0 transition-transform ${menuOpen ? "rotate-90" : ""}`} />
         </button>
       </div>

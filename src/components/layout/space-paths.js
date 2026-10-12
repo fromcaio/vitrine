@@ -67,6 +67,28 @@ export function activeIds(collection, activePath) {
 }
 
 /**
+ * A trilha de títulos da coleção até a página corrente (P-026, rodada 2): o título da coleção e, abaixo dele, o de
+ * cada nó da cadeia `activePath` até o corrente. Serve ao botão do menu lateral do celular ("AEDS I › P1 ›
+ * Introdução"). Sem página aberta na coleção (`activePath` vazio), ou se algum slug não bate com a árvore (a
+ * cadeia é de outra coleção ou está desatualizada), a trilha é só o título da coleção.
+ * @param {ContentNode} collection coleção raiz corrente
+ * @param {string[]} activePath cadeia de slugs da página corrente, a partir da raiz
+ * @returns {string[]} os títulos, da coleção ao corrente (nunca vazio)
+ */
+export function trailOf(collection, activePath) {
+  if (activePath[0] !== collection.slug) return [collection.title];
+  const titles = [collection.title];
+  let level = collection.children;
+  for (const slug of activePath.slice(1)) {
+    const node = level.find((candidate) => candidate.slug === slug);
+    if (!node) return [collection.title];
+    titles.push(node.title);
+    level = node.children;
+  }
+  return titles;
+}
+
+/**
  * Documento anterior e seguinte (RF12): a ordem de leitura é a da árvore em profundidade, só com
  * os documentos (coleções não entram). Sem página corrente (ou se ela for uma coleção, ou não
  * estiver na árvore), os dois são nulos.
