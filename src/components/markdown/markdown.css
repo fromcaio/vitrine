@@ -232,6 +232,18 @@
 
 /* ---------------------------------------------------------------- Fórmulas (KaTeX) */
 
+/* A versão MathML da fórmula é só para leitores de tela (a visual é a `.katex-html`). A folha do KaTeX já a esconde, mas na
+   página inicial ela chega depois da hidratação (`MathStyles`, P-032): sem esta regra, a fórmula apareceria duas vezes até lá. */
+.vitrine-markdown .katex-mathml {
+  position: absolute;
+  clip: rect(1px, 1px, 1px, 1px);
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+}
+
 /* Uma fórmula em bloco mais larga que a coluna rola dentro do próprio quadro (RNF06). */
 .vitrine-markdown .katex-display {
   padding: 0.25em 0;

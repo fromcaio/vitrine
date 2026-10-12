@@ -29,6 +29,14 @@ describe("a folha do KaTeX sob demanda", () => {
     render(<MarkdownRenderer markdown={"A fórmula $x^2$ vale."} />);
     await waitFor(() => expect(loaded.times).toBe(1));
   });
+
+  it("enquanto a folha não chega, a versão MathML da fórmula já fica escondida (a fórmula não aparece duas vezes)", () => {
+    const css = source("markdown/markdown.css");
+    const rule = /\.vitrine-markdown \.katex-mathml \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    expect(rule).toMatch(/position:\s*absolute/);
+    expect(rule).toMatch(/clip:\s*rect\(1px, 1px, 1px, 1px\)/);
+    expect(rule).toMatch(/overflow:\s*hidden/);
+  });
 });
 
 describe("quem importa a folha por conta própria", () => {
