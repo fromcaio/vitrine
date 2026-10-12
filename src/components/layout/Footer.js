@@ -27,7 +27,7 @@ import { EMAIL_ICON, FOOTER_ICON_LABELS, renderableLinks } from "./footer-model"
 export function Footer({ name, links = null, year = new Date().getFullYear() }) {
   const items = renderableLinks(links);
   return (
-    <footer className="mt-auto border-t border-border bg-surface px-4 py-6 text-sm text-foreground">
+    <footer className="mt-auto border-t border-border bg-surface px-4 py-2 text-sm text-foreground">
       <div className="flex flex-col-reverse items-center gap-3 md:flex-row md:flex-nowrap md:justify-between md:gap-6">
         <p className="min-w-0 text-center break-words md:text-left">
           © {year} {name}. Todos os direitos reservados.

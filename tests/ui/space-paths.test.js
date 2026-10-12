@@ -1,6 +1,6 @@
 // Caminhos e navegação do espaço (RF12, RF13, RN04): funções puras de space-paths.js.
 import { describe, expect, it } from "vitest";
-import { activeIds, contentHref, navItemsOf, neighboursOf } from "@/components/layout/space-paths";
+import { activeIds, contentHref, navItemsOf, neighboursOf, trailOf } from "@/components/layout/space-paths";
 import { node, sampleCollection } from "./space-helpers";
 
 describe("contentHref", () => {
@@ -108,5 +108,44 @@ describe("neighboursOf (RF12)", () => {
 
   it("uma coleção sem documentos não tem vizinhos", () => {
     expect(neighboursOf(node("Vazia", "vazia", "COLLECTION"), ["vazia"], "/maria")).toEqual({ previous: null, next: null });
+  });
+});
+
+describe("trailOf (a trilha do botão do menu lateral; P-026)", () => {
+  const deep = ["algoritmos", "estruturas", "listas", "encadeadas", "nos", "ponteiros-duplos"];
+
+  it("a raiz: só o título da coleção", () => {
+    expect(trailOf(sampleCollection(), ["algoritmos"])).toEqual(["Algoritmos e Estruturas de Dados"]);
+  });
+
+  it("2 níveis: a coleção e o documento", () => {
+    expect(trailOf(sampleCollection(), ["algoritmos", "variaveis"])).toEqual(["Algoritmos e Estruturas de Dados", "Variáveis"]);
+  });
+
+  it("3 níveis: a coleção, a subcoleção e o documento", () => {
+    expect(trailOf(sampleCollection(), ["algoritmos", "introducao", "historia"])).toEqual(["Algoritmos e Estruturas de Dados", "Introdução", "História de C"]);
+  });
+
+  it("5 e 6 níveis: toda a cadeia, na ordem", () => {
+    const five = trailOf(sampleCollection(), deep.slice(0, 5));
+    expect(five).toEqual(["Algoritmos e Estruturas de Dados", "Estruturas", "Listas", "Listas encadeadas", "Nós"]);
+    expect(trailOf(sampleCollection(), deep)).toHaveLength(6);
+    expect(trailOf(sampleCollection(), deep).at(-1)).toBe("Ponteiros duplos");
+  });
+
+  it("sem página aberta (activePath vazio): só o título da coleção", () => {
+    expect(trailOf(sampleCollection(), [])).toEqual(["Algoritmos e Estruturas de Dados"]);
+  });
+
+  it("inconsistente (outra coleção, ou um slug que não existe no meio): só o título da coleção, nunca uma trilha pela metade", () => {
+    const collection = sampleCollection();
+    expect(trailOf(collection, ["outra", "variaveis"])).toEqual([collection.title]);
+    expect(trailOf(collection, ["algoritmos", "estruturas", "nao-existe", "nos"])).toEqual([collection.title]);
+    expect(trailOf(collection, ["algoritmos", "nao-existe"])).toEqual([collection.title]);
+  });
+
+  it("devolve os títulos como estão (o escape é do React): marcação e aspas não são interpretadas aqui", () => {
+    const collection = node("<img src=x onerror=alert(1)>", "c", "COLLECTION", [node("A & B \"C\"", "d", "DOCUMENT")]);
+    expect(trailOf(collection, ["c", "d"])).toEqual(["<img src=x onerror=alert(1)>", 'A & B "C"']);
   });
 });

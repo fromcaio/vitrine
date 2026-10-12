@@ -4,7 +4,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { sampleCollection } from "./space-helpers";
+import { node, sampleCollection } from "./space-helpers";
 
 afterEach(cleanup);
 
@@ -172,5 +172,85 @@ describe("menu em tela estreita (RNF06)", () => {
     setup(["algoritmos", "introducao", "historia"]);
     const order = [...document.querySelectorAll("button, a")].map((el) => el.getAttribute("aria-label") ?? el.textContent);
     expect(order.slice(0, 4)).toEqual([expect.stringMatching(/^Menu:/), "Subitens de Introdução", "Introdução", "O que é C"]);
+  });
+});
+
+describe("o botão do menu do celular mostra a trilha (P-026, rodada 2)", () => {
+  const visibleText = () => menuButton().textContent?.replace(/\s+/g, " ").trim();
+  const DEEP5 = ["algoritmos", "estruturas", "listas", "encadeadas", "nos"];
+
+  it("sem página aberta: só o título da coleção, sem o prefixo \"Menu: \" visível (ele é só para leitor de tela)", () => {
+    setup([]);
+    const button = menuButton();
+    const visible = [...button.querySelectorAll("span")].filter((el) => !el.classList.contains("sr-only") && el.getAttribute("aria-hidden") !== "true");
+    expect(visible.map((el) => el.textContent).join("")).toContain("Algoritmos e Estruturas de Dados");
+    expect(button.querySelector(".sr-only")?.textContent).toBe("Menu:");
+    expect(button.textContent).not.toContain("›");
+    expect(button.getAttribute("title")).toBeNull();
+  });
+
+  it("2 e 3 níveis: a trilha inteira, separada por ›, e o nome acessível contém o texto visível", () => {
+    setup(["algoritmos", "introducao", "historia"]);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › Introdução › História de C");
+    // WCAG 2.5.3: o nome acessível (sem os separadores decorativos) contém cada título visível, na ordem.
+    expect(screen.getByRole("button", { name: /^Menu: Algoritmos e Estruturas de Dados\s+Introdução\s+História de C$/ })).toBeTruthy();
+    cleanup();
+    setup(["algoritmos", "variaveis"]);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › Variáveis");
+  });
+
+  it("mais de 3 níveis: primeiro › … › o corrente INTEIRO; a trilha completa no title", () => {
+    setup(DEEP5);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › … › Nós");
+    const text = menuButton().querySelector("[title]");
+    expect(text?.getAttribute("title")).toBe("Algoritmos e Estruturas de Dados › Estruturas › Listas › Listas encadeadas › Nós");
+    cleanup();
+    setup(["algoritmos", "estruturas", "listas", "encadeadas", "nos", "ponteiros-duplos"]);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › … › Ponteiros duplos");
+  });
+
+  it("exatamente 3 níveis não elide; 4 elide", () => {
+    setup(["algoritmos", "estruturas", "listas"]);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › Estruturas › Listas");
+    expect(menuButton().querySelector("[title]")).toBeNull();
+    cleanup();
+    setup(["algoritmos", "estruturas", "listas", "encadeadas"]);
+    expect(visibleText()).toBe("Menu: Algoritmos e Estruturas de Dados › … › Listas encadeadas");
+  });
+
+  it("os separadores e as reticências são decorativos (aria-hidden), e o sr-only vem antes da trilha", () => {
+    setup(DEEP5);
+    const hidden = [...menuButton().querySelectorAll("[aria-hidden='true']")].map((el) => el.textContent).filter(Boolean);
+    expect(hidden).toEqual(["›", "…", "›"]);
+    expect(menuButton().querySelector("span > span:first-child")?.classList.contains("sr-only")).toBe(true);
+  });
+
+  it("aria-expanded e aria-controls continuam, e o painel abre e fecha pelo botão", () => {
+    setup(["algoritmos", "introducao"]);
+    const button = menuButton();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    const panel = document.getElementById(/** @type {string} */ (button.getAttribute("aria-controls")));
+    expect(panel?.className).toContain("hidden");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.className).toContain("block");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("títulos com marcação e de 100 caracteres: texto, nunca HTML, e o botão quebra de linha (break-words)", () => {
+    const long = "L".repeat(100);
+    const collection = node("<b>Coleção</b>", "c", "COLLECTION", [node(long, "d", "DOCUMENT")]);
+    render(<Sidebar collection={collection} basePath={BASE} activePath={["c", "d"]} />);
+    const button = menuButton();
+    expect(button.innerHTML).toContain("&lt;b&gt;Coleção&lt;/b&gt;");
+    expect(button.querySelector("b")).toBeNull();
+    expect(button.textContent).toContain(long);
+    expect(button.querySelector("[class*='break-words']")).not.toBeNull();
+  });
+
+  it("o <nav> do painel não mudou: aria-label com o título da coleção", () => {
+    setup(["algoritmos", "variaveis"]);
+    expect(screen.getByRole("navigation", { name: "Coleção Algoritmos e Estruturas de Dados" })).toBeTruthy();
   });
 });

@@ -3,8 +3,9 @@
 // está logado) e o seletor do modo de cor (o lugar dele é aqui). Server Component de
 // apresentação: recebe tudo por props, só com tokens de tema. A cor secundária é a da estrutura,
 // com o texto `on-secondary` do modo; o item corrente se distingue por `aria-current`, negrito e
-// sublinhado grosso (e não só pela cor, WCAG 1.4.1). Em tela estreita tudo quebra de linha: não há
-// rolagem horizontal (RNF06).
+// sublinhado grosso (e não só pela cor, WCAG 1.4.1). A linha da marca quebra em tela estreita; a barra de
+// coleções NÃO: é uma só linha, de altura fixa, rolável (`NavbarCollections`, P-026). Não há rolagem horizontal
+// da página (RNF06).
 //
 // Um só cabeçalho (P-024, item 4): o bloco do nome e o das coleções têm o mesmo fundo, SEM linha entre
 // eles e SEM faixa embaixo; quem separa o cabeçalho do conteúdo é uma sombra (`.vitrine-cabecalho`,
@@ -13,6 +14,7 @@ import Link from "next/link";
 import { AdminLink } from "./AdminLink";
 import { ColorModeToggle } from "./ColorModeToggle";
 import { ColorModeToggleStatic } from "./ColorModeToggleStatic";
+import { NavbarCollections } from "./NavbarCollections";
 import { SiteBrand } from "./SiteBrand";
 
 /**
@@ -70,27 +72,9 @@ export function Navbar({
           <ColorModeToggleStatic mode={modeTogglePreview} iconPair={modeIconPair} />
         ) : null}
       </div>
-      {items.length > 0 ? (
-        <nav aria-label="Coleções" className="px-4 pb-3">
-          <ul className="flex flex-wrap gap-x-1 gap-y-1">
-            {items.map((item) => (
-              <li key={item.id} className="min-w-0">
-                <Link
-                  href={item.href}
-                  aria-current={item.current ? "page" : undefined}
-                  className={
-                    item.current
-                      ? "block rounded-md px-3 py-1.5 text-sm font-semibold break-words underline decoration-2 underline-offset-4"
-                      : "block rounded-md px-3 py-1.5 text-sm font-medium break-words hover:underline hover:underline-offset-4"
-                  }
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
+      {/* Uma só linha, de altura fixa, rolável (P-026): o componente cliente da faixa (setas, arrastar, roda e o
+          item ativo centralizado) tem os links já no HTML do servidor; a linha da marca acima não muda. */}
+      {items.length > 0 ? <NavbarCollections items={items} /> : null}
     </header>
   );
 }
