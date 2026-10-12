@@ -52,6 +52,7 @@ export default async function AppearancePage({ searchParams }) {
         key={target}
         initial={appearanceInitial(appearance)}
         system={systemReference(configuration)}
+        modeIconPair={configuration?.modeIconPair ?? undefined}
         media={mediaOf(appearance)}
         footerLinks={footerLinksOf(await listFooterLinks(user.id))}
       />

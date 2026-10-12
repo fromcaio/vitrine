@@ -265,7 +265,7 @@ describe("/admin/usuarios/[id]/conteudo/[contentId]: o editor em moderação (RF
 
     const props = propsOf(await ModerateDocumentPage(params({ id: ana.id, contentId: mine.id })), ContentEditor);
 
-    expect(Object.keys(props).sort()).toEqual(["contentId", "initialValue", "moderation", "userId", "version"]);
+    expect(Object.keys(props).sort()).toEqual(["contentId", "initialValue", "moderation", "userId", "version", "viewHref"]);
     expect(props.userId).toBe(admin.userId);
     expect(props.userId).not.toBe(ana.id);
     expect(props.contentId).toBe(mine.id);

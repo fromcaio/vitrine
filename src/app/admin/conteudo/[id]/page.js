@@ -3,7 +3,7 @@
 // 404), e a página entrega ao editor a `version` (o `updatedAt` do que foi aberto), com a qual o
 // `PATCH` detecta a edição concorrente (409 `VERSION_CONFLICT`).
 import { ContentEditor } from "@/components/editor/ContentEditor";
-import { loadOwnDocument } from "../../_lib/editor";
+import { loadOwnDocument, publicViewHref } from "../../_lib/editor";
 import { requireSession } from "../../_lib/session";
 
 export const metadata = {
@@ -15,6 +15,7 @@ export default async function EditContentPage({ params }) {
   const { id } = await params;
   const { user } = await requireSession({ path: `/admin/conteudo/${encodeURIComponent(id)}` });
   const content = await loadOwnDocument(user.id, id);
+  const viewHref = await publicViewHref(user.id, content.id);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -24,6 +25,7 @@ export default async function EditContentPage({ params }) {
         contentId={content.id}
         initialValue={{ title: content.title, slug: content.slug, body: content.body, status: content.status }}
         version={content.updatedAt.toISOString()}
+        viewHref={viewHref}
       />
     </div>
   );
