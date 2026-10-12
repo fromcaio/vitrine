@@ -57,7 +57,7 @@ export function Navbar({
 }) {
   return (
     <header className="vitrine-cabecalho relative z-10 bg-secondary text-on-secondary">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <Link href={homeHref} className="mr-auto flex min-w-0 items-center gap-3 rounded-sm">
           <SiteBrand name={name} logoUrl={logoUrl} showLogo={showLogo} showName={showName} />
         </Link>
