@@ -118,10 +118,12 @@ describe("a interface (a mesma do editor de conteúdo)", () => {
     await waitFor(() => expect(screen.getByTestId("renderizado").getAttribute("data-heading-offset")).toBe("1"));
   });
 
-  it("a dica fixa: sem texto publicado a descrição continua aparecendo; os títulos começam em h2", () => {
+  it("a dica fixa: sem texto publicado a descrição continua aparecendo; os títulos começam em # e saem como h2", () => {
     setup();
     expect(screen.getByText(/Sem texto publicado, a descrição do espaço continua aparecendo\./)).toBeTruthy();
-    expect(document.body.textContent).toMatch(/Os títulos do texto começam em h2/);
+    const hint = document.body.textContent ?? "";
+    expect(hint).toMatch(/Os títulos começam em # e saem como h2 na página \(o nome do espaço é o h1\)\./);
+    expect(hint).not.toMatch(/começam em h2/);
   });
 
   it("o texto de um usuário é sempre texto, nunca HTML", () => {

@@ -408,8 +408,8 @@ export function HomeEditor({ target, userId, initial, publicHref, client = undef
               />
             </div>
             <p id={ids.bodyHint} className="text-sm text-muted">
-              Sem texto publicado, a descrição do espaço continua aparecendo. Os títulos do texto começam em <code>h2</code> (<code>##</code>), porque o nome é
-              o título da página. {bytes} de {maxBodyBytes} bytes.
+              Sem texto publicado, a descrição do espaço continua aparecendo. Os títulos começam em <code>#</code> e saem como <code>h2</code> na página (o nome
+              do espaço é o <code>h1</code>). {bytes} de {maxBodyBytes} bytes.
             </p>
             {errors.body ? (
               <p id={ids.bodyError} role="alert" className="text-sm font-medium text-danger">
