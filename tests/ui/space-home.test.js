@@ -85,3 +85,85 @@ describe("SpaceHome", () => {
     expect(container.innerHTML).not.toMatch(/text-white|bg-white|bg-black|(bg|text|border)-(slate|gray|zinc|neutral|red|blue)-\d/);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// P-032 (M26; RF42, RN35, RN36): o texto da página inicial, a descrição como alternativa, a lista com `showItems`.
+// O MarkdownRenderer de verdade renderiza o texto.
+describe("SpaceHome: o texto da página inicial (RN35, RN36)", () => {
+  const BODY = "# Bem-vindo\n\nTexto **da** página.\n\n## Seção\n\n###### Fundo";
+  const h = (/** @type {number} */ level) => screen.queryAllByRole("heading", { level });
+  const EMPTY = "Este espaço ainda não tem conteúdo publicado.";
+
+  it("a ordem: o nome (h1), o texto e depois a lista", () => {
+    const { container } = render(<SpaceHome name="Espaço da Maria" body={"Olá, **mundo**."} items={ITEMS} />);
+    const section = /** @type {HTMLElement} */ (container.querySelector("section"));
+    const name = screen.getByRole("heading", { level: 1, name: "Espaço da Maria" });
+    const text = /** @type {HTMLElement} */ (section.querySelector(".vitrine-markdown"));
+    const list = screen.getByRole("list");
+    expect(text.textContent).toBe("Olá, mundo.");
+    expect(name.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(text.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("com texto, a descrição NÃO aparece (a descrição só vale na falta do texto)", () => {
+    render(<SpaceHome name="X" description="Notas de aula e projetos." body="Texto da página." items={ITEMS} />);
+    expect(screen.getByText("Texto da página.")).toBeTruthy();
+    expect(screen.queryByText("Notas de aula e projetos.")).toBeNull();
+  });
+
+  it("sem texto (nulo, vazio ou só espaços), a descrição aparece no lugar", () => {
+    for (const body of [null, undefined, "", "  \n "]) {
+      const { unmount } = render(<SpaceHome name="X" description="Notas de aula." body={body} items={ITEMS} />);
+      expect(screen.getByText("Notas de aula.")).toBeTruthy();
+      expect(document.querySelector(".vitrine-markdown")).toBeNull();
+      unmount();
+    }
+  });
+
+  it("os títulos do texto começam em h2: # vira h2, ## vira h3 e ###### fica h6; o único h1 é o nome", () => {
+    render(<SpaceHome name="Espaço" body={BODY} items={[]} />);
+    expect(h(1).map((node) => node.textContent)).toEqual(["Espaço"]);
+    expect(h(2).map((node) => node.textContent)).toEqual(["Bem-vindo"]);
+    expect(h(3).map((node) => node.textContent)).toEqual(["Seção"]);
+    expect(h(6).map((node) => node.textContent)).toEqual(["Fundo"]);
+  });
+
+  it("showItems falso: a lista não aparece, mesmo com itens (padrão: aparece)", () => {
+    const { unmount } = render(<SpaceHome name="X" body="Texto." items={ITEMS} showItems={false} />);
+    expect(screen.queryByRole("list")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    unmount();
+    render(<SpaceHome name="X" body="Texto." items={ITEMS} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("a mensagem de página vazia só quando NÃO há nada: sem texto, sem descrição e sem lista (desligada ou vazia)", () => {
+    const empty = (/** @type {Partial<import("react").ComponentProps<typeof SpaceHome>>} */ props) => {
+      const { unmount } = render(<SpaceHome name="X" items={[]} {...props} />);
+      const found = screen.queryByText(EMPTY) !== null;
+      unmount();
+      return found;
+    };
+    expect(empty({})).toBe(true);
+    expect(empty({ showItems: false })).toBe(true);
+    expect(empty({ items: ITEMS, showItems: false })).toBe(true); // a lista desligada, nada mais
+    expect(empty({ description: "  " })).toBe(true);
+    // com algo para mostrar, a mensagem some
+    expect(empty({ body: "Texto." })).toBe(false);
+    expect(empty({ description: "Resumo." })).toBe(false);
+    expect(empty({ items: ITEMS })).toBe(false);
+    expect(empty({ body: "Texto.", showItems: false })).toBe(false);
+  });
+
+  it("com texto e lista vazia, a mensagem de vazio não aparece", () => {
+    render(<SpaceHome name="X" body="Texto." items={[]} />);
+    expect(screen.queryByText(EMPTY)).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("o texto é Markdown seguro: HTML escrito vira texto, não elemento", () => {
+    const { container } = render(<SpaceHome name="X" body={'<img src=x onerror="window.__xss=1"> e <script>1</script>'} items={[]} />);
+    expect(container.querySelector("img, script")).toBeNull();
+    expect(/** @type {any} */ (window).__xss).toBeUndefined();
+  });
+});

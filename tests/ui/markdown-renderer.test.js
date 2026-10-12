@@ -111,14 +111,20 @@ describe("MarkdownRenderer: Markdown básico e contrato do componente", () => {
     expect(source).not.toMatch(/^\s*["']use client["']/m);
     const imports = [...source.matchAll(/^import\s+(?:[^"']*\sfrom\s+)?["']([^"']+)["']/gm)].map(([, name]) => name);
     // O pipeline (plugins, KaTeX e realce) vem de markdown-pipeline.js, a fonte única (ADR-033): o
-    // renderizador só importa o React, o módulo do pipeline e as folhas de estilo.
-    expect(imports.sort()).toEqual(["./markdown-pipeline", "./markdown.css", "katex/dist/katex.min.css", "react-markdown"].sort());
+    // renderizador só importa o React, o módulo do pipeline e a folha de estilo da tipografia. A folha do KaTeX
+    // sai daqui (P-032): vem de MathStyles.js, carregado sob demanda quando o texto tem fórmula.
+    expect(imports.sort()).toEqual(["./markdown-pipeline", "./markdown.css", "next/dynamic", "react", "react-markdown"].sort());
   });
 
-  it("importa a folha do KaTeX uma vez, do pacote instalado, e nunca de uma CDN", () => {
+  it("importa a folha do KaTeX uma vez, do pacote instalado, SÓ em MathStyles (sob demanda), e nunca de uma CDN", () => {
     const source = fs.readFileSync(path.join(COMPONENT_DIR, "MarkdownRenderer.js"), "utf8");
-    expect(source.match(/katex[^"'\n]*\.css/g)).toEqual(["katex/dist/katex.min.css"]);
-    expect(source).not.toMatch(/https?:\/\//);
+    const styles = fs.readFileSync(path.join(COMPONENT_DIR, "MathStyles.js"), "utf8");
+    // O renderizador não importa a folha (uma página sem fórmula não a carrega): carrega MathStyles sob demanda.
+    expect(source).not.toMatch(/^import\s+["'][^"']*katex[^"']*\.css["']/m);
+    expect(source).toMatch(/dynamic\(\(\) => import\("\.\/MathStyles"\)\)/);
+    expect(styles.match(/^import\s+["'][^"']*katex[^"']*\.css["']/gm)).toEqual(['import "katex/dist/katex.min.css"']);
+    expect(styles).not.toMatch(/^\s*["']use client["']/m);
+    expect(source + styles).not.toMatch(/https?:\/\//);
     expect(fs.readFileSync(path.join(COMPONENT_DIR, "markdown.css"), "utf8")).not.toMatch(/@import|url\(/);
   });
 });

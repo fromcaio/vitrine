@@ -18,7 +18,7 @@ export function PortalHome({ body = null, spaces = null, title, directoryTitle }
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
       <h1 className="text-3xl font-semibold break-words">{title}</h1>
-      {body ? <MarkdownRenderer markdown={body} /> : null}
+      {body ? <MarkdownRenderer markdown={body} headingOffset={1} /> : null}
       {spaces ? <PortalDirectory spaces={spaces} heading={directoryTitle || undefined} /> : null}
     </div>
   );
