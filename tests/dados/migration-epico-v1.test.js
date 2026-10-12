@@ -149,10 +149,9 @@ describe("migração do épico v1 (A-026)", () => {
   /** @param {string} name */
   const fileFor = (name) => path.join(dir, `${name}-${crypto.randomUUID().slice(0, 8)}.db`);
 
-  it("é a última migração, depois da inicial e da multiusuário, que não foram tocadas", () => {
+  it("vem depois da inicial e da multiusuário, que não foram tocadas (as posteriores têm testes próprios)", () => {
     expect(migrationNames.indexOf(INIT)).toBeLessThan(migrationNames.indexOf(MULTI));
     expect(migrationNames.indexOf(MULTI)).toBeLessThan(migrationNames.indexOf(V1));
-    expect(migrationNames.at(-1)).toBe(V1);
   });
 
   describe("banco novo (todas as migrações, pelo CLI)", () => {
@@ -402,6 +401,8 @@ describe("migração do épico v1 (A-026)", () => {
 
     it("lê pelo cliente do Prisma: as datas gravadas em SQL viram Date válidas", async () => {
       const { db } = migrated();
+      // o cliente é o do schema ATUAL: aplica também as migrações posteriores ao épico v1
+      for (const later of migrationNames.slice(migrationNames.indexOf(V1) + 1)) db.exec(sqlOf(later));
       const file = db.name;
       db.close();
       const client = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: toFileUrl(file) }) });

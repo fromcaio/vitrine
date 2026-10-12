@@ -1157,13 +1157,17 @@ export async function getConfiguration() {
  * `null` (RN17). O logo e o favicon NÃO passam por aqui: são `replaceImage` e `removeImage`. O
  * formato de cor é validado pelo Core.
  *
+ * `homeStatus` (`PUBLISHED` ou `DRAFT`, RN36) é o estado do texto do portal; `homeBody` vazio ou só
+ * espaços vira `null`.
+ *
  * `showLogo` e `showName` não podem ficar ambos falsos: o estado resultante é avaliado dentro da
  * transação (`INVALID_INPUT`, `details.field = "showName"`).
  * @param {Partial<{
  *   siteName: string, siteDescription: string | null, primaryColor: string, secondaryColor: string,
  *   accentColor: string, darkPrimaryColor: string, darkSecondaryColor: string, darkAccentColor: string,
  *   showLogo: boolean, showName: boolean, modeIconPair: import("@/lib/footer-icons").ModeIconPair,
- *   directoryTitle: string, homeBody: string | null, directoryEnabled: boolean
+ *   directoryTitle: string, homeBody: string | null, directoryEnabled: boolean,
+ *   homeStatus: "PUBLISHED" | "DRAFT"
  * }>} patch
  * @returns {Promise<import("@/generated/prisma/client").Configuration>}
  * @throws {DataError} `INVALID_INPUT` para campo obrigatório vazio, de tipo errado ou fora da lista
@@ -1174,6 +1178,11 @@ export async function updateConfiguration(patch) {
     ...buildTextData(patch, REQUIRED_SITE_FIELDS, [...NULLABLE_IDENTITY_FIELDS, "homeBody"]),
     ...buildBooleanData(patch, ["directoryEnabled", "showLogo", "showName"]),
   };
+  const homeStatus = /** @type {any} */ (patch)?.homeStatus;
+  if (homeStatus !== undefined) {
+    assertHomeStatus(homeStatus);
+    data.homeStatus = homeStatus;
+  }
   const modeIconPair = /** @type {any} */ (patch)?.modeIconPair;
   if (modeIconPair !== undefined) {
     if (!isModeIconPair(modeIconPair)) {
@@ -1368,6 +1377,181 @@ export async function updateAppearance(ownerId, patch) {
       const row = await tx.appearance.upsert({ where: { ownerId }, update: data, create: { ownerId, ...data } });
       return { ...row, persisted: /** @type {const} */ (true) };
     }),
+  );
+}
+
+// --------------------------------------------------------
+// Página inicial editável (M26, ADR-040, RN35 a RN37)
+// --------------------------------------------------------
+
+/** Estados da página inicial (o mesmo enum de `Content.status`). */
+const HOME_STATUSES = /** @type {const} */ (["PUBLISHED", "DRAFT"]);
+
+/** @param {unknown} status */
+function assertHomeStatus(status) {
+  if (!HOME_STATUSES.includes(/** @type {any} */ (status))) {
+    throw new DataError("INVALID_INPUT", "O estado deve ser DRAFT ou PUBLISHED.", { field: "homeStatus" });
+  }
+}
+
+/**
+ * A página inicial de um espaço: texto em Markdown (ou nulo), estado e interruptor da lista de itens.
+ * @typedef {{ homeBody: string | null, homeStatus: "PUBLISHED" | "DRAFT", homeShowItems: boolean }} HomeView
+ */
+
+/** Padrões de uma página inicial sem linha de `Appearance`. @returns {HomeView} */
+const defaultHome = () => ({ homeBody: null, homeStatus: "PUBLISHED", homeShowItems: true });
+
+/** @param {{ homeBody: string | null, homeStatus: string, homeShowItems: boolean }} row @returns {HomeView} */
+const toHomeView = (row) => ({
+  homeBody: row.homeBody,
+  homeStatus: /** @type {"PUBLISHED" | "DRAFT"} */ (row.homeStatus),
+  homeShowItems: row.homeShowItems,
+});
+
+const HOME_SELECT = { homeBody: true, homeStatus: true, homeShowItems: true };
+
+/**
+ * Página inicial do espaço de `ownerId`. Sem linha de `Appearance`, devolve os padrões
+ * (`{ homeBody: null, homeStatus: "PUBLISHED", homeShowItems: true }`) e **não escreve** nada.
+ * @param {string} ownerId
+ * @returns {Promise<HomeView>}
+ * @throws {DataError} `INVALID_INPUT` (`ownerId` vazio)
+ */
+export async function getHome(ownerId) {
+  assertNonEmptyString(ownerId, "ownerId");
+  const row = await prisma.appearance.findUnique({ where: { ownerId }, select: HOME_SELECT });
+  return row ? toHomeView(row) : defaultHome();
+}
+
+/**
+ * Grava, parcialmente, a página inicial do espaço de `ownerId`: `homeBody` (`string | null`; vazio ou
+ * só espaços vira `null`; no máximo `limits.maxBodyBytes` bytes UTF-8), `homeStatus` e
+ * `homeShowItems`. Ao menos um campo; campo desconhecido ou valor inválido é `INVALID_INPUT`. Cria a
+ * linha de `Appearance` sob demanda (as cores continuam nulas: a regra das paletas segue valendo).
+ * @param {string} ownerId
+ * @param {Partial<{ homeBody: string | null, homeStatus: "PUBLISHED" | "DRAFT", homeShowItems: boolean }>} patch
+ * @param {{ limits?: Partial<import("@/lib/limits").Limits> }} [options] cotas; padrão: RN25
+ * @returns {Promise<HomeView>}
+ * @throws {DataError} `INVALID_INPUT`, `QUOTA_EXCEEDED` (corpo grande), `NOT_FOUND` (usuário)
+ */
+export async function updateHome(ownerId, patch, { limits } = {}) {
+  assertNonEmptyString(ownerId, "ownerId");
+  if (patch === null || typeof patch !== "object" || Array.isArray(patch)) {
+    throw new DataError("INVALID_INPUT", "O pedido deve ser um objeto.", { field: "patch" });
+  }
+  const allowed = ["homeBody", "homeStatus", "homeShowItems"];
+  for (const key of Object.keys(patch)) {
+    if (!allowed.includes(key)) {
+      throw new DataError("INVALID_INPUT", `Campo desconhecido: "${key}".`, { field: key });
+    }
+  }
+  /** @type {Record<string, string | boolean | null>} */
+  const data = {};
+  const input = /** @type {Record<string, unknown>} */ (patch);
+  if (input.homeBody !== undefined) {
+    if (input.homeBody !== null && typeof input.homeBody !== "string") {
+      throw new DataError("INVALID_INPUT", 'O campo "homeBody" deve ser texto ou nulo.', { field: "homeBody" });
+    }
+    const body = input.homeBody === null || input.homeBody.trim() === "" ? null : input.homeBody;
+    assertBodyWithinQuota(body, resolveLimits(limits));
+    data.homeBody = body;
+  }
+  if (input.homeStatus !== undefined) {
+    assertHomeStatus(input.homeStatus);
+    data.homeStatus = /** @type {string} */ (input.homeStatus);
+  }
+  Object.assign(data, buildBooleanData(input, ["homeShowItems"]));
+  if (Object.keys(data).length === 0) {
+    throw new DataError("INVALID_INPUT", "Informe ao menos um campo da página inicial.", { field: "patch" });
+  }
+  return guarded(() =>
+    prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: ownerId }, select: { id: true } });
+      if (!user) throw userNotFound(ownerId);
+      const row = await tx.appearance.upsert({
+        where: { ownerId },
+        update: data,
+        create: { ownerId, ...data },
+        select: HOME_SELECT,
+      });
+      return toHomeView(row);
+    }),
+  );
+}
+
+/**
+ * Moderação da página inicial de outro usuário (RN19, RN26, RN37): aplica `change` ao estado atual e
+ * grava a notificação ao dono **na mesma transação**. `NOT_FOUND` se o usuário não existe ou se
+ * `precondition` recusa o estado atual; nesses casos nenhuma notificação nasce.
+ * @param {string} userId
+ * @param {ReturnType<typeof parseModerationNotification>} parsed
+ * @param {(current: HomeView) => string | null} precondition mensagem de recusa, ou nulo se pode
+ * @param {Record<string, unknown>} change
+ * @returns {Promise<HomeView>}
+ */
+async function moderateHome(userId, parsed, precondition, change) {
+  const now = new Date();
+  const view = await guarded(() =>
+    prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
+      if (!user) throw userNotFound(userId);
+      const current = await tx.appearance.findUnique({ where: { ownerId: userId }, select: HOME_SELECT });
+      const refusal = precondition(current ? toHomeView(current) : defaultHome());
+      if (refusal) throw new DataError("NOT_FOUND", refusal, { userId });
+      const row = await tx.appearance.update({ where: { ownerId: userId }, data: change, select: HOME_SELECT });
+      await writeNotification(tx, parsed, now);
+      return toHomeView(row);
+    }),
+  );
+  await pruneNotificationsLazily(now);
+  return view;
+}
+
+/**
+ * Despublica a página inicial de outro usuário (moderação): `homeStatus` passa a `DRAFT` e a
+ * notificação ao dono (`MODERATION`, `WARNING`, `data = { event: "HOME_UNPUBLISHED", reason }`) é
+ * gravada **na mesma transação**. A autorização (só o administrador) é do Core.
+ * @param {string} userId dono da página
+ * @param {{ notification: { data: { reason: string }, userId?: string, type?: "MODERATION", severity?: "WARNING" } }} options
+ *   `notification.data.reason` é obrigatório; o resto é fixado aqui e, se vier, deve ser o fixado
+ * @returns {Promise<HomeView>}
+ * @throws {DataError} `NOT_FOUND` (usuário inexistente, sem texto ou já em rascunho), `INVALID_INPUT`
+ */
+export async function unpublishHome(userId, { notification } = /** @type {any} */ ({})) {
+  assertNonEmptyString(userId, "userId");
+  const parsed = parseModerationNotification(userId, notification, "HOME_UNPUBLISHED");
+  return moderateHome(
+    userId,
+    parsed,
+    (current) =>
+      current.homeBody === null
+        ? "O usuário não tem texto na página inicial."
+        : current.homeStatus === "DRAFT"
+          ? "A página inicial já é um rascunho."
+          : null,
+    { homeStatus: "DRAFT" },
+  );
+}
+
+/**
+ * Exclui o texto da página inicial de outro usuário (moderação): anula `homeBody` (mantém o
+ * `homeStatus` e o `homeShowItems`) e grava a notificação (`event: "HOME_REMOVED"`) **na mesma
+ * transação**. A autorização (só o administrador) é do Core.
+ * @param {string} userId dono da página
+ * @param {{ notification: { data: { reason: string }, userId?: string, type?: "MODERATION", severity?: "WARNING" } }} options
+ *   como em `unpublishHome`
+ * @returns {Promise<HomeView>}
+ * @throws {DataError} `NOT_FOUND` (usuário inexistente ou sem texto), `INVALID_INPUT`
+ */
+export async function removeHome(userId, { notification } = /** @type {any} */ ({})) {
+  assertNonEmptyString(userId, "userId");
+  const parsed = parseModerationNotification(userId, notification, "HOME_REMOVED");
+  return moderateHome(
+    userId,
+    parsed,
+    (current) => (current.homeBody === null ? "O usuário não tem texto na página inicial." : null),
+    { homeBody: null },
   );
 }
 
@@ -1617,16 +1801,20 @@ export async function deleteOwnedImages(ownerId) {
   return guarded(() => deleteOwnedImagesIn(prisma, ownerId));
 }
 
+/** Eventos de moderação com validador próprio (`parseModerationNotification`). */
+const MODERATION_EVENTS = /** @type {const} */ (["AVATAR_REMOVED", "HOME_UNPUBLISHED", "HOME_REMOVED"]);
+
 /**
- * Valida e completa a notificação da remoção do avatar (moderação, RN19, RN26): tipo `MODERATION`,
- * gravidade `WARNING`, `data = { event: "AVATAR_REMOVED", reason }`, para o próprio dono do avatar.
- * Só o `reason` é obrigatório; o que vier no pedido não pode contradizer o resto.
+ * Valida e completa a notificação de uma moderação (RN19, RN26): tipo `MODERATION`, gravidade
+ * `WARNING`, `data = { event, reason }`, para o próprio dono. Só o `reason` é obrigatório; o que vier
+ * no pedido não pode contradizer o resto.
  * @param {string} userId
  * @param {unknown} notification
+ * @param {(typeof MODERATION_EVENTS)[number]} event
  */
-function parseAvatarRemovalNotification(userId, notification) {
+function parseModerationNotification(userId, notification, event) {
   if (notification === null || typeof notification !== "object") {
-    throw new DataError("INVALID_INPUT", "A notificação da remoção do avatar é obrigatória.", { field: "notification" });
+    throw new DataError("INVALID_INPUT", "A notificação da moderação é obrigatória.", { field: "notification" });
   }
   const input = /** @type {Record<string, any>} */ (notification);
   const data = input.data !== null && typeof input.data === "object" ? input.data : {};
@@ -1635,11 +1823,11 @@ function parseAvatarRemovalNotification(userId, notification) {
     ["userId", input.userId, userId],
     ["type", input.type, "MODERATION"],
     ["severity", input.severity, "WARNING"],
-    ["event", data.event, "AVATAR_REMOVED"],
+    ["event", data.event, event],
   ];
   for (const [field, given, expected] of fixed) {
     if (given !== undefined && given !== expected) {
-      throw new DataError("INVALID_INPUT", `Na remoção do avatar, "${field}" deve ser ${String(expected)}.`, { field });
+      throw new DataError("INVALID_INPUT", `Nesta moderação, "${field}" deve ser ${String(expected)}.`, { field });
     }
   }
   assertNonEmptyString(data.reason, "reason");
@@ -1647,7 +1835,7 @@ function parseAvatarRemovalNotification(userId, notification) {
     userId,
     type: "MODERATION",
     severity: "WARNING",
-    data: { ...data, event: "AVATAR_REMOVED" },
+    data: { ...data, event },
   });
 }
 
@@ -1665,7 +1853,7 @@ function parseAvatarRemovalNotification(userId, notification) {
  */
 export async function removeAvatar(userId, { notification } = /** @type {any} */ ({})) {
   assertNonEmptyString(userId, "userId");
-  const parsed = parseAvatarRemovalNotification(userId, notification);
+  const parsed = parseModerationNotification(userId, notification, "AVATAR_REMOVED");
   const now = new Date();
   const removed = await guarded(() =>
     prisma.$transaction(async (tx) => {
