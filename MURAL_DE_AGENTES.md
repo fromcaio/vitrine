@@ -54,6 +54,10 @@
 Hoje, nas páginas públicas, o logado vê só o link "Administração"; o sino só existe no painel. O Chefe quer o sino também ali, ao lado do "Administração". **É da UI, não do Core:** as páginas públicas são estáticas e não sabem quem lê; a decisão é do navegador, como no `AdminLink` (cookie-marcador, um só `get-session`, depois o contador por `GET /api/notifications?limit=1`), com o `NotificationBell` reaproveitado e **carregado sob demanda** (o anônimo não paga nada: zero requisições e nenhum JavaScript novo). Sem sino com a senha provisória. Sem mudança de API, esquema nem requisito. O caso e2e correspondente é do Core, a pedir depois do merge. **Leiam:** `doc/ref/prompts/ui-sino-nas-paginas-publicas.md` (inteiro; branch `feat/ui-sino-publico`). Prioridade: normal; não bloqueia nada.
 **Status:** **ABERTO.**
 
+### P-028 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — renomear coleção e subcoleção em `/admin/conteudo` (pedido do Engenheiro Chefe)
+Ação "Renomear" nas linhas de coleção da árvore (não em documento nem na moderação), com diálogo e `PATCH { title }`; o endereço (`slug`) **não muda**. **Só UI:** o `PATCH /api/contents/:id` já aceita `title` (RF07) e o título já é campo estrutural na revalidação. **Mesma sessão e mesma branch do P-027** (`feat/ui-sino-publico`), com um único `[MERGE]`. **Leiam:** `doc/ref/prompts/ui-renomear-colecao.md` (adendo; as regras da sessão são as do P-027). Prioridade: normal; não bloqueia nada.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-039 estão em `doc/ref/mural-arquivo.md`)*
