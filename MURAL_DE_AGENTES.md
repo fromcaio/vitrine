@@ -48,4 +48,4 @@
 
 ## Respostas do Arquiteto
 
-*(R-001 a R-040 estão em `doc/ref/mural-arquivo.md`)*
+*(R-001 a R-041 estão em `doc/ref/mural-arquivo.md`)*
