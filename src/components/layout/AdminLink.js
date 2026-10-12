@@ -18,10 +18,12 @@ import { clearSessionMarker, readSessionMarker } from "./session-marker";
 export const SESSION_URL = "/api/auth/get-session";
 
 /**
- * @param {object} props
- * @param {string} [props.className] classes do link
+ * A consulta da sessão das páginas públicas (um só `get-session` por montagem). Sem o marcador, não
+ * faz nada. Devolve `null` até a sessão ser confirmada (e para sempre se não houver sessão ou a rede
+ * falhar); depois, `{ temporary }`: a conta ainda tem a senha provisória (RN21).
+ * @returns {{ temporary: boolean } | null}
  */
-export function AdminLink({ className = "" }) {
+export function usePublicSession() {
   /** @type {[{ temporary: boolean } | null, (value: { temporary: boolean } | null) => void]} */
   const [session, setSession] = useState(/** @type {{ temporary: boolean } | null} */ (null));
 
@@ -53,14 +55,33 @@ export function AdminLink({ className = "" }) {
     };
   }, []);
 
-  if (!session) return null;
+  return session;
+}
+
+/**
+ * O link em si (apresentação), para quem já sabe que há sessão.
+ * @param {object} props
+ * @param {boolean} props.temporary a conta tem a senha provisória: o link leva a `/admin/senha`
+ * @param {string} [props.className] classes do link
+ */
+export function AdminAnchor({ temporary, className = "" }) {
   return (
     <Link
-      href={session.temporary ? "/admin/senha" : "/admin"}
+      href={temporary ? "/admin/senha" : "/admin"}
       prefetch={false}
       className={`inline-flex min-h-10 items-center rounded-md border border-on-secondary px-3 text-sm font-medium hover:bg-on-secondary hover:text-secondary ${className}`.trim()}
     >
       Administração
     </Link>
   );
+}
+
+/**
+ * @param {object} props
+ * @param {string} [props.className] classes do link
+ */
+export function AdminLink({ className = "" }) {
+  const session = usePublicSession();
+  if (!session) return null;
+  return <AdminAnchor temporary={session.temporary} className={className} />;
 }

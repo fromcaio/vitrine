@@ -1,5 +1,5 @@
 // Barra superior do espaço público (RF13; M17): o logo e/ou o nome do espaço (D-34; o logo embutido
-// quando não há imagem) e as coleções raiz como links, mais o link "Administração" (só para quem
+// quando não há imagem) e as coleções raiz como links, mais o link "Administração" e o sino (só para quem
 // está logado) e o seletor do modo de cor (o lugar dele é aqui). Server Component de
 // apresentação: recebe tudo por props, só com tokens de tema. A cor secundária é a da estrutura,
 // com o texto `on-secondary` do modo; o item corrente se distingue por `aria-current`, negrito e
@@ -11,10 +11,10 @@
 // eles e SEM faixa embaixo; quem separa o cabeçalho do conteúdo é uma sombra (`.vitrine-cabecalho`,
 // globals.css: suave no modo claro, mais forte no noturno). Sem `sticky`.
 import Link from "next/link";
-import { AdminLink } from "./AdminLink";
 import { ColorModeToggle } from "./ColorModeToggle";
 import { ColorModeToggleStatic } from "./ColorModeToggleStatic";
 import { NavbarCollections } from "./NavbarCollections";
+import { SessionActions } from "./SessionActions";
 import { SiteBrand } from "./SiteBrand";
 
 /**
@@ -36,8 +36,8 @@ import { SiteBrand } from "./SiteBrand";
  * @param {NavbarItem[]} [props.items] coleções raiz publicadas (`navItemsOf`)
  * @param {boolean} [props.modeToggle] mostra o seletor do modo de cor (padrão); a pré-visualização
  *   da aparência o omite, porque nela nada é interativo
- * @param {boolean} [props.adminLink] inclui o link "Administração" (`AdminLink`, só para quem está
- *   logado; padrão); a pré-visualização o omite
+ * @param {boolean} [props.adminLink] inclui as ações de quem está logado (`SessionActions`: o link
+ *   "Administração" e o sino de notificações; padrão); a pré-visualização as omite
  * @param {string} [props.modeIconPair] o par de ícones do seletor de modo (`modeIconPair` do site)
  * @param {"light" | "dark" | null} [props.modeTogglePreview] só da pré-visualização da aparência (com `modeToggle`
  *   desligado): mostra a IMAGEM do botão (`ColorModeToggleStatic`), sem cookie, sem efeito e sem foco, no modo
@@ -61,9 +61,10 @@ export function Navbar({
         <Link href={homeHref} className="mr-auto flex min-w-0 items-center gap-3 rounded-sm">
           <SiteBrand name={name} logoUrl={logoUrl} showLogo={showLogo} showName={showName} />
         </Link>
-        {/* O link entra no espaço livre à esquerda do botão de modo (depois da hidratação, e só para
-            quem tem o marcador de sessão): o botão e o resto da barra não se mexem. */}
-        {adminLink ? <AdminLink /> : null}
+        {/* "Administração" e o sino entram no espaço livre à esquerda do botão de modo (depois da hidratação,
+            e só para quem tem o marcador de sessão; o sino, só depois de a sessão ser confirmada): o botão e
+            o resto da barra não se mexem. */}
+        {adminLink ? <SessionActions /> : null}
         {/* O botão traz o próprio fundo neutro (bg-background, texto e borda neutros): o contraste dele
             com qualquer paleta não depende da cor da barra, e o fundo fica só dentro dele (P-024, item 3). */}
         {modeToggle ? (
