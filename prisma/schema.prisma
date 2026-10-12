@@ -183,7 +183,8 @@ model Configuration {
 
   // Portal "/" (RF30, RN28): só do site, não existem em Appearance
   homeBody         String? // texto do portal, em Markdown
-  directoryEnabled Boolean @default(true) // liga o diretório de espaços
+  directoryEnabled Boolean       @default(true) // liga o diretório de espaços
+  homeStatus       ContentStatus @default(PUBLISHED) // estado do texto do portal (RN36, ADR-040)
 
   updatedAt DateTime @updatedAt
 
@@ -219,6 +220,12 @@ model Appearance {
   // Barra superior do espaço (D-34): não herdam; ao menos um dos dois fica ligado
   showLogo Boolean @default(true)
   showName Boolean @default(true)
+
+  // Página inicial do espaço (RN35 a RN37, ADR-040): texto em Markdown, estado e interruptor da lista
+  // de itens da raiz. Não herdam do site. Sem linha, valem os padrões (nulo, PUBLISHED, true).
+  homeBody      String?
+  homeStatus    ContentStatus @default(PUBLISHED)
+  homeShowItems Boolean       @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

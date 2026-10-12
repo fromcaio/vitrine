@@ -171,7 +171,7 @@ describe("db.js: aparência por dono", () => {
       );
 
       expect(linha).toMatchObject({ ownerId: ana.id, siteName: "Ok", logoImageId: null });
-      expect("homeBody" in linha).toBe(false);
+      expect(linha.homeBody).toBeNull(); // a coluna existe (M26), mas updateAppearance a ignora: é de updateHome
       expect("githubUrl" in linha).toBe(false);
     });
 
