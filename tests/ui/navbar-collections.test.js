@@ -114,7 +114,21 @@ describe("o HTML do servidor: os links já estão lá", () => {
       expect(arrow.getAttribute("type")).toBe("button");
       expect(arrow.classList.contains("hidden")).toBe(true);
       expect(arrow.classList.contains("sm:flex")).toBe(true);
-      expect(arrow.classList.contains("size-9")).toBe(true);
+      expect(arrow.classList.contains("size-9")).toBe(false);
+      for (const name of ["h-7", "w-9", "rounded-full", "mx-2", "self-center"]) expect(arrow.classList.contains(name), name).toBe(true);
+    }
+  });
+
+  it("as setas são translúcidas, derivadas do on-secondary (nada de par de cores novo), e pressionadas enchem com a primária", () => {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    for (const arrow of doc.querySelectorAll("nav button")) {
+      const names = [...arrow.classList];
+      expect(names).toEqual(expect.arrayContaining(["border", "border-on-secondary/30", "bg-on-secondary/10", "text-on-secondary"]));
+      expect(names).toEqual(expect.arrayContaining(["enabled:hover:bg-on-secondary/20", "enabled:hover:border-on-secondary/50", "enabled:active:bg-primary", "enabled:active:text-on-primary"]));
+      expect(names).toEqual(expect.arrayContaining(["disabled:opacity-40", "disabled:pointer-events-none"]));
+      // O foco: contorno de 2 px em on-secondary, FORA da pílula.
+      expect(names).toEqual(expect.arrayContaining(["focus-visible:outline-2", "focus-visible:outline-offset-2", "focus-visible:outline-on-secondary"]));
+      expect(names.join(" ")).not.toMatch(/text-white|#[0-9a-f]{3,8}|\[#/i);
     }
   });
 });
@@ -130,18 +144,35 @@ describe("uma só linha, de altura fixa (item 1)", () => {
     for (const li of screen.getAllByRole("listitem")) expect(classesOf(li)).toContain("shrink-0");
   });
 
-  it("cada link tem a mesma altura (h-10, 40 px), não quebra e limita o título longo, com o inteiro no title", () => {
+  it("a estética da referência: a faixa e o <nav> SEM gap, SEM padding e SEM folga em volta; os itens se encostam", () => {
+    const { container } = render(<NavbarCollections items={ITEMS} />);
+    const ul = classesOf(list());
+    expect(ul.filter((name) => /^(gap|p|px|py|pt|pb|pl|pr|space)-/.test(name))).toEqual([]);
+    expect(ul).toEqual(expect.arrayContaining(["items-stretch", "flex-1", "min-w-0"]));
+    const nav = /** @type {HTMLElement} */ (container.querySelector("nav"));
+    expect(nav.className).toBe("");
+    expect(nav.firstElementChild?.className).toBe("flex items-stretch");
+    expect(container.querySelector("[data-fade]")).toBeNull();
+  });
+
+  it("cada item: da referência (flex min-w-32 px-5 py-2 text-sm font-semibold), CANTOS RETOS, sem borda e sem anel; o título longo trunca e vai inteiro no title", () => {
     render(<NavbarCollections items={ITEMS} />);
     for (const item of ITEMS) {
       const link = screen.getByRole("link", { name: item.label });
-      expect(classesOf(link)).toEqual(expect.arrayContaining(["block", "h-10", "truncate", "whitespace-nowrap", "max-w-64", "leading-10"]));
+      const names = classesOf(link);
+      expect(names).toEqual(expect.arrayContaining(["flex", "min-w-32", "flex-1", "items-center", "justify-center", "px-5", "py-2", "text-sm", "font-semibold"]));
+      expect(names.filter((name) => /(^|:)(rounded|border|ring|gap|shadow(?!-none))/.test(name)), item.label).toEqual([]);
       expect(link.getAttribute("title")).toBe(item.label);
+      expect(classesOf(/** @type {HTMLElement} */ (link.firstElementChild))).toContain("truncate");
+      const li = /** @type {HTMLElement} */ (link.parentElement);
+      expect(classesOf(li)).toEqual(expect.arrayContaining(["flex", "max-w-64", "shrink-0"]));
     }
   });
 
-  it("os estados (repouso, ativo, hover, foco) têm o mesmo preenchimento e a mesma forma: sem salto", () => {
+  it("os estados (repouso, ativo, hover, foco) têm o mesmo tamanho e a mesma forma: só a cor e o sublinhado do ativo mudam", () => {
     render(<NavbarCollections items={ITEMS} />);
-    const shape = (/** @type {string} */ label) => classesOf(screen.getByRole("link", { name: label })).filter((name) => /^(block|h-|max-w|rounded|px-|py-|text-sm|leading|whitespace|truncate)/.test(name)).sort();
+    const shape = (/** @type {string} */ label) =>
+      classesOf(screen.getByRole("link", { name: label })).filter((name) => /^(flex|min-w|items|justify|px-|py-|text-sm|font-|transition)/.test(name)).sort();
     expect(shape("Cálculo")).toEqual(shape("Álgebra Linear e Geometria Analítica"));
   });
 
@@ -151,10 +182,10 @@ describe("uma só linha, de altura fixa (item 1)", () => {
     expect(screen.queryByRole("button", { name: LEFT.name })).toBeNull();
   });
 
-  it("a linha da marca da Navbar não mudou (o flex-wrap e o truncate dela ficam)", () => {
+  it("a linha da marca da Navbar: py-1 (rodada 2); o flex-wrap, o mr-auto e o min-w-0 dela ficam", () => {
     render(<Navbar name="Espaço" homeHref="/maria" items={ITEMS} adminLink={false} />);
     const row = /** @type {HTMLElement} */ (screen.getByRole("banner").firstElementChild);
-    expect(row.className).toBe("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3");
+    expect(row.className).toBe("flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-1");
     expect(screen.getByRole("link", { name: "Espaço" }).className).toBe("mr-auto flex min-w-0 items-center gap-3 rounded-sm");
     // E a barra de coleções é o componente novo, depois dela.
     expect(row.nextElementSibling?.getAttribute("aria-label")).toBe("Coleções");
@@ -171,26 +202,38 @@ describe("o realce pela cor primária do tema (item 3)", () => {
     expect(classesOf(active)).toEqual(expect.arrayContaining(["bg-primary", "text-on-primary", "font-semibold", "underline", "decoration-2", "underline-offset-4"]));
   });
 
-  it("os demais: sem enchimento em repouso; no hover E no foco por Tab enchem com a primária (o mesmo par de tokens)", () => {
+  it("os demais: em repouso só o texto on-secondary; no hover E no foco por Tab enchem com a primária (o mesmo par de tokens do ativo)", () => {
     render(<NavbarCollections items={ITEMS} />);
     const idle = classesOf(link("Cálculo"));
     expect(idle).not.toContain("bg-primary");
     expect(idle).not.toContain("text-on-primary");
-    expect(idle).toEqual(expect.arrayContaining(["hover:bg-primary", "hover:text-on-primary", "focus-visible:bg-primary", "focus-visible:text-on-primary", "font-medium"]));
+    expect(idle).toEqual(expect.arrayContaining(["text-on-secondary", "font-semibold", "hover:bg-primary", "hover:text-on-primary", "focus-visible:bg-primary", "focus-visible:text-on-primary"]));
   });
 
-  it("sem sublinhado de hover: nenhum item não ativo tem underline em nenhuma variante", () => {
+  it("o sublinhado é SÓ do ativo: nenhum outro item o tem, em repouso, hover ou foco; o ativo mantém o negrito", () => {
     render(<NavbarCollections items={ITEMS} />);
     for (const label of ["Cálculo", "Probabilidade"]) {
       expect(classesOf(link(label)).filter((name) => name.includes("underline")), label).toEqual([]);
     }
+    const active = classesOf(link("Álgebra Linear e Geometria Analítica"));
+    expect(active).toEqual(expect.arrayContaining(["underline", "decoration-2", "underline-offset-4", "font-semibold"]));
+    expect(active.filter((name) => name.includes(":"))).not.toContain("hover:underline");
   });
 
-  it("a pista que não depende da cor no hover e no foco: o anel interno em on-secondary (a primária pode ser parecida com a barra)", () => {
+  it("sem anel nem borda em nenhum estado (o Chefe aceita o primary ≈ secondary sem pista no hover)", () => {
     render(<NavbarCollections items={ITEMS} />);
-    expect(classesOf(link("Cálculo"))).toEqual(expect.arrayContaining(["hover:ring-1", "hover:ring-inset", "focus-visible:ring-1", "focus-visible:ring-inset"]));
-    // O ativo se distingue do hover pelo sublinhado e pelo negrito, que o hover não tem.
-    expect(classesOf(link("Cálculo"))).not.toContain("font-semibold");
+    for (const item of ITEMS) {
+      expect(classesOf(link(item.label)).filter((name) => /(^|:)(ring|border)/.test(name)), item.label).toEqual([]);
+    }
+  });
+
+  it("o foco por teclado: o mesmo enchimento e um contorno INTERNO de 2 px em on-primary, sem a sombra externa do foco global", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    for (const item of ITEMS) {
+      expect(classesOf(link(item.label))).toEqual(
+        expect.arrayContaining(["focus-visible:bg-primary", "focus-visible:text-on-primary", "focus-visible:outline-2", "focus-visible:-outline-offset-2", "focus-visible:outline-on-primary", "focus-visible:shadow-none"]),
+      );
+    }
   });
 
   it("só tokens do tema: nada de text-white, de cor fixa nem de valor arbitrário de cor", () => {
@@ -228,17 +271,11 @@ describe("as setas (estado simulado)", () => {
     expect([left().disabled, right().disabled]).toEqual([false, true]);
   });
 
-  it("o esmaecimento das bordas só aparece do lado que tem mais conteúdo", () => {
+  it("sem esmaecimento sobre os itens encostados: a pista é a das setas (e, abaixo de sm, o item cortado)", () => {
     const { container } = render(<NavbarCollections items={ITEMS} />);
-    const fade = (/** @type {"left" | "right"} */ side) => /** @type {HTMLElement} */ (container.querySelector(`[data-fade="${side}"]`));
     act(() => scrolled(0));
-    expect([classesOf(fade("left")).includes("opacity-0"), classesOf(fade("right")).includes("opacity-100")]).toEqual([true, true]);
-    act(() => scrolled(700));
-    expect([classesOf(fade("left")).includes("opacity-100"), classesOf(fade("right")).includes("opacity-0")]).toEqual([true, true]);
-    for (const side of /** @type {const} */ (["left", "right"])) {
-      expect(fade(side).getAttribute("aria-hidden")).toBe("true");
-      expect(classesOf(fade(side)).join(" ")).toContain("from-secondary");
-    }
+    expect(container.querySelector("[data-fade]")).toBeNull();
+    expect(container.innerHTML).not.toContain("from-secondary");
   });
 
   it("o clique rola um passo (60% da largura visível), suave; para a esquerda, negativo", () => {
@@ -455,9 +492,9 @@ describe("teclado e semântica", () => {
     expect(screen.getAllByRole("link").length).toBeGreaterThan(0);
   });
 
-  it("o contorno do foco não é cortado (p-1) e o CSS não usa scroll-padding (o Chromium escondia o último item)", () => {
+  it("a faixa não tem folga em volta (o contorno do foco é interno) e o CSS não usa scroll-padding (o Chromium escondia o último item)", () => {
     render(<NavbarCollections items={ITEMS} />);
-    expect(classesOf(list())).toContain("p-1");
+    expect(classesOf(list()).filter((name) => /^p[xytblr]?-/.test(name))).toEqual([]);
     expect(classesOf(list()).filter((name) => name.startsWith("scroll-p"))).toEqual([]);
   });
 
@@ -520,12 +557,13 @@ describe("sem ResizeObserver e na amostra da aparência", () => {
     expect(/** @type {HTMLButtonElement} */ (screen.getByRole("button", RIGHT)).disabled).toBe(true);
   });
 
-  it("com ResizeObserver, observa a faixa e os itens e solta tudo ao desmontar", () => {
+  it("com ResizeObserver, observa só a faixa e solta tudo ao desmontar", () => {
     const observe = vi.fn();
     const disconnect = vi.fn();
     vi.stubGlobal("ResizeObserver", class { observe = observe; disconnect = disconnect; });
     const { unmount } = render(<NavbarCollections items={ITEMS} />);
-    expect(observe).toHaveBeenCalledTimes(1 + ITEMS.length);
+    // Só a faixa: observar cada item custaria na hidratação e não traz nada (o item não muda sem a faixa mudar).
+    expect(observe).toHaveBeenCalledTimes(1);
     unmount();
     expect(disconnect).toHaveBeenCalled();
   });

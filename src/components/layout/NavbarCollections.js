@@ -1,36 +1,37 @@
 "use client";
 
 // A barra de coleções do cabeçalho do espaço (P-026; RF13, RNF05, RNF06): UMA só linha, de altura fixa, rolável
-// na horizontal. Os links são <a> dentro de <ul>/<li>, em <nav aria-label="Coleções">: são NAVEGAÇÃO, não abas
-// (sem role=tab). Eles já vêm no HTML do servidor: a página estática e o leitor sem JavaScript veem os links e
-// rolam a faixa pela rolagem nativa; o JavaScript só ACRESCENTA as setas, o arrastar com o ponteiro, a roda do
-// mouse e o item ativo centralizado ao entrar (a ideia do SectionTabs do outro projeto do autor, sem o resto).
+// na horizontal, na estética do SectionTabs do outro projeto do autor: os itens se ENCOSTAM de ponta a ponta,
+// esticam até a altura da barra, têm cantos retos e a base deles encosta na base do cabeçalho (onde começa a
+// sombra). Os links são <a> dentro de <ul>/<li>, em <nav aria-label="Coleções">: são NAVEGAÇÃO, não abas (sem
+// role=tab). Eles já vêm no HTML do servidor: a página estática e o leitor sem JavaScript veem os links e rolam a
+// faixa pela rolagem nativa; o JavaScript só ACRESCENTA as setas, o arrastar com o ponteiro, a roda do mouse e o
+// item ativo centralizado ao entrar.
 //
-// - As duas setas ocupam o lugar desde o servidor (desativadas, `hidden sm:flex`): a hidratação não mexe em
-//   nada (CLS 0). Abaixo de `sm` não há setas: o toque e o arrastar bastam. São <button> com nome, `disabled`
-//   nas pontas (saem da ordem de Tab); pressionadas com o mouse, repetem o passo até soltar.
+// - As duas setas (pílulas h-7 w-9, de cor translúcida derivada do on-secondary) ocupam o lugar desde o servidor
+//   (desativadas, `hidden sm:flex`): a hidratação não mexe em nada (CLS 0). Abaixo de `sm` não há setas: o toque e
+//   o arrastar bastam. São <button> com nome, `disabled` nas pontas (saem da ordem de Tab); pressionadas com o
+//   mouse, repetem o passo até soltar.
 // - A roda só vira rolagem horizontal quando há o que rolar NAQUELE sentido; nas pontas, e sem overflow, o
 //   evento passa e a página rola. Gesto horizontal do trackpad e o toque seguem o nativo.
 // - Arrastar com mouse ou caneta, acima de um limiar de 4 px, rola a faixa e NÃO dispara o clique do link.
-// - Teclado: todos os links ficam na ordem de Tab, e o foco traz o item à vista: a rolagem nativa do foco, mais
-//   um ajuste que deixa uma folga para o esmaecimento das bordas (`keepInView`; o `scroll-padding` do CSS não
-//   serve: o Chromium deixa o ÚLTIMO item parcialmente escondido, porque a folga não é alcançável na ponta).
-// - Movimento reduzido: nada de rolagem suave (o comportamento vale `auto`).
-// - Sem barra de rolagem visível (`.vitrine-sem-barra`), mas com a pista de que há mais: as setas ativas e um
-//   esmaecimento (`bg-secondary`) na borda que tem mais conteúdo.
-// - O realce é do tema do dono (tokens): o item ativo (`aria-current`) leva `bg-primary text-on-primary`, o
-//   negrito e o sublinhado grosso (não só a cor, WCAG 1.4.1); os demais enchem do mesmo modo no hover e no foco
-//   por Tab, com um anel interno (pista que não depende da cor, caso a primária seja parecida com a barra).
+// - Teclado: todos os links ficam na ordem de Tab, e o foco traz o item à vista: a rolagem nativa do foco, mais um
+//   ajuste (`keepInView`; o `scroll-padding` do CSS não serve: o Chromium deixa o ÚLTIMO item parcialmente
+//   escondido). O foco enche o item como o hover e leva um contorno INTERNO (o overflow não o corta).
+// - Movimento reduzido: nada de rolagem suave (o comportamento vale `auto`). Sem barra de rolagem visível.
+// - O realce é do tema do dono (tokens): o item ativo (`aria-current`) e o hover/foco enchem com
+//   `bg-primary text-on-primary`; só o ATIVO leva o sublinhado grosso (não só a cor, WCAG 1.4.1); nenhum outro
+//   estado tem sublinhado, anel ou borda.
 import Link from "next/link";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRightIcon } from "@/components/ui/icons";
 
 /** Quanto o arrastar precisa andar (px) para deixar de ser um clique. */
 export const DRAG_THRESHOLD = 4;
 /** Intervalo (ms) em que a seta pressionada repete o passo. */
 export const HOLD_INTERVAL = 160;
-/** Folga (px) que o item focado por teclado deixa até a borda da faixa: maior que o esmaecimento (w-6, 24 px). */
-export const FOCUS_MARGIN = 28;
+/** Folga (px) que o item focado por teclado deixa até a borda da faixa. */
+export const FOCUS_MARGIN = 8;
 
 /** O movimento reduzido pede rolagem sem animação. */
 function prefersReducedMotion() {
@@ -79,20 +80,29 @@ export function keepInViewScrollLeft(container, item, scrollLeft, maxScrollLeft,
   return Math.max(0, Math.min(scrollLeft + delta, Math.max(0, maxScrollLeft)));
 }
 
+/**
+ * A seta: pílula h-7 w-9 como na referência, com a cor TRANSLÚCIDA derivada do on-secondary (o par on-secondary ×
+ * secondary é o que a aparência já valida: o ícone e a pílula seguem qualquer paleta, nos dois modos). Pressionada,
+ * enche com a primária, como os itens. O foco é um contorno de 2 px em on-secondary, fora da pílula.
+ */
 const ARROW =
-  "hidden size-9 shrink-0 items-center justify-center rounded-md border border-on-secondary/40 text-on-secondary " +
-  "select-none transition-colors enabled:cursor-pointer enabled:hover:bg-on-secondary enabled:hover:text-secondary " +
-  "disabled:opacity-40 sm:flex";
+  "mx-2 hidden h-7 w-9 shrink-0 select-none items-center justify-center self-center rounded-full border border-on-secondary/30 " +
+  "bg-on-secondary/10 text-on-secondary transition-colors motion-reduce:transition-none " +
+  "enabled:cursor-pointer enabled:hover:border-on-secondary/50 enabled:hover:bg-on-secondary/20 " +
+  "enabled:active:bg-primary enabled:active:text-on-primary disabled:pointer-events-none disabled:opacity-40 " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-on-secondary sm:flex";
 
-const FADE =
-  "pointer-events-none absolute inset-y-0 z-10 w-6 transition-opacity motion-reduce:transition-none from-secondary to-transparent";
-
-/** Altura e forma de todos os itens: iguais em repouso, no hover, no foco e no ativo (sem salto). */
-const ITEM = "block h-10 max-w-64 truncate rounded-md px-3 text-sm leading-10 whitespace-nowrap transition-colors motion-reduce:transition-none";
-const ITEM_ACTIVE = `${ITEM} bg-primary font-semibold text-on-primary underline decoration-2 underline-offset-4`;
-const ITEM_IDLE =
-  `${ITEM} font-medium hover:bg-primary hover:text-on-primary hover:ring-1 hover:ring-on-secondary/60 hover:ring-inset ` +
-  "focus-visible:bg-primary focus-visible:text-on-primary focus-visible:ring-1 focus-visible:ring-on-secondary/60 focus-visible:ring-inset";
+/**
+ * O item (a referência: `flex min-w-[132px] flex-none items-center justify-center px-5 py-2 text-sm font-semibold`):
+ * cantos retos, sem borda, sem anel, o mesmo tamanho em todos os estados (sem salto). O <li> estica até a altura da
+ * barra e o <a> o preenche; o foco leva um contorno INTERNO (outline-offset negativo, em on-primary), sem a sombra
+ * externa do foco global (o overflow a cortaria).
+ */
+const ITEM =
+  "flex min-w-32 flex-1 items-center justify-center px-5 py-2 text-sm font-semibold transition-colors motion-reduce:transition-none " +
+  "focus-visible:bg-primary focus-visible:text-on-primary focus-visible:shadow-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-primary";
+const ITEM_ACTIVE = `${ITEM} bg-primary text-on-primary underline decoration-2 underline-offset-4`;
+const ITEM_IDLE = `${ITEM} text-on-secondary hover:bg-primary hover:text-on-primary`;
 
 /**
  * @param {object} props
@@ -116,22 +126,28 @@ export function NavbarCollections({ items }) {
     setCanScrollRight(max > 1 && node.scrollLeft < max - 1);
   }, []);
 
-  // O estado das setas e do esmaecimento acompanha a rolagem e as medidas (a janela, a fonte e os itens mudam).
+  // O estado das setas acompanha a rolagem e as medidas. Com ResizeObserver a medida inicial vem do próprio
+  // observador (depois do layout, sem forçá-lo na hidratação); sem ele (jsdom) mede na hora e na janela. A
+  // fonte que termina de carregar muda a largura dos itens sem mudar a da faixa: mede de novo quando ela chega.
   useEffect(() => {
     const node = listRef.current;
     if (!node) return undefined;
-    updateScrollState();
     node.addEventListener("scroll", updateScrollState, { passive: true });
     /** @type {ResizeObserver | null} */
     let observer = null;
     if (typeof ResizeObserver === "function") {
       observer = new ResizeObserver(updateScrollState);
       observer.observe(node);
-      for (const child of node.children) observer.observe(child);
     } else {
+      updateScrollState();
       window.addEventListener("resize", updateScrollState);
     }
+    let alive = true;
+    document.fonts?.ready.then(() => {
+      if (alive) updateScrollState();
+    });
     return () => {
+      alive = false;
       node.removeEventListener("scroll", updateScrollState);
       observer?.disconnect();
       window.removeEventListener("resize", updateScrollState);
@@ -159,10 +175,10 @@ export function NavbarCollections({ items }) {
     return () => node.removeEventListener("wheel", onWheel);
   }, []);
 
-  // O item ativo, centralizado ao entrar (antes da pintura, sem animação na primeira vez; depois, suave, salvo o
+  // O item ativo, centralizado ao entrar (depois da hidratação, sem animação na primeira vez; depois, suave, salvo o
   // movimento reduzido).
   const currentHref = items.find((item) => item.current)?.href ?? null;
-  useLayoutEffect(() => {
+  useEffect(() => {
     const node = listRef.current;
     const active = node?.querySelector('a[aria-current="page"]');
     if (!node || !active) return;
@@ -171,7 +187,8 @@ export function NavbarCollections({ items }) {
     firstCenteringRef.current = false;
     if (typeof node.scrollTo === "function") node.scrollTo({ left, behavior: first ? "auto" : scrollBehavior() });
     else node.scrollLeft = left;
-  }, [currentHref]);
+    updateScrollState();
+  }, [currentHref, updateScrollState]);
 
   const stopHold = useCallback(() => {
     if (holdRef.current !== null) {
@@ -280,8 +297,8 @@ export function NavbarCollections({ items }) {
   };
 
   return (
-    <nav aria-label="Coleções" className="px-4 pb-3">
-      <div className="flex items-center gap-1">
+    <nav aria-label="Coleções">
+      <div className="flex items-stretch">
         <button
           type="button"
           aria-label="Rolar as coleções para a esquerda"
@@ -295,39 +312,35 @@ export function NavbarCollections({ items }) {
         >
           <ChevronRightIcon className="size-4 -scale-x-100" />
         </button>
-        <div className="relative min-w-0 flex-1">
-          <ul
-            ref={listRef}
-            className="vitrine-sem-barra flex flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden p-1 cursor-grab touch-pan-x touch-pan-y select-none data-[dragging=true]:cursor-grabbing"
-            onFocus={keepInView}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-            onClickCapture={(event) => {
-              if (cancelClickRef.current) {
-                event.preventDefault();
-                event.stopPropagation();
-              }
-            }}
-          >
-            {items.map((item) => (
-              <li key={item.id} className="shrink-0">
-                <Link
-                  href={item.href}
-                  title={item.label}
-                  aria-current={item.current ? "page" : undefined}
-                  draggable={false}
-                  className={item.current ? ITEM_ACTIVE : ITEM_IDLE}
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <span aria-hidden="true" data-fade="left" className={`${FADE} left-0 bg-linear-to-r ${canScrollLeft ? "opacity-100" : "opacity-0"}`} />
-          <span aria-hidden="true" data-fade="right" className={`${FADE} right-0 bg-linear-to-l ${canScrollRight ? "opacity-100" : "opacity-0"}`} />
-        </div>
+        <ul
+          ref={listRef}
+          className="vitrine-sem-barra flex min-w-0 flex-1 flex-nowrap items-stretch overflow-x-auto overflow-y-hidden cursor-grab touch-pan-x touch-pan-y select-none data-[dragging=true]:cursor-grabbing"
+          onFocus={keepInView}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onClickCapture={(event) => {
+            if (cancelClickRef.current) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }}
+        >
+          {items.map((item) => (
+            <li key={item.id} className="flex max-w-64 shrink-0">
+              <Link
+                href={item.href}
+                title={item.label}
+                aria-current={item.current ? "page" : undefined}
+                draggable={false}
+                className={item.current ? ITEM_ACTIVE : ITEM_IDLE}
+              >
+                <span className="truncate">{item.label}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
         <button
           type="button"
           aria-label="Rolar as coleções para a direita"

@@ -65,7 +65,8 @@ describe("o cabeçalho do espaço, um bloco só com sombra (item 4)", () => {
     render(<Navbar name="Espaço" homeHref="/maria" items={ITEMS} adminLink={false} />);
     const header = screen.getByRole("banner");
     // (A borda das setas da faixa, `border-on-secondary/40`, é do botão, não do cabeçalho: só a linha antiga, `/30`, vale aqui.)
-    expect(header.innerHTML).not.toMatch(/border-b-4|border-accent|border-t|border-on-secondary[/]30/);
+    // (As setas da faixa têm a borda translúcida delas, `border-on-secondary/30`: o que não pode haver é a LINHA entre os blocos.)
+    expect(header.innerHTML).not.toMatch(/border-b-4|border-accent|border-t/);
     // O innerHTML não inclui as classes do próprio <header>: confere-as à parte.
     expect(classesOf(header).filter((name) => name.startsWith("border"))).toEqual([]);
     const nav = within(header).getByRole("navigation", { name: "Coleções" });
