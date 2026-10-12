@@ -55,7 +55,7 @@ Hoje, nas páginas públicas, o logado vê só o link "Administração"; o sino 
 **Status:** **ABERTO.**
 
 ### P-028 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — renomear coleção e subcoleção em `/admin/conteudo` (pedido do Engenheiro Chefe)
-Ação "Renomear" nas linhas de coleção da árvore (não em documento nem na moderação), com diálogo e `PATCH { title }`; o endereço (`slug`) **não muda**. **Só UI:** o `PATCH /api/contents/:id` já aceita `title` (RF07) e o título já é campo estrutural na revalidação. **Mesma sessão e mesma branch do P-027** (`feat/ui-sino-publico`), com um único `[MERGE]`. **Leiam:** `doc/ref/prompts/ui-renomear-colecao.md` (adendo; as regras da sessão são as do P-027). Prioridade: normal; não bloqueia nada.
+Ação "Renomear" nas linhas de coleção da árvore (não em documento nem na moderação), com diálogo de **título e endereço**: o endereço (`slug`) acompanha o título como na criação e muda a URL (`/maria/aeds-i/p1/x` → `/maria/aeds-ii/p1/x`); os links antigos deixam de funcionar (decisão do Chefe). **Só UI:** o `PATCH /api/contents/:id` já aceita `title` e `slug` (RF07) e os dois já são campos estruturais na revalidação. **Mesma sessão e mesma branch do P-027** (`feat/ui-sino-publico`), com um único `[MERGE]`. **Leiam:** `doc/ref/prompts/ui-renomear-colecao.md` (adendo; as regras da sessão são as do P-027). Prioridade: normal; não bloqueia nada.
 **Status:** **ABERTO.**
 
 ## Respostas do Arquiteto
