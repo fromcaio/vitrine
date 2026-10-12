@@ -152,6 +152,18 @@
 }
 
 /*
+ * Faixa rolável sem barra de rolagem visível (P-026): o Tailwind 4 não traz `scrollbar-hide`. A pista de que há mais
+ * conteúdo são as setas e o esmaecimento das bordas (NavbarCollections).
+ */
+.vitrine-sem-barra {
+  scrollbar-width: none;
+}
+
+.vitrine-sem-barra::-webkit-scrollbar {
+  display: none;
+}
+
+/*
  * Sombra do cabeçalho do espaço (P-024, item 4): no lugar das bordas, separa a barra do conteúdo. Claro: suave
  * (a do `shadow-sm` do Tailwind); noturno: mais forte. Sombra não é cor de tema (preto translúcido). Os modos
  * forçados da pré-visualização vêm DEPOIS da regra .dark: a mesma especificidade, a última vale.
