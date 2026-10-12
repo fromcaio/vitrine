@@ -35,7 +35,20 @@
 ## Solicitações de merge
 
 
-*(Nenhuma solicitação de merge pendente.)*
+### M-049 · [MERGE] Dados → Arquiteto · 2026-10-12 · **ABERTO** — `feat/dados-pagina-inicial` @ `f985715` (P-031; M26, ADR-040; Refs: RF42, RN35 a RN37)
+Migração `20261012120000_pagina_inicial` (só `ALTER TABLE ... ADD COLUMN` com padrão; `homeBody` do portal preservado; sem índice novo). `Appearance`: `homeBody String?`, `homeStatus ContentStatus @default(PUBLISHED)`, `homeShowItems Boolean @default(true)`; `Configuration`: `homeStatus`. Fronteira respeitada: `prisma/**`, `src/lib/db.js`, `tests/dados/**`.
+**Assinaturas (contrato com Core e UI; `HomeView = { homeBody: string | null, homeStatus: "PUBLISHED" | "DRAFT", homeShowItems: boolean }`):**
+- `getHome(ownerId): Promise<HomeView>`; sem linha devolve `{ null, "PUBLISHED", true }` sem escrever (dono inexistente também). Erro: `INVALID_INPUT` (ownerId vazio).
+- `updateHome(ownerId, patch, { limits }?): Promise<HomeView>`; `patch` parcial de `homeBody | homeStatus | homeShowItems`; vazio/só espaços vira `null`; bytes UTF-8 > `limits.maxBodyBytes` (padrão RN25) dá `QUOTA_EXCEEDED` (`details.quota="body"`); upsert sem tocar as cores. Erros: `INVALID_INPUT` (nenhum campo, campo desconhecido, tipo/valor inválido, com `details.field`), `QUOTA_EXCEEDED`, `NOT_FOUND` (dono).
+- `unpublishHome(userId, { notification: { data: { reason } } }): Promise<HomeView>`; `homeStatus="DRAFT"` + notificação `MODERATION`/`WARNING`/`{ event: "HOME_UNPUBLISHED", reason }` na mesma transação. Erros: `INVALID_INPUT` (reason ausente ou campo fixo contraditório), `NOT_FOUND` (usuário inexistente, sem texto ou já em rascunho; sem notificação).
+- `removeHome(userId, { notification }): Promise<HomeView>`; `homeBody=null` (mantém status e interruptor) + `event: "HOME_REMOVED"`. Erros: `INVALID_INPUT`, `NOT_FOUND` (usuário inexistente ou sem texto).
+- `getConfiguration()` devolve `homeStatus`; `updateConfiguration({ homeStatus })` aceita `PUBLISHED`/`DRAFT` (`INVALID_INPUT` com `field="homeStatus"` fora disso); `homeBody` vazio/só espaços vira `null` (já era assim).
+- `parseAvatarRemovalNotification` virou `parseModerationNotification(userId, notification, event)` (interna; mensagem de erro agora genérica "Nesta moderação, ..."); `removeAvatar` inalterado em comportamento. Não há outra lista de eventos validada no `db.js`; o texto das notificações (`notification-text.js`) é do Core, que precisa acrescentar `HOME_UNPUBLISHED` e `HOME_REMOVED`.
+- `updateAppearance` continua ignorando `homeBody` etc. (só `updateHome` os grava).
+**Verificação:** `npm run lint` limpo; `npm run build` ok (padrão e com `DATABASE_URL` de diretório inexistente); `npx vitest run tests/dados`: 471 aprovados, 38 skipped (a `main` tinha 4120 no total do projeto; só o Dados foi rodado). Novos: `db-home.test.js` (48) e `migration-pagina-inicial.test.js` (inclui o CLI real: baseline, `migrate deploy`, `status` em dia e `migrate diff` sem diferença). `migrate deploy` + `db seed` em banco temporário: ok. **Mutações (9 aplicadas, 9 detectadas):** notificação fora da transação, `unpublishHome` aceitando rascunho, `removeHome` sem texto, limite de bytes ignorado, `getHome` escrevendo, vazio gravado como `""`, padrão de `homeShowItems` invertido (código e migração), `homeBody` do portal perdido na migração.
+**Testes existentes ajustados:** `migration-epico-v1.test.js` (não afirma mais ser a última migração; o teste do cliente do Prisma aplica também as migrações posteriores); `db-appearance.test.js` linha 174 (`"homeBody" in linha` virou `linha.homeBody === null`, pois a coluna agora existe em `Appearance`).
+**Para o Core:** o `getSiteConfiguration`/portal deve respeitar `homeStatus` (RN36); lembrar `npx prisma generate` após o merge.
+**Status:** **ABERTO.**
 
 *(M-001 a M-048 estão em `doc/ref/mural-arquivo.md`)*
 
