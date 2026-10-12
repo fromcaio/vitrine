@@ -171,9 +171,9 @@ test.describe.serial("aparência em duas camadas e seletor do administrador", ()
     await expect(page.getByRole("heading", { name: "Aparência do sistema", level: 1 })).toBeVisible();
     await expect(page.getByLabel("Nome do site")).toBeVisible();
 
-    // /admin/configuracoes ficou só com o que não é visual.
-    await page.goto("/admin/configuracoes");
-    await expect(page.getByLabel("Texto do portal (Markdown)")).toBeVisible();
+    // O texto do portal e o diretório são da página inicial (/admin/pagina-inicial, ADR-040), e não do visual.
+    await page.goto("/admin/pagina-inicial");
+    await expect(page.getByLabel("Texto da página inicial (Markdown)")).toBeVisible();
     await expect(page.getByLabel("Nome do site")).toHaveCount(0);
     await adminSession.context.close();
 

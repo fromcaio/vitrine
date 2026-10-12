@@ -177,7 +177,12 @@ test.describe.serial("acessibilidade (axe, WCAG 2.1 AA) @a11y", () => {
     }],
     ["admin: aparência do sistema (o seletor e o alvo padrão)", () => "/admin/aparencia"],
     ["admin: aparência da própria página (alvo=pagina)", () => "/admin/aparencia?alvo=pagina"],
-    ["admin: configurações do site", () => "/admin/configuracoes"],
+    ["admin: página inicial do sistema (alvo padrão; substitui as configurações do site, ADR-040)", () => "/admin/pagina-inicial", async (page) => {
+      await expect(page.getByLabel("Texto da página inicial (Markdown)")).toBeVisible();
+    }],
+    ["admin: página inicial da própria página (alvo=pagina; ADR-040)", () => "/admin/pagina-inicial?alvo=pagina", async (page) => {
+      await expect(page.getByLabel("Texto da página inicial (Markdown)")).toBeVisible();
+    }],
     ["admin: notificações", () => "/admin/notificacoes"],
     ["admin: perfil", () => "/admin/perfil"],
     ["admin: trocar a senha", () => "/admin/senha"],
