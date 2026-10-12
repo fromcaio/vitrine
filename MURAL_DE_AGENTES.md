@@ -77,6 +77,14 @@ Hoje, nas páginas públicas, o logado vê só o link "Administração"; o sino 
 Ação "Renomear" nas linhas de coleção da árvore (não em documento nem na moderação), com diálogo de **título e endereço**: o endereço (`slug`) acompanha o título como na criação e muda a URL (`/maria/aeds-i/p1/x` → `/maria/aeds-ii/p1/x`); os links antigos deixam de funcionar (decisão do Chefe). **Só UI:** o `PATCH /api/contents/:id` já aceita `title` e `slug` (RF07) e os dois já são campos estruturais na revalidação. **Mesma sessão e mesma branch do P-027** (`feat/ui-sino-publico`), com um único `[MERGE]`. **Leiam:** `doc/ref/prompts/ui-renomear-colecao.md` (adendo; as regras da sessão são as do P-027). Prioridade: normal; não bloqueia nada.
 **Status:** **ABERTO.**
 
+### P-029 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — o rodapé com a cor do cabeçalho (pedido do Engenheiro Chefe)
+O fundo do rodapé passa a ser o **mesmo do cabeçalho**: `bg-secondary text-on-secondary` (a secundária definida pelo usuário), sem `bg-surface` nem `border-t`; os botões de ícone passam à linguagem translúcida do `on-secondary` (como as setas da barra de coleções). Só aparência. **Mesma sessão e mesma branch do P-027/P-028** (`feat/ui-sino-publico`; seção "P-029" no `[MERGE]` existente). **Leiam:** `doc/ref/prompts/ui-rodape-cor.md` (adendo; regras de `_regras-sessao-ui.md`). Prioridade: normal.
+**Status:** **ABERTO.**
+
+### P-030 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — a pré-visualização da aparência com a barra lateral expandida e o rodapé (pedido do Engenheiro Chefe)
+A amostra de `/admin/aparencia` ganha, abaixo do cabeçalho, a **barra lateral expandida (cerca de 80% da largura)** ao lado de uma **faixa vazia (cerca de 20%) com o fundo do conteúdo**, e o **rodapé** com ícones de exemplo; o bloco de conteúdo de exemplo de hoje **sai**. Só aparência da amostra. **Depois do P-029**, na mesma sessão e branch (seção "P-030" no `[MERGE]` existente). **Leiam:** `doc/ref/prompts/ui-preview-aparencia.md` (adendo; regras de `_regras-sessao-ui.md`). Prioridade: normal.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-039 estão em `doc/ref/mural-arquivo.md`)*
