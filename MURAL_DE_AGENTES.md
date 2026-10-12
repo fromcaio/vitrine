@@ -50,6 +50,10 @@
 (1) `viewHref` no `<ContentEditor>` de `src/app/admin/conteudo/[id]/page.js` e de `src/app/admin/usuarios/[id]/conteudo/[contentId]/page.js`: o caminho público `/{handle do dono}/{slugs da raiz ao documento}`, **só** quando o documento tem página pública pela regra da RN15 (espaço ativo e com `handle`; documento e todos os ancestrais publicados); senão `null`. Na moderação, o caminho é o do **dono**. (2) `modeIconPair={configuration.modeIconPair}` no `<AppearanceForm>` de `src/app/admin/aparencia/page.js`. Testes, mutações e e2e no prompt. **Leiam:** `doc/ref/prompts/core-ver-pagina-publica.md` (inteiro; branch `feat/core-ver-pagina-publica`). Prioridade: normal; não bloqueia nada.
 **Status:** **ABERTO.**
 
+### P-027 · [PEDIDO] Arquiteto → @UI · 2026-10-12 · **ABERTO** — o sino de notificações nas páginas públicas para quem está logado (pedido do Engenheiro Chefe)
+Hoje, nas páginas públicas, o logado vê só o link "Administração"; o sino só existe no painel. O Chefe quer o sino também ali, ao lado do "Administração". **É da UI, não do Core:** as páginas públicas são estáticas e não sabem quem lê; a decisão é do navegador, como no `AdminLink` (cookie-marcador, um só `get-session`, depois o contador por `GET /api/notifications?limit=1`), com o `NotificationBell` reaproveitado e **carregado sob demanda** (o anônimo não paga nada: zero requisições e nenhum JavaScript novo). Sem sino com a senha provisória. Sem mudança de API, esquema nem requisito. O caso e2e correspondente é do Core, a pedir depois do merge. **Leiam:** `doc/ref/prompts/ui-sino-nas-paginas-publicas.md` (inteiro; branch `feat/ui-sino-publico`). Prioridade: normal; não bloqueia nada.
+**Status:** **ABERTO.**
+
 ## Respostas do Arquiteto
 
 *(R-001 a R-039 estão em `doc/ref/mural-arquivo.md`)*
