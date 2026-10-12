@@ -15,7 +15,7 @@ vi.mock("next/link", async () => {
 
 import { PalettePreview } from "@/components/admin/PalettePreview";
 import { Navbar } from "@/components/layout/Navbar";
-import { DRAG_THRESHOLD, HOLD_INTERVAL, NavbarCollections, centeredScrollLeft } from "@/components/layout/NavbarCollections";
+import { DRAG_THRESHOLD, FOCUS_MARGIN, HOLD_INTERVAL, NavbarCollections, centeredScrollLeft, keepInViewScrollLeft } from "@/components/layout/NavbarCollections";
 
 const ITEMS = [
   { id: "a", label: "Cálculo", href: "/maria/calculo", current: false },
@@ -433,9 +433,50 @@ describe("teclado e semântica", () => {
     expect(screen.getAllByRole("link").length).toBeGreaterThan(0);
   });
 
-  it("o foco por teclado deixa folga para o esmaecimento (scroll-px-8) e o contorno não é cortado (p-1)", () => {
+  it("o contorno do foco não é cortado (p-1) e o CSS não usa scroll-padding (o Chromium escondia o último item)", () => {
     render(<NavbarCollections items={ITEMS} />);
-    expect(classesOf(list())).toEqual(expect.arrayContaining(["scroll-px-8", "p-1"]));
+    expect(classesOf(list())).toContain("p-1");
+    expect(classesOf(list()).filter((name) => name.startsWith("scroll-p"))).toEqual([]);
+  });
+
+  it("keepInViewScrollLeft: item à vista com folga não rola; escondido nas pontas rola o mínimo; preso entre 0 e o máximo", () => {
+    const box = { left: 0, width: 300 };
+    expect(keepInViewScrollLeft(box, { left: 100, width: 80 }, 50, 700)).toBe(50);
+    // cortado à direita: rola até sobrar a folga
+    expect(keepInViewScrollLeft(box, { left: 240, width: 100 }, 50, 700)).toBe(50 + (340 - (300 - FOCUS_MARGIN)));
+    // cortado à esquerda
+    expect(keepInViewScrollLeft(box, { left: -40, width: 100 }, 200, 700)).toBe(200 + (-40 - FOCUS_MARGIN));
+    // a folga não passa do fim nem do começo
+    expect(keepInViewScrollLeft(box, { left: 240, width: 100 }, 690, 700)).toBe(700);
+    expect(keepInViewScrollLeft(box, { left: -10, width: 100 }, 5, 700)).toBe(0);
+  });
+
+  it("o foco por teclado num link cortado rola a faixa com folga (behavior auto); sem overflow, não faz nada", () => {
+    rects.focused = { left: 270, width: 100 };
+    render(<NavbarCollections items={ITEMS} />);
+    act(() => scrolled(100));
+    vi.mocked(Element.prototype.scrollTo).mockClear();
+    const link = screen.getByRole("link", { name: "Cálculo" });
+    link.matches = (/** @type {string} */ selector) => (selector === ":focus-visible" ? true : Element.prototype.matches.call(link, selector));
+    link.getBoundingClientRect = () => /** @type {DOMRect} */ ({ ...rects.focused, right: 370, top: 0, bottom: 0, height: 0, x: 270, y: 0, toJSON: () => ({}) });
+    fireEvent.focus(link);
+    expect(Element.prototype.scrollTo).toHaveBeenCalledWith({ left: 100 + (370 - (300 - FOCUS_MARGIN)), behavior: "auto" });
+    vi.mocked(Element.prototype.scrollTo).mockClear();
+    metrics.scrollWidth = 300;
+    act(() => scrolled(0));
+    fireEvent.focus(link);
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("o foco do mouse (sem :focus-visible) não mexe na faixa", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    act(() => scrolled(100));
+    vi.mocked(Element.prototype.scrollTo).mockClear();
+    const link = screen.getByRole("link", { name: "Cálculo" });
+    link.matches = (/** @type {string} */ selector) => (selector === ":focus-visible" ? false : Element.prototype.matches.call(link, selector));
+    link.getBoundingClientRect = () => /** @type {DOMRect} */ ({ left: 270, right: 370, width: 100, top: 0, bottom: 0, height: 0, x: 270, y: 0, toJSON: () => ({}) });
+    fireEvent.focus(link);
+    expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
   });
 
   it("as setas não estão dentro de um link (nada interativo aninhado)", () => {

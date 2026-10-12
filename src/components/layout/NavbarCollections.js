@@ -12,8 +12,9 @@
 // - A roda só vira rolagem horizontal quando há o que rolar NAQUELE sentido; nas pontas, e sem overflow, o
 //   evento passa e a página rola. Gesto horizontal do trackpad e o toque seguem o nativo.
 // - Arrastar com mouse ou caneta, acima de um limiar de 4 px, rola a faixa e NÃO dispara o clique do link.
-// - Teclado: todos os links ficam na ordem de Tab, e o foco traz o item à vista (rolagem nativa do foco; o
-//   `scroll-px-8` deixa uma folga para o esmaecimento das bordas).
+// - Teclado: todos os links ficam na ordem de Tab, e o foco traz o item à vista: a rolagem nativa do foco, mais
+//   um ajuste que deixa uma folga para o esmaecimento das bordas (`keepInView`; o `scroll-padding` do CSS não
+//   serve: o Chromium deixa o ÚLTIMO item parcialmente escondido, porque a folga não é alcançável na ponta).
 // - Movimento reduzido: nada de rolagem suave (o comportamento vale `auto`).
 // - Sem barra de rolagem visível (`.vitrine-sem-barra`), mas com a pista de que há mais: as setas ativas e um
 //   esmaecimento (`bg-secondary`) na borda que tem mais conteúdo.
@@ -28,6 +29,8 @@ import { ChevronRightIcon } from "@/components/ui/icons";
 export const DRAG_THRESHOLD = 4;
 /** Intervalo (ms) em que a seta pressionada repete o passo. */
 export const HOLD_INTERVAL = 160;
+/** Folga (px) que o item focado por teclado deixa até a borda da faixa: maior que o esmaecimento (w-6, 24 px). */
+export const FOCUS_MARGIN = 28;
 
 /** O movimento reduzido pede rolagem sem animação. */
 function prefersReducedMotion() {
@@ -59,13 +62,30 @@ export function centeredScrollLeft(container, item, scrollLeft, maxScrollLeft) {
   return Math.max(0, Math.min(target, Math.max(0, maxScrollLeft)));
 }
 
+/**
+ * A nova rolagem que deixa um item inteiro à vista, com uma folga até as bordas, presa entre 0 e o máximo.
+ * @param {{ left: number, width: number }} container retângulo da faixa
+ * @param {{ left: number, width: number }} item retângulo do item
+ * @param {number} scrollLeft rolagem atual
+ * @param {number} maxScrollLeft `scrollWidth - clientWidth`
+ * @param {number} [margin]
+ */
+export function keepInViewScrollLeft(container, item, scrollLeft, maxScrollLeft, margin = FOCUS_MARGIN) {
+  const start = item.left - container.left;
+  const end = start + item.width;
+  let delta = 0;
+  if (start < margin) delta = start - margin;
+  else if (end > container.width - margin) delta = end - (container.width - margin);
+  return Math.max(0, Math.min(scrollLeft + delta, Math.max(0, maxScrollLeft)));
+}
+
 const ARROW =
   "hidden size-9 shrink-0 items-center justify-center rounded-md border border-on-secondary/40 text-on-secondary " +
   "select-none transition-colors enabled:cursor-pointer enabled:hover:bg-on-secondary enabled:hover:text-secondary " +
   "disabled:opacity-40 sm:flex";
 
 const FADE =
-  "pointer-events-none absolute inset-y-0 z-10 w-8 transition-opacity motion-reduce:transition-none from-secondary to-transparent";
+  "pointer-events-none absolute inset-y-0 z-10 w-6 transition-opacity motion-reduce:transition-none from-secondary to-transparent";
 
 /** Altura e forma de todos os itens: iguais em repouso, no hover, no foco e no ativo (sem salto). */
 const ITEM = "block h-10 max-w-64 truncate rounded-md px-3 text-sm leading-10 whitespace-nowrap transition-colors motion-reduce:transition-none";
@@ -160,6 +180,23 @@ export function NavbarCollections({ items }) {
     }
   }, []);
   useEffect(() => stopHold, [stopHold]);
+
+  // O foco por teclado leva o item à vista COM uma folga até as bordas (a rolagem nativa só o põe à vista, e o
+  // esmaecimento cobriria a ponta dele). O clique do mouse não rola a faixa por isso.
+  const keepInView = (/** @type {import("react").FocusEvent<HTMLUListElement>} */ event) => {
+    const node = listRef.current;
+    const target = event.target;
+    if (!node || !(target instanceof HTMLElement) || target.tagName !== "A") return;
+    try {
+      if (!target.matches(":focus-visible")) return;
+    } catch {
+      // Sem :focus-visible: trata como teclado.
+    }
+    const left = keepInViewScrollLeft(node.getBoundingClientRect(), target.getBoundingClientRect(), node.scrollLeft, node.scrollWidth - node.clientWidth);
+    if (Math.abs(left - node.scrollLeft) < 1) return;
+    if (typeof node.scrollTo === "function") node.scrollTo({ left, behavior: "auto" });
+    else node.scrollLeft = left;
+  };
 
   /** Um passo na direção (-1 esquerda, 1 direita): 60% da largura visível. Devolve se ainda havia o que rolar. */
   const step = useCallback((/** @type {-1 | 1} */ direction) => {
@@ -261,7 +298,8 @@ export function NavbarCollections({ items }) {
         <div className="relative min-w-0 flex-1">
           <ul
             ref={listRef}
-            className="vitrine-sem-barra flex flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden p-1 scroll-px-8 cursor-grab touch-pan-x touch-pan-y select-none data-[dragging=true]:cursor-grabbing"
+            className="vitrine-sem-barra flex flex-nowrap items-center gap-1 overflow-x-auto overflow-y-hidden p-1 cursor-grab touch-pan-x touch-pan-y select-none data-[dragging=true]:cursor-grabbing"
+            onFocus={keepInView}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
