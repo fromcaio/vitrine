@@ -131,6 +131,16 @@ export function describeNotification({ type, data }) {
         title: "Avatar removido",
         text: `Um administrador removeu o seu avatar. Você pode enviar outro em Perfil.${reasonSentence(data.reason)}`,
       };
+    case "HOME_UNPUBLISHED":
+      return {
+        title: "Página inicial despublicada",
+        text: `Um administrador despublicou o texto da sua página inicial: ele voltou a ser rascunho e saiu do ar. Você pode revisá-lo e publicá-lo de novo em Página inicial.${reasonSentence(data.reason)}`,
+      };
+    case "HOME_REMOVED":
+      return {
+        title: "Página inicial excluída",
+        text: `Um administrador excluiu o texto da sua página inicial. Você pode escrever outro em Página inicial.${reasonSentence(data.reason)}`,
+      };
     case "CONTENT_UNPUBLISHED":
       return {
         title: "Conteúdo despublicado",

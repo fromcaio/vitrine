@@ -104,18 +104,20 @@ describe("o sino do painel", () => {
 });
 
 describe("o menu por papel e as páginas que existem", () => {
-  it("o usuário comum recebe o papel `user` e não vê as Configurações", async () => {
+  it("o usuário comum recebe o papel `user`, vê a Página inicial e não vê as Configurações (ADR-040)", async () => {
     const shell = await shellOf();
     const page = await html();
 
     expect(shell.props.role).toBe("user");
     expect(shell.props.availablePaths).toEqual([
-      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil",
+      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/pagina-inicial",
+      "/admin/perfil",
     ]);
+    expect(page).toContain('href="/admin/pagina-inicial"');
     expect(page).not.toContain("Configurações");
   });
 
-  it("o administrador recebe o papel `admin` e a página de Configurações", async () => {
+  it("o administrador recebe o papel `admin`, a Página inicial e os Usuários (sem as Configurações, ADR-040)", async () => {
     session.user = { ...session.user, role: "admin" };
 
     const shell = await shellOf();
@@ -123,10 +125,11 @@ describe("o menu por papel e as páginas que existem", () => {
 
     expect(shell.props.role).toBe("admin");
     expect(shell.props.availablePaths).toEqual([
-      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/perfil",
-      "/admin/configuracoes", "/admin/usuarios",
+      "/admin", "/admin/senha", "/admin/aparencia", "/admin/notificacoes", "/admin/conteudo", "/admin/pagina-inicial",
+      "/admin/perfil", "/admin/usuarios",
     ]);
-    expect(page).toContain('href="/admin/configuracoes"');
+    expect(page).toContain('href="/admin/pagina-inicial"');
+    expect(page).not.toContain('href="/admin/configuracoes"');
   });
 
   it("um papel desconhecido vale como usuário comum (nunca como administrador)", async () => {
@@ -135,7 +138,7 @@ describe("o menu por papel e as páginas que existem", () => {
     const shell = await shellOf();
 
     expect(shell.props.role).toBe("user");
-    expect(shell.props.availablePaths).not.toContain("/admin/configuracoes");
+    expect(shell.props.availablePaths).not.toContain("/admin/usuarios");
   });
 
   it("nada fica \"em breve\": o usuário comum tem Conteúdo e Perfil, e o administrador também os Usuários", async () => {
@@ -159,12 +162,14 @@ describe("o menu por papel e as páginas que existem", () => {
     }
   });
 
-  it("só o administrador tem a página de Configurações; a lista de um papel não altera a do outro", () => {
+  it("a Página inicial é de todos os papéis e as Configurações saíram do menu; a lista de um papel não altera a do outro", () => {
     const user = availablePathsFor("user");
     user.push("/admin/x");
 
     expect(availablePathsFor("user")).not.toContain("/admin/x");
     expect(availablePathsFor("user")).not.toContain("/admin/configuracoes");
-    expect(availablePathsFor("admin")).toContain("/admin/configuracoes");
+    expect(availablePathsFor("admin")).not.toContain("/admin/configuracoes");
+    expect(availablePathsFor("user")).toContain("/admin/pagina-inicial");
+    expect(availablePathsFor("admin")).toContain("/admin/pagina-inicial");
   });
 });

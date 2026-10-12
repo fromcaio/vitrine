@@ -48,6 +48,11 @@ export const POLICY = deepFreeze({
   // Aparência do usuário (ADR-025): a de outro responde 403, também para o administrador
   "appearance:read": { scope: "resource", admin: "any", user: "own" },
   "appearance:update": { scope: "resource", admin: "own", user: "own" },
+  // Página inicial do espaço (ADR-040): o dono, de qualquer papel, a edita; o administrador só a MODERA
+  // (despublica ou apaga o texto de outro usuário, com motivo e aviso), nunca a reescreve (RN19, RN37)
+  "home:read": { scope: "resource", admin: "own", user: "own" },
+  "home:update": { scope: "resource", admin: "own", user: "own" },
+  "home:moderate": { scope: "resource", admin: "any", user: "none" },
   // Usuários (ADR-023, ADR-027): exclusivos do administrador, salvo o próprio perfil
   "users:list": { scope: "collection", admin: "any", user: "none" },
   "users:create": { scope: "collection", admin: "any", user: "none" },

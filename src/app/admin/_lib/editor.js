@@ -36,6 +36,22 @@ export async function resolveParent(userId, value) {
 }
 
 /**
+ * Prefixo PÚBLICO do espaço do dono (`/{handle}`), ou `null` se o espaço não está no ar agora (ADR-040, RN38): o
+ * dono tem `handle` e está ativo (não suspenso, RN23). É a mesma regra de `publicViewHref`, sem o documento: serve
+ * ao botão "Ver página pública" da página inicial e ao `publicBasePath` das árvores. Devolve só o caminho: nenhum
+ * identificador nem dado do dono vai ao cliente.
+ * @param {string} ownerId o DONO do espaço (na moderação, não o administrador)
+ * @returns {Promise<string | null>}
+ */
+export async function publicSpaceBase(ownerId) {
+  const owner = await findUserById(ownerId);
+  const handle = typeof owner?.handle === "string" ? owner.handle : "";
+  if (!handle) return null;
+  const space = await getUserByHandle(handle);
+  return space && space.id === ownerId ? `/${encodeURIComponent(handle)}` : null;
+}
+
+/**
  * Caminho PÚBLICO do documento (`/{handle}/{slugs}`), ou `null` se ele não tem página agora (P-025; RN15, RN23):
  * o dono tem `handle` e está ativo (não suspenso) e o documento e TODOS os ancestrais estão PUBLISHED. Reaproveita
  * as regras das páginas públicas (`getUserByHandle`, que trata a suspensão, e `getPublicPaths`, que usa a árvore

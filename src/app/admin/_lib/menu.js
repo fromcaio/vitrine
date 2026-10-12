@@ -1,6 +1,8 @@
 // Páginas do painel que EXISTEM (as demais aparecem no menu como "em breve"; RN19, RN21, Cap. 5 §5.11):
 // o `availablePaths` do `AdminShell`. O Core acrescenta uma linha aqui a cada página que entrega; nunca
-// uma página que ainda não existe (o link levaria a um 404). Pasta privada do App Router: não gera rota.
+// uma página que ainda não existe (o link levaria a um 404). `/admin/configuracoes` saiu (ADR-040): a rota é só
+// um redirecionamento 308 para `/admin/pagina-inicial`, que é de todos os papéis. Pasta privada do App Router:
+// não gera rota.
 
 /** Páginas de todo usuário. */
 const USER_PATHS = [
@@ -9,11 +11,12 @@ const USER_PATHS = [
   "/admin/aparencia",
   "/admin/notificacoes",
   "/admin/conteudo",
+  "/admin/pagina-inicial",
   "/admin/perfil",
 ];
 
 /** Páginas só do administrador (as outras respondem 404 a um usuário comum). */
-const ADMIN_PATHS = ["/admin/configuracoes", "/admin/usuarios"];
+const ADMIN_PATHS = ["/admin/usuarios"];
 
 /**
  * @param {"admin" | "user"} role

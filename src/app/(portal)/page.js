@@ -1,4 +1,5 @@
-// Portal `/` (RF30, RN28; CT46): o texto do administrador (`homeBody`, Markdown) e, com o diretório
+// Portal `/` (RF30, RF42, RN28, RN36, ADR-040; CT46, CT73): o texto do administrador (`homeBody`, Markdown; só se
+// `homeStatus` é `PUBLISHED`, senão o portal mostra só o nome) e, com o diretório
 // ligado, os espaços ativos com ao menos uma raiz publicada, em ordem alfabética. Estático com ISR: o
 // `PUT /api/configuration` e as mudanças de espaço que alteram o diretório o revalidam por
 // `revalidatePath("/")` (ADR-030). A configuração e o diretório passam pela guarda do `next build`
@@ -37,7 +38,7 @@ export default async function PortalPage() {
     >
       <PortalHome
         title={name}
-        body={configuration?.homeBody ?? null}
+        body={configuration?.homeStatus === "PUBLISHED" ? (configuration.homeBody ?? null) : null}
         spaces={spaces}
         directoryTitle={configuration?.directoryTitle ?? undefined}
       />

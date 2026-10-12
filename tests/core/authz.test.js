@@ -1,6 +1,6 @@
 // CT37: a matriz de autorização (src/lib/authz.js) é exercida INTEIRA, sem servidor nem banco:
 // cada ação contra cada situação, mais papel e ação desconhecidos (falha fechada). A tabela esperada
-// é escrita à mão, linha por linha, a partir da prova de conceito do RFC (21 ações × 7 situações);
+// é escrita à mão, linha por linha, a partir da prova de conceito do RFC (24 ações × 7 situações);
 // o teste "cobre exatamente as ações" impede que uma ação nova entre na matriz sem linha aqui.
 import { describe, expect, it } from "vitest";
 import { ALLOWED_WHILE_MUST_CHANGE, POLICY, ROLES, authorize, isSuspended } from "@/lib/authz";
@@ -31,6 +31,10 @@ const EXPECTED = {
   "site:update": ["401", "403", "-", "A", "-", "401", "P"],
   "appearance:read": ["401", "A", "403", "A", "A", "401", "P"],
   "appearance:update": ["401", "A", "403", "A", "403", "401", "P"],
+  // Página inicial do espaço (ADR-040): o dono, de qualquer papel; o administrador só modera a de outro
+  "home:read": ["401", "A", "403", "A", "403", "401", "P"],
+  "home:update": ["401", "A", "403", "A", "403", "401", "P"],
+  "home:moderate": ["401", "403", "403", "A", "A", "401", "P"],
   "users:list": ["401", "403", "-", "A", "-", "401", "P"],
   "users:create": ["401", "403", "-", "A", "-", "401", "P"],
   "users:read": ["401", "A", "403", "A", "A", "401", "A"],
@@ -81,9 +85,9 @@ function outcomes(action) {
 }
 
 describe("CT37: matriz papel × recurso × ação", () => {
-  it("cobre exatamente as ações da tabela (21), sem sobra nem falta", () => {
+  it("cobre exatamente as ações da tabela (24), sem sobra nem falta", () => {
     expect(Object.keys(POLICY).sort()).toEqual(Object.keys(EXPECTED).sort());
-    expect(Object.keys(POLICY)).toHaveLength(21);
+    expect(Object.keys(POLICY)).toHaveLength(24);
   });
 
   it("tem uma linha esperada por situação", () => {

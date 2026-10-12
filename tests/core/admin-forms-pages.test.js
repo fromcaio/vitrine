@@ -1,8 +1,7 @@
-// Páginas /admin/aparencia e /admin/configuracoes (A-014 Parte 3c, item 1; A-031; RF18, RF31, RN19, RN25,
-// D-40, D-41; CT23, CT24): a aparência é a DA SESSÃO (nunca de um identificador da URL), com o seletor
-// `?alvo=` só para o administrador; as configurações do portal são só do administrador
-// (`requireSession({ role: "admin" })`: o outro recebe `notFound()`); e os formulários da UI recebem só os
-// campos simples. A sessão e os formulários (da UI) são substituídos; o banco é o SQLite temporário.
+// Página /admin/aparencia (A-014 Parte 3c, item 1; A-031; RF18, RF31, RN19, RN25, D-40, D-41; CT23, CT24): a
+// aparência é a DA SESSÃO (nunca de um identificador da URL), com o seletor `?alvo=` só para o administrador; e
+// os formulários da UI recebem só os campos simples. `/admin/configuracoes` virou um redirecionamento 308 para
+// `/admin/pagina-inicial` (ADR-040, CT79), coberto aqui; a página nova tem o arquivo `admin-pagina-inicial.test.js`. A sessão e os formulários (da UI) são substituídos; o banco é o SQLite temporário.
 import "./env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,10 +17,12 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NOT_FOUND");
   }),
+  permanentRedirect: vi.fn((to) => {
+    throw new Error(`PERMANENT_REDIRECT:${to}`);
+  }),
 }));
 vi.mock("@/components/admin/AppearanceForm", () => ({ AppearanceForm: () => null }));
 vi.mock("@/components/admin/SiteIdentityForm", () => ({ SiteIdentityForm: () => null }));
-vi.mock("@/components/admin/PortalSettingsForm", () => ({ PortalSettingsForm: () => null }));
 vi.mock("@/components/admin/AppearanceTargetTabs", () => ({ AppearanceTargetTabs: () => null }));
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal();
@@ -31,10 +32,9 @@ vi.mock("@/lib/db", async (importOriginal) => {
 import { requireSession } from "@/app/admin/_lib/session";
 import { appearanceInitial, configurationInitial, systemReference } from "@/app/admin/_lib/forms";
 import AppearancePage, { metadata as appearanceMetadata } from "@/app/admin/aparencia/page";
-import ConfigurationPage, { metadata as configurationMetadata } from "@/app/admin/configuracoes/page";
+import ConfigurationPage from "@/app/admin/configuracoes/page";
 import { AppearanceForm } from "@/components/admin/AppearanceForm";
 import { AppearanceTargetTabs } from "@/components/admin/AppearanceTargetTabs";
-import { PortalSettingsForm } from "@/components/admin/PortalSettingsForm";
 import { SiteIdentityForm } from "@/components/admin/SiteIdentityForm";
 import { getAppearance, getConfiguration, replaceFooterLinks, replaceImage, updateAppearance, updateConfiguration } from "@/lib/db";
 import { createTestUser, resetDatabase } from "./helpers";
@@ -235,43 +235,14 @@ describe("/admin/aparencia: o administrador e o seletor do alvo (D-41)", () => {
   });
 });
 
-describe("/admin/configuracoes", () => {
-  it("só o administrador: o usuário comum recebe notFound(), sem ler a configuração", async () => {
-    session.user = ana;
-
-    await expect(ConfigurationPage()).rejects.toThrow("NOT_FOUND");
-    expect(requireSession).toHaveBeenCalledWith({ role: "admin", path: "/admin/configuracoes" });
+describe("/admin/configuracoes (ADR-040; CT79)", () => {
+  it("redireciona para /admin/pagina-inicial com permanentRedirect (308), sem exigir sessão nem ler o banco", () => {
+    for (const user of [null, ana, admin]) {
+      session.user = user;
+      expect(() => ConfigurationPage()).toThrow("PERMANENT_REDIRECT:/admin/pagina-inicial");
+    }
+    expect(requireSession).not.toHaveBeenCalled();
     expect(getConfiguration).not.toHaveBeenCalled();
-  });
-
-  it("sem sessão, vai ao login, sem ler a configuração", async () => {
-    session.user = null;
-
-    await expect(ConfigurationPage()).rejects.toThrow("REDIRECT:/admin/configuracoes");
-    expect(getConfiguration).not.toHaveBeenCalled();
-  });
-
-  it("o administrador recebe o PortalSettingsForm com a configuração do sistema e o limite de bytes do portal", async () => {
-    session.user = admin;
-    await updateConfiguration({ homeBody: "# Portal", directoryEnabled: false, directoryTitle: "Pessoas" });
-    vi.stubEnv("MAX_BODY_BYTES", "12345");
-
-    const element = await ConfigurationPage();
-    const { initial, maxBodyBytes } = propsOf(element, PortalSettingsForm);
-
-    expect(initial).toMatchObject({ homeBody: "# Portal", directoryEnabled: false, directoryTitle: "Pessoas" });
-    expect(maxBodyBytes).toBe(12345);
-    expect(Object.keys(initial)).toHaveLength(14);
-    expect(initial).not.toHaveProperty("id");
-    expect(JSON.stringify(element.props.children[0])).toContain("Configurações do site");
-    expect(configurationMetadata).toEqual({ title: "Configurações do site", robots: { index: false, follow: false } });
-  });
-
-  it("sem MAX_BODY_BYTES, vale o padrão do servidor (64 KiB)", async () => {
-    session.user = admin;
-    vi.stubEnv("MAX_BODY_BYTES", "");
-
-    expect(propsOf(await ConfigurationPage(), PortalSettingsForm).maxBodyBytes).toBe(64 * 1024);
   });
 });
 

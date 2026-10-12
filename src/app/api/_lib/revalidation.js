@@ -85,6 +85,24 @@ export async function revalidateWholeSpace({ ownerId, before = [], directory = f
 }
 
 /**
+ * Só a página inicial do espaço do dono (`/{handle}`; ADR-040, CT74): salvar, despublicar ou excluir o texto
+ * da página inicial, ou ligar e desligar a lista de itens, não muda nenhuma outra página (a barra lateral e
+ * os documentos não mostram o texto). Sem `handle`, o espaço não tem URL e não há o que revalidar. Não falha
+ * a requisição (a escrita já foi confirmada, RNF10).
+ * @param {string} ownerId
+ * @returns {Promise<string[]>} a página invalidada (vazia se o dono não tem handle)
+ */
+export async function revalidateSpaceHome(ownerId) {
+  try {
+    const owner = await findUserById(ownerId);
+    return owner?.handle ? revalidateUrls([spaceUrl(owner.handle)]) : [];
+  } catch (error) {
+    console.error(`[revalidate] falha ao revalidar a página inicial de ${ownerId}`, error);
+    return [];
+  }
+}
+
+/**
  * Unidades de herança do sistema (ADR-038): o que um espaço herda quando o dono não definiu o próprio.
  * Os nomes são os de `inherits` em `getEffectiveAppearance`.
  * @typedef {"lightPalette" | "darkPalette" | "siteName" | "logo" | "favicon"} InheritedUnit

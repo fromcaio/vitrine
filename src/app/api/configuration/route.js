@@ -19,7 +19,8 @@ export const GET = route({ action: "site:read" }, async () => ok(await getConfig
  * PUT: atualiza identidade, paletas (#RRGGBB, RN09), a barra superior (`showLogo`, `showName`; ao
  * menos um ligado, 422 com `field` `showName`), o par de ícones do botão de modo, os seis links sociais
  * (http/https; vazio equivale a ausente, RN17; saem na A-029), o texto do portal, o diretório e o
- * título dele (RN28). Campos ausentes não mudam. O texto do portal respeita o limite de bytes de um
+ * título dele (RN28) e o estado do texto do portal (`homeStatus`, `PUBLISHED` ou `DRAFT`; RN36, ADR-040).
+ * Campos ausentes não mudam. O texto do portal respeita o limite de bytes de um
  * corpo (RN25). Revalida o portal `/` (`revalidatePath("/")`; RN10, ADR-030) e, quando muda a paleta de
  * um modo ou o nome, os espaços que herdam o que mudou (ADR-038, item 6; o par de ícones, todos).
  *

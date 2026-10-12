@@ -4,9 +4,10 @@
 // pela API (publicar, reordenar, mover, criar coleção, excluir com confirmação). Os endereços de edição e de
 // criação são MODELOS de texto: uma página de Servidor não passa funções a um Componente Cliente.
 import { ContentTree } from "@/components/admin/ContentTree";
-import { getContentTree } from "@/lib/db";
+import { getContentTree, getHome } from "@/lib/db";
 import { currentLimits } from "../../api/_lib/limits";
 import { EDIT_HREF, NEW_HREF, serializableTree } from "../_lib/content-tree";
+import { publicSpaceBase } from "../_lib/editor";
 import { requireSession } from "../_lib/session";
 
 export const metadata = {
@@ -16,7 +17,11 @@ export const metadata = {
 
 export default async function ContentPage() {
   const { user } = await requireSession({ path: "/admin/conteudo" });
-  const tree = await getContentTree({ ownerId: user.id });
+  const [tree, home, publicBasePath] = await Promise.all([
+    getContentTree({ ownerId: user.id }),
+    getHome(user.id),
+    publicSpaceBase(user.id),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
@@ -26,6 +31,9 @@ export default async function ContentPage() {
         editHref={EDIT_HREF}
         newHref={NEW_HREF}
         maxContents={currentLimits().maxContentsPerUser}
+        homeRow={{ status: home.homeStatus, hasBody: Boolean(home.homeBody) }}
+        homeEditHref="/admin/pagina-inicial"
+        publicBasePath={publicBasePath}
       />
     </div>
   );

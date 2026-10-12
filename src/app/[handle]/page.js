@@ -1,8 +1,10 @@
-// Início do espaço público `/{handle}` (RF29, D-16; CT43): o `SpaceHome` da UI com as coleções e os
-// documentos PUBLICADOS da raiz (RN15), ou o estado vazio do componente. Estática com ISR: o caminho nasce
+// Início do espaço público `/{handle}` (RF29, RF42, D-16, RN36, ADR-040; CT43, CT73): o `SpaceHome` da UI com o
+// texto da página inicial do dono (só se publicado e não vazio; senão, a descrição) e, com o interruptor ligado
+// (`homeShowItems`), as coleções e os documentos PUBLICADOS da raiz (RN15), ou o estado vazio do componente. Estática com ISR: o caminho nasce
 // sob demanda e é revalidado por `revalidatePath` literal (ADR-030). Espaço inexistente, sem handle ou
 // suspenso: 404 (RF14).
 import { notFound } from "next/navigation";
+import { getHome } from "@/lib/db";
 import { SpaceHome } from "@/components/layout/SpaceHome";
 import { contentHref } from "@/components/layout/space-paths";
 import { spaceHomeMetadata } from "../_lib/metadata";
@@ -36,9 +38,19 @@ export default async function SpaceHomePage({ params }) {
     href: contentHref(space.basePath, [node.slug]),
     kind: node.type,
   }));
+  // RN36: o texto só vale publicado e não vazio (o `getHome` já entrega `null` no vazio); em rascunho, a página
+  // mostra a descrição. A leitura vem depois de `getSpace`, que é a guarda do `next build` (ADR-021).
+  const { homeBody, homeStatus, homeShowItems } = await getHome(space.owner.id);
+  const body = homeStatus === "PUBLISHED" && homeBody ? homeBody : null;
   return (
     <SpaceFrame space={space}>
-      <SpaceHome name={space.name} description={space.appearance.siteDescription} items={items} />
+      <SpaceHome
+        name={space.name}
+        description={space.appearance.siteDescription}
+        body={body}
+        showItems={homeShowItems}
+        items={items}
+      />
     </SpaceFrame>
   );
 }
