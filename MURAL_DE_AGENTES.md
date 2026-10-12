@@ -35,6 +35,13 @@
 ## Solicitações de merge
 
 
+### [MERGE] feat/core-ver-pagina-publica · Core · P-025 · SHA f178cf5 (1 commit sobre 231c666)
+**O que mudou:** (1) `viewHref` no `ContentEditor` de `/admin/conteudo/[id]` e de `/admin/usuarios/[id]/conteudo/[contentId]`: o caminho público `/{handle}/{slugs}` (cada segmento com `encodeURIComponent`) ou `null`; só o caminho vai ao cliente. (2) `modeIconPair={configuration?.modeIconPair ?? undefined}` no `AppearanceForm` de `/admin/aparencia` (alvo "página"; o alvo "sistema" não muda).
+**Regra:** nova função `publicViewHref(ownerId, contentId)` em `src/app/admin/_lib/editor.js` (montagem de caminho, do Core): dono com `handle` (`findUserById`) e ativo (`getUserByHandle`, que trata a suspensão, RN23) e `getPublicPaths` (árvore podada: documento e TODOS os ancestrais PUBLISHED, RN15). Sem mudança em `db.js`, `content-tree.js`, API, esquema, dependência ou variável. Na moderação o dono é `owner.id`, nunca o administrador.
+**Arquivos:** `src/app/admin/_lib/editor.js`, as 3 páginas acima, `tests/core/view-href.test.js` (novo, 12), ajustes em `editor-pages`, `admin-usuarios-pages` e `admin-forms-pages` (+1), `e2e/ver-pagina.spec.js` (novo, 3).
+**Evidência:** lint limpo; `npm run build` sem banco e com banco migrado, ok; `npm test -- --maxWorkers=4`: 4054 aprovados + 40 *skipped* (140 arquivos); `npm run test:e2e`: 119 aprovados + 1 *skipped*, sem violação de CSP. Mutações (todas detectadas, linha de base verde, Vitest conferido): ignorar o estado do ancestral, ignorar a suspensão, usar o id do administrador na moderação, devolver o caminho em rascunho, tirar o `encodeURIComponent`. `test:a11y` não rodado (nenhum estado novo).
+**Desvios:** nenhum. Escolha conservadora: o e2e cria contas fictícias próprias (`ver-dona`) e não as remove, como os demais specs.
+
 *(Nenhuma outra solicitação de merge pendente.)*
 
 *(M-001 a M-046 estão em `doc/ref/mural-arquivo.md`)*
