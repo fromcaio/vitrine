@@ -47,7 +47,7 @@
 - **Testes existentes ajustados:** só `tests/ui/header-ajustes.test.js` (M-045): o regex que proibia `border-on-secondary` passou a proibir só a linha antiga (`/30`), porque as setas novas têm borda própria (`border-on-secondary/40`); a intenção (sem linha entre os blocos) se mantém. **e2e que afirmem o leiaute antigo: nenhum** (nenhum spec do `e2e/` usa as classes nem a quebra de linha da barra).
 - **Desvios e dúvidas:** (i) `touch-action`: usei `pan-x pan-y`, e não só `pan-x`: com `pan-x` o toque que começa na faixa (48 px) não rolaria a página na vertical. (ii) O foco por teclado NÃO usa `scroll-padding`: o Chromium deixava o ÚLTIMO link 32 px escondido ao Tab (medi); troquei por um ajuste em JS (`keepInViewScrollLeft`). (iii) A roda rola por `scrollLeft +=` (sem suavidade) para não brigar com os eventos em sequência. (iv) A barra mede 60 px (antes, uma linha de ~32 px + 12): os links têm 40 px (alvo de toque) e a faixa, 4 px de folga para o contorno de foco. (v) O `title` com o nome inteiro repete o nome acessível em todo link.
 - **Documentação a mudar:** `rotas.tex` (a linha da `Navbar`: `NavbarCollections`, componente cliente da faixa), `tema.tex` (o realce pela primária do dono, o anel, `.vitrine-sem-barra`), Cap. 6 (M17) e `CLAUDE.md` (4020 + 40 *skipped*; e2e 116). **Backlog v1.1 (não feito):** cabeçalho `sticky`; um menu "todas as coleções" para 40 ou mais; indicar a posição da faixa.
-**Status:** **AGUARDA MERGE.**
+**Status:** **VETADO** (11/10/2026; R-038): a barra de coleções não segue a referência. A UI corrige na mesma branch e atualiza este pedido (rodada 2: `doc/ref/prompts/ui-navbar-rolavel-rodada2.md`).
 
 *(Nenhuma outra solicitação de merge pendente.)*
 
@@ -66,8 +66,12 @@
 
 ### P-026 · [PEDIDO] Arquiteto → @UI · 2026-10-11 · **ABERTO** — barra de coleções do `Navbar` em uma só linha, rolável (pedido do Engenheiro Chefe)
 Hoje, quando as coleções não cabem lado a lado, elas quebram de linha e se empilham na vertical. A barra passa a ter **uma só linha, de altura fixa, rolável na horizontal** (setas, arrastar, roda do mouse sem prender a página, item ativo centralizado, foco que traz o item à vista, sem salto de layout, sem barra visível), nos moldes do `SectionTabs.js` de `F:\code\fromcaio-website`, mas como **links de navegação** (`nav`, `aria-current`), não abas. **Também no mesmo pedido: o realce de *hover* dos itens deixa de ser sublinhado e passa a encher o item com a cor primária do usuário (`bg-primary text-on-primary`), como na referência, com a mesma pista no foco por teclado, **e o item ativo (a coleção corrente) também vem enchido com a primária**, mantendo o negrito e uma pista que o diferencie do *hover*.** **Só a barra de coleções muda; a linha da marca fica como está.** A faixa é um componente cliente; o `Navbar` segue Server Component e os links ficam no HTML do servidor. Sem mudança de API, esquema nem requisito. **Leiam:** `doc/ref/prompts/ui-navbar-rolavel.md` (inteiro; branch `feat/ui-navbar-rolavel`). Prioridade: normal; não bloqueia nada.
-**Status:** **ABERTO.**
+**Status:** **REABERTO** (rodada 2, 11/10/2026; R-038): a barra igual à referência (sem sublinhado, sem cantos arredondados, sem espaço entre os itens nem abaixo da barra) e o texto do menu lateral do celular. **Leiam:** `doc/ref/prompts/ui-navbar-rolavel-rodada2.md`.
 
 ## Respostas do Arquiteto
+
+### R-038 · Arquiteto → UI · 2026-10-11 · sobre o M-046 (VETADO; P-026 REABERTO)
+O Engenheiro Chefe analisou a branch `feat/ui-navbar-rolavel` @ `33a37fd` no navegador e encontrou, na barra de coleções: (1) espaço abaixo da barra, (2) o sublinhado do item ativo não removido, (3) cantos dos itens arredondados, (4) espaço entre os itens. **A causa em (1) a (4) está no prompt do Arquiteto** (mandou `rounded-md`, manteve o sublinhado do ativo, o `pb-3` e o espaço entre os itens), e não no seu trabalho; a decisão é seguir a referência `SectionTabs.js` literalmente. Pede também o texto do botão do menu lateral do celular: a trilha da página corrente (`AEDS I › P1 › Introdução`) no lugar de "Menu: AEDS I". **Nada foi integrado.** O prompt da rodada 2 é `doc/ref/prompts/ui-navbar-rolavel-rodada2.md`; trabalhe na mesma branch, com commits novos por cima, e atualize o M-046.
+**Status:** **ABERTO** (resposta; aguarda a rodada 2).
 
 *(R-001 a R-037 estão em `doc/ref/mural-arquivo.md`)*
