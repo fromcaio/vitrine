@@ -207,7 +207,7 @@ describe("o realce pela cor primária do tema (item 3)", () => {
     const idle = classesOf(link("Cálculo"));
     expect(idle).not.toContain("bg-primary");
     expect(idle).not.toContain("text-on-primary");
-    expect(idle).toEqual(expect.arrayContaining(["text-on-secondary", "font-semibold", "hover:bg-primary", "hover:text-on-primary", "focus-visible:bg-primary", "focus-visible:text-on-primary"]));
+    expect(idle).toEqual(expect.arrayContaining(["text-on-secondary/70", "font-semibold", "hover:bg-primary", "hover:text-on-primary", "focus-visible:bg-primary", "focus-visible:text-on-primary"]));
   });
 
   it("o sublinhado é SÓ do ativo: nenhum outro item o tem, em repouso, hover ou foco; o ativo mantém o negrito", () => {
@@ -335,6 +335,41 @@ describe("as setas (estado simulado)", () => {
     expect(vi.mocked(Element.prototype.scrollBy).mock.calls.length).toBe(before);
     fireEvent.click(right);
     expect(vi.mocked(Element.prototype.scrollBy).mock.calls.length).toBe(before + 1);
+  });
+});
+
+describe("o foco não se perde numa seta que fica desativada (teclado)", () => {
+  it("a seta da direita com o foco chega na ponta e fica disabled: o foco vai para o ÚLTIMO link", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    act(() => scrolled(0));
+    const right = screen.getByRole("button", RIGHT);
+    act(() => right.focus());
+    expect(document.activeElement).toBe(right);
+    act(() => scrolled(700));
+    expect(/** @type {HTMLButtonElement} */ (right).disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Probabilidade" }));
+  });
+
+  it("a seta da esquerda, no início: o foco vai para o PRIMEIRO link", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    act(() => scrolled(350));
+    const left = screen.getByRole("button", LEFT);
+    act(() => left.focus());
+    act(() => scrolled(0));
+    expect(/** @type {HTMLButtonElement} */ (left).disabled).toBe(true);
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Cálculo" }));
+  });
+
+  it("uma seta que continua ativa mantém o foco, e quem já tirou o foco dela não o recebe de volta", () => {
+    render(<NavbarCollections items={ITEMS} />);
+    act(() => scrolled(350));
+    const right = screen.getByRole("button", RIGHT);
+    act(() => right.focus());
+    act(() => scrolled(400));
+    expect(document.activeElement).toBe(right);
+    act(() => screen.getByRole("link", { name: "Cálculo" }).focus());
+    act(() => scrolled(700));
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Cálculo" }));
   });
 });
 

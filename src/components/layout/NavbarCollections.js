@@ -102,7 +102,8 @@ const ITEM =
   "flex min-w-32 flex-1 items-center justify-center px-5 py-2 text-sm font-semibold transition-colors motion-reduce:transition-none " +
   "focus-visible:bg-primary focus-visible:text-on-primary focus-visible:shadow-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-on-primary";
 const ITEM_ACTIVE = `${ITEM} bg-primary text-on-primary underline decoration-2 underline-offset-4`;
-const ITEM_IDLE = `${ITEM} text-on-secondary hover:bg-primary hover:text-on-primary`;
+// Repouso: text-on-secondary/70 como na referência (text-foreground/70); medido >= 7:1 sobre a barra nos dois modos.
+const ITEM_IDLE = `${ITEM} text-on-secondary/70 hover:bg-primary hover:text-on-primary`;
 
 /**
  * @param {object} props
@@ -115,6 +116,9 @@ export function NavbarCollections({ items }) {
   const cancelClickRef = useRef(false);
   const dragRef = useRef({ active: false, pointerId: -1, startX: 0, scrollLeft: 0, moved: false });
   const firstCenteringRef = useRef(true);
+  // Qual seta tem o foco (-1 esquerda, 1 direita, 0 nenhuma): se ela ficar `disabled` na ponta, o navegador solta o
+  // foco no <body>; o efeito abaixo o devolve ao vizinho dela na ordem de Tab.
+  const arrowFocusRef = useRef(/** @type {-1 | 0 | 1} */ (0));
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -189,6 +193,19 @@ export function NavbarCollections({ items }) {
     else node.scrollLeft = left;
     updateScrollState();
   }, [currentHref, updateScrollState]);
+
+  // A seta que tem o foco e fica desativada (chegou na ponta pelo teclado) não pode deixar o foco se perder: ele vai
+  // para o link vizinho na ordem de Tab (o último, para a seta da direita; o primeiro, para a da esquerda).
+  useEffect(() => {
+    const side = arrowFocusRef.current;
+    if (side === 0) return;
+    const disabledNow = side < 0 ? !canScrollLeft : !canScrollRight;
+    if (!disabledNow) return;
+    arrowFocusRef.current = 0;
+    const links = listRef.current?.querySelectorAll("a");
+    if (!links || links.length === 0) return;
+    (side < 0 ? links[0] : links[links.length - 1]).focus();
+  }, [canScrollLeft, canScrollRight]);
 
   const stopHold = useCallback(() => {
     if (holdRef.current !== null) {
@@ -304,6 +321,12 @@ export function NavbarCollections({ items }) {
           aria-label="Rolar as coleções para a esquerda"
           disabled={!canScrollLeft}
           className={ARROW}
+          onFocus={() => {
+            arrowFocusRef.current = -1;
+          }}
+          onBlur={() => {
+            if (arrowFocusRef.current === -1) arrowFocusRef.current = 0;
+          }}
           onPointerDown={(event) => onArrowPointerDown(event, -1)}
           onPointerUp={onArrowPointerEnd}
           onPointerLeave={onArrowPointerEnd}
@@ -346,6 +369,12 @@ export function NavbarCollections({ items }) {
           aria-label="Rolar as coleções para a direita"
           disabled={!canScrollRight}
           className={ARROW}
+          onFocus={() => {
+            arrowFocusRef.current = 1;
+          }}
+          onBlur={() => {
+            if (arrowFocusRef.current === 1) arrowFocusRef.current = 0;
+          }}
           onPointerDown={(event) => onArrowPointerDown(event, 1)}
           onPointerUp={onArrowPointerEnd}
           onPointerLeave={onArrowPointerEnd}
