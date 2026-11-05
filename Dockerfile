@@ -58,8 +58,17 @@ COPY --from=build --chown=node:node /app ./
 # /data é o ponto de montagem do volume do SQLite (docker-compose.yml).
 RUN mkdir -p /data && chown node:node /data /app
 
-USER node
+# O contêiner começa como root só para ajustar o dono de /data; o ponto de entrada volta a se
+# executar como `node` (setpriv) antes de qualquer comando do Vitrine. Ele também prepara o banco
+# (migrações, configuração padrão e administrador inicial) quando o comando é o servidor.
 EXPOSE 3000
+ENTRYPOINT ["sh", "scripts/docker-entrypoint.sh"]
 
 # Sem o npm como processo intermediário: os sinais de parada chegam ao servidor.
 CMD ["node_modules/.bin/next", "start"]
+
+# Metadados da imagem pública: o GitHub liga o pacote ao repositório pelo `source`.
+LABEL org.opencontainers.image.title="Vitrine" \
+      org.opencontainers.image.description="Sistema de publicação de conteúdo com Markdown e fórmulas LaTeX" \
+      org.opencontainers.image.source="https://github.com/fromcaio/vitrine" \
+      org.opencontainers.image.licenses="MIT"
