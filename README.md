@@ -15,7 +15,7 @@ Plataforma de publicação de conteúdo em Markdown (com fórmulas em LaTeX e c�
 | Para | Precisa de |
 |---|---|
 | Rodar sem Docker (Windows, Linux, WSL, macOS) | **Node.js 24** e npm (a versão da imagem Docker). Um Node mais antigo só gera o aviso `EBADENGINE`, mas os testes de interação exigem 22.22.2, 24.15 ou superior |
-| Rodar com Docker | Docker com o plugin Compose (`docker compose`) e **6 GB livres** no disco do Docker para construir a imagem (a imagem final tem cerca de 2,2 GB) |
+| Rodar com Docker | Docker com o plugin Compose (`docker compose`) e cerca de 2,2 GB livres para a imagem pública; **6 GB livres** só se for construí-la a partir do código |
 | Testes de ponta a ponta e de acessibilidade | O Chromium do Playwright: `npx playwright install chromium` (uma vez por máquina, cerca de 700 MB) |
 | Compilar a documentação | Uma distribuição LaTeX; veja `doc/tex/README.md` |
 
@@ -160,37 +160,31 @@ Depois remova `ADMIN_PASSWORD` do `.env` outra vez.
 
 ## 5. Rodar com Docker
 
-O Docker é o alvo de implantação do projeto: uma imagem com `next start`, um volume para o SQLite e uma **única instância** (o cache, o banco e o limite de tentativas de login dependem disso; não use réplicas nem `--scale`).
+O Docker é o alvo de implantação do projeto: a imagem pública `ghcr.io/fromcaio/vitrine`, um diretório para o SQLite e uma **única instância** (o cache, o banco e o limite de tentativas de login dependem disso; não use réplicas nem `--scale`). Não é preciso clonar o repositório: bastam o `docker-compose.yml` e um `.env`.
 
 ```bash
-# 1. Configuração (.env na raiz, como na seção 2/3). Aqui NÃO defina DATABASE_URL:
-#    o docker-compose.yml já usa file:/data/vitrine.db
-cp .env.example .env
-#    preencha BETTER_AUTH_SECRET, BETTER_AUTH_URL, ADMIN_EMAIL, ADMIN_PASSWORD (e ADMIN_HANDLE)
+# 1. Diretório da instalação, com o docker-compose.yml e o modelo do .env
+mkdir vitrine && cd vitrine
+curl -fsSLO https://raw.githubusercontent.com/fromcaio/vitrine/main/docker-compose.yml
+curl -fsSL -o .env https://raw.githubusercontent.com/fromcaio/vitrine/main/.env.example
 
-# 2. Diretório do volume do SQLite (o usuário "node" do contêiner tem UID 1000)
-mkdir -p data
-sudo chown 1000:1000 data        # só no Linux; no Docker Desktop (Windows) basta o mkdir
+# 2. Configuração: preencha BETTER_AUTH_SECRET, BETTER_AUTH_URL, ADMIN_EMAIL,
+#    ADMIN_PASSWORD (e ADMIN_HANDLE). Não defina DATABASE_URL: o docker-compose.yml já usa
+#    file:/data/vitrine.db
+nano .env
 
-# 3. Construir a imagem (alguns minutos; exige 6 GB livres)
-docker compose build
-
-# 4. Migrações e configuração padrão (uma vez)
-docker compose run --rm vitrine npx prisma migrate deploy
-docker compose run --rm vitrine npx prisma db seed
-
-# 5. Administrador inicial (uma vez; idempotente)
-docker compose run --rm vitrine npm run admin:create
-#    depois apague ADMIN_PASSWORD do .env
-
-# 6. Subir o serviço
+# 3. Baixar a imagem e subir o serviço. Ao iniciar, o contêiner cria o diretório ./data, aplica
+#    as migrações, grava a configuração padrão e cria o administrador inicial (tudo idempotente)
 docker compose up -d
 
-# 7. Conferir
+# 4. Conferir; depois, apagar ADMIN_PASSWORD do .env
+docker compose logs vitrine | grep Vitrine
 curl -sI http://127.0.0.1:3000/login | head -n 1       # HTTP/1.1 200 OK
 ```
 
-No PowerShell, crie o diretório com `New-Item -ItemType Directory -Force data` e confira com `curl.exe -I http://127.0.0.1:3000/login`.
+No PowerShell, baixe os arquivos com `curl.exe -fsSLO ...` (e `curl.exe -fsSL -o .env ...`) e confira com `curl.exe -I http://127.0.0.1:3000/login`.
+
+Para usar uma imagem construída do código local (por exemplo, para testar uma alteração), construa-a com o mesmo nome antes do `up`: `docker build -t ghcr.io/fromcaio/vitrine:latest .` (alguns minutos; exige 6 GB livres). A imagem pública é publicada pelo workflow `.github/workflows/imagem-docker.yml` a cada *push* na `main` (etiqueta `latest`) e a cada *tag* `vX.Y.Z`.
 
 Depois abra `http://localhost:3000/login` e entre como administrador (seção 4).
 
@@ -207,7 +201,7 @@ docker compose run --rm vitrine npm run admin:reset-password
 Pontos de atenção:
 
 - A porta é publicada só em `127.0.0.1:3000`. Para expor na internet, coloque na frente um *proxy* reverso com **HTTPS** (Caddy ou nginx), repasse o `Host` e defina um único `x-forwarded-for`; o `BETTER_AUTH_URL` passa a ser `https://seu-dominio` (o cookie de sessão ganha `Secure`). O roteiro está no Apêndice D, "Proxy Reverso e HTTPS".
-- **Atualizar:** faça a cópia de segurança, depois `git pull`, `docker compose build`, `docker compose run --rm vitrine npx prisma migrate deploy` e `docker compose up -d`.
+- **Atualizar:** faça a cópia de segurança, depois `docker compose pull` e `docker compose up -d`; as migrações da versão nova são aplicadas ao iniciar.
 - **Cópia de segurança do banco** (consistente, com o servidor no ar): `docker compose run --rm vitrine npm run db:backup -- /data/backups --keep 14`. Copie a pasta `data/backups` para fora da máquina; ela está no mesmo disco do banco. A restauração está no Apêndice D, "Cópia de Segurança e Restauração".
 - Em Windows com Docker Desktop, o volume em *bind mount* pode não ser confiável para o WAL do SQLite em uso real. Serve para testar; para produção use uma VPS Linux com disco local.
 - Depois de **recriar** o contêiner (`up -d` com imagem nova), o portal `/` mostra o tema padrão até a configuração do site ser salva uma vez em `/admin/configuracoes` (comportamento por projeto, ADR-021).
